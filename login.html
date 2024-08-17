@@ -818,8 +818,10 @@ function showPopupBlockedMessage() {
 
     Notiflix.Notify.init({
         position: 'center-top',
-        distance: '80px',
-        timeout: 10000,
+        distance: '90px',
+        timeout: 15000,
+        background: '#0d47a1',
+        fontFamily: 'Kanit,Roboto,Open Sans,sans-serif',
         cssAnimationStyle: 'from-top',
         closeButton: true,
     });
@@ -838,8 +840,6 @@ function showPopupBlockedMessage() {
             titleFontSize: '16px',
             titleMaxLength: 34,
             messageFontSize: '13px',
-            background: '#0d47a1',
-            fontFamily: 'Kanit,Roboto,Open Sans,sans-serif',
             messageMaxLength: 400,
             buttonFontSize: '14px',
             cssAnimationStyle: 'fade',
