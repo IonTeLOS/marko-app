@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marko Profile</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+:root {
+    --profile-color: #3f51b5;
+    --text-color: #ffffff;
+    --button-bg-color: rgba(255, 255, 255, 0.2);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Kanit', 'Roboto', 'Open Sans', sans-serif;
+    background-color: #f0f0f0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.profile-container {
+    background-color: var(--profile-color);
+    color: var(--text-color);
+    width: 100%;
+    max-width: 800px;
+    min-height: 50vh;
+    height: 100vh;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(7, 1fr);
+    gap: 10px;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.profile-photo {
+    grid-area: 1 / 1 / 4 / 3; /* Start at row 1, column 1 and span 3 rows, 2 columns */
+    overflow: hidden;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.profile-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.profile-name-emoji {
+    grid-area: 1 / 3 / 3 / 6;
+    display: flex;
+    align-items: center;
+    padding-left: 10px;
+}
+
+.profile-name {
+    font-size: 1.2rem;
+    font-weight: bold;
+    line-height: 1.2;
+    margin-right: 0.5rem;
+}
+
+.profile-emoji {
+    font-size: 1.2rem;
+    transform: rotate(30deg);
+    margin-left: 0.3rem;
+}
+
+.profile-custom-birth {
+    grid-area: 2 / 3 / 3 / 6;
+    display: flex;
+    align-items: center;
+    padding-left: 10px;
+    font-size: 0.8rem;
+}
+
+.profile-custom-birth > * {
+    margin-right: 10px;
+}
+
+.profile-intro {
+    grid-area: 4 / 1 / 6 / 6;
+    font-size: 0.9rem;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.profile-buttons {
+    grid-area: 6 / 1 / 7 / 6;
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    align-items: center;
+    padding: 10px 0;
+}
+
+.profile-buttons::-webkit-scrollbar {
+    display: none;
+}
+
+.profile-button {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background-color: var(--button-bg-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-right: 0.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.profile-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.profile-button .fa-brands {
+    font-size: 24px; 
+    line-height: 1; 
+}
+
+.profile-add-friend {
+    grid-area: 7 / 5 / 8 / 6;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background-color: #4caf50;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.profile-add-friend:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.profile-languages-time {
+    grid-area: 7 / 1 / 8 / 5;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    font-size: 0.8rem;
+    padding: 10px;
+}
+
+.profile-languages {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+}
+
+.profile-language {
+    background-color: var(--button-bg-color);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    margin-right: 0.4rem;
+}
+
+.profile-time {
+    font-size: 0.8rem;
+}
+
+.profile-content-button {
+    grid-area: 7 / 3 / 8 / 4;
+    background-color: var(--button-bg-color);
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 10px 20px;
+    font-size: 0.9rem;
+    align-self: center;
+    justify-self: center;
+}
+
+.profile-content-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 600px) {
+    .profile-container {
+        min-height: 50vh;
+        height: auto;
+        grid-template-columns: repeat(5, 1fr);
+        grid-template-rows: repeat(7, 1fr);
+    }
+
+    .profile-photo {
+        grid-area: 1 / 1 / 3 / 3;
+    }
+
+    .profile-name-emoji {
+        grid-area: 1 / 3 / 2 / 6;
+    }
+
+    .profile-custom-birth {
+        grid-area: 2 / 3 / 3 / 6;
+        font-size: 0.8rem;
+    }
+
+    .profile-intro {
+        grid-area: 3 / 1 / 5 / 6;
+        font-size: 0.9rem;
+    }
+
+    .profile-buttons {
+        grid-area: 5 / 1 / 6 / 6;
+    }
+
+    .profile-languages-time {
+        grid-area: 7 / 1 / 8 / 5;
+    }
+
+    .profile-content-button {
+        grid-area: 7 / 3 / 8 / 4;
+    }
+
+    .profile-add-friend {
+        grid-area: 7 / 5 / 8 / 6;
+    }
+}
+
+@media (orientation: landscape) {
+    .profile-container {
+        max-height: 100vh;
+        aspect-ratio: 2 / 1;
+    }
+}
+
+#youtube-player {
+    display: none; 
+}
+
+    </style>
+</head>
+<body>
+    <div class="profile-container" id="profileContainer">
+        <div class="profile-photo" id="profilePhoto"></div>
+        <div class="profile-name-emoji">
+            <span class="profile-username" id="profileUsername"></span>
+            <span class="profile-emoji" id="profileEmoji"></span>
+        </div>
+        <div class="profile-custom-birth">
+            <span id="profileCustomValue"></span>
+            <span id="profileBirth"></span>
+        </div>
+        <div class="profile-intro" id="profileIntro"></div>
+        <div class="profile-buttons" id="profileButtons"></div>
+        <div class="profile-languages-time">
+            <div class="profile-languages" id="profileLanguages"></div>
+            <div class="profile-time" id="profileTime"></div>
+        </div>
+        <div class="profile-content-button" id="profileContentButton"></div>
+        <div class="profile-add-friend" id="profileAddFriend">
+            <span class="material-icons">person_add</span>
+        </div>
+    </div>
+    <iframe id="youtube-player" src="" frameborder="0" allow="autoplay; encrypted-media"></iframe>
+
+    <script>
+        const profileElements = {
+            'profile-photo-link': '',
+            'profile-username': '',
+            'profile-emoji': '',
+            'profile-custom-value': '',
+            'profile-birth': '',
+            'profile-intro': '',
+            'profile-email': '',
+            'profile-phone': '',
+            'profile-sms': '',
+            'profile-whatsapp': '',
+            'profile-viber': '',
+            'profile-telegram': '',
+            'profile-main-link': '',
+            'profile-location': '',
+            'profile-paylink': '',
+            'profile-audio': '',
+            'profile-videolink': '',
+            'profile-pdf': '',
+            'profile-post': '',
+            'profile-main-language': '',
+            'profile-second-language': '',
+            'profile-timezone': '',
+            'profile-color': ''
+        };
+
+        function getProfileData() {
+            for (const key in profileElements) {
+                profileElements[key] = localStorage.getItem(key) || '';
+            }
+        }
+
+        function setProfileColor() {
+            const container = document.getElementById('profileContainer');
+            const color = profileElements['profile-color'] || '#3f51b5';
+            container.style.setProperty('--profile-color', color);
+            
+            // Set text color based on background color contrast
+            const rgb = parseInt(color.slice(1), 16);
+            const r = (rgb >> 16) & 0xff;
+            const g = (rgb >>  8) & 0xff;
+            const b = (rgb >>  0) & 0xff;
+            const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            container.style.setProperty('--text-color', luma < 128 ? '#ffffff' : '#000000');
+        }
+
+        function setProfilePhoto() {
+            const photoContainer = document.getElementById('profilePhoto');
+            const photoLink = profileElements['profile-photo-link'];
+            if (photoLink) {
+                const img = document.createElement('img');
+                img.src = photoLink;
+                img.alt = 'Marko Profile Photo';
+                img.onerror = () => {
+                    photoContainer.innerHTML = '<span class="material-icons" style="font-size: 5rem;">account_circle</span>';
+                };
+                photoContainer.appendChild(img);
+            } else {
+                photoContainer.innerHTML = '<span class="material-icons" style="font-size: 5rem;">account_circle</span>';
+            }
+        }
+
+        function setProfileInfo() {
+            document.getElementById('profileUsername').textContent = profileElements['profile-username'];
+            document.getElementById('profileEmoji').textContent = profileElements['profile-emoji'];
+            document.getElementById('profileCustomValue').textContent = profileElements['profile-custom-value'];
+            document.getElementById('profileBirth').textContent = profileElements['profile-birth'];
+            document.getElementById('profileIntro').textContent = profileElements['profile-intro'];
+        }
+
+function createProfileButton(icon, type, value, id) {
+    if (value) {
+        const button = document.createElement('div');
+        button.className = 'profile-button';
+        button.id = id;
+
+        if (type === 'fontawesome') {
+            button.innerHTML = `<span class="${icon}"></span>`;
+        } else if (type === 'material') {
+            button.innerHTML = `<span class="material-icons">${icon}</span>`;
+        }
+
+        return button;
+    }
+    return null;
+}
+
+function setProfileButtons() {
+    const buttonsContainer = document.getElementById('profileButtons');
+    const buttons = [
+        { icon: 'email', type: 'material', value: profileElements['profile-email'], id: 'email', action: () => { window.open(profileElements['profile-email'], '_blank'); } },
+        { icon: 'phone', type: 'material', value: profileElements['profile-phone'], id: 'phone', action: () => { window.open(profileElements['profile-phone'], '_blank'); } },
+        { icon: 'sms', type: 'material', value: profileElements['profile-sms'], id: 'sms', action: () => { window.open(profileElements['profile-sms'], '_blank'); } },
+        { icon: 'fa-brands fa-whatsapp', type: 'fontawesome', value: profileElements['profile-whatsapp'], id: 'whatsapp', action: () => { window.open(profileElements['profile-whatsapp'], '_blank'); } },
+        { icon: 'fa-brands fa-viber', type: 'fontawesome', value: profileElements['profile-viber'], id: 'viber', action: () => { window.open(profileElements['profile-viber'], '_blank'); } },
+        { icon: 'fa-brands fa-telegram', type: 'fontawesome', value: profileElements['profile-telegram'], id: 'telegram', action: () => { window.open(profileElements['profile-telegram'], '_blank'); } },
+        { icon: 'link', type: 'material', value: profileElements['profile-main-link'], id: 'main-link', action: () => { window.open(profileElements['profile-main-link'], '_blank'); } },
+        { icon: 'location_on', type: 'material', value: profileElements['profile-location'], id: 'location', action: () => { window.open(profileElements['profile-location'], '_blank'); } },
+        { icon: 'attach_money', type: 'material', value: profileElements['profile-paylink'], id: 'paylink', action: () => { window.open(profileElements['profile-paylink'], '_blank'); } },
+        { icon: 'audiotrack', type: 'material', value: profileElements['profile-audio'], id: 'audio' },
+        { icon: 'videocam', type: 'material', value: profileElements['profile-videolink'], id: 'video', action: () => { window.open(profileElements['profile-videolink'], '_blank'); } }
+    ];
+
+    buttons.forEach(buttonData => {
+        if (buttonData.value) {
+            const button = createProfileButton(buttonData.icon, buttonData.type, buttonData.value, buttonData.id);
+            button.onclick = buttonData.action;
+            buttonsContainer.appendChild(button);
+        }
+    });
+
+    // Add scroll hint animation
+    if (buttonsContainer.scrollWidth > buttonsContainer.clientWidth) {
+        setTimeout(() => {
+            buttonsContainer.scrollLeft = 50;
+            setTimeout(() => {
+                buttonsContainer.scrollLeft = 0;
+            }, 300);
+        }, 1000);
+    }
+}
+
+
+
+        function setProfileLanguagesAndTime() {
+            const languagesContainer = document.getElementById('profileLanguages');
+            const mainLang = profileElements['profile-main-language'];
+            const secondLang = profileElements['profile-second-language'];
+
+            if (mainLang) {
+                const mainLangElem = document.createElement('div');
+                mainLangElem.className = 'profile-language';
+                mainLangElem.textContent = mainLang;
+                languagesContainer.appendChild(mainLangElem);
+            }
+
+            if (secondLang) {
+                const secondLangElem = document.createElement('div');
+                secondLangElem.className = 'profile-language';
+                secondLangElem.textContent = secondLang;
+                languagesContainer.appendChild(secondLangElem);
+            }
+
+            const timeElem = document.getElementById('profileTime');
+            const timezone = profileElements['profile-timezone'];
+
+            function updateTime() {
+                if (timezone) {
+                    const options = { hour: '2-digit', minute: '2-digit', timeZone: timezone };
+                    timeElem.textContent = new Date().toLocaleTimeString('en-US', options);
+                } else {
+                    timeElem.textContent = '';
+                }
+            }
+
+            updateTime();
+            setInterval(updateTime, 60000);
+        }
+
+        function setProfileContentButton() {
+            const contentButton = document.getElementById('profileContentButton');
+            const pdfLink = profileElements['profile-pdf'];
+            const postHtml = profileElements['profile-post'];
+
+            if (pdfLink || postHtml) {
+                contentButton.innerHTML = '<span class="material-icons">description</span>';
+                contentButton.onclick = () => {
+                    if (pdfLink) {
+                        // Open PDF
+                        console.log('Opening PDF:', pdfLink);
+                    } else if (postHtml) {
+                        // Show HTML post
+                        console.log('Showing HTML post');
+                    }
+                };
+            } else {
+                contentButton.style.display = 'none';
+            }
+        }
+
+        function setupAddFriendButton() {
+            const addFriendButton = document.getElementById('profileAddFriend');
+            addFriendButton.onclick = () => {
+                console.log('Add friend button clicked');
+            };
+        }
+
+        function initProfile() {
+            getProfileData();
+            setProfileColor();
+            setProfilePhoto();
+            setProfileInfo();
+            setProfileButtons();
+            setProfileLanguagesAndTime();
+            setProfileContentButton();
+            setupAddFriendButton();
+        }
+
+document.addEventListener('DOMContentLoaded', () => {
+            const playButton = document.getElementById('audio');
+            const iframe = document.getElementById('youtube-player');
+            let player;
+            let isPlaying = false; // State of the video
+            const videoId = 'uxjhN_Donfw'; // Replace with your YouTube video ID
+
+            // Set the iframe src with the video ID
+            iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
+
+            // Load the IFrame API
+            const script = document.createElement('script');
+            script.src = 'https://www.youtube.com/iframe_api';
+            document.head.appendChild(script);
+
+            // Create YouTube player once the API is ready
+            window.onYouTubeIframeAPIReady = function() {
+                player = new YT.Player('youtube-player', {
+                    height: '0',
+                    width: '0',
+                    videoId: videoId,
+                    playerVars: {
+                        'controls': 1,
+                        'autoplay': 0,
+                        'modestbranding': 1
+                    },
+                    events: {
+                        'onReady': onPlayerReady,
+                        'onStateChange': onPlayerStateChange
+                    }
+                });
+            };
+
+            // Handle player ready event
+            function onPlayerReady(event) {
+                console.log("YouTube player is ready.");
+
+                playButton.addEventListener('click', () => {
+                    if (isPlaying) {
+                        player.pauseVideo();
+                        playButton.innerHTML = '<i class="material-icons">play_arrow</i>';
+                    } else {
+                        player.playVideo();
+                        playButton.innerHTML = '<i class="material-icons">pause</i>';
+                    }
+                    isPlaying = !isPlaying;
+                });
+            }
+
+            // Handle player state change event
+            function onPlayerStateChange(event) {
+                console.log(`Player state changed: ${event.data}`);
+                if (event.data === YT.PlayerState.ENDED) {
+                    playButton.innerHTML = '<i class="material-icons">play_arrow</i>';
+                    isPlaying = false;
+                }
+            }
+        });
+        
+document.addEventListener("DOMContentLoaded", function() {
+    // Detect the system language
+    const systemLanguage = navigator.language || navigator.userLanguage;
+    const systemLanguageCode = systemLanguage.split('-')[0]; // Get the first part, e.g., "en" from "en-US"
+
+    // Get all language divs
+    const languageDivs = document.querySelectorAll('.profile-language');
+
+    // Iterate over each language div
+    languageDivs.forEach(div => {
+        const displayedLanguage = div.textContent.trim(); // Get the text content (e.g., "en", "es")
+
+        // Check if the displayed language matches the system language
+        if (displayedLanguage === systemLanguageCode) {
+            div.style.color = 'green'; // Set the text color to green
+        }
+    });
+});
+
+        initProfile();
+    </script>
+</body>
+</html>

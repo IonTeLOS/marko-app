@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marko Login</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;700&display=swap" rel="stylesheet">
+
+    <style>
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Kanit', 'Roboto', 'Open Sans', sans-serif;
+            background-color: #ffa426;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .notranslate {
+            unicode-bidi: plaintext;
+        } 
+
+        .login-container {
+            text-align: center;
+            padding: 15px;
+            margin-left: 15px;
+            margin-right: 15px;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 92vw;
+            max-width: 500px;
+            max-height: 80vh; 
+            position: relative;
+            overflow-y: auto;
+        }
+
+        .logo {
+            max-width: 100px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        #signInButton {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            max-width: 300px; 
+        }
+
+        .eula-container {
+            display: none; 
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f7f7f7; 
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 480px;
+            text-align: left;
+            overflow-y: auto; 
+            max-height: 200px; 
+        }
+
+        .eula-container h2 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .eula-container p {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #555;
+        }
+
+        #sign {
+            display: flex;
+            align-items: center; 
+            justify-content: flex-end; 
+            padding: 10px 0;
+            margin-right: 20px; 
+        }
+
+        #sign input[type="checkbox"] {
+            margin-left: 10px; 
+            transform: scale(1.3);
+            vertical-align: middle; 
+        }
+
+        .eula-container label {
+            font-size: 18px;
+            color: #333;
+        }
+
+        .eula-container button {
+            margin: 20px auto; 
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background-color: #0d47a1;
+            color: #ffffff;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: fit-content; 
+        }
+
+        .eula-container button:disabled {
+            background-color: #bdbdbd; 
+            cursor: not-allowed;
+        }
+
+        .material-icons {
+            font-family: 'Material Icons', sans-serif;
+            font-size: 24px;
+            display: inline-block;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        .eula-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .eula-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .eula-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .eula-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+
+        .blinking {
+            animation: blink 1.2s step-start infinite;
+        }
+
+    </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <div id="loginContainer" class="login-container">
+      <img 
+        src="https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg" 
+        alt="Marko Logo" 
+        class="logo" 
+        onclick="navImageClick()">        
+        <h1 id="loginTitle">Marko Login</h1>
+        <div id="signInButtonContainer" class="button-container">
+            <div id="signInButton"></div>
+        </div>
+
+        <div id="eulaContainer" class="eula-container">
+            <h2 id="eulaTitle">End-User License Agreement (EULA)</h2>
+            <p id="eulaContent">
+            </p>
+            <p id="sign" >
+                <label id="eulaCheckboxText" for="eulaAgree">I agree to the terms of the EULA</label>
+                <input type="checkbox" id="eulaAgree" name="eulaAgree">
+            </p>
+            <button id="eulaAcceptButton" disabled>
+                <span class="material-icons notranslate">check_circle</span>
+                <span id="eulaAcceptButtonText">Accept and Proceed</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        
+        const CLIENT_ID = '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid';
+
+        // read from url query parameters where to redirect to after successful signin
+        function getRedirectUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const redirectPath = urlParams.get('redirect');
+            return redirectPath ? `https://teloslinux.org/marko/${redirectPath}` : 'https://teloslinux.org/marko/profile2';
+        }
+
+        // simplified language
+        function getBrowserLanguage() {
+            return navigator.language.slice(0, 2) || 'en';
+        }
+
+        // Function to load EULA text based on the selected language
+        function loadEULAText(language) {
+        // Define EULA texts in different languages
+        const eulaTexts = {
+        en: `
+            1. **Free and Open Source**: This software is free to use and open source. Copyright is held by Ion.<br><br>
+            2. **Google Authentication**: We use anonymous Google authentication for login. You might notice third-party cookies from Google—these help us provide the service.<br><br>
+            3. **Client-Side Code**: Everything runs on your device. We don’t store your data on our servers.<br><br>
+            4. **No Liability**: We’re not responsible for any damage that might come from using this software. Use it at your own risk!<br><br>
+            5. **No Illegal Content**: Keep it clean! We’ll report and block anyone who tries to abuse the service or engage in illegal activities.<br><br>
+            6. **Data Storage**: Your data mostly goes into your own Google Drive. Files are world-readable but have random IDs. Be cautious about sharing your content.<br><br>
+            7. **Firebase and Notifications**: For notifications (like reminders or chats), we use Google’s Firebase service. If you choose to receive notifications via email, your address is temporarily stored by Google.<br><br>
+            8. **Privacy**: We don’t collect or store personal data. We don’t share your data with anyone.<br><br>
+            9. **Content and Notifications**: The app might show promoted or affiliated content and have unobtrusive notifications.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">Read More</a>
+        `,
+        zh: `
+            1. **免费和开源**: 本软件免费使用，开源。版权归 Ion 所有。<br><br>
+            2. **谷歌认证**: 我们使用匿名的谷歌认证进行登录。您可能会看到谷歌的第三方 cookies —— 这些帮助我们提供服务。<br><br>
+            3. **客户端代码**: 一切都在您的设备上运行。我们不会在服务器上存储您的数据。<br><br>
+            4. **免责声明**: 对使用本软件可能造成的任何损害，我们不承担责任。请自行承担风险！<br><br>
+            5. **禁止非法内容**: 保持内容合法！我们会报告并封锁任何试图滥用服务或从事非法活动的人。<br><br>
+            6. **数据存储**: 您的数据主要存储在您的谷歌云盘中。文件是全局可读的，但有随机 ID。共享内容时请谨慎。<br><br>
+            7. **Firebase 和通知**: 对于通知（如提醒或聊天），我们使用谷歌的 Firebase 服务。如果您选择通过电子邮件接收通知，您的地址会暂时存储在谷歌数据库中。<br><br>
+            8. **隐私**: 我们不收集或存储个人数据。我们不会与其他方共享您的数据。<br><br>
+            9. **内容和通知**: 应用可能会显示推广或附属内容，并具有不显眼的通知。<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">阅读更多</a>
+        `,
+        es: `
+            1. **Gratis y de Código Abierto**: Este software es gratuito y de código abierto. Los derechos de autor están en manos de Ion.<br><br>
+            2. **Autenticación de Google**: Utilizamos la autenticación anónima de Google para el inicio de sesión. Puedes notar cookies de terceros de Google; estas nos ayudan a proporcionar el servicio.<br><br>
+            3. **Código del Lado del Cliente**: Todo se ejecuta en tu dispositivo. No almacenamos tus datos en nuestros servidores.<br><br>
+            4. **Sin Responsabilidad**: No somos responsables de ningún daño que pueda surgir del uso de este software. ¡Úsalo bajo tu propio riesgo!<br><br>
+            5. **Contenido Ilegal Prohibido**: ¡Mantén todo limpio! Informaremos y bloquearemos a cualquier persona que intente abusar del servicio o participar en actividades ilegales.<br><br>
+            6. **Almacenamiento de Datos**: Tus datos se guardan principalmente en tu propio Google Drive. Los archivos son legibles por todos pero tienen ID aleatorios. Ten cuidado al compartir tu contenido.<br><br>
+            7. **Firebase y Notificaciones**: Para notificaciones (como recordatorios o chats), usamos el servicio Firebase de Google. Si eliges recibir notificaciones por correo electrónico, tu dirección se almacena temporalmente en Google.<br><br>
+            8. **Privacidad**: No recopilamos ni almacenamos datos personales. No compartimos tus datos con nadie.<br><br>
+            9. **Contenido y Notificaciones**: La aplicación puede mostrar contenido promocionado o afiliado y tener notificaciones discretas.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">Leer Más</a>
+        `,
+        ar: `
+            1. **مجاني ومفتوح المصدر**: هذا البرنامج مجاني للاستخدام ومفتوح المصدر. حقوق الطبع والنشر تحتفظ بها Ion.<br><br>
+            2. **توثيق جوجل**: نستخدم التوثيق المجهول من جوجل لتسجيل الدخول. قد تلاحظ ملفات تعريف الارتباط من جوجل من أطراف ثالثة - تساعدنا هذه في تقديم الخدمة.<br><br>
+            3. **رمز العميل**: كل شيء يعمل على جهازك. لا نقوم بتخزين بياناتك على خوادمنا.<br><br>
+            4. **إخلاء المسؤولية**: نحن غير مسؤولين عن أي ضرر قد ينجم عن استخدام هذا البرنامج. استخدمه على مسؤوليتك الخاصة!<br><br>
+            5. **المحتوى غير القانوني**: حافظ على نظافة المحتوى! سنقوم بالإبلاغ وحظر أي شخص يحاول استغلال الخدمة أو الانخراط في أنشطة غير قانونية.<br><br>
+            6. **تخزين البيانات**: يتم تخزين بياناتك في الغالب في سواقة جوجل الخاصة بك. الملفات يمكن قراءتها عالميًا ولكن بها معرفات عشوائية. كن حذرًا عند مشاركة المحتوى الخاص بك.<br><br>
+            7. **Firebase والإشعارات**: بالنسبة للإشعارات (مثل التذكيرات أو الدردشات)، نستخدم خدمة Firebase من جوجل. إذا اخترت تلقي الإشعارات عبر البريد الإلكتروني، فسيتم تخزين عنوانك مؤقتًا في قاعدة بيانات جوجل.<br><br>
+            8. **الخصوصية**: نحن لا نجمع أو نخزن البيانات الشخصية. لا نشارك بياناتك مع أي طرف آخر.<br><br>
+            9. **المحتوى والإشعارات**: قد تعرض التطبيق محتوى مروج له أو تابع وتحتوي على إشعارات غير مزعجة.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">اقرأ المزيد</a>
+        `,
+        pt: `
+            1. **Gratuito e de Código Aberto**: Este software é gratuito para usar e de código aberto. Os direitos autorais são detidos por Ion.<br><br>
+            2. **Autenticação do Google**: Usamos autenticação anônima do Google para login. Você pode notar cookies de terceiros do Google – eles ajudam a fornecer o serviço.<br><br>
+            3. **Código no Lado do Cliente**: Tudo é executado no seu dispositivo. Não armazenamos seus dados em nossos servidores.<br><br>
+            4. **Isenção de Responsabilidade**: Não somos responsáveis por qualquer dano que possa ocorrer ao usar este software. Use-o por sua própria conta e risco!<br><br>
+            5. **Conteúdo Ilegal Proibido**: Mantenha tudo limpo! Relataremos e bloquearemos qualquer pessoa que tente abusar do serviço ou se envolver em atividades ilegais.<br><br>
+            6. **Armazenamento de Dados**: Seus dados vão principalmente para seu próprio Google Drive. Os arquivos são legíveis por todos, mas têm IDs aleatórios. Cuidado ao compartilhar seu conteúdo.<br><br>
+            7. **Firebase e Notificações**: Para notificações (como lembretes ou chats), usamos o serviço Firebase do Google. Se você optar por receber notificações por e-mail, seu endereço será armazenado temporariamente pelo Google.<br><br>
+            8. **Privacidade**: Não coletamos ou armazenamos dados pessoais. Não compartilhamos seus dados com outras partes.<br><br>
+            9. **Conteúdo e Notificações**: O aplicativo pode mostrar conteúdo promovido ou afiliado e ter notificações discretas.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">Leia mais</a>
+        `,
+        ja: `
+            1. **無料およびオープンソース**: このソフトウェアは無料で使用でき、オープンソースです。著作権は Ion が保持しています。<br><br>
+            2. **Google 認証**: ログインには匿名の Google 認証を使用しています。Google からのサードパーティ Cookie に気付くかもしれませんが、これらはサービス提供に役立ちます。<br><br>
+            3. **クライアントサイドコード**: すべてはあなたのデバイス上で実行されます。サーバーにデータを保存することはありません。<br><br>
+            4. **責任の免除**: このソフトウェアの使用により発生する可能性のある損害については責任を負いません。自己責任で使用してください！<br><br>
+            5. **違法コンテンツの禁止**: クリーンに保ちましょう！サービスを悪用したり違法行為に関与したりする人を報告し、ブロックします。<br><br>
+            6. **データの保存**: データは主に Google ドライブに保存されます。ファイルは全世界で読み取り可能ですが、ランダムな ID を持っています。コンテンツを共有する際は注意してください。<br><br>
+            7. **Firebase と通知**: 通知（リマインダーやチャットなど）には Google の Firebase サービスを使用しています。メールで通知を受け取ることを選択した場合、メールアドレスは Google に一時的に保存されます。<br><br>
+            8. **プライバシー**: 個人データは収集または保存しません。他者とデータを共有することはありません。<br><br>
+            9. **コンテンツと通知**: アプリにはプロモートや提携コンテンツが表示される場合があり、控えめな通知が含まれることがあります。<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">続きを読む</a>
+        `,
+        ms: `
+            1. **Percuma dan Sumber Terbuka**: Perisian ini adalah percuma untuk digunakan dan sumber terbuka. Hak cipta dimiliki oleh Ion.<br><br>
+            2. **Pengesahan Google**: Kami menggunakan pengesahan Google yang tanpa nama untuk log masuk. Anda mungkin perasan kuki pihak ketiga daripada Google – ini membantu kami menyediakan perkhidmatan.<br><br>
+            3. **Kod Sisi Klien**: Semua dijalankan pada peranti anda. Kami tidak menyimpan data anda pada pelayan kami.<br><br>
+            4. **Tiada Tanggungjawab**: Kami tidak bertanggungjawab atas sebarang kerosakan yang mungkin timbul daripada penggunaan perisian ini. Gunakan atas risiko anda sendiri!<br><br>
+            5. **Kandungan Haram**: Kekalkan kebersihan! Kami akan melaporkan dan menyekat sesiapa sahaja yang cuba menyalahgunakan perkhidmatan atau terlibat dalam aktiviti haram.<br><br>
+            6. **Penyimpanan Data**: Data anda kebanyakannya pergi ke Google Drive anda sendiri. Fail boleh dibaca di seluruh dunia tetapi mempunyai ID rawak. Berhati-hati semasa berkongsi kandungan anda.<br><br>
+            7. **Firebase dan Notifikasi**: Untuk notifikasi (seperti peringatan atau chat), kami menggunakan perkhidmatan Firebase daripada Google. Jika anda memilih untuk menerima notifikasi melalui e-mel, alamat anda disimpan sementara oleh Google.<br><br>
+            8. **Privasi**: Kami tidak mengumpul atau menyimpan data peribadi. Kami tidak berkongsi data anda dengan pihak lain.<br><br>
+            9. **Kandungan dan Notifikasi**: Aplikasi mungkin memaparkan kandungan yang dipromosikan atau bersekutu dan mempunyai notifikasi yang tidak mengganggu.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">Baca Lagi</a>
+        `,
+        ru: `
+            1. **Бесплатное и Открытое ПО**: Это программное обеспечение бесплатно для использования и с открытым исходным кодом. Авторские права принадлежат Ion.<br><br>
+            2. **Аутентификация Google**: Мы используем анонимную аутентификацию Google для входа. Вы можете заметить файлы cookie от Google третьих сторон — они помогают нам предоставлять услугу.<br><br>
+            3. **Клиентский Код**: Всё выполняется на вашем устройстве. Мы не храним ваши данные на наших серверах.<br><br>
+            4. **Отказ от Ответственности**: Мы не несем ответственности за любой ущерб, который может возникнуть при использовании этого программного обеспечения. Используйте на свой страх и риск!<br><br>
+            5. **Запрет Нелегального Контента**: Сохраняйте чистоту! Мы будем сообщать и блокировать всех, кто попытается злоупотребить услугой или заниматься незаконной деятельностью.<br><br>
+            6. **Хранение Данных**: Ваши данные в основном хранятся в вашем Google Drive. Файлы доступны для чтения всем, но имеют случайные идентификаторы. Будьте осторожны при обмене контентом.<br><br>
+            7. **Firebase и Уведомления**: Для уведомлений (таких как напоминания или чаты) мы используем службу Firebase от Google. Если вы выберете получение уведомлений по электронной почте, ваш адрес временно хранится в базе данных Google.<br><br>
+            8. **Конфиденциальность**: Мы не собираем и не храним личные данные. Мы не делимся вашими данными с другими сторонами.<br><br>
+            9. **Контент и Уведомления**: В приложении могут отображаться рекламные или партнерские материалы и ненавязчивые уведомления.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">Читать далее</a>
+        `,
+        fr: `
+            1. **Gratuit et Open Source**: Ce logiciel est gratuit et open source. Les droits d'auteur sont détenus par Ion.<br><br>
+            2. **Authentification Google**: Nous utilisons l'authentification anonyme de Google pour la connexion. Vous pourriez remarquer des cookies tiers de Google — ceux-ci nous aident à fournir le service.<br><br>
+            3. **Code Client**: Tout fonctionne sur votre appareil. Nous ne stockons pas vos données sur nos serveurs.<br><br>
+            4. **Exonération de Responsabilité**: Nous ne sommes pas responsables des dommages pouvant découler de l'utilisation de ce logiciel. Utilisez-le à vos risques et périls !<br><br>
+            5. **Contenu Illégal Interdit**: Gardez tout propre ! Nous signalerons et bloquerons toute personne tentant d'abuser du service ou de participer à des activités illégales.<br><br>
+            6. **Stockage des Données**: Vos données sont principalement stockées dans votre propre Google Drive. Les fichiers sont accessibles en lecture dans le monde entier, mais ont des ID aléatoires. Soyez prudent lorsque vous partagez votre contenu.<br><br>
+            7. **Firebase et Notifications**: Pour les notifications (comme les rappels ou les chats), nous utilisons le service Firebase de Google. Si vous choisissez de recevoir des notifications par e-mail, votre adresse est temporairement stockée par Google.<br><br>
+            8. **Confidentialité**: Nous ne collectons ni ne stockons de données personnelles. Nous ne partageons pas vos données avec d'autres parties.<br><br>
+            9. **Contenu et Notifications**: L'application peut afficher du contenu sponsorisé ou affilié et des notifications discrètes.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">Lire la suite</a>
+        `,
+        de: `
+            1. **Kostenlos und Open Source**: Diese Software ist kostenlos und Open Source. Das Urheberrecht liegt bei Ion.<br><br>
+            2. **Google Authentifizierung**: Wir verwenden anonyme Google-Authentifizierung zum Anmelden. Sie könnten Cookies von Google von Drittanbietern bemerken – diese helfen uns, den Service bereitzustellen.<br><br>
+            3. **Client-Seitiger Code**: Alles läuft auf Ihrem Gerät. Wir speichern Ihre Daten nicht auf unseren Servern.<br><br>
+            4. **Haftungsausschluss**: Wir übernehmen keine Verantwortung für Schäden, die durch die Nutzung dieser Software entstehen könnten. Nutzen Sie sie auf eigenes Risiko!<br><br>
+            5. **Keine Illegalen Inhalte**: Halten Sie es sauber! Wir werden Personen melden und sperren, die versuchen, den Dienst zu missbrauchen oder sich an illegalen Aktivitäten zu beteiligen.<br><br>
+            6. **Datenspeicherung**: Ihre Daten werden hauptsächlich in Ihrem eigenen Google Drive gespeichert. Dateien sind weltweit lesbar, haben jedoch zufällige IDs. Seien Sie vorsichtig beim Teilen Ihres Inhalts.<br><br>
+            7. **Firebase und Benachrichtigungen**: Für Benachrichtigungen (wie Erinnerungen oder Chats) verwenden wir den Firebase-Dienst von Google. Wenn Sie sich entscheiden, Benachrichtigungen per E-Mail zu erhalten, wird Ihre Adresse vorübergehend von Google gespeichert.<br><br>
+            8. **Datenschutz**: Wir sammeln oder speichern keine persönlichen Daten. Wir teilen Ihre Daten nicht mit anderen.<br><br>
+            9. **Inhalte und Benachrichtigungen**: Die App kann geförderte oder verbundene Inhalte anzeigen und unauffällige Benachrichtigungen enthalten.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">Mehr erfahren</a>
+        `,
+        vi: `
+            1. **Miễn Phí và Mã Nguồn Mở**: Phần mềm này miễn phí sử dụng và mã nguồn mở. Bản quyền thuộc về Ion.<br><br>
+            2. **Xác Thực Google**: Chúng tôi sử dụng xác thực Google ẩn danh để đăng nhập. Bạn có thể thấy cookie của bên thứ ba từ Google - những cookie này giúp chúng tôi cung cấp dịch vụ.<br><br>
+            3. **Mã phía Khách Hàng**: Mọi thứ chạy trên thiết bị của bạn. Chúng tôi không lưu trữ dữ liệu của bạn trên máy chủ của chúng tôi.<br><br>
+            4. **Từ Chối Trách Nhiệm**: Chúng tôi không chịu trách nhiệm về bất kỳ thiệt hại nào có thể phát sinh từ việc sử dụng phần mềm này. Sử dụng nó theo rủi ro của riêng bạn!<br><br>
+            5. **Nội Dung Bất Hợp Pháp**: Giữ cho nó sạch sẽ! Chúng tôi sẽ báo cáo và chặn bất kỳ ai cố gắng lạm dụng dịch vụ hoặc tham gia vào các hoạt động bất hợp pháp.<br><br>
+            6. **Lưu Trữ Dữ Liệu**: Dữ liệu của bạn chủ yếu lưu trữ trong Google Drive của bạn. Các tệp có thể đọc được trên toàn thế giới nhưng có ID ngẫu nhiên. Cẩn thận khi chia sẻ nội dung của bạn.<br><br>
+            7. **Firebase và Thông Báo**: Đối với thông báo (như nhắc nhở hoặc trò chuyện), chúng tôi sử dụng dịch vụ Firebase của Google. Nếu bạn chọn nhận thông báo qua email, địa chỉ của bạn sẽ được Google lưu trữ tạm thời.<br><br>
+            8. **Quyền Riêng Tư**: Chúng tôi không thu thập hoặc lưu trữ dữ liệu cá nhân. Chúng tôi không chia sẻ dữ liệu của bạn với bất kỳ ai.<br><br>
+            9. **Nội Dung và Thông Báo**: Ứng dụng có thể hiển thị nội dung được quảng bá hoặc liên kết và có thông báo không gây phiền.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">Đọc thêm</a>
+        `,
+        fa: `
+            1. **رایگان و متن‌باز**: این نرم‌افزار رایگان برای استفاده و متن‌باز است. حق نشر متعلق به Ion است.<br><br>
+            2. **احراز هویت گوگل**: ما از احراز هویت ناشناس گوگل برای ورود استفاده می‌کنیم. ممکن است متوجه کوکی‌های شخص ثالث از گوگل شوید - این‌ها به ما در ارائه خدمات کمک می‌کنند.<br><br>
+            3. **کد سمت کاربر**: همه چیز روی دستگاه شما اجرا می‌شود. ما داده‌های شما را روی سرورهای خود ذخیره نمی‌کنیم.<br><br>
+            4. **سلب مسئولیت**: ما مسئول هیچ گونه آسیب احتمالی ناشی از استفاده از این نرم‌افزار نیستیم. با ریسک خود از آن استفاده کنید!<br><br>
+            5. **محتوای غیرقانونی ممنوع**: همه چیز را تمیز نگه دارید! ما هر کسی را که سعی در سوء استفاده از خدمات یا شرکت در فعالیت‌های غیرقانونی دارد، گزارش و مسدود خواهیم کرد.<br><br>
+            6. **ذخیره‌سازی داده‌ها**: داده‌های شما عمدتاً در Google Drive خودتان ذخیره می‌شود. فایل‌ها در سطح جهانی قابل‌خواندن هستند اما دارای شناسه‌های تصادفی هستند. هنگام به اشتراک‌گذاری محتوای خود احتیاط کنید.<br><br>
+            7. **Firebase و اطلاع‌رسانی‌ها**: برای اطلاع‌رسانی‌ها (مانند یادآورها یا چت‌ها)، از سرویس Firebase گوگل استفاده می‌کنیم. اگر انتخاب کنید که اطلاع‌رسانی‌ها را از طریق ایمیل دریافت کنید، آدرس شما به طور موقت توسط گوگل ذخیره می‌شود.<br><br>
+            8. **حریم خصوصی**: ما داده‌های شخصی را جمع‌آوری یا ذخیره نمی‌کنیم. ما داده‌های شما را با دیگران به اشتراک نمی‌گذاریم.<br><br>
+            9. **محتوا و اطلاع‌رسانی‌ها**: اپلیکیشن ممکن است محتوای تبلیغاتی یا وابسته را نمایش دهد و اطلاع‌رسانی‌های غیرمزعج را شامل شود.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">بیشتر بخوانید</a>
+        `,
+        tr: `
+            1. **Ücretsiz ve Açık Kaynak**: Bu yazılım ücretsizdir ve açık kaynaklıdır. Telif hakkı Ion'a aittir.<br><br>
+            2. **Google Kimlik Doğrulaması**: Giriş için anonim Google kimlik doğrulaması kullanıyoruz. Üçüncü taraf çerezleri görebilirsiniz - bunlar hizmeti sağlamamıza yardımcı olur.<br><br>
+            3. **İstemci Tarafı Kodu**: Her şey cihazınızda çalışır. Verilerinizi sunucularımızda saklamıyoruz.<br><br>
+            4. **Sorumluluk Reddi**: Bu yazılımın kullanımından kaynaklanabilecek herhangi bir zarardan sorumlu değiliz. Kendi riskinizle kullanın!<br><br>
+            5. **Yasadışı İçerik Yasak**: Her şeyi temiz tutun! Hizmeti kötüye kullanmaya çalışan veya yasa dışı faaliyetlerde bulunan kişileri bildirecek ve engelleyeceğiz.<br><br>
+            6. **Veri Depolama**: Verileriniz çoğunlukla kendi Google Drive'ınıza gider. Dosyalar dünya genelinde okunabilir ancak rastgele ID'lere sahiptir. İçeriğinizi paylaşırken dikkatli olun.<br><br>
+            7. **Firebase ve Bildirimler**: Bildirimler (hatırlatmalar veya sohbetler gibi) için Google'ın Firebase hizmetini kullanıyoruz. E-posta yoluyla bildirim almak isterseniz, adresiniz geçici olarak Google tarafından saklanır.<br><br>
+            8. **Gizlilik**: Kişisel verileri toplamaz veya saklamazsınız. Verilerinizi başkalarıyla paylaşmayız.<br><br>
+            9. **İçerik ve Bildirimler**: Uygulama, tanıtılan veya bağlantılı içerikleri gösterebilir ve rahatsız etmeyen bildirimler içerebilir.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">Daha fazla oku</a>
+        `,
+        th: `
+            1. **ฟรีและโอเพ่นซอร์ส**: ซอฟต์แวร์นี้ใช้งานได้ฟรีและเป็นโอเพ่นซอร์ส ลิขสิทธิ์เป็นของ Ion.<br><br>
+            2. **การตรวจสอบของ Google**: เราใช้การตรวจสอบ Google แบบไม่ระบุตัวตนสำหรับการเข้าสู่ระบบ คุณอาจสังเกตเห็นคุกกี้จาก Google ของบุคคลที่สาม - คุกกี้เหล่านี้ช่วยให้เราสามารถให้บริการได้.<br><br>
+            3. **โค้ดข้างลูกค้า**: ทุกอย่างทำงานบนอุปกรณ์ของคุณ เราไม่ได้เก็บข้อมูลของคุณไว้ในเซิร์ฟเวอร์ของเรา.<br><br>
+            4. **การปฏิเสธความรับผิด**: เราไม่รับผิดชอบต่อความเสียหายใด ๆ ที่อาจเกิดขึ้นจากการใช้ซอฟต์แวร์นี้ ใช้ซอฟต์แวร์นี้ที่ความเสี่ยงของคุณเอง!<br><br>
+            5. **ห้ามเนื้อหาที่ผิดกฎหมาย**: รักษาความสะอาด! เราจะรายงานและบล็อกทุกคนที่พยายามใช้ประโยชน์จากบริการหรือมีส่วนร่วมในกิจกรรมที่ผิดกฎหมาย.<br><br>
+            6. **การจัดเก็บข้อมูล**: ข้อมูลของคุณจะถูกจัดเก็บใน Google Drive ของคุณเป็นหลัก ไฟล์สามารถอ่านได้จากทั่วโลก แต่มี ID แบบสุ่ม ระมัดระวังเมื่อแชร์เนื้อหาของคุณ.<br><br>
+            7. **Firebase และการแจ้งเตือน**: สำหรับการแจ้งเตือน (เช่น การเตือนความจำหรือการแชท) เราใช้บริการ Firebase ของ Google หากคุณเลือกที่จะรับการแจ้งเตือนทางอีเมล ที่อยู่อีเมลของคุณจะถูกเก็บไว้ชั่วคราวโดย Google.<br><br>
+            8. **ความเป็นส่วนตัว**: เราไม่เก็บรวบรวมหรือจัดเก็บข้อมูลส่วนบุคคล เราจะไม่แบ่งปันข้อมูลของคุณกับผู้อื่น.<br><br>
+            9. **เนื้อหาและการแจ้งเตือน**: แอพพลิเคชั่นอาจแสดงเนื้อหาที่ได้รับการสนับสนุนหรือที่เกี่ยวข้องและการแจ้งเตือนที่ไม่รบกวน.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">อ่านเพิ่มเติม</a>
+        `,
+         id: `
+            1. **Gratis dan Sumber Terbuka**: Perangkat lunak ini gratis digunakan dan bersumber terbuka. Hak cipta dimiliki oleh Ion.<br><br>
+            2. **Autentikasi Google**: Kami menggunakan autentikasi Google anonim untuk login. Anda mungkin akan melihat cookie pihak ketiga dari Google—ini membantu kami menyediakan layanan.<br><br>
+            3. **Kode Sisi Klien**: Semua dijalankan di perangkat Anda. Kami tidak menyimpan data Anda di server kami.<br><br>
+            4. **Tanpa Tanggung Jawab**: Kami tidak bertanggung jawab atas kerusakan yang mungkin timbul akibat penggunaan perangkat lunak ini. Gunakan dengan risiko Anda sendiri!<br><br>
+            5. **Konten Ilegal Dilarang**: Jaga agar tetap bersih! Kami akan melaporkan dan memblokir siapa pun yang mencoba menyalahgunakan layanan atau terlibat dalam aktivitas ilegal.<br><br>
+            6. **Penyimpanan Data**: Data Anda sebagian besar disimpan di Google Drive Anda sendiri. File dapat dibaca oleh semua orang tetapi memiliki ID acak. Hati-hati saat membagikan konten Anda.<br><br>
+            7. **Firebase dan Notifikasi**: Untuk notifikasi (seperti pengingat atau chat), kami menggunakan layanan Firebase dari Google. Jika Anda memilih untuk menerima notifikasi melalui email, alamat Anda disimpan sementara oleh Google.<br><br>
+            8. **Privasi**: Kami tidak mengumpulkan atau menyimpan data pribadi. Kami tidak membagikan data Anda dengan pihak lain.<br><br>
+            9. **Konten dan Notifikasi**: Aplikasi ini mungkin menampilkan konten yang dipromosikan atau terkait dan memiliki notifikasi yang tidak mengganggu.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">Baca Selengkapnya</a>
+        `,
+        ko: `
+            1. **무료 및 오픈 소스**: 이 소프트웨어는 무료로 사용 가능하며 오픈 소스입니다. 저작권은 Ion이 보유하고 있습니다.<br><br>
+            2. **구글 인증**: 익명의 구글 인증을 사용하여 로그인합니다. 구글의 제3자 쿠키가 있을 수 있으며, 이는 서비스를 제공하는 데 도움이 됩니다.<br><br>
+            3. **클라이언트 측 코드**: 모든 것이 귀하의 장치에서 실행됩니다. 서버에 데이터를 저장하지 않습니다.<br><br>
+            4. **책임 없음**: 이 소프트웨어를 사용하여 발생할 수 있는 피해에 대해 책임지지 않습니다. 자신의 위험을 감수하여 사용하세요!<br><br>
+            5. **불법 콘텐츠 금지**: 깨끗하게 유지하세요! 서비스를 남용하거나 불법 활동에 참여하는 사람을 신고하고 차단합니다.<br><br>
+            6. **데이터 저장**: 데이터는 대부분 귀하의 Google Drive에 저장됩니다. 파일은 모든 사람이 읽을 수 있지만 무작위 ID가 있습니다. 콘텐츠를 공유할 때 주의하세요.<br><br>
+            7. **Firebase 및 알림**: 알림(예: 알림 또는 채팅)을 위해 Google의 Firebase 서비스를 사용합니다. 이메일로 알림을 받기로 선택하면 주소가 Google에 임시로 저장됩니다.<br><br>
+            8. **개인정보 보호**: 개인 데이터를 수집하거나 저장하지 않습니다. 다른 당사자와 데이터를 공유하지 않습니다.<br><br>
+            9. **콘텐츠 및 알림**: 이 앱은 홍보 또는 제휴된 콘텐츠를 표시하거나 방해되지 않는 알림을 표시할 수 있습니다.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">자세히 보기</a>
+          `,
+        it: `
+            1. **Gratuito e Open Source**: Questo software è gratuito e open source. Il copyright è detenuto da Ion.<br><br>
+            2. **Autenticazione Google**: Utilizziamo l'autenticazione anonima di Google per l'accesso. Potresti notare cookie di terze parti da Google—questi ci aiutano a fornire il servizio.<br><br>
+            3. **Codice Lato Client**: Tutto viene eseguito sul tuo dispositivo. Non memorizziamo i tuoi dati sui nostri server.<br><br>
+            4. **Nessuna Responsabilità**: Non siamo responsabili per eventuali danni derivanti dall'uso di questo software. Usalo a tuo rischio e pericolo!<br><br>
+            5. **Contenuti Illegali Vietati**: Mantieni tutto pulito! Riporteremo e bloccheremo chiunque tenti di abusare del servizio o di impegnarsi in attività illegali.<br><br>
+            6. **Archiviazione Dati**: I tuoi dati vengono principalmente memorizzati nel tuo Google Drive. I file sono leggibili da tutti ma hanno ID casuali. Fai attenzione a chi condividi il tuo contenuto.<br><br>
+            7. **Firebase e Notifiche**: Per le notifiche (come promemoria o chat), utilizziamo il servizio Firebase di Google. Se scegli di ricevere notifiche via email, il tuo indirizzo viene memorizzato temporaneamente da Google.<br><br>
+            8. **Privacy**: Non raccogliamo né memorizziamo dati personali. Non condividiamo i tuoi dati con altre parti.<br><br>
+            9. **Contenuti e Notifiche**: L'app potrebbe mostrare contenuti promossi o affiliati e avere notifiche non intrusive.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">Leggi di più</a>
+           `,
+        pl: `
+            1. **Darmowy i Open Source**: To oprogramowanie jest darmowe i open source. Prawa autorskie należą do Iona.<br><br>
+            2. **Autoryzacja Google**: Używamy anonimowej autoryzacji Google do logowania. Możesz zauważyć ciasteczka stron trzecich od Google—pomagają nam w świadczeniu usługi.<br><br>
+            3. **Kod po Stronie Klienta**: Wszystko działa na twoim urządzeniu. Nie przechowujemy twoich danych na naszych serwerach.<br><br>
+            4. **Brak Odpowiedzialności**: Nie ponosimy odpowiedzialności za jakiekolwiek szkody, które mogą wyniknąć z korzystania z tego oprogramowania. Korzystasz na własne ryzyko!<br><br>
+            5. **Zakaz Treści Nielegalnych**: Zachowaj czystość! Zgłosimy i zablokujemy każdego, kto spróbuje nadużyć usługi lub zaangażować się w działalność nielegalną.<br><br>
+            6. **Przechowywanie Danych**: Twoje dane są głównie przechowywane w twoim Google Drive. Pliki są czytelne dla wszystkich, ale mają losowe identyfikatory. Uważaj, z kim dzielisz się swoim kontentem.<br><br>
+            7. **Firebase i Powiadomienia**: Do powiadomień (np. przypomnień lub czatów) używamy usługi Firebase od Google. Jeśli zdecydujesz się otrzymywać powiadomienia przez e-mail, twój adres jest tymczasowo przechowywany przez Google.<br><br>
+            8. **Prywatność**: Nie zbieramy ani nie przechowujemy danych osobowych. Nie dzielimy się twoimi danymi z innymi.<br><br>
+            9. **Treści i Powiadomienia**: Aplikacja może wyświetlać promowane lub powiązane treści oraz mieć dyskretne powiadomienia.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">Czytaj więcej</a>
+           `,
+        nl: `
+            1. **Gratis en Open Source**: Deze software is gratis te gebruiken en open source. Het auteursrecht berust bij Ion.<br><br>
+            2. **Google Authenticatie**: We gebruiken anonieme Google-authenticatie voor inloggen. Je kunt cookies van derden van Google tegenkomen—deze helpen ons om de service te bieden.<br><br>
+            3. **Client-Side Code**: Alles draait op jouw apparaat. We slaan jouw gegevens niet op onze servers op.<br><br>
+            4. **Geen Aansprakelijkheid**: We zijn niet verantwoordelijk voor schade die kan voortkomen uit het gebruik van deze software. Gebruik het op eigen risico!<br><br>
+            5. **Illegale Inhoud Verboden**: Houd het schoon! We zullen iedereen rapporteren en blokkeren die probeert de service te misbruiken of zich in te zetten voor illegale activiteiten.<br><br>
+            6. **Gegevensopslag**: Jouw gegevens worden voornamelijk opgeslagen in jouw eigen Google Drive. Bestanden zijn wereldwijd leesbaar, maar hebben willekeurige ID's. Wees voorzichtig met het delen van je inhoud.<br><br>
+            7. **Firebase en Meldingen**: Voor meldingen (zoals herinneringen of chats) gebruiken we de Firebase-service van Google. Als je ervoor kiest om meldingen via e-mail te ontvangen, wordt je adres tijdelijk door Google opgeslagen.<br><br>
+            8. **Privacy**: We verzamelen of bewaren geen persoonlijke gegevens. We delen je gegevens met niemand.<br><br>
+            9. **Inhoud en Meldingen**: De app kan gepromote of geaffilieerde inhoud tonen en onopdringerige meldingen hebben.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">Lees Meer</a>
+           `,
+        el: `
+            1. **Δωρεάν και Ανοιχτού Κώδικα**: Αυτό το λογισμικό είναι δωρεάν και ανοιχτού κώδικα. Τα δικαιώματα πνευματικής ιδιοκτησίας ανήκουν στον Ion.<br><br>
+            2. **Αυθεντικοποίηση Google**: Χρησιμοποιούμε ανώνυμη αυθεντικοποίηση Google για είσοδο. Μπορεί να παρατηρήσετε cookies τρίτων από την Google—αυτά μας βοηθούν να παρέχουμε την υπηρεσία.<br><br>
+            3. **Κώδικας Πλευράς Πελάτη**: Όλα εκτελούνται στη συσκευή σας. Δεν αποθηκεύουμε τα δεδομένα σας στους διακομιστές μας.<br><br>
+            4. **Καμία Ευθύνη**: Δεν είμαστε υπεύθυνοι για οποιαδήποτε ζημιά μπορεί να προκύψει από τη χρήση αυτού του λογισμικού. Χρησιμοποιήστε το με δική σας ευθύνη!<br><br>
+            5. **Απαγόρευση Παράνομου Περιεχομένου**: Διατηρήστε το καθαρό! Θα αναφέρουμε και θα αποκλείσουμε οποιονδήποτε προσπαθήσει να καταχραστεί την υπηρεσία ή να εμπλακεί σε παράνομες δραστηριότητες.<br><br>
+            6. **Αποθήκευση Δεδομένων**: Τα δεδομένα σας αποθηκεύονται κυρίως στο δικό σας Google Drive. Τα αρχεία είναι αναγνώσιμα από όλους αλλά έχουν τυχαία αναγνωριστικά. Να είστε προσεκτικοί με το ποιον μοιράζεστε το περιεχόμενό σας.<br><br>
+            7. **Firebase και Ειδοποιήσεις**: Για ειδοποιήσεις (όπως υπενθυμίσεις ή συνομιλίες) χρησιμοποιούμε την υπηρεσία Firebase της Google. Αν επιλέξετε να λάβετε ειδοποιήσεις μέσω email, η διεύθυνσή σας αποθηκεύεται προσωρινά από την Google.<br><br>
+            8. **Απορρήτου**: Δεν συλλέγουμε ή αποθηκεύουμε προσωπικά δεδομένα. Δεν μοιραζόμαστε τα δεδομένα σας με κανέναν.<br><br>
+            9. **Περιεχόμενο και Ειδοποιήσεις**: Η εφαρμογή μπορεί να εμφανίζει προωθημένο ή συνδεδεμένο περιεχόμενο και να έχει διακριτικές ειδοποιήσεις.<br><br>
+            <a href="https://github.com/IonTeLOS/marko" target="_blank">Διαβάστε Περισσότερα</a>
+           `
+    };
+
+    // Get the EULA content element and set its HTML
+    const eulaContent = document.getElementById('eulaContent');
+    if (eulaContent) {
+        eulaContent.innerHTML = eulaTexts[language] || eulaTexts.en;
+    }
+}
+
+// Function to get translations for UI elements
+function getTranslations(language) {
+// Translations for title, checkbox text, and button text
+const translations = {
+    en: {
+        title: "Marko Login",
+        checkboxText: "I agree",
+        buttonText: "Accept and Proceed",
+        eulaTitle: "End-User License Agreement (EULA)"
+    },
+    es: {
+        title: "Inicio de sesión de Marko",
+        checkboxText: "Estoy de acuerdo",
+        buttonText: "Aceptar y proceder",
+        eulaTitle: "Acuerdo de Licencia de Usuario Final (EULA)"
+    },
+    zh: {
+        title: "Marko 登录",
+        checkboxText: "我同意",
+        buttonText: "接受并继续",
+        eulaTitle: "最终用户许可协议 (EULA)"
+    },
+    ar: {
+        title: "تسجيل دخول Marko",
+        checkboxText: "أوافق",
+        buttonText: "قبول والمتابعة",
+        eulaTitle: "اتفاقية ترخيص المستخدم النهائي (EULA)"
+    },
+    pt: {
+        title: "Login do Marko",
+        checkboxText: "Eu concordo",
+        buttonText: "Aceitar e Prosseguir",
+        eulaTitle: "Contrato de Licença de Usuário Final (EULA)"
+    },
+    ja: {
+        title: "Marko ログイン",
+        checkboxText: "同意します",
+        buttonText: "受け入れて進む",
+        eulaTitle: "エンドユーザーライセンス契約 (EULA)"
+    },
+    ms: {
+        title: "Log Masuk Marko",
+        checkboxText: "Saya setuju",
+        buttonText: "Terima dan Teruskan",
+        eulaTitle: "Perjanjian Lesen Pengguna Akhir (EULA)"
+    },
+    ru: {
+        title: "Вход в Marko",
+        checkboxText: "Я согласен",
+        buttonText: "Принять и Продолжить",
+        eulaTitle: "Лицензионное соглашение конечного пользователя (EULA)"
+    },
+    fr: {
+        title: "Connexion Marko",
+        checkboxText: "Je suis d'accord",
+        buttonText: "Accepter et Continuer",
+        eulaTitle: "Contrat de Licence Utilisateur Final (EULA)"
+    },
+    de: {
+        title: "Marko Anmeldung",
+        checkboxText: "Ich stimme zu",
+        buttonText: "Akzeptieren und Fortfahren",
+        eulaTitle: "Endbenutzer-Lizenzvereinbarung (EULA)"
+    },
+    vi: {
+        title: "Đăng Nhập Marko",
+        checkboxText: "Tôi đồng ý",
+        buttonText: "Chấp nhận và Tiếp tục",
+        eulaTitle: "Thỏa Thuận Cấp Phép Người Dùng Cuối (EULA)"
+    },
+    fa: {
+        title: "ورود به Marko",
+        checkboxText: "موافقم",
+        buttonText: "پذیرفتن و ادامه",
+        eulaTitle: "قرارداد مجوز پایان‌کاربر (EULA)"
+    },
+    tr: {
+        title: "Marko Girişi",
+        checkboxText: "Katılıyorum",
+        buttonText: "Kabul Et ve Devam Et",
+        eulaTitle: "Son Kullanıcı Lisans Anlaşması (EULA)"
+    },
+    th: {
+        title: "เข้าสู่ระบบ Marko",
+        checkboxText: "ฉันเห็นด้วย",
+        buttonText: "ยอมรับและดำเนินการต่อ",
+        eulaTitle: "ข้อตกลงใบอนุญาตผู้ใช้สุดท้าย (EULA)"
+    },
+    id: {
+        title: "Login Marko",
+        checkboxText: "Saya setuju",
+        buttonText: "Terima dan Lanjutkan",
+        eulaTitle: "Perjanjian Lisensi Pengguna Akhir (EULA)"
+    },
+    ko: {
+        title: "Marko 로그인",
+        checkboxText: "에 동의합니다",
+        buttonText: "수락하고 진행하기",
+        eulaTitle: "최종 사용자 라이센스 계약 (EULA)"
+    },
+    it: {
+        title: "Accesso Marko",
+        checkboxText: "Sono d'accordo",
+        buttonText: "Accetta e Procedi",
+        eulaTitle: "Accordo di Licenza per l'Utente Finale (EULA)"
+    },
+    pl: {
+        title: "Logowanie Marko",
+        checkboxText: "Zgadzam się",
+        buttonText: "Akceptuj i Kontynuuj",
+        eulaTitle: "Umowa Licencyjna Użytkownika Końcowego (EULA)"
+    },
+    nl: {
+        title: "Marko Inloggen",
+        checkboxText: "Ik ga akkoord",
+        buttonText: "Accepteren en Doorgaan",
+        eulaTitle: "Eindgebruikerslicentieovereenkomst (EULA)"
+    },
+    el: {
+        title: "Σύνδεση Marko",
+        checkboxText: "Συμφωνώ",
+        buttonText: "Αποδοχή και Συνέχεια",
+        eulaTitle: "Συμφωνητικό Άδειας Χρήσης Τελικού Χρήστη (EULA)"
+    }
+};
+    return translations[language] || translations.en;
+}
+
+// Function to initialize EULA handling
+function handleEULA() {
+    const language = getBrowserLanguage(); 
+    const translations = getTranslations(language);
+
+    // Update UI elements with the translations
+    const loginTitle = document.getElementById('loginTitle');
+    const eulaCheckboxText = document.getElementById('eulaCheckboxText');
+    const eulaAcceptButton = document.getElementById('eulaAcceptButton');
+    const eulaAcceptButtonText = document.getElementById('eulaAcceptButtonText'); 
+    const eulaContainer = document.getElementById('eulaContainer');
+    const eulaTitle = document.getElementById('eulaTitle');
+    const loginContainer = document.getElementById('loginContainer');
+
+    if (loginTitle) loginTitle.textContent = translations.title;
+    if (eulaCheckboxText) eulaCheckboxText.textContent = translations.checkboxText;
+    if (eulaAcceptButton) eulaAcceptButtonText.textContent = translations.buttonText;
+    if (eulaTitle) eulaTitle.textContent = translations.eulaTitle || 'End-User License Agreement (EULA)'; 
+    
+    // Show EULA container if it hasn't been accepted
+    if (!localStorage.getItem('eulaAccepted')) {
+        if (eulaContainer) {
+            eulaContainer.style.display = 'block';
+            loadEULAText(language);
+
+            const eulaAgree = document.getElementById('eulaAgree');
+            if (eulaAgree) {
+                eulaAgree.addEventListener('change', (event) => {
+                    if (eulaAcceptButton) {
+                        eulaAcceptButton.disabled = !event.target.checked;
+                    }
+                });
+            }
+
+            if (eulaAcceptButton) {
+                eulaAcceptButton.addEventListener('click', () => {
+                    localStorage.setItem('eulaAccepted', 'true');
+                    if (eulaContainer) {
+                        eulaContainer.style.display = 'none';
+                        const loginTitle = document.getElementById('loginTitle');
+                        if (loginTitle) {
+                            loginTitle.classList.add('blinking');
+
+                            // Remove blinking effect after a short delay
+                            setTimeout(() => {
+                                if (loginTitle) {
+                                    loginTitle.classList.remove('blinking');
+                                }
+                            }, 10000); // Duration of the blinking effect
+                        }                        
+                    }
+                    initializeGoogleSignIn(); 
+                });
+            }
+        }
+    } else {
+        initializeGoogleSignIn(); 
+    }
+}
+
+        async function handleCredentialResponse(response) {
+            if (response.credential) {
+                document.getElementById('signInButtonContainer').style.display = 'none';
+                try {
+                    const { accessToken, userInfo } = await getAccessToken(response.credential);
+                    localStorage.setItem('accessToken', accessToken);
+                    localStorage.setItem('userInfo', JSON.stringify(userInfo));
+                    console.log('Access Token:', accessToken);
+                    console.log('User Info:', userInfo);
+                    window.location.href = getRedirectUrl();  
+                } catch (error) {
+                    console.error('Error obtaining access token or user info:', error);
+                }
+            }
+        }
+
+        function initializeGSI() {
+            // Check if user is already logged in by looking for an access token in localStorage
+            const accessToken = localStorage.getItem('accessToken');
+            const userInfo = localStorage.getItem('userInfo');
+
+            if (accessToken && userInfo) {
+                console.log('User is already logged in:', JSON.parse(userInfo));
+                window.location.href = getRedirectUrl();  // Redirect to app if user is already logged in
+                return;
+            }
+
+            // Check if EULA has been accepted
+            const eulaAccepted = localStorage.getItem('eulaAccepted');
+            if (eulaAccepted === 'true') {
+                // Initialize Google Sign-In if EULA was previously accepted
+                initializeGoogleSignIn();
+            } else {
+                // Show EULA
+                document.getElementById('eulaContainer').style.display = 'block';
+                document.getElementById('eulaAcceptButton').addEventListener('click', () => {
+                    const eulaCheckbox = document.getElementById('eulaAgree');
+                    if (eulaCheckbox.checked) {
+                        localStorage.setItem('eulaAccepted', 'true');
+                        document.getElementById('eulaContainer').style.display = 'none'; // Hide EULA after acceptance
+                        initializeGoogleSignIn();
+                    } else {
+                        alert('You must agree to the terms of the EULA to proceed.');
+                    }
+                });
+
+                document.getElementById('eulaAgree').addEventListener('change', (e) => {
+                    document.getElementById('eulaAcceptButton').disabled = !e.target.checked;
+                });
+            }
+        }
+
+        function initializeGoogleSignIn() {
+            // Initialize Google Sign-In
+            google.accounts.id.initialize({
+                client_id: CLIENT_ID,
+                callback: handleCredentialResponse,
+                auto_select: true,  // Automatically selects the account if the user has signed in before
+                cancel_on_tap_outside: false
+            });
+
+            google.accounts.id.prompt((notification) => {
+                if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                    console.log('One Tap prompt was not displayed');
+                    showManualSignInButton();
+                }
+            });
+        }
+
+        function showManualSignInButton() {
+            const signInButtonContainer = document.getElementById('signInButtonContainer');
+            const signInButton = document.getElementById('signInButton');
+            
+            signInButtonContainer.style.display = 'flex';
+            
+            google.accounts.id.renderButton(signInButton, { 
+                theme: 'filled_blue', 
+                size: 'large',         
+                width: '100%',       
+                shape: 'pill'        
+            });
+            setTimeout(centerSignInButton, 100);
+        }
+
+        function centerSignInButton() {
+            const signInButton = document.getElementById('signInButton');
+            // Find the div with the iframe (Google Sign-In button) to center it
+            const buttonDiv = signInButton.querySelector('div');
+            
+            if (buttonDiv) {
+                buttonDiv.style.display = 'flex';
+                buttonDiv.style.justifyContent = 'center';
+                buttonDiv.style.alignItems = 'center';
+                buttonDiv.style.height = '50px'; 
+                buttonDiv.style.width = '100%'; 
+            }
+        }
+        
+        function getAccessToken(credential) {
+            return new Promise((resolve, reject) => {
+                const tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID,
+                    scope: SCOPES,
+                    callback: (tokenResponse) => {
+                        if (tokenResponse && tokenResponse.access_token) {
+                            console.log('Access Token obtained successfully');
+                            getUserInfo(tokenResponse.access_token)
+                                .then(userInfo => {
+                                    resolve({ accessToken: tokenResponse.access_token, userInfo });
+                                })
+                                .catch(error => {
+                                    reject(error);
+                                });
+                        } else {
+                            console.error('Failed to get access token:', tokenResponse);
+                            reject(new Error('Failed to get access token'));
+                        }
+                    },
+                    error_callback: (error) => {
+                        console.error('Token client error:', error);
+                        reject(error);
+                    }
+                });
+
+                try {
+                    tokenClient.requestAccessToken({ prompt: '' });
+                } catch (error) {
+                    console.error('Error requesting access token:', error);
+                    reject(error);
+                }
+            });
+        }
+
+        function getUserInfo(accessToken) {
+            return new Promise((resolve, reject) => {
+                fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`
+                    }
+                })
+                .then(response => response.json())
+                .then(data => resolve(data))
+                .catch(error => reject(error));
+            });
+        }
+
+// Function to handle image click and open a link
+function navImageClick() {
+    window.open('https://teloslinux.org/marko/newfile', '_blank'); 
+}
+        
+// on load it starts by checking EULA acceptance        
+window.onload = handleEULA;
+        
+</script>
+</body>
+</html>

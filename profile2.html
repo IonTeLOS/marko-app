@@ -1,0 +1,1810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Marko Profile</title>
+      <link rel="icon" type="image/svg+xml" href="https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg">
+
+    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+        <meta name="theme-color" content="#0d47a1">
+<script src="https://aquamarine-opaline-72.tiiny.site/marko-dynamic-link.js" defer></script>
+<script src="https://documentcloud.adobe.com/view-sdk/main.js"></script>
+
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest/dist/editor.css">
+        <script src="https://cdn.jsdelivr.net/npm/editorjs-html@latest/build/edjsHTML.js"></script>
+
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            background-color: #f4f4f4;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+            top: 0px !important; 
+        }
+        .container,
+        .editor-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .editor-container {
+            padding: 5px
+            margin-bottom: 30px;
+        }
+        .notranslate {
+            /* This class will hint Google Translate to not translate the content */
+            text-transform: none; /* prevent any text transformation */
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+            color: #2196F3;
+        }
+        .input-field {
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .profile-pdf {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+        }
+               /* General styles for the container */
+        #buttonMarkoContainer {
+            width: 64px; /* Fixed size of the container */
+            height: 64px;
+            position: fixed; /* Fixed positioning for visibility */
+            bottom: 20px; /* Adjust position as needed */
+            right: 20px;  /* Adjust position as needed */
+            z-index: 9999; /* Ensure it stays on top of other content */
+        }
+        input[type="text"], input[type="email"], input[type="date"], input[type="tel"], input[type="month"], input[type="number"], textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        textarea {
+            height: 100px;
+        }
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #1976D2;
+        }
+        .link-pair,
+        .link-input-field {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .link-pair input,
+        link-input-field input {
+            flex: 1;
+        }
+        #profilePicture {
+            display: none;
+        }
+        .profile-pic-label {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        #emoji-picker {
+            font-size: 24px;
+    display: block;
+    margin: 0 auto; /* Centers the emoji picker */
+}
+
+#my-emoji {
+    text-align: center; /* Center the "Selected Emoji" text */
+    margin-top: 20px; /* Space between picker and selected emoji */
+}
+        }
+        .hide-my-email {
+            display: none;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .hide-my-email label {
+            margin-left: 10px;
+            color: #666;
+        }
+        #profilePreview {
+            cursor: pointer; /* Change cursor to pointer when hovering over the image */
+            max-width: 256px;
+            max-height: 256px;
+            margin-top: 10px;
+        }
+        #successButton {
+            display: none;
+            background-color: #4CAF50;
+        }
+        .detected-info {
+            font-weight: bold;
+            color: #333;
+        }
+        #autocomplete-results {
+            position: absolute;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            background-color: #fff;
+            z-index: 1000;
+        }
+        .result-item {
+            padding: 10px;
+            cursor: pointer;
+        }
+        .result-item:hover {
+            background-color: #f0f0f0;
+        }
+            .result {
+            padding: 10px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            margin-bottom: 5px;
+        }
+        .url-button {
+            display: flex;
+            align-items: center;
+            background-color: #2196F3; /* Blue color */
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .url-button i {
+            margin-right: 8px;
+        }
+        .url-button:hover {
+            background-color: #1976D2; /* Darker blue */
+        }
+        .editor-input-field {
+            margin-bottom: 20px;
+        }
+        .editor-input-field label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+            /* Editor.js Container */
+    #editorjs {
+                border: 2px solid #ccc;
+            border-radius: 4px;
+      margin: 0 auto; /* Center the editor */
+      max-width: 100%; /* Ensure the editor width fits within the viewport */
+      box-sizing: border-box;
+    }
+        /* Material Design input styles */
+    .material-input {
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .material-input input {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 10px;
+      font-size: 16px;
+      width: 100%;
+      box-sizing: border-box;
+      outline: none;
+    }
+
+    .material-input input:focus {
+      border-color: #3f51b5;
+    }
+
+    /* iFrame container styling */
+    .iframe-container {
+      width: 100%;
+      overflow: hidden; /* Prevent horizontal scrolling */
+      background-color: #f0f0f0; /* Light grey background for better visibility */
+    }
+
+    iframe {
+      top: 0;
+      left: 0;
+      width: 100%;
+      border: none;
+    }
+
+    /* Hide horizontal scrollbar */
+    body {
+      overflow-x: hidden;
+    
+
+    /* Mobile-friendly adjustments */
+    @media (max-width: 600px) {
+      .material-input input {
+        font-size: 14px;
+      }
+    }
+        /* Ensure checkboxes and labels are on the same line */
+    .input-field div {
+        display: flex;
+        align-items: center;
+        gap: 10px; /* Adds space between checkboxes and labels */
+}
+     .duo-input-field {
+        display: flex;
+        align-items: center; /* Vertically align items */
+        gap: 10px; /* Optional: Adds space between elements */
+}
+
+.detected-info {
+    margin-right: auto; /* Pushes the next elements (checkbox and label) to the right */
+}
+#selected-emoji {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    font-size: 32px; /* Ensures the emoji is displayed at 32px */
+    line-height: 32px;
+    vertical-align: middle; /* Align the emoji with the text */
+}
+
+#pdf-file-name {
+    margin-top: 10px;
+    font-weight: bold;
+}
+.button-container {
+            position: relative;
+        }
+
+        #play-button {
+            background-color: #00796b; /* Teal color */
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            cursor: pointer;
+            outline: none;
+            transition: background-color 0.3s;
+        }
+
+        #play-button:hover {
+            background-color: #004d40; /* Darker teal */
+        }
+
+        #youtube-player {
+            display: none; /* Hide the iframe */
+        }
+        /* Custom style for the Google Translate widget */
+
+.skiptranslate * {
+  max-width: 100% !important;
+  height: auto !important;
+  top: 0 !important;  
+}
+
+#google_translate_element {
+    display: block; /* Makes the widget a block element */
+    font-size: 18px; /* Increases the font size */
+    color: #333;
+    transform: scale(1.1); /* Scales up the widget */
+    margin: auto; /* Centers the widget and adds margin around it */
+    justify-content: center;
+    text-align: center; /* Ensures the content inside is centered */
+    max-width: 400px; /* imits the width of the widget */
+}
+    </style>
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'en', 
+                includedLanguages: 'af,sq,ar,hy,eu,be,bg,ca,hr,cs,da,nl,en,eo,et,tl,fi,fr,fy,gd,gl,ka,el,gn,gu,ht,ha,he,hi,hu,is,ig,id,ia,ie,im,it,ja,jv,kn,kr,la,lv,lt,lb,mk,ml,mn,mi,mr,my,ne,no,or,pa,pl,ps,pt,qu,ro,ru,sm,sg,sa,si,sk,sl,sm,sn,sq,sr,st,su,sv,sw,ta,te,tg,th,tk,tl,tr,uk,ur,uz,vi,cy,xh,yi,zu', // Include a large list of languages
+                layout: google.translate.TranslateElement.InlineLayout.HORIZONTAL
+            }, 'google_translate_element');
+        }
+
+    </script>
+    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+</head>
+<body>
+
+        <h1>My Marko Profile</h1>
+        <div class="button-container">
+        <button id="play-button" title="Play">
+            <i class="material-icons notranslate">play_arrow</i>
+        </button>
+        <iframe id="youtube-player" src="" frameborder="0" allow="autoplay; encrypted-media"></iframe>
+    </div>
+        <form id="profileForm">
+            <div class="input-field">
+                <label for="profilePicture" class="profile-pic-label">
+                    <i class="material-icons notranslate">add_a_photo</i>Upload Profile Photo
+                </label>
+                <input type="file" id="profilePicture" accept="image/*">
+                <img id="profilePreview" style="display: none;">
+            </div>
+            <div id="savePhoto" class="button-container notranslate" style="display: none; margin-top: 10px; margin-bottom: 10px;">
+        <button onclick="saveProfilePhoto()">
+            <span class="material-icons notranslate">save</span>
+            Use this Pic
+        </button>
+        </div>
+            <div id="createAvatar" class="button-container" style="margin-top: 10px; margin-bottom: 10px;">
+        <button>
+            <span class="material-icons notranslate">account_circle</span>
+            Random Avatar
+        </button>
+        </div>
+            <div class="input-field">
+                <label for="name">Name (required)</label>
+                <input type="text" id="name" required>
+            </div>
+            <div class="input-field">
+                <label for="email">Email</label>
+                <input type="email" id="email" placeholder="email">
+            </div>
+                <div class="hide-my-email">
+                    <input type="checkbox" id="hideEmail">
+                    <label for="hideEmail">Hide my email</label>
+                </div>
+            <div class="input-field">
+            <label for="introInput">Introduce yourself:</label><br>
+            <textarea id="introInput" maxlength="280" rows="4" cols="50" placeholder="Describe yourself in a few words—what makes you, you? How do you plan to use Marko?"></textarea><br>
+            <span id="charCount">280 characters remaining</span>
+            </div>
+            <div class="input-field">
+                <label for="profilePDF" class="profile-pdf">
+                    <i class="material-icons">picture_as_pdf</i>Upload PDF (CV or whatever)
+                </label>
+                    <input type="file" id="pdf-file-input" accept=".pdf">
+                    <div id="pdf-file-name"></div>           
+            </div>
+            <div class="input-field">
+                <label for="phone">Phone Number</label>
+                <div style="display: flex; gap: 10px;">
+                    <select id="countryCode" style="width: 30%;">
+                        <option value="" selected disabled>Country code</option>
+                        <!-- Country code options will be populated by JavaScript -->
+                    </select>
+                    <input type="tel" id="phone" style="width: 70%;" disabled maxlength="17" oninput="validatePhoneNumber(this)">
+                </div>
+            </div>
+            <div id="messagingOptions" style="display: none;">
+                <button type="button" id="addWhatsapp">Add WhatsApp</button>
+                <button type="button" id="addViber">Add Viber</button>
+                <button type="button" id="addTelegram">Add Telegram</button>
+            </div>
+<div class="input-field">
+    <label for="dob">Date of Birth</label>
+    <input type="date" id="dob" max="">
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" id="showAge">
+        <label for="showAge">Show only my age</label>
+        <input type="checkbox" id="showBirthday">
+        <label for="showBirthday">Show only my birthday</label>
+    </div>
+</div>
+            <div class="duo-input-field">
+                <label for="timezone">Timezone</label>
+                <span id="detectedTimezone" class="detected-info"></span>
+                <input type="checkbox" id="hideTimezone">
+                <label for="hideTimezone">Hide timezone</label>
+            </div>
+            <div class="duo-input-field">
+                <label for="language">Main Language</label>
+                <span id="detectedLanguage" class="detected-info"></span>
+                <input type="checkbox" id="hideLanguage">
+                <label for="hideLanguage">Hide language</label>
+            </div>
+            <div class="input-field">
+                <label for="language2">Spoken second language</label>
+                <select id="language2">
+                    <option value="">Select a language</option>
+<option value="">Select a language</option>
+<option value="en">English</option>
+<option value="zh">Chinese</option>
+<option value="es">Spanish</option>
+<option value="fr">French</option>
+<option value="ar">Arabic</option>
+<option value="ru">Russian</option>
+<option value="de">German</option>
+<option value="pt">Portuguese</option>
+<option value="ja">Japanese</option>
+<option value="ko">Korean</option>
+<option value="hi">Hindi</option>
+<option value="it">Italian</option>
+<option value="tr">Turkish</option>
+<option value="nl">Dutch</option>
+<option value="pl">Polish</option>
+<option value="th">Thai</option>
+<option value="vi">Vietnamese</option>
+<option value="id">Indonesian</option>
+<option value="sv">Swedish</option>
+<option value="fa">Persian (Farsi)</option>
+<option value="he">Hebrew</option>
+<option value="hy">Armenian</option>
+<option value="el">Greek</option>
+                </select>
+            </div>
+    <div class="editor-container">
+        <div class="editor-input-field">
+            <label for="editorjs"></label>
+            <div id="editorjs"></div>
+        </div>
+    </div>      
+<div class="input-field">
+    <label for="emoji" style="text-align: center;">Mood of the day</label>
+    <div style="text-align: center;"> <!-- Center the picker -->
+        <emoji-picker class="notranslate" id="emoji-picker"></emoji-picker>
+    </div>
+    <div id="my-emoji" style="margin-top: 20px;"> <!-- Adds space between picker and selected emoji -->
+        Selected Emoji: <span id="selected-emoji"></span>
+    </div>
+</div>
+            <div class="input-field">
+                <label for="color">Select Color (for page theme)</label>
+                <input type="color" id="color">
+            </div>
+
+            <div id="links">
+                <div class="link-pair">
+                    <input type="text" placeholder="Link Name">
+                    <input type="url" placeholder="https://" pattern="https://.*">
+                </div>
+            </div>
+            <button type="button" id="addMoreLinks">Add More Links</button>
+            <div class="link-input-field">
+                <label for="listeningTo">Listening Now To (YouTube Link)</label>
+                <input type="url" id="listeningTo" placeholder="https://youtube.com/...">
+            </div>
+            <div class="link-input-field">
+                <label for="donation">Payment or Donation link</label>
+                <input type="url" id="donation" placeholder="https://...">
+            </div>
+    <div style="position: relative;">
+        <input type="text" id="search-maps-input" placeholder="search for location" autocomplete="off">
+        <div id="autocomplete-results"></div>
+    </div>
+    
+    <div id="url-display"></div>
+    
+            <div class="input-field">
+                <label for="directComm">Accept Direct Communication</label>
+                <select id="directComm">
+                    <option value="no" selected>No</option>
+                    <option value="yes">Yes</option>
+                </select>
+            </div>
+            <div id="jitsiLink" style="display: none;">
+                <p>Your Jitsi Meet link: <span id="jitsiLinkText"></span></p>
+                <button type="button" id="openJitsiLink">Open Jitsi Meet</button>
+            </div>
+            <div class="input-field">
+                <label for="purpose">Purpose</label>
+                <select id="purpose">
+                    <option value="professional">Professional</option>
+                    <option value="personal">Personal</option>
+                </select>
+            </div>
+            <button type="button" id="successButton">Success</button>
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+
+<div id="adobe-dc-view" style="height: 500px;"></div>
+
+<script src="https://aquamarine-opaline-72.tiiny.site/marko-dynamic-link.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js" type="module"></script>
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest/dist/editor.js"></script>
+    <script>
+        // Replace with your actual client ID and API key
+        const CLIENT_ID = '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com';
+        const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'];
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid';
+
+        // URL of your login page
+        const LOGIN_PAGE_URL = 'https://teloslinux.org/marko/login.html?redirect=profile2';
+
+        // Function to check if the user is logged in
+        async function checkLoginStatus() {
+            const accessToken = localStorage.getItem('accessToken');
+
+            if (!accessToken) {
+                // No access token found, redirect to login
+                window.location.href = LOGIN_PAGE_URL;
+                return;
+            }
+
+            try {
+                // Validate the access token by calling a Google API endpoint
+                const response = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + accessToken);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Access Token is valid:', data);
+                    getUserInfo(accessToken);
+                    // Proceed to load the main page content
+                } else {
+                    console.warn('Invalid Access Token:', response.status);
+                    // Token is invalid, redirect to login
+                    window.location.href = LOGIN_PAGE_URL;
+                }
+            } catch (error) {
+                console.error('Error validating Access Token:', error);
+                // Redirect to login on any error
+                window.location.href = LOGIN_PAGE_URL;
+            }
+        }
+
+                // Check login status when the page loads
+        window.onload = checkLoginStatus;
+async function getUserInfo(accessToken) {
+    try {
+        const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch user info');
+        }
+
+        const userInfo = await response.json();
+
+        // Set the user information
+        document.getElementById('email').value = userInfo.email;
+        document.getElementById('name').value = userInfo.name;
+        // Set the profile picture
+        const profilePreview = document.getElementById('profilePreview');
+        profilePreview.src = userInfo.picture;
+        profilePreview.style.display = 'block';
+        document.getElementById('savePhoto').style.display = 'block';
+        document.querySelector('.hide-my-email').style.display = 'block';
+        localStorage.setItem('google-profile-photo', userInfo.picture);
+        localStorage.removeItem('avatar');
+        return {
+            email: userInfo.email,
+            name: userInfo.name,
+            picture: userInfo.picture
+        };
+    } catch (error) {
+        console.error('Error fetching user info:', error);
+        throw error;
+    }
+} 
+
+        async function uploadFile(file, useAs, accessToken = localStorage.getItem('accessToken')) {
+            try {
+                // Check if file already exists
+                const existingFileId = await getFileIdByName(useAs, accessToken);
+        
+                // If it exists, delete it
+                if (existingFileId) {
+                    await deleteFile(existingFileId, accessToken);
+                }
+                
+                // Prepare file metadata
+                const metadata = {
+                    name: useAs,
+                    mimeType: file.type
+                };
+
+                const formData = new FormData();
+                formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                formData.append('file', file);
+
+                // Upload file
+                const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: formData
+                });
+
+                if (!uploadResponse.ok) {
+                    const errorText = await uploadResponse.text();
+                    console.error('Error uploading file:', errorText);
+                    throw new Error(`Error uploading file: ${errorText}`);
+                }
+
+                const uploadResult = await uploadResponse.json();
+                console.log('File uploaded:', uploadResult);
+
+                // Set file permissions to public
+                await fetch(`https://www.googleapis.com/drive/v3/files/${uploadResult.id}/permissions`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        type: 'anyone',
+                        role: 'reader'
+                    })
+                });
+                
+        // Construct the file URL
+        const fileUrl = `https://drive.google.com/thumbnail?id=${uploadResult.id}`;
+        console.log('src is: ' + fileUrl);        
+        // Save the URL to localStorage
+        localStorage.setItem(useAs, fileUrl);
+                return uploadResult.id;
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                if (useAs === 'profile-picture-source') {
+                // default pic if uploading fails    
+                localStorage.setItem('profile-picture-source', 'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/person/default/48px.svg');
+                }
+                throw error;
+            }
+        }
+
+async function getFileIdByName(fileName, accessToken) {
+    const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}'`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`
+        }
+    });
+
+    if (!searchResponse.ok) {
+        const errorText = await searchResponse.text();
+        console.error('Error searching for file:', errorText);
+        throw new Error(`Error searching for file: ${errorText}`);
+    }
+
+    const searchResult = await searchResponse.json();
+    return searchResult.files.length > 0 ? searchResult.files[0].id : null;
+}
+
+async function deleteFile(fileId, accessToken) {
+    const deleteResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+        method: 'DELETE',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`
+        }
+    });
+
+    if (!deleteResponse.ok) {
+        const errorText = await deleteResponse.text();
+        console.error('Error deleting file:', errorText);
+        throw new Error(`Error deleting file: ${errorText}`);
+    }
+}
+        
+async function saveProfilePhoto() {
+    const file = photoInput.files[0];
+    loadAndDisplayPDF("1xlgORwpanlbTpu5NW_4V-UvF9VkfbYL7");
+            if (file) {
+                const uploadedPhotoId = await uploadFile(file, 'profile-picture-source');
+                alert('Photo saved to Google Drive');
+                document.getElementById('savePhoto').style.display = 'none';
+                return;
+            }
+        try {
+        // Retrieve URLs from localStorage
+        const profileAvatarUrl = localStorage.getItem('avatar');
+        const profilePhotoUrl = localStorage.getItem('google-profile-photo');
+
+        if (!profileAvatarUrl && !profilePhotoUrl) {
+            throw new Error('No profile URL found in localStorage');
+            localStorage.setItem('profile-picture-source', 'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/person/default/48px.svg');
+        }
+
+        let photoBlob = null;
+
+        // Fetch profile avatar if available
+        if (profileAvatarUrl) {
+            const avatarResponse = await fetch('https://corsproxy.io/?' + profileAvatarUrl);
+            if (avatarResponse.ok) {
+                photoBlob = await avatarResponse.blob(); // Use profile avatar blob
+            } else {
+                localStorage.setItem('profile-picture-source', profileAvatarUrl);
+            }
+        }
+
+        // If avatar is not available or fetch failed, fall back to profile photo
+        if (!photoBlob && profilePhotoUrl) {
+            const photoResponse = await fetch(profilePhotoUrl);
+            if (!photoResponse.ok) {
+                throw new Error('Failed to fetch profile photo');
+                localStorage.setItem('profile-picture-source', 'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/person/default/48px.svg');
+            }
+            photoBlob = await photoResponse.blob(); // Use profile photo blob
+        }
+
+        // If no blob was fetched, handle the error
+        if (!photoBlob) {
+            throw new Error('No photo blob fetched');
+            localStorage.setItem('profile-picture-source', 'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/person/default/48px.svg');
+        }
+
+        // Retrieve access token
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) {
+            throw new Error('Access token not found in localStorage');
+            alert('login to upload to Google drive');
+        }
+
+        // Upload the photo blob
+        await uploadFile(photoBlob, 'profile-picture-source', accessToken);
+        alert('Photo saved to Google Drive');
+ 
+        document.getElementById('savePhoto').style.display = 'none';
+
+        return photoBlob;
+    } catch (error) {
+        console.error('Error:', error);
+        localStorage.setItem('profile-picture-source', 'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/person/default/48px.svg');    
+    }
+}
+        
+async function fetchMapsResults(query) {
+    const apiKey = 'AIzaSyD96IBVqGKVEdmXIVCYL_7kvlBhJNSD1Ww'; // Replace with your actual API key
+    const url = 'https://places.googleapis.com/v1/places:searchText';
+    const requestBody = {
+        textQuery: query,
+        languageCode: "en"
+    };
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': apiKey,
+            'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.id'
+        },
+        body: JSON.stringify(requestBody)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Places API error: ${response.status} ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.places) {
+            showResults(data.places.map(place => ({
+                title: `${place.displayName.text} - ${place.formattedAddress}`,
+                link: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.displayName.text)}&query_place_id=${place.id}`,
+                source: 'maps'
+            })));
+        }
+    })
+    .catch(error => console.error('Error fetching Maps data:', error));
+}
+
+document.getElementById('search-maps-input').addEventListener('input', () => {
+            const query = document.getElementById('search-maps-input').value.trim();
+            if (query) {
+                fetchMapsResults(query);
+            } else {
+                clearResults();
+            }
+        });
+
+function fetchMapsResults(query) {
+    const apiKey = 'AIzaSyBc75KlBm10rP8vB0u3yDsM4vdMqSNfdzo'; // Replace with your actual API key
+    const url = 'https://places.googleapis.com/v1/places:searchText';
+    const requestBody = {
+        textQuery: query,
+        languageCode: "en"
+    };
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': apiKey,
+            'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.id'
+        },
+        body: JSON.stringify(requestBody)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Places API error: ${response.status} ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.places) {
+            showResults(data.places.map(place => ({
+                title: `${place.displayName.text} - ${place.formattedAddress}`,
+                link: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.displayName.text)}&query_place_id=${place.id}`,
+                source: 'maps'
+            })));
+        }
+    })
+    .catch(error => console.error('Error fetching Maps data:', error));
+}
+
+
+        function showResults(results) {
+            const resultsContainer = document.getElementById('autocomplete-results');
+            resultsContainer.innerHTML = ''; // Clear previous results
+
+            results.forEach(result => {
+                const resultElement = document.createElement('div');
+                resultElement.classList.add('result-item');
+                resultElement.textContent = result.title;
+                resultElement.dataset.link = result.link;
+                
+                resultElement.addEventListener('click', () => {
+                    const urlDisplay = document.getElementById('url-display');
+                    urlDisplay.innerHTML = `<a class="url-button" href="${resultElement.dataset.link}" target="_blank">
+                        <i class="material-icons">map</i>Chosen Location
+                    </a>`;
+                    // Optionally clear results on selection
+                    clearResults();
+                });
+
+                resultsContainer.appendChild(resultElement);
+            });
+        }
+
+        function clearResults() {
+            const resultsContainer = document.getElementById('autocomplete-results');
+            resultsContainer.innerHTML = '';
+        }
+
+
+
+        //window.onload = initializeGSI;
+        
+function validatePhoneNumber(input) {
+    // Remove any characters that are not digits or spaces
+    input.value = input.value.replace(/[^0-9 ]/g, '');
+    
+    // Remove extra spaces and limit the length to 17 characters
+    const maxDigits = 17;
+    const cleanedValue = input.value.replace(/\s+/g, '');
+    
+    if (cleanedValue.length > maxDigits) {
+        input.value = cleanedValue.slice(0, maxDigits);
+        alert('this does not look like a phone number to me..');
+    }
+}
+        
+document.addEventListener('DOMContentLoaded', function() {
+  const introInput = document.getElementById('introInput');
+  const charCount = document.getElementById('charCount');
+
+  introInput.addEventListener('input', () => {
+    const remaining = 280 - introInput.value.length;
+    charCount.textContent = `${remaining} characters remaining`;
+  });
+    const dobInput = document.getElementById('dob');
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Set the max attribute to today's date to prevent selecting future dates
+    dobInput.setAttribute('max', today);
+
+    // Event listeners for the checkboxes
+    const checkboxes = document.querySelectorAll('#showAge, #showBirthday');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            if (this.checked && !dobInput.value) {
+                alert('Pick a date');
+                dobInput.focus();  // Open the datepicker
+            }
+        });
+    });
+});
+
+function disableInput(field) {
+    const inputElement = document.getElementById(field);
+    inputElement.disabled = true;
+}        
+
+        
+        // Populate country codes
+       const countryCodes = [
+    { name: "Afghanistan (افغانستان)", code: "+93" },
+    { name: "Albania (Shqipëri)", code: "+355" },
+    { name: "Algeria (الجزائر)", code: "+213" },
+    { name: "Andorra", code: "+376" },
+    { name: "Angola", code: "+244" },
+    { name: "Argentina", code: "+54" },
+    { name: "Armenia (Հայաստան)", code: "+374" },
+    { name: "Australia", code: "+61" },
+    { name: "Austria (Österreich)", code: "+43" },
+    { name: "Azerbaijan (Azərbaycan)", code: "+994" },
+    { name: "Bahamas", code: "+1-242" },
+    { name: "Bahrain (البحرين)", code: "+973" },
+    { name: "Bangladesh (বাংলাদেশ)", code: "+880" },
+    { name: "Barbados", code: "+1-246" },
+    { name: "Belarus (Беларусь)", code: "+375" },
+    { name: "Belgium (België)", code: "+32" },
+    { name: "Belize", code: "+501" },
+    { name: "Benin (Bénin)", code: "+229" },
+    { name: "Bhutan (འབྲུག་ཡུལ)", code: "+975" },
+    { name: "Bolivia", code: "+591" },
+    { name: "Bosnia and Herzegovina (Bosna i Hercegovina)", code: "+387" },
+    { name: "Botswana", code: "+267" },
+    { name: "Brazil (Brasil)", code: "+55" },
+    { name: "Brunei (بروني)", code: "+673" },
+    { name: "Bulgaria (България)", code: "+359" },
+    { name: "Burkina Faso", code: "+226" },
+    { name: "Burundi (Uburundi)", code: "+257" },
+    { name: "Cabo Verde", code: "+238" },
+    { name: "Cambodia (កម្ពុជា)", code: "+855" },
+    { name: "Cameroon (Cameroun)", code: "+237" },
+    { name: "Canada", code: "+1" },
+    { name: "Central African Republic (République centrafricaine)", code: "+236" },
+    { name: "Chad (Tchad)", code: "+235" },
+    { name: "Chile", code: "+56" },
+    { name: "China (中国)", code: "+86" },
+    { name: "Colombia", code: "+57" },
+    { name: "Comoros (Komori)", code: "+269" },
+    { name: "Congo (Congo-Brazzaville)", code: "+242" },
+    { name: "Congo (DRC) (Congo-Kinshasa)", code: "+243" },
+    { name: "Costa Rica", code: "+506" },
+    { name: "Croatia (Hrvatska)", code: "+385" },
+    { name: "Cuba", code: "+53" },
+    { name: "Cyprus (Κύπρος)", code: "+357" },
+    { name: "Czechia (Česko)", code: "+420" },
+    { name: "Denmark (Danmark)", code: "+45" },
+    { name: "Djibouti", code: "+253" },
+    { name: "Dominica", code: "+1-767" },
+    { name: "Dominican Republic (República Dominicana)", code: "+1-809" },
+    { name: "Ecuador", code: "+593" },
+    { name: "Egypt (مصر)", code: "+20" },
+    { name: "El Salvador", code: "+503" },
+    { name: "Equatorial Guinea (Guinea Ecuatorial)", code: "+240" },
+    { name: "Eritrea", code: "+291" },
+    { name: "Estonia (Eesti)", code: "+372" },
+    { name: "Eswatini", code: "+268" },
+    { name: "Ethiopia (ኢትዮጵያ)", code: "+251" },
+    { name: "Fiji", code: "+679" },
+    { name: "Finland (Suomi)", code: "+358" },
+    { name: "France", code: "+33" },
+    { name: "Gabon", code: "+241" },
+    { name: "Gambia", code: "+220" },
+    { name: "Georgia (საქართველო)", code: "+995" },
+    { name: "Germany (Deutschland)", code: "+49" },
+    { name: "Ghana", code: "+233" },
+    { name: "Greece (Ελλάδα)", code: "+30" },
+    { name: "Grenada", code: "+1-473" },
+    { name: "Guatemala", code: "+502" },
+    { name: "Guinea (Guinée)", code: "+224" },
+    { name: "Guinea-Bissau (Guiné-Bissau)", code: "+245" },
+    { name: "Guyana", code: "+592" },
+    { name: "Haiti", code: "+509" },
+    { name: "Honduras", code: "+504" },
+    { name: "Hungary (Magyarország)", code: "+36" },
+    { name: "Iceland (Ísland)", code: "+354" },
+    { name: "India (भारत)", code: "+91" },
+    { name: "Indonesia", code: "+62" },
+    { name: "Iran (ایران)", code: "+98" },
+    { name: "Iraq (العراق)", code: "+964" },
+    { name: "Ireland (Éire)", code: "+353" },
+    { name: "Israel (ישראל)", code: "+972" },
+    { name: "Italy (Italia)", code: "+39" },
+    { name: "Ivory Coast (Côte d'Ivoire)", code: "+225" },
+    { name: "Jamaica", code: "+1-876" },
+    { name: "Japan (日本)", code: "+81" },
+    { name: "Jordan (الأردن)", code: "+962" },
+    { name: "Kazakhstan (Қазақстан)", code: "+7" },
+    { name: "Kenya", code: "+254" },
+    { name: "Kiribati", code: "+686" },
+    { name: "Korea (North) (조선)", code: "+850" },
+    { name: "Korea (South) (한국)", code: "+82" },
+    { name: "Kuwait (الكويت)", code: "+965" },
+    { name: "Kyrgyzstan (Кыргызстан)", code: "+996" },
+    { name: "Laos (ລາວ)", code: "+856" },
+    { name: "Latvia (Latvija)", code: "+371" },
+    { name: "Lebanon (لبنان)", code: "+961" },
+    { name: "Lesotho", code: "+266" },
+    { name: "Liberia", code: "+231" },
+    { name: "Libya (ليبيا)", code: "+218" },
+    { name: "Liechtenstein", code: "+423" },
+    { name: "Lithuania (Lietuva)", code: "+370" },
+    { name: "Luxembourg", code: "+352" },
+    { name: "Madagascar (Madagasikara)", code: "+261" },
+    { name: "Malawi", code: "+265" },
+    { name: "Malaysia", code: "+60" },
+    { name: "Maldives", code: "+960" },
+    { name: "Mali", code: "+223" },
+    { name: "Malta", code: "+356" },
+    { name: "Marshall Islands", code: "+692" },
+    { name: "Mauritania (موريتانيا)", code: "+222" },
+    { name: "Mauritius", code: "+230" },
+    { name: "Mexico (México)", code: "+52" },
+    { name: "Micronesia", code: "+691" },
+    { name: "Moldova (Republica Moldova)", code: "+373" },
+    { name: "Monaco", code: "+377" },
+    { name: "Mongolia (Монгол)", code: "+976" },
+    { name: "Montenegro (Црна Гора)", code: "+382" },
+    { name: "Morocco (المغرب)", code: "+212" },
+    { name: "Mozambique (Moçambique)", code: "+258" },
+    { name: "Myanmar (Burma) (မြန်မာ)", code: "+95" },
+    { name: "Namibia", code: "+264" },
+    { name: "Nauru", code: "+674" },
+    { name: "Nepal (नेपाल)", code: "+977" },
+    { name: "Netherlands (Nederland)", code: "+31" },
+    { name: "New Zealand", code: "+64" },
+    { name: "Nicaragua", code: "+505" },
+    { name: "Niger (Nijar)", code: "+227" },
+    { name: "Nigeria", code: "+234" },
+    { name: "North Macedonia (Северна Македонија)", code: "+389" },
+    { name: "Norway (Norge)", code: "+47" },
+    { name: "Oman (عمان)", code: "+968" },
+    { name: "Pakistan (پاکستان)", code: "+92" },
+    { name: "Palau", code: "+680" },
+    { name: "Palestine (فلسطين)", code: "+970" },
+    { name: "Panama (Panamá)", code: "+507" },
+    { name: "Papua New Guinea", code: "+675" },
+    { name: "Paraguay", code: "+595" },
+    { name: "Peru (Perú)", code: "+51" },
+    { name: "Philippines (Pilipinas)", code: "+63" },
+    { name: "Poland (Polska)", code: "+48" },
+    { name: "Portugal", code: "+351" },
+    { name: "Qatar (قطر)", code: "+974" },
+    { name: "Romania (România)", code: "+40" },
+    { name: "Russia (Россия)", code: "+7" },
+    { name: "Rwanda", code: "+250" },
+    { name: "Saint Kitts and Nevis", code: "+1-869" },
+    { name: "Saint Lucia", code: "+1-758" },
+    { name: "Saint Vincent and the Grenadines", code: "+1-784" },
+    { name: "Samoa", code: "+685" },
+    { name: "San Marino", code: "+378" },
+    { name: "Sao Tome and Principe (São Tomé e Príncipe)", code: "+239" },
+    { name: "Saudi Arabia (السعودية)", code: "+966" },
+    { name: "Senegal (Sénégal)", code: "+221" },
+    { name: "Serbia (Србија)", code: "+381" },
+    { name: "Seychelles", code: "+248" },
+    { name: "Sierra Leone", code: "+232" },
+    { name: "Singapore", code: "+65" },
+    { name: "Slovakia (Slovensko)", code: "+421" },
+    { name: "Slovenia (Slovenija)", code: "+386" },
+    { name: "Solomon Islands", code: "+677" },
+    { name: "Somalia (Soomaaliya)", code: "+252" },
+    { name: "South Africa", code: "+27" },
+    { name: "South Sudan", code: "+211" },
+    { name: "Spain (España)", code: "+34" },
+    { name: "Sri Lanka (ශ්‍රී ලංකා)", code: "+94" },
+    { name: "Sudan (السودان)", code: "+249" },
+    { name: "Suriname", code: "+597" },
+    { name: "Sweden (Sverige)", code: "+46" },
+    { name: "Switzerland (Schweiz)", code: "+41" },
+    { name: "Syria (سوريا)", code: "+963" },
+    { name: "Taiwan (台灣)", code: "+886" },
+    { name: "Tajikistan (Тоҷикистон)", code: "+992" },
+    { name: "Tanzania", code: "+255" },
+    { name: "Thailand (ประเทศไทย)", code: "+66" },
+    { name: "Timor-Leste", code: "+670" },
+    { name: "Togo", code: "+228" },
+    { name: "Tonga", code: "+676" },
+    { name: "Trinidad and Tobago", code: "+1-868" },
+    { name: "Tunisia (تونس)", code: "+216" },
+    { name: "Turkey (Türkiye)", code: "+90" },
+    { name: "Turkmenistan (Türkmenistan)", code: "+993" },
+    { name: "Tuvalu", code: "+688" },
+    { name: "Uganda", code: "+256" },
+    { name: "Ukraine (Україна)", code: "+380" },
+    { name: "United Arab Emirates (الإمارات)", code: "+971" },
+    { name: "United Kingdom", code: "+44" },
+    { name: "United States", code: "+1" },
+    { name: "Uruguay", code: "+598" },
+    { name: "Uzbekistan (Oʻzbekiston)", code: "+998" },
+    { name: "Vanuatu", code: "+678" },
+    { name: "Vatican City (Città del Vaticano)", code: "+379" },
+    { name: "Venezuela", code: "+58" },
+    { name: "Vietnam (Việt Nam)", code: "+84" },
+    { name: "Yemen (اليمن)", code: "+967" },
+    { name: "Zambia", code: "+260" },
+    { name: "Zimbabwe", code: "+263" }
+];
+
+
+        const countryCodeSelect = document.getElementById('countryCode');
+        countryCodes.forEach(country => {
+            const option = document.createElement('option');
+            option.value = country.code;
+            option.textContent = `${country.name} (${country.code})`;
+            countryCodeSelect.appendChild(option);
+        });
+
+        // Show detected timezone and language
+        document.getElementById('detectedTimezone').textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        document.getElementById('detectedLanguage').textContent = navigator.language;
+
+        // Handle emoji selection
+        const emojiPicker = document.getElementById('emoji-picker');
+        const selectedEmoji = document.getElementById('selected-emoji');
+
+        emojiPicker.addEventListener('emoji-click', (event) => {
+            selectedEmoji.textContent = event.detail.unicode;
+        });
+
+        // Handle phone number input and messaging options
+        const countryCodeInput = document.getElementById('countryCode');
+        const phoneInput = document.getElementById('phone');
+        const messagingOptions = document.getElementById('messagingOptions');
+
+        countryCodeInput.addEventListener('change', () => {
+            phoneInput.disabled = false;
+        });
+
+        phoneInput.addEventListener('input', () => {
+            messagingOptions.style.display = phoneInput.value.length >= 5 ? 'block' : 'none';
+        });
+
+        // Handle messaging options
+        const addWhatsapp = document.getElementById('addWhatsapp');
+        const addViber = document.getElementById('addViber');
+        const addTelegram = document.getElementById('addTelegram');
+
+        addWhatsapp.addEventListener('click', () => {
+            const number = countryCodeInput.value + phoneInput.value.trim();
+            localStorage.setItem('whatsapp', `https://wa.me/${number}`);
+            disableInput('phone');
+        });
+
+        addViber.addEventListener('click', () => {
+            const number = countryCodeInput.value + phoneInput.value.trim();
+            localStorage.setItem('viber', `viber://chat?number=${number}`);
+            disableInput('phone');
+        });
+
+        addTelegram.addEventListener('click', () => {
+            const number = countryCodeInput.value + phoneInput.value.trim();
+            localStorage.setItem('telegram', `https://t.me/${number}`);
+            disableInput('phone');
+        });
+
+        // Handle DOB options
+        const showAgeCheckbox = document.getElementById('showAge');
+        const showBirthdayCheckbox = document.getElementById('showBirthday');
+
+        showAgeCheckbox.addEventListener('change', () => {
+            if (showAgeCheckbox.checked) {
+                showBirthdayCheckbox.checked = false;
+            }
+        });
+
+        showBirthdayCheckbox.addEventListener('change', () => {
+            if (showBirthdayCheckbox.checked) {
+                showAgeCheckbox.checked = false;
+            }
+        });
+
+        // Handle direct communication and Jitsi link
+        const directCommSelect = document.getElementById('directComm');
+        const jitsiLinkSection = document.getElementById('jitsiLink');
+        const jitsiLinkText = document.getElementById('jitsiLinkText');
+        const openJitsiLinkButton = document.getElementById('openJitsiLink');
+
+        directCommSelect.addEventListener('change', () => {
+            if (directCommSelect.value === 'yes') {
+                const uuid = crypto.randomUUID();
+                const jitsiLink = `https://meet.jit.si/${uuid}`;
+                jitsiLinkText.textContent = jitsiLink;
+                jitsiLinkSection.style.display = 'block';
+                localStorage.setItem('conference-link', jitsiLink);
+
+                openJitsiLinkButton.addEventListener('click', () => {
+                    window.open(jitsiLink, '_blank');
+                });
+            } else {
+                jitsiLinkSection.style.display = 'none';
+                localStorage.removeItem('conference-link');
+            }
+        });
+
+        // Handle photo upload and preview
+        const photoInput = document.getElementById('profilePicture');
+        const photoPreview = document.getElementById('profilePreview');
+        
+        profilePreview.addEventListener('click', () => {
+            profilePicture.click(); // Trigger a click on the file input
+        });
+        
+        photoInput.addEventListener('change', async () => {
+            const file = photoInput.files[0];
+            if (file) {
+                showPhotoPreview(file);
+                localStorage.removeItem('avatar');
+                document.getElementById('savePhoto').style.display = 'block';
+            }
+        });
+
+        function showPhotoPreview(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.src = e.target.result;
+                img.width = 256;  // Resize to 256px width
+                img.height = 256; // Resize to 256px height
+                photoPreview.style.display = 'block';
+                photoPreview.src = img.src;
+            };
+            reader.readAsDataURL(file);
+            document.querySelector('.profile-pic-label').style.display = 'none';
+        }
+
+        function toBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result.split(',')[1]); // Get base64 part
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        // Define the possible values for each parameter
+        const avatarParams = {
+            avatarStyle: ['Circle', 'Transparent'],
+            topType: ['NoHair', 'Eyepatch', 'Hat', 'Hijab', 'Turban', 'WinterHat1', 'WinterHat2', 'WinterHat3', 'WinterHat4', 'LongHairBigHair', 'LongHairBob', 'LongHairBun', 'LongHairCurly', 'LongHairCurvy', 'LongHairDreads', 'LongHairFrida', 'LongHairFro', 'LongHairFroBand', 'LongHairNotTooLong', 'LongHairShavedSides', 'LongHairMiaWallace', 'LongHairStraight', 'LongHairStraight2', 'LongHairStraightStrand', 'ShortHairDreads01', 'ShortHairDreads02', 'ShortHairFrizzle', 'ShortHairShaggyMullet', 'ShortHairShortCurly', 'ShortHairShortFlat', 'ShortHairShortRound', 'ShortHairShortWaved', 'ShortHairSides', 'ShortHairTheCaesar', 'ShortHairTheCaesarSidePart'],
+            accessoriesType: ['Blank', 'Kurt', 'Prescription01', 'Prescription02', 'Round', 'Sunglasses', 'Wayfarers'],
+            hairColor: ['Auburn', 'Black', 'Blonde', 'BlondeGolden', 'Brown', 'BrownDark', 'PastelPink', 'Blue', 'Platinum', 'Red', 'SilverGray'],
+            facialHairType: ['Blank', 'BeardMedium', 'BeardLight', 'BeardMajestic', 'MoustacheFancy', 'MoustacheMagnum'],
+            facialHairColor: ['Auburn', 'Black', 'Blonde', 'BlondeGolden', 'Brown', 'BrownDark', 'PastelPink', 'Blue', 'Platinum', 'Red', 'SilverGray'],
+            clotheType: ['BlazerShirt', 'BlazerSweater', 'CollarSweater', 'GraphicShirt', 'Hoodie', 'Overall', 'ShirtCrewNeck', 'ShirtScoopNeck', 'ShirtVNeck'],
+            eyeType: ['Close', 'Cry', 'Default', 'Dizzy', 'EyeRoll', 'Happy', 'Hearts', 'Side', 'Squint', 'Surprised', 'Wink', 'WinkWacky'],
+            eyebrowType: ['Angry', 'AngryNatural', 'Default', 'DefaultNatural', 'FlatNatural', 'RaisedExcited', 'RaisedExcitedNatural', 'SadConcerned', 'SadConcernedNatural', 'UnibrowNatural', 'UpDown', 'UpDownNatural'],
+            mouthType: ['Concerned', 'Default', 'Disbelief', 'Eating', 'Grimace', 'Sad', 'ScreamOpen', 'Serious', 'Smile', 'Tongue', 'Twinkle', 'Vomit'],
+            skinColor: ['Tanned', 'Yellow', 'Pale', 'Light', 'Brown', 'DarkBrown', 'Black']
+        };
+
+        function getRandomElement(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function generateRandomAvatarUrl() {
+            const params = {
+                avatarStyle: getRandomElement(avatarParams.avatarStyle),
+                topType: getRandomElement(avatarParams.topType),
+                accessoriesType: getRandomElement(avatarParams.accessoriesType),
+                hairColor: getRandomElement(avatarParams.hairColor),
+                facialHairType: getRandomElement(avatarParams.facialHairType),
+                facialHairColor: getRandomElement(avatarParams.facialHairColor),
+                clotheType: getRandomElement(avatarParams.clotheType),
+                eyeType: getRandomElement(avatarParams.eyeType),
+                eyebrowType: getRandomElement(avatarParams.eyebrowType),
+                mouthType: getRandomElement(avatarParams.mouthType),
+                skinColor: getRandomElement(avatarParams.skinColor)
+            };
+
+            const queryString = new URLSearchParams(params).toString();
+            return `https://avataaars.io/?${queryString}`;
+        }
+
+        document.getElementById('createAvatar').addEventListener('click', () => {
+            const randomAvatar = generateRandomAvatarUrl();
+            photoPreview.src = randomAvatar;
+            profilePreview.style.display = 'block';
+            localStorage.setItem('avatar', randomAvatar);
+        });
+
+        // Generate an initial avatar when the page loads
+       // document.getElementById('profile-pic').src = generateRandomAvatarUrl();
+        // Handle form submission and success button
+        const profileForm = document.getElementById('profileForm');
+        const successButton = document.getElementById('successButton');
+        const successMessage = document.createElement('p');
+        successMessage.id = 'successMessage';
+        document.querySelector('.container').appendChild(successMessage);
+
+        profileForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            const profileData = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                countryCode: countryCodeInput.value,
+                phone: phoneInput.value,
+                showAge: showAgeCheckbox.checked,
+                showBirthday: showBirthdayCheckbox.checked,
+                directComm: directCommSelect.value === 'yes',
+                conferenceLink: localStorage.getItem('conference-link') || '',
+                profilePicture: localStorage.getItem('profile-picture-source') || 'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/person/default/48px.svg'
+            };
+
+            localStorage.setItem('profile-data', JSON.stringify([profileData]));
+
+            try {
+                await  handleFormSubmit(profileData);
+                successMessage.textContent = 'Profile successfully created!';
+            } catch (error) {
+                console.error('Error creating profile:', error);
+                successMessage.textContent = 'Error creating profile. Please try again.';
+            }
+        });
+
+
+
+async function handleFormSubmit(profileData, event) {
+    
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+        console.error('No access token token found. Please sign in first.');
+        return;
+    }
+
+    try {
+        await createOrUpdateProfile(profileData, token);
+    } catch (error) {
+        console.error('Error creating or updating profile:', error);
+    }
+}
+
+// Function to create or update profile
+async function createOrUpdateProfile(profileData, accessToken) {
+    let profileId = localStorage.getItem('my-profile');
+    if (!profileId) {
+        const file = await createProfileFile(accessToken);
+        profileId = file.id;
+        localStorage.setItem('my-profile', profileId);
+    }
+
+    await updateProfileFile(profileId, profileData, accessToken);
+}
+
+async function createProfileFile(accessToken) {
+    const fileMetadata = {
+        name: 'Amanda_profile',
+        mimeType: 'application/json'
+    };
+
+    const response = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(fileMetadata)
+    });
+
+    const file = await response.json();
+
+    // Set file permissions to public
+    await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}/permissions`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            type: 'anyone',
+            role: 'reader'
+        })
+    });
+
+    return file;
+}
+
+async function updateProfileFile(fileId, content, accessToken) {
+    const blob = new Blob([JSON.stringify(content)], { type: 'application/json' });
+    const formData = new FormData();
+    formData.append('metadata', new Blob([JSON.stringify({})], { type: 'application/json' }));
+    formData.append('file', blob);
+
+    try {
+        const response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Error updating file:', response.status, errorText);
+            throw new Error(`Error updating file: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log('File updated successfully:', result);
+        return result;
+    } catch (error) {
+        console.error('Error in updateProfileFile:', error);
+        throw error;
+    }
+}
+        function addLinkPair() {
+            const linksContainer = document.getElementById('links');
+            const linkPairs = linksContainer.getElementsByClassName('link-pair');
+            if (linkPairs.length < 12) {
+                const newPair = document.createElement('div');
+                newPair.className = 'link-pair';
+                newPair.innerHTML = `
+                    <input type="text" placeholder="Link Name">
+                    <input type="url" placeholder="https://" pattern="https://.*">
+                `;
+                linksContainer.appendChild(newPair);
+            }
+        }
+function embedPDF(blob) {
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const base64Data = event.target.result.split(',')[1];
+        
+        var adobeDCView = new AdobeDC.View({clientId: "f0b67b61ecc04ab98f1fff720590cca2", divId: "adobe-dc-view"});
+        adobeDCView.previewFile({
+            content: { 
+                location: {
+                    url: `data:application/pdf;base64,${base64Data}`,
+                } 
+            },
+            metaData: { 
+                fileName: "CV.pdf" 
+            }
+        }, { embedMode: "SIZED_CONTAINER" });
+    };
+    
+    reader.readAsDataURL(blob);
+}
+async function fetchPDF(fileId) {
+    const apiKey = 'AIzaSyBc75KlBm10rP8vB0u3yDsM4vdMqSNfdzo';
+    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}`;
+
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: new Headers({
+                'Accept': 'application/pdf'
+            })
+        });
+        if (!response.ok) {
+            const errorResponse = await response.text();
+            console.error("Error response from API:", errorResponse);
+            throw new Error(`Failed to fetch file: ${response.statusText}`);
+        }
+
+        return await response.blob();
+    } catch (error) {
+        console.error('Error fetching PDF:', error);
+        throw error;
+    }
+}
+
+async function loadAndDisplayPDF(fileId) {
+    try {
+        const pdfBlob = await fetchPDF(fileId);
+        embedPDF(pdfBlob);
+    } catch (error) {
+        console.error("Error loading PDF:", error);
+    }
+}
+
+
+        // Add event listeners and initialize components
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('addMoreLinks').addEventListener('click', addLinkPair);
+        }); 
+    </script>
+ <!-- Editor.js core -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest/dist/editor.js"></script>
+    
+    <!-- Editor.js tools -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest/dist/bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/list@latest/dist/bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/image@latest/dist/bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/delimiter@latest/dist/bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/marker@latest/dist/bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/raw@latest/dist/bundle.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/editorjs-inline-image"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/table@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/editorjs-button@latest"></script>
+        <script src="https://cdn.jsdelivr.net/npm/editorjs-html/build/index.min.js"></script>
+                <script src="https://cdn.jsdelivr.net/npm/editorjs-paragraph-with-alignment@3.0.0"></script>
+    
+    <script>
+            
+class IFrameTool {
+      static get toolbox() {
+        return {
+          title: 'iFrame',
+          icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M21 3H3v18h18V3zm-1 16H4V6h16v13z"/></svg>',
+        };
+      }
+
+      constructor({ data }) {
+        this.data = data || { url: '', height: 500 };
+      }
+
+      render() {
+        const container = document.createElement('div');
+        container.classList.add('iframe-container');
+
+        // URL Input
+        const urlInputContainer = document.createElement('div');
+        urlInputContainer.classList.add('material-input');
+        const urlInput = document.createElement('input');
+        urlInput.type = 'text';
+        urlInput.placeholder = 'Enter iFrame URL';
+        urlInput.value = this.data.url;
+        urlInput.addEventListener('input', (e) => {
+          this.data.url = e.target.value;
+          this.updateIframe();
+        });
+        urlInputContainer.appendChild(urlInput);
+        container.appendChild(urlInputContainer);
+
+        // Height Input
+        const heightInputContainer = document.createElement('div');
+        heightInputContainer.classList.add('material-input');
+        const heightInput = document.createElement('input');
+        heightInput.type = 'number';
+        heightInput.placeholder = 'Height (px)';
+        heightInput.value = this.data.height;
+        heightInput.addEventListener('input', (e) => {
+          this.data.height = e.target.value;
+          this.updateIframe();
+        });
+        heightInputContainer.appendChild(heightInput);
+        container.appendChild(heightInputContainer);
+
+        // iFrame
+        this.iframe = document.createElement('iframe');
+        this.updateIframe();
+
+        container.appendChild(this.iframe);
+
+        return container;
+      }
+
+      updateIframe() {
+        if (this.data.url) {
+          // Adjust URL for YouTube videos
+          const youtubeUrlPattern = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+          const isYoutube = youtubeUrlPattern.test(this.data.url);
+
+          // Convert to YouTube embed URL if necessary
+          if (isYoutube) {
+            const videoId = this.data.url.match(youtubeUrlPattern)[1];
+            this.iframe.src = `https://www.youtube.com/embed/${videoId}`;
+          } else {
+            this.iframe.src = this.data.url;
+          }
+
+          // Set the iframe height and ensure it is responsive
+          this.iframe.style.height = `${this.data.height}px`;
+        }
+      }
+
+      save() {
+        return this.data;
+      }
+    }
+        const editor = new EditorJS({
+            holder: 'editorjs',
+            tools: {
+                header: {
+                    class: Header,
+                    inlineToolbar: ['marker', 'link'],
+                    config: {
+                        placeholder: 'Enter a header'
+                    },
+                    shortcut: 'CMD+SHIFT+H'
+                },
+                paragraph: {
+                        class: Paragraph,
+                        inlineToolbar: true,
+                        config: {
+                            placeholder: 'Enter a paragraph'
+                        }
+      
+                },
+                list: {
+                    class: List,
+                    inlineToolbar: true,
+                    shortcut: 'CMD+SHIFT+L'
+                },
+                      image: {
+        class: InlineImage,
+        inlineToolbar: true,
+        config: {
+          embed: {
+            display: true,
+          },
+          unsplash: {
+            appName: 'your_app_name',
+            apiUrl: 'https://your-proxy-api-url.com',
+            maxResults: 30,
+          }
+        }
+      },
+      table: {
+      class: Table,
+      inlineToolbar: true,
+      config: {
+        rows: 2,
+        cols: 3,
+      },
+    },
+AnyButton: {
+          class: AnyButton,
+          inlineToolbar: false,
+          config:{
+            css:{
+              "btnColor": "btn--blue",
+            },
+            textValidation: (text) => {
+              console.log("error!", text)
+              return true;
+            },
+            linkValidation: (text) => {
+              console.log("error!", text)
+              return false;
+            }
+          }
+        },
+ 
+          iframe: IFrameTool,
+
+
+                delimiter: Delimiter,
+                marker: {
+                    class: Marker,
+                    shortcut: 'CMD+SHIFT+M'
+                },
+                raw: RawTool,
+            },
+            data: {
+                blocks: [
+                    {
+                        type: "header",
+                        data: {
+                            text: "Bio",
+                            level: 2
+                        }
+                    },
+                    {
+                        type: "paragraph",
+                        data: {
+                            text: "You can create any content you wish here.."
+
+                        }
+                    }
+                ]
+            }
+        });
+        /*
+        document.getElementById('submitBio').addEventListener('click', function() {
+            editor.save().then((outputData) => {
+                console.log('Article data: ', outputData);
+
+                // Convert Editor.js data to HTML using editorjs-html
+                const edjsParser = edjsHTML();
+                const html = edjsParser.parse(outputData).join('');
+                document.getElementById('output').innerHTML = html;
+
+                // Save HTML to localStorage
+                localStorage.setItem('editorBio', html);
+            }).catch((error) => {
+                console.log('Saving failed: ', error);
+            });
+        });
+
+        // Load and display saved HTML from localStorage on page load
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const savedBio = localStorage.getItem('editorBio');
+            if (savedBio) {
+                document.getElementById('output').innerHTML = savedBio;
+            }
+        });
+        */
+document.addEventListener('DOMContentLoaded', () => {
+    const pdfFileInput = document.getElementById('pdf-file-input');
+    const pdfFileNameDiv = document.getElementById('pdf-file-name');
+
+    // Handle file selection
+    pdfFileInput.addEventListener('change', () => {
+        const file = pdfFileInput.files[0];
+        if (file) {
+            // Show the file name
+            pdfFileNameDiv.textContent = `Selected file: ${file.name}`;
+            uploadFile(file, 'profile-pdf-source');
+        } else {
+            // Clear the file name if no file is selected
+            pdfFileNameDiv.textContent = '';
+        }
+    });
+});
+
+
+
+document.addEventListener('DOMContentLoaded', () => {
+            const playButton = document.getElementById('play-button');
+            const iframe = document.getElementById('youtube-player');
+            let player;
+            let isPlaying = false; // State of the video
+            const videoId = 'uxjhN_Donfw'; // Replace with your YouTube video ID
+
+            // Set the iframe src with the video ID
+            iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
+
+            // Load the IFrame API
+            const script = document.createElement('script');
+            script.src = 'https://www.youtube.com/iframe_api';
+            document.head.appendChild(script);
+
+            // Create YouTube player once the API is ready
+            window.onYouTubeIframeAPIReady = function() {
+                player = new YT.Player('youtube-player', {
+                    height: '0',
+                    width: '0',
+                    videoId: videoId,
+                    playerVars: {
+                        'controls': 1,
+                        'autoplay': 0,
+                        'modestbranding': 1
+                    },
+                    events: {
+                        'onReady': onPlayerReady,
+                        'onStateChange': onPlayerStateChange
+                    }
+                });
+            };
+
+            // Handle player ready event
+            function onPlayerReady(event) {
+                console.log("YouTube player is ready.");
+
+                playButton.addEventListener('click', () => {
+                    if (isPlaying) {
+                        player.pauseVideo();
+                        playButton.innerHTML = '<i class="material-icons">play_arrow</i>';
+                    } else {
+                        player.playVideo();
+                        playButton.innerHTML = '<i class="material-icons">pause</i>';
+                    }
+                    isPlaying = !isPlaying;
+                });
+            }
+
+            // Handle player state change event
+            function onPlayerStateChange(event) {
+                console.log(`Player state changed: ${event.data}`);
+                if (event.data === YT.PlayerState.ENDED) {
+                    playButton.innerHTML = '<i class="material-icons">play_arrow</i>';
+                    isPlaying = false;
+                }
+            }
+        });
+
+    </script>
+</body>
+</html>
