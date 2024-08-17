@@ -4,7 +4,7 @@ export default async (request, context) => {
     headers: { "content-type": "text/plain" },
   });
 };
- 
-export const config: Config = {
+
+export const config = {
   path: "/hiya",
 };
