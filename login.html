@@ -9,7 +9,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;700&display=swap" rel="stylesheet">
-
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notiflix@3.2.6/dist/notiflix-3.2.6.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/notiflix@3.2.6/dist/notiflix-3.2.6.min.js"></script>
+   
     <style>
         
         body, html {
@@ -214,6 +216,7 @@
         // simplified language
         function getBrowserLanguage() {
             return navigator.language.slice(0, 2) || 'en';
+            localStorage.setItem('language');
         }
 
         // Function to load EULA text based on the selected language
@@ -755,41 +758,94 @@ function handleEULA() {
             }
         }
         
-        function getAccessToken(credential) {
-            return new Promise((resolve, reject) => {
-                const tokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: CLIENT_ID,
-                    scope: SCOPES,
-                    callback: (tokenResponse) => {
-                        if (tokenResponse && tokenResponse.access_token) {
-                            console.log('Access Token obtained successfully');
-                            getUserInfo(tokenResponse.access_token)
-                                .then(userInfo => {
-                                    resolve({ accessToken: tokenResponse.access_token, userInfo });
-                                })
-                                .catch(error => {
-                                    reject(error);
-                                });
-                        } else {
-                            console.error('Failed to get access token:', tokenResponse);
-                            reject(new Error('Failed to get access token'));
-                        }
-                    },
-                    error_callback: (error) => {
-                        console.error('Token client error:', error);
-                        reject(error);
-                    }
-                });
-
-                try {
-                    tokenClient.requestAccessToken({ prompt: '' });
-                } catch (error) {
-                    console.error('Error requesting access token:', error);
-                    reject(error);
+function getAccessToken(credential) {
+    return new Promise((resolve, reject) => {
+        const tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: SCOPES,
+            callback: (tokenResponse) => {
+                if (tokenResponse && tokenResponse.access_token) {
+                    console.log('Access Token obtained successfully');
+                    getUserInfo(tokenResponse.access_token)
+                        .then(userInfo => {
+                            resolve({ accessToken: tokenResponse.access_token, userInfo });
+                        })
+                        .catch(error => {
+                            reject(error);
+                        });
+                } else {
+                    console.error('Failed to get access token:', tokenResponse);
+                    reject(new Error('Failed to get access token'));
                 }
-            });
+            },
+            error_callback: (error) => {
+                console.error('Token client error:', error);
+                if (error.type === 'popup_blocked_by_browser') {
+                    showPopupBlockedMessage();
+                }
+                reject(error);
+            }
+        });
+        try {
+            tokenClient.requestAccessToken({ prompt: '' });
+        } catch (error) {
+            console.error('Error requesting access token:', error);
+            reject(error);
         }
+    });
+}
+        
+function getLocalizedPopupBlockedMessage(language) {
+    const messages = {
+        'en': 'Popup Blocked: Please allow popups for this site to sign in. You may need to refresh the page after allowing popups.',
+        'fr': 'Fenêtre pop-up bloquée : Veuillez autoriser les pop-ups pour ce site pour vous connecter. Vous devrez peut-être actualiser la page après avoir autorisé les pop-ups.',
+        'de': 'Pop-up blockiert: Bitte erlauben Sie Pop-ups für diese Seite, um sich anzumelden. Möglicherweise müssen Sie die Seite aktualisieren, nachdem Sie Pop-ups zugelassen haben.',
+        'it': 'Pop-up bloccato: Si prega di consentire i pop-up per questo sito per accedere. Potrebbe essere necessario aggiornare la pagina dopo aver consentito i pop-up.',
+        'es': 'Ventana emergente bloqueada: Por favor, permita las ventanas emergentes para este sitio para iniciar sesión. Es posible que deba actualizar la página después de permitir las ventanas emergentes.',
+        'pt': 'Pop-up bloqueado: Por favor, permita pop-ups para este site para fazer login. Pode ser necessário atualizar a página após permitir pop-ups.',
+        'zh': '弹窗被阻止：请允许此网站的弹窗以便登录。允许弹窗后，您可能需要刷新页面。',
+        'ja': 'ポップアップがブロックされました：サインインするには、このサイトのポップアップを許可してください。ポップアップを許可した後、ページを更新する必要がある場合があります。',
+        'hi': 'पॉप-अप ब्लॉक किया गया: कृपया साइन इन करने के लिए इस साइट के लिए पॉप-अप की अनुमति दें। पॉप-अप की अनुमति देने के बाद आपको पेज को रिफ्रेश करना पड़ सकता है।',
+        'el': 'Το αναδυόμενο παράθυρο αποκλείστηκε: Παρακαλούμε επιτρέψτε τα αναδυόμενα παράθυρα για αυτόν τον ιστότοπο για να συνδεθείτε. Ίσως χρειαστεί να ανανεώσετε τη σελίδα αφού επιτρέψετε τα αναδυόμενα παράθυρα.'
+    };
 
+    return messages[language] || messages['en']; // Default to English if language not found
+}
+
+function showPopupBlockedMessage() {
+    const language = localStorage.getItem('language') || 'en';
+    const message = getLocalizedPopupBlockedMessage(language);
+
+    Notiflix.Notify.init({
+        position: 'center-top',
+        distance: '80px',
+        timeout: 10000,
+        cssAnimationStyle: 'from-top',
+        closeButton: true,
+    });
+
+    Notiflix.Notify.warning(
+        message,
+        {
+            ID: 'popupBlockedNotification',
+            className: 'notiflix-report',
+            width: '360px',
+            backOverlay: true,
+            backOverlayColor: 'rgba(0,0,0,0.5)',
+            fontFamily: 'Roboto,Arial,sans-serif',
+            svgSize: '30px',
+            plainText: false,
+            titleFontSize: '16px',
+            titleMaxLength: 34,
+            messageFontSize: '13px',
+            messageMaxLength: 400,
+            buttonFontSize: '14px',
+            cssAnimationStyle: 'fade',
+            cssAnimationDuration: 360,
+            plainText: false,
+        }
+    );
+}
         function getUserInfo(accessToken) {
             return new Promise((resolve, reject) => {
                 fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
