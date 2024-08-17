@@ -7544,19 +7544,21 @@ function getFromGoogleDrive() {
         return;
     }
 
-      accessToken = localStorage.getItem('accessToken');
-      console.log('Using access token:', accessToken)
-        .then(accessToken => {
-            if (!accessToken) {
-                throw new Error('No valid access token available');
-            }
-            return retryOperation(() => findExistingFile(accessToken));
-        })
+    const accessToken = localStorage.getItem('accessToken');
+    console.log('Using access token:', accessToken);
+
+    if (!accessToken) {
+        alert('No valid access token available');
+        stopSpinning(syncFromButton, syncFromIcon);
+        return;
+    }
+
+    retryOperation(() => findExistingFile(accessToken))
         .then(data => {
             if (data.files && data.files.length > 0) {
                 return fetch(`https://www.googleapis.com/drive/v3/files/${data.files[0].id}?alt=media`, {
                     method: 'GET',
-                    headers: new Headers({ 'Authorization': 'Bearer ' + localStorage.getItem('accessToken') })
+                    headers: new Headers({ 'Authorization': 'Bearer ' + accessToken })
                 });
             } else {
                 throw new Error('No bookmarks file found in Google Drive');
@@ -7628,15 +7630,20 @@ function saveToGoogleDrive() {
         return;
     }
 
-        accessToken = localStorage.getItem('accessToken');
-        console.log('Using access token:', accessToken)
-  .then(accessToken => {
-            return retryOperation(() => deleteExistingFile(accessToken))
-                .then(() => retryOperation(() => {
-                    const bookmarksJson = localStorage.getItem('bookmarks');
-                    return createNewFile(accessToken, bookmarksJson);
-                }));
-        })
+    const accessToken = localStorage.getItem('accessToken');
+    console.log('Using access token:', accessToken);
+
+    if (!accessToken) {
+        alert('No valid access token available');
+        stopSpinning(syncToButton, syncToIcon);
+        return;
+    }
+
+    retryOperation(() => deleteExistingFile(accessToken))
+        .then(() => retryOperation(() => {
+            const bookmarksJson = localStorage.getItem('bookmarks');
+            return createNewFile(accessToken, bookmarksJson);
+        }))
         .then(response => {
             if (!response.ok) throw new Error('Failed to create file');
             return response.json();
@@ -7648,37 +7655,44 @@ function saveToGoogleDrive() {
         })
         .catch(error => {
             console.error('Error in saveToGoogleDrive:', error);
-            //alert('An error occurred: ' + error.message);
             stopSpinning(syncToButton, syncToIcon);
         });
 }
+
+  
 function saveToGoogleDrivePublic() {
     if (!navigator.onLine) {
         alert("Connect to the Internet to proceed");
         return;
     }
+
     const syncToPublicButton = document.getElementById('syncToPublicDrive');
     const syncToPublicIcon = document.getElementById('syncToPublicIcon');
     syncToPublicButton.disabled = true;
     syncToPublicIcon.classList.add('spinning');
-    
+
     if (!confirm("Are you sure you want to save your bookmarks to Google Drive as a public file?")) {
         stopSpinning(syncToPublicButton, syncToPublicIcon);
         return;
     }
-    
-        accessToken = localStorage.getItem('accessToken');
-        console.log('Using access token:', accessToken)
-  .then(accessToken => {
-            return findExistingPublicFile(accessToken, PUBLIC_FILE)
-                .then(fileData => {
-                    const bookmarksJson = localStorage.getItem('bookmarks');
-                    if (fileData) {
-                        return updateExistingFile(accessToken, fileData.id, bookmarksJson);
-                    } else {
-                        return createNewPublicFile(accessToken, bookmarksJson, PUBLIC_FILE);
-                    }
-                });
+
+    const accessToken = localStorage.getItem('accessToken');
+    console.log('Using access token:', accessToken);
+
+    if (!accessToken) {
+        alert('No valid access token available');
+        stopSpinning(syncToPublicButton, syncToPublicIcon);
+        return;
+    }
+
+    findExistingPublicFile(accessToken, PUBLIC_FILE)
+        .then(fileData => {
+            const bookmarksJson = localStorage.getItem('bookmarks');
+            if (fileData) {
+                return updateExistingFile(accessToken, fileData.id, bookmarksJson);
+            } else {
+                return createNewPublicFile(accessToken, bookmarksJson, PUBLIC_FILE);
+            }
         })
         .then(fileData => {
             if (!fileData || !fileData.id) {
@@ -7692,7 +7706,6 @@ function saveToGoogleDrivePublic() {
         })
         .catch(error => {
             console.error('Error in saveToGoogleDrivePublic:', error);
-            //alert('An error occurred: ' + error.message);
             stopSpinning(syncToPublicButton, syncToPublicIcon);
         });
 }
@@ -8187,16 +8200,17 @@ function getUserEmailAndStore() {
         }
 
         console.log('No stored email, fetching from Google');
-        accessToken = localStorage.getItem('accessToken');
-        console.log('Using access token:', accessToken)
-      .then(accessToken => {
-                if (!accessToken) {
-                    throw new Error('No valid access token available');
-                }
-                return fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
-                    headers: { 'Authorization': `Bearer ${accessToken}` }
-                });
-            })
+        const accessToken = localStorage.getItem('accessToken');
+        console.log('Using access token:', accessToken);
+
+        if (!accessToken) {
+            reject(new Error('No valid access token available'));
+            return;
+        }
+
+        fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        })
             .then(res => {
                 console.log('User info response status:', res.status);
                 if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -8217,6 +8231,7 @@ function getUserEmailAndStore() {
             });
     });
 }
+
   
 function stopSpinning(button, icon) {
     button.disabled = false;
