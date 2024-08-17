@@ -5,3 +5,6 @@ export default async (request, context) => {
   });
 };
  
+export const config: Config = {
+  path: "/hiya",
+};
