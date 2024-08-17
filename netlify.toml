@@ -4,6 +4,5 @@
 
 [edge_functions]
   directory = "netlify/edge-functions" # For Edge Functions
-  [[edge_functions]]
   path = "/hello"
   function = "hello"
