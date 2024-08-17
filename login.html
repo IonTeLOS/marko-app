@@ -208,7 +208,7 @@
         function getRedirectUrl() {
             const urlParams = new URLSearchParams(window.location.search);
             const redirectPath = urlParams.get('redirect');
-            return redirectPath ? `https://teloslinux.org/marko/${redirectPath}` : 'https://teloslinux.org/marko/profile2';
+            return redirectPath ? `https://marko-app.netlify.app/${redirectPath}` : 'https://marko-app.netlify.app';
         }
 
         // simplified language
@@ -805,7 +805,7 @@ function handleEULA() {
 
 // Function to handle image click and open a link
 function navImageClick() {
-    window.open('https://teloslinux.org/marko/newfile', '_blank'); 
+    window.open('https://marko-app.netlify.app', '_blank'); 
 }
         
 // on load it starts by checking EULA acceptance        
