@@ -776,7 +776,7 @@ async function saveProfilePhoto() {
         localStorage.setItem('profile-picture-source', 'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/person/default/48px.svg');    
     }
 }
-console.log(`This key: ${process.env.TST_KEY}`);
+
 async function fetchMapsResults(query) {
     const apiKey = 'AIzaSyD96IBVqGKVEdmXIVCYL_7kvlBhJNSD1Ww'; // Replace with your actual API key
     const url = 'https://places.googleapis.com/v1/places:searchText';
@@ -1804,6 +1804,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+console.log(`This key: ${process.env.TST_KEY}`);
 
     </script>
 </body>
