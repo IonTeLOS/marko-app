@@ -42,7 +42,7 @@
     "prerender": [
       {
         "source": "list",
-        "urls": ["https://teloslinux.org/marko/createmarko"],
+        "urls": ["https://marko-app.netlify.appcreatemarko"],
         "eagerness": "immediate"
       }
     ]
@@ -5645,9 +5645,9 @@ function hideInstallBanner(event) {
 // this is the definition of what the main button does, it initiates (or if clicked again ends!) the process of adding a new bookmark, shows the form and an extra row of buttons    
 function openAdd() {
       if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        window.location.href = 'https://teloslinux.org/marko/createmarko?fromApp&darkMode';
+        window.location.href = 'https://marko-app.netlify.appcreatemarko?fromApp&darkMode';
     } else {
-        window.location.href = 'https://teloslinux.org/marko/createmarko?fromApp';
+        window.location.href = 'https://marko-app.netlify.appcreatemarko?fromApp';
     }
   /*
     const linkContainer = document.querySelector('.bookmarks-container');
@@ -8249,9 +8249,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Perform the desired action
         console.log('Ctrl + C was pressed');
         if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          window.location.href = 'https://teloslinux.org/marko/createmarko?fromApp&darkMode';
+          window.location.href = 'https://marko-app.netlify.appcreatemarko?fromApp&darkMode';
         } else {
-          window.location.href = 'https://teloslinux.org/marko/createmarko?fromApp';
+          window.location.href = 'https://marko-app.netlify.appcreatemarko?fromApp';
     }   
     }  
   });
