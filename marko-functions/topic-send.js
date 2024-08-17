@@ -1,6 +1,6 @@
 const admin = require("firebase-admin");
 const cors = require("cors")({
-  origin: "*"
+  origin: "https://marko-app.netlify.app" // Adjust if necessary
 });
 
 const firebaseConfig = {
@@ -17,10 +17,7 @@ if (!admin.apps.length) {
   admin.initializeApp(firebaseConfig);
 }
 
-console.log('Subscription request:', { action, token, topic });
-
 exports.handler = async (event, context) => {
-  // Wrap the function in a Promise to use async/await with cors
   return new Promise((resolve, reject) => {
     cors(event, context, async () => {
       if (event.httpMethod !== "POST") {
