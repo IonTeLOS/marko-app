@@ -233,7 +233,7 @@
     onMessage(messaging, (payload) => {
       console.log('Message received. ', payload);
       const { title, body } = payload.notification;
-      const clickAction = payload.data.url || 'https://teloslinux.org/marko/newfile'; // Default URL if not provided
+      const clickAction = payload.data.url || 'https://marko-app.netlify.app'; // Default URL if not provided
       const iconUrl = payload.data.icon || 'https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg'; // Default icon for foreground notifications
 
       showCustomNotification(title, body, iconUrl, clickAction);
@@ -270,7 +270,7 @@
     // Register the service worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-        scope: '/marko/newfile/'
+        scope: '/'
       }).then(function(registration) {
         console.log('Service Worker registered with scope:', registration.scope);
 
