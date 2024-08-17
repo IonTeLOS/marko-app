@@ -17,6 +17,8 @@ if (!admin.apps.length) {
   admin.initializeApp(firebaseConfig);
 }
 
+console.log('Subscription request:', { action, token, topic });
+
 exports.handler = async (event, context) => {
   // Wrap the function in a Promise to use async/await with cors
   return new Promise((resolve, reject) => {
