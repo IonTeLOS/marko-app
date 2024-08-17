@@ -709,23 +709,53 @@ function handleEULA() {
             }
         }
 
-        function initializeGoogleSignIn() {
-            // Initialize Google Sign-In
-            google.accounts.id.initialize({
-                client_id: CLIENT_ID,
-                callback: handleCredentialResponse,
-                auto_select: true,  // Automatically selects the account if the user has signed in before
-                cancel_on_tap_outside: false
-            });
+function initializeGoogleSignIn() {
+    google.accounts.id.initialize({
+        client_id: CLIENT_ID,
+        callback: handleCredentialResponse,
+        auto_select: true,
+        cancel_on_tap_outside: false
+    });
 
-            google.accounts.id.prompt((notification) => {
-                if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-                    console.log('One Tap prompt was not displayed');
-                    showManualSignInButton();
-                }
-            });
+    google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            console.log('One Tap prompt was not displayed');
+            fallbackToImplicitFlow();  // Fallback to implicit flow
         }
+    });
+}
 
+function fallbackToImplicitFlow() {
+    // Redirect the user to Google's OAuth 2.0 authorization endpoint
+    const redirectUri = encodeURIComponent(window.location.origin);
+    const scope = encodeURIComponent(SCOPES);
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}&state=state_parameter_passthrough_value`;
+
+    window.location.href = authUrl;
+}
+
+function handleImplicitFlowRedirect() {
+    const hash = window.location.hash;
+    if (hash.includes('access_token')) {
+        const params = new URLSearchParams(hash.substring(1));  // Remove the # and parse the params
+        const accessToken = params.get('access_token');
+
+        if (accessToken) {
+            // Store access token and proceed with user information fetching
+            localStorage.setItem('accessToken', accessToken);
+            getUserInfo(accessToken)
+                .then(userInfo => {
+                    localStorage.setItem('userInfo', JSON.stringify(userInfo));
+                    console.log('User Info:', userInfo);
+                    window.location.href = getRedirectUrl();  // Redirect to the app
+                })
+                .catch(error => {
+                    console.error('Error fetching user info:', error);
+                });
+        }
+    }
+}
+        
         function showManualSignInButton() {
             const signInButtonContainer = document.getElementById('signInButtonContainer');
             const signInButton = document.getElementById('signInButton');
@@ -808,8 +838,14 @@ function navImageClick() {
     window.open('https://marko-app.netlify.app', '_blank'); 
 }
         
-// on load it starts by checking EULA acceptance        
-window.onload = handleEULA;
+// on load it starts by checking EULA acceptance or possible redirect from implicit flow Google sign in (if pop didnt show)        
+window.onload = () => {
+    if (window.location.hash.includes('access_token')) {
+        handleImplicitFlowRedirect();
+    } else {
+        handleEULA();  // Continue with the normal EULA check and Google Sign-In initialization
+    }
+};
         
 </script>
 </body>
