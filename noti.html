@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Firebase Cloud Function Notifications</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="google-signin-client_id" content="7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com">
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js" type="module"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js" type="module"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-installations.js" type="module"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js" type="module"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js" type="module"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js" type="module"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://apis.google.com/js/api.js" async defer></script>
+  <!-- Material Design Lite CSS -->
+  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+  <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+  <style>
+  body {
+    font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background-color: #f5f5f5;
+  }
+
+  .container {
+    width: 90%;
+    max-width: 600px;
+    padding: 16px;
+    box-sizing: border-box;
+    margin: 0 auto;
+  }
+
+  h1 {
+    font-size: 24px;
+    text-align: center;
+  }
+
+  @media (min-width: 768px) {
+    h1 {
+      font-size: 32px;
+    }
+  }
+
+  .mdl-textfield, .mdl-button {
+    width: 100%;
+    margin-bottom: 16px;
+  }
+
+  .notification {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    padding: 10px;
+    width: 300px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: Arial, sans-serif;
+  }
+
+  @media (max-width: 600px) {
+    .notification {
+      width: 90%;
+      bottom: 20px;
+      right: 5%;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="mdl-typography--headline">Notify Me</h1>
+
+    <div id="signInButtonContainer" class="hidden">
+      <!-- The Google Sign-In button will be rendered here -->
+      <div id="signInButton"></div>
+    </div>
+
+    <div id="notificationForm" class="hidden">
+      <div class="mdl-textfield mdl-js-textfield">
+        <input class="mdl-textfield__input" type="text" id="topic" placeholder="Enter topic name">
+        <label class="mdl-textfield__label" for="topic">Topic</label>
+      </div>
+
+      <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--primary" onclick="subscribeToTopic()">Subscribe</button>
+
+      <div class="mdl-textfield mdl-js-textfield">
+        <input class="mdl-textfield__input" type="text" id="title" placeholder="Enter notification title">
+        <label class="mdl-textfield__label" for="title">Title</label>
+      </div>
+
+      <div class="mdl-textfield mdl-js-textfield">
+        <input class="mdl-textfield__input" type="text" id="body" placeholder="Enter notification body">
+        <label class="mdl-textfield__label" for="body">Body</label>
+      </div>
+
+      <div class="mdl-textfield mdl-js-textfield">
+        <input class="mdl-textfield__input" type="text" id="key1" placeholder="Enter key 1">
+        <label class="mdl-textfield__label" for="key1">Data Key 1</label>
+      </div>
+
+      <div class="mdl-textfield mdl-js-textfield">
+        <input class="mdl-textfield__input" type="text" id="value1" placeholder="Enter value 1">
+        <label class="mdl-textfield__label" for="value1">Value 1</label>
+      </div>
+
+      <div class="mdl-textfield mdl-js-textfield">
+        <input class="mdl-textfield__input" type="text" id="key2" placeholder="Enter key 2">
+        <label class="mdl-textfield__label" for="key2">Data Key 2</label>
+      </div>
+
+      <div class="mdl-textfield mdl-js-textfield">
+        <input class="mdl-textfield__input" type="text" id="value2" placeholder="Enter value 2">
+        <label class="mdl-textfield__label" for="value2">Value 2</label>
+      </div>
+
+      <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" onclick="sendNotification()">Send Notification</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+    import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js';
+    import { getInstallations, getId } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-installations.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyD96IBVqGKVEdmXIVCYL_7kvlBhJNSD1Ww",
+      authDomain: "marko-be9a9.firebaseapp.com",
+      projectId: "marko-be9a9",
+      storageBucket: "marko-be9a9.appspot.com",
+      messagingSenderId: "7036670175",
+      appId: "1:7036670175:web:99992356716578ea13996a"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+
+    // Initialize Firebase Cloud Messaging
+    const messaging = getMessaging(app);
+
+    // Get the installation ID
+    const installations = getInstallations(app);
+    getId(installations).then((installationId) => {
+      console.log('Installation ID:', installationId);
+    }).catch((error) => {
+      console.error('Error getting installation ID:', error);
+    });
+
+    let isUserLoggedIn = false;
+
+    (async () => {
+      try {
+        const fcmToken = await getToken(messaging, { vapidKey: 'BNbpZ8MoJQ0OvODtVFtqBmiH81lNdGMSU87ISkIMoRGCVN2gHdxnemVqfW1MlAzO5qQqTi_I_QdKo7qpdyFq3tw' });
+        if (fcmToken) {
+          console.log('FCM Token:', fcmToken);
+          localStorage.setItem('fcmt', fcmToken);
+        }
+      } catch (error) {
+        console.error('Error retrieving FCM token:', error);
+      }
+    })();
+
+    // Function to create and show a custom notification
+    function showCustomNotification(title, body, icon, url) {
+      // Create the notification container
+      const notification = document.createElement('div');
+      notification.className = 'notification';
+      
+      notification.addEventListener('click', () => {
+          window.open(url, '_blank');  // Open the URL in a new tab
+      });
+      
+      // Create and style the icon
+      const iconElement = document.createElement('img');
+      iconElement.src = icon || 'https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg'; // Default icon
+      iconElement.style.width = '40px';
+      iconElement.style.height = '40px';
+      iconElement.style.borderRadius = '50%';
+      iconElement.style.marginRight = '10px';
+      iconElement.style.objectFit = 'cover';
+
+      // Create and style the content
+      const content = document.createElement('div');
+      content.className = 'notification-content';
+
+      const titleElement = document.createElement('div');
+      titleElement.className = 'notification-title';
+      titleElement.innerText = title;
+
+      const bodyElement = document.createElement('div');
+      bodyElement.className = 'notification-body';
+      bodyElement.innerText = body;
+
+      content.appendChild(titleElement);
+      content.appendChild(bodyElement);
+
+      // Create and style the close button
+      const closeButton = document.createElement('button');
+      closeButton.className = 'mdl-button mdl-js-button mdl-button--icon';
+      closeButton.innerHTML = '<i class="material-icons">close</i>';
+      closeButton.onclick = () => {
+        document.body.removeChild(notification);
+      };
+
+      // Append icon, content, and close button to the notification
+      notification.appendChild(iconElement);
+      notification.appendChild(content);
+      notification.appendChild(closeButton);
+
+      // Append the notification to the body
+      document.body.appendChild(notification);
+
+      // Automatically hide the notification after 5 seconds
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 5000);
+    }
+
+    // Handle incoming messages when the web page is in the foreground
+    onMessage(messaging, (payload) => {
+      console.log('Message received. ', payload);
+      const { title, body } = payload.notification;
+      const clickAction = payload.data.url || 'https://teloslinux.org/marko/newfile'; // Default URL if not provided
+      const iconUrl = payload.data.icon || 'https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg'; // Default icon for foreground notifications
+
+      showCustomNotification(title, body, iconUrl, clickAction);
+    });
+
+    // Request permission for notifications and get the token
+    async function requestNotificationPermission() {
+      console.log('Requesting notification permission...');
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        console.log('Notification permission granted.');
+
+        try {
+          const fcmToken = await getToken(messaging, { vapidKey: 'BNbpZ8MoJQ0OvODtVFtqBmiH81lNdGMSU87ISkIMoRGCVN2gHdxnemVqfW1MlAzO5qQqTi_I_QdKo7qpdyFq3tw' });
+          if (fcmToken) {
+            console.log('FCM Token:', fcmToken);
+            localStorage.setItem('fcmt', fcmToken);
+            // Save the token to the database here (assuming `db` is defined elsewhere)
+            // set(ref(db, 'tokens/' + fcmToken), {
+            //   token: fcmToken,
+            //   lastSeen: serverTimestamp()
+            // });
+          } else {
+            console.log('No registration token available.');
+          }
+        } catch (error) {
+          console.error('Error retrieving FCM token:', error);
+        }
+      } else {
+        console.log('Notification permission denied.');
+      }
+    }
+
+    // Register the service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+        scope: '/marko/newfile/'
+      }).then(function(registration) {
+        console.log('Service Worker registered with scope:', registration.scope);
+
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data && event.data.action === 'open_url') {
+            const url = event.data.url;
+            console.log('Received URL to open:', url);
+            window.location.href = url; // Navigate to the URL
+          }
+        });
+      }).catch(function(error) {
+        console.error('Service Worker registration failed:', error);
+      });
+    }
+
+    // Expose functions globally
+    window.requestNotificationPermission = requestNotificationPermission;
+    window.subscribeToTopic = async function() {
+  const topic = document.getElementById('topic').value;
+  const token = localStorage.getItem('fcmt');
+
+  if (!topic || !token) {
+    alert('Please enter a topic and ensure you have an FCM token.');
+    return;
+  }
+
+  try {
+    const response = await fetch('/topic-send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'subscribe',
+        topic: topic,
+        token: token
+      })
+    });
+    if (response.ok) {
+      console.log(`Subscribed to topic: ${topic}`);
+    } else {
+      console.error('Error subscribing to topic');
+    }
+  } catch (error) {
+    console.error('Error subscribing to topic:', error);
+  }
+};
+
+    window.sendNotification = async function() {
+      const topic = document.getElementById('topic').value;
+      const title = document.getElementById('title').value;
+      const body = document.getElementById('body').value;
+      const key1 = document.getElementById('key1').value;
+      const value1 = document.getElementById('value1').value;
+      const key2 = document.getElementById('key2').value;
+      const value2 = document.getElementById('value2').value;
+
+      if (!topic || !title || !body) {
+        alert('Please enter the topic, title, and body.');
+        return;
+      }
+
+      try {
+        const response = await fetch('/topic-send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'send',
+            topic: topic,
+            title: title,
+            body: body,
+            data: {
+              [key1]: value1,
+              [key2]: value2
+            },
+          })
+        });
+        if (response.ok) {
+          console.log('Message sent to topic');
+        } else {
+          console.error('Error sending message to topic');
+        }
+      } catch (error) {
+        console.error('Error sending message to topic:', error);
+      }
+    };
+
+window.onload = async function() {
+  // Check if the user is already logged in
+  await checkLoginStatus();
+};
+    // Add this new function to check the login status
+async function checkLoginStatus() {
+  // You can use various methods to check if the user is logged in
+  // For example, checking if an access token exists in localStorage
+  const existingToken = localStorage.getItem('accessToken');
+  
+  if (existingToken) {
+    isUserLoggedIn = true;
+    onUserLoggedIn();
+  } else {
+    await initializeGSI();
+  }
+}
+
+function onUserLoggedIn() {
+  document.getElementById('signInButtonContainer').classList.add('hidden');
+  document.getElementById('notificationForm').classList.remove('hidden');
+  // We can add here any other action we want to perform when the user is logged in
+}    
+
+    function initializeGSI() {
+      google.accounts.id.initialize({
+        client_id: CLIENT_ID,
+        callback: handleCredentialResponse,
+        auto_select: true,
+        cancel_on_tap_outside: false
+      });
+
+      google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          console.log('One Tap prompt was not displayed');
+          showManualSignInButton();
+        }
+      });
+    }
+
+    function showManualSignInButton() {
+      const signInButtonContainer = document.getElementById('signInButtonContainer');
+      signInButtonContainer.classList.remove('hidden');
+    }
+
+    async function handleCredentialResponse(response) {
+      if (response.credential) {
+        document.getElementById('signInButtonContainer').classList.add('hidden');
+        document.getElementById('notificationForm').classList.remove('hidden');
+        
+        try {
+          const { accessToken: token } = await getAccessToken();
+          accessToken = token;
+          localStorage.setItem('accessToken', accessToken);
+          console.log('Access Token:', accessToken);
+        } catch (error) {
+          console.error('Error obtaining access token:', error);
+        }
+      }
+    }
+
+    function getAccessToken() {
+      return new Promise((resolve, reject) => {
+        const tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: SCOPES,
+          callback: (tokenResponse) => {
+            if (tokenResponse && tokenResponse.access_token) {
+              console.log('Access Token obtained successfully');
+              resolve({ accessToken: tokenResponse.access_token });
+            } else {
+              console.error('Failed to get access token:', tokenResponse);
+              reject(new Error('Failed to get access token'));
+            }
+          },
+          error_callback: (error) => {
+            console.error('Token client error:', error);
+            reject(error);
+          }
+        });
+
+        try {
+          tokenClient.requestAccessToken({ prompt: 'consent' });
+        } catch (error) {
+          console.error('Error requesting access token:', error);
+          reject(error);
+        }
+      });
+    }
+
+    const CLIENT_ID = '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com';
+    const SCOPES = 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid';
+    let accessToken = '';
+  </script>
+</body>
+</html>
