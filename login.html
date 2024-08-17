@@ -780,7 +780,7 @@ function getAccessToken(credential) {
             },
             error_callback: (error) => {
                 console.error('Token client error:', error);
-                if (error.type === 'popup_blocked_by_browser') {
+                if (error.type === 'popup_failed_to_open') {
                     showPopupBlockedMessage();
                 }
                 reject(error);
