@@ -800,7 +800,7 @@ function fallbackToImplicitFlow() {
     // Redirect the user to Google's OAuth 2.0 authorization endpoint
     const redirectUri = encodeURIComponent(window.location.origin);
     const scope = encodeURIComponent(SCOPES);
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}&state=state_parameter_passthrough_value`;
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}`;
 
     window.location.href = authUrl;
 }
