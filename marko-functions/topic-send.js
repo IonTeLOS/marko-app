@@ -1,6 +1,6 @@
 const admin = require("firebase-admin");
 const cors = require("cors")({
-  origin: "https://teloslinux.org"
+  origin: "https://marko-app.netlify.app"
 });
 
 const firebaseConfig = {
@@ -71,15 +71,15 @@ exports.handler = async (event, context) => {
               },
               notification: {
                 icon: data?.icon,
-                click_action: `https://teloslinux.org/marko/newfile?nav=${data?.url || 'https://teloslinux.org/marko/profile2'}`,
+                click_action: `https://marko-app.netlify.app?nav=${data?.url || 'https://marko-app.netlify.app/profile2'}`,
               },
               fcmOptions: {
-                link: `https://teloslinux.org/marko/newfile?nav=${data?.url || 'https://teloslinux.org/marko/profile2'}`,
+                link: `https://marko-app.netlify.app?nav=${data?.url || 'https://marko-app.netlify.app/profile2'}`,
               },
             },
             data: {
               click_action: "FLUTTER_NOTIFICATION_CLICK",
-              url: `https://teloslinux.org/marko/newfile?nav=${data?.url || 'https://teloslinux.org/marko/profile2'}`,
+              url: `https://marko-app.netlify.app?nav=${data?.url || 'https://marko-app.netlify.app/profile2'}`,
             },
           };
 
