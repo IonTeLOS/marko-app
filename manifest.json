@@ -1,0 +1,40 @@
+{
+  "name": "Marko",
+  "short_name": "Marko",
+  "description": "A sophisticated bookmarking application",
+  "categories": ["business", "productivity", "utilities", "lifestyle"],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "orientation": "portrait-primary",
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "icons": [
+    {
+      "src": "appLogo_192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "appLogo_512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffa426",
+  "theme_color": "#0d47a1"
+}
+
+ 
