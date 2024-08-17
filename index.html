@@ -1491,7 +1491,7 @@ onMessage(messaging, (payload) => {
   }
   if (payload.data.uuid) {
   const uuid = payload.data.uuid;
-  const url = `https://teloslinux.org/marko/newfile?uuid=${uuid}`;
+  const url = `https://marko-app.netlify.app?uuid=${uuid}`;
   localforage.getItem('notifications').then(function(notifications) {
                 if (!notifications) {
                     console.error('No notifications found');
@@ -1502,17 +1502,17 @@ onMessage(messaging, (payload) => {
   // Save the updated array back to localForage
   return localforage.setItem('notifications', updatedNotifications);
   })
-  window.location.href = 'https://teloslinux.org/marko/newfile';
+  window.location.href = 'https://marko-app.netlify.app';
   window.open(url, '_blank'); // Opens URL in a new tab or window
   }
-  //window.location.href = `https://teloslinux.org/marko/newfile?uuid=${payload.data.uuid}`;
+  //window.location.href = `https://marko-app.netlify.app?uuid=${payload.data.uuid}`;
 /*
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
     icon: payload.notification.icon,
     data: {
-      url: `https://teloslinux.org/marko/newfile?uuid=${payload.data.uuid}`,
+      url: `https://marko-app.netlify.app?uuid=${payload.data.uuid}`,
       uuid: payload.data.uuid
     }
   };
@@ -1559,7 +1559,7 @@ onMessage(messaging, (payload) => {
       // Register the service worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-    scope: '/marko/newfile/'
+    scope: '/'
   }).then(function(registration) {
     console.log('Service Worker registered with scope:', registration.scope);
 
@@ -4294,7 +4294,7 @@ function sendEmailNotification(title, body, uuid) {
         .then(() => {
             console.log('User email:', loggedInUserEmail);
             const email = loggedInUserEmail;
-            const body = "This is my Marko reminder, click.." + `https://teloslinux.org/marko/newfile?uuid=${uuid}`;
+            const body = "This is my Marko reminder, click.." + `https://marko-app.netlify.app?uuid=${uuid}`;
             const topic = uuid;
           
             fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
@@ -5012,7 +5012,7 @@ iframe.srcdoc = `
 
      // function to open bookmark links in new tab. separate behavior for friends' links
         function openLink(url) {
-          const prefix = 'https://teloslinux.org/marko/newfile?marko:common-';
+          const prefix = 'https://marko-app.netlify.app?marko:common-';
           if (url.startsWith(prefix)) {
               let restOfString = url.substring(prefix.length);
         
@@ -5215,7 +5215,7 @@ function redirectToHomepage(event) {
             // Redirect to the homepage
                 if (window.opener == null) {
 
-            window.location.href = 'https://teloslinux.org/marko/newfile'; // Adjust this to your homepage URL if it's different
+            window.location.href = 'https://marko-app.netlify.app'; // Adjust this to your homepage URL if it's different
         }
 }
 
@@ -6453,11 +6453,11 @@ if (navigator.share) {
   })
   .then(() => {
     console.log('Shared successfully');
-    const nav = \`https://teloslinux.org/marko/newfile?type=friend&friendlink=\${window.location.href}&friendname=\${document.title}&createMarko=true\`;
+    const nav = \`https://marko-app.netlify.app?type=friend&friendlink=\${window.location.href}&friendname=\${document.title}&createMarko=true\`;
     window.location.href = nav;
   })
   .catch((error) => console.error('Error in sharing:', error));
-  const nav = \`https://teloslinux.org/marko/newfile?type=friend&friendlink=\${window.location.href}&friendname=\${document.title}&createMarko=true\`;
+  const nav = \`https://marko-app.netlify.app?type=friend&friendlink=\${window.location.href}&friendname=\${document.title}&createMarko=true\`;
    setTimeout(() => {
       window.location.href = nav;
     }, 4000);
@@ -6473,7 +6473,7 @@ if (navigator.share) {
   document.execCommand('copy');
   document.body.removeChild(tempInput);
   Notiflix.Notify.success('Link copied to clipboard');
-  const nav = \`https://teloslinux.org/marko/newfile?type=friend&friendlink=\${window.location.href}&friendname=\${document.title}&createMarko=true\`;
+  const nav = \`https://marko-app.netlify.app?type=friend&friendlink=\${window.location.href}&friendname=\${document.title}&createMarko=true\`;
   setTimeout(() => {
       window.location.href = nav;
     }, 4000);
@@ -6494,7 +6494,7 @@ if (navigator.share) {
     }
 
 function goToApp() {
-       window.open('https://teloslinux.org/marko/newfile', '_blank');
+       window.open('https://marko-app.netlify.app', '_blank');
         }
         
 // Function to open bookmark links in a new tab with separate behavior for friends' links
@@ -6543,7 +6543,7 @@ function openLink(url) {
                     }
                     return;
             }
-            openLink("https://teloslinux.org/marko/newfile?" + param);
+            openLink("https://marko-app.netlify.app?" + param);
         }
         
         document.getElementById('home-icon').addEventListener('click', handleHomeClick);
@@ -7219,7 +7219,7 @@ function shareMarko(index) {
     const color = iconContainer ? getComputedStyle(iconContainer).getPropertyValue('--ring-color').trim() : '';
 
     // Construct the URL for the shareable link
-    const url = new URL('https://teloslinux.org/marko/newfile');
+    const url = new URL('https://marko-app.netlify.app');
     url.searchParams.append('type', type);
     url.searchParams.append('link', actionMatch);
     url.searchParams.append('title', title);
@@ -8220,7 +8220,7 @@ function openDonate() {
     
 // test function TODO >> remove
 function hasPaid() {
-        const url = 'https://teloslinux.org/marko/newfile?donate=true';
+        const url = 'https://marko-app.netlify.app?donate=true';
         window.location.href = url;
 }
 window.loggedInUserEmail = loggedInUserEmail; // Expose the email globally for other parts of the app to reuse  
@@ -9685,7 +9685,7 @@ function shareMarko(index) {
     const color = iconContainer ? getComputedStyle(iconContainer).getPropertyValue('--ring-color').trim() : '';
 
     // Construct the URL for the shareable link
-    const url = new URL('https://teloslinux.org/marko/newfile');
+    const url = new URL('https://marko-app.netlify.app');
     url.searchParams.append('type', type);
     url.searchParams.append('link', actionMatch);
     url.searchParams.append('title', title);
@@ -9764,7 +9764,7 @@ function constructLinkFromBookmark(index, full) {
   const color = iconContainer ? getComputedStyle(iconContainer).getPropertyValue('--ring-color').trim() : '';
 
   // Construct the URL for the shareable link
-  const url = new URL('https://teloslinux.org/marko/newfile');
+  const url = new URL('https://marko-app.netlify.app');
   url.searchParams.append('type', type);
   url.searchParams.append('link', actionLink);
   url.searchParams.append('title', title);
