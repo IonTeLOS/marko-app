@@ -1916,6 +1916,7 @@ let iconSourceSelect;
 let currentLink = null; // Global variable to store current link    
 let allCommonMarkos = JSON.parse(localStorage.getItem('commonMarkos')) || [];
 let myCommonMarkos = JSON.parse(localStorage.getItem('myCommons')) || [];
+let accessToken = localStorage.getItem(accessToken) || '';
 
       
 
@@ -2911,7 +2912,7 @@ async function syncAndShowPublicMarkos() {
     }
 
     try {
-        const accessToken = localStorage.getItem(accessToken);
+        accessToken = localStorage.getItem(accessToken);
         console.log('Using access token:', accessToken);
 
         // Fetch file list with cache-control headers
@@ -2981,8 +2982,8 @@ async function syncAndShowCommonMarko(fileId, title = 'Shared with me') {
     }
     try {
         // refresh token
-        await initializeGoogleIdentity();
-        const accessToken = localStorage.getItem('accessToken');
+        //await initializeGoogleIdentity();
+        accessToken = localStorage.getItem('accessToken');
         // get file with given id from Google Drive
         const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`, {
             method: 'GET',
@@ -3880,7 +3881,7 @@ function countAchievements() {
 
         // Function to check if the user is logged in
         async function checkLoginStatus() {
-            const accessToken = localStorage.getItem('accessToken');
+            accessToken = localStorage.getItem('accessToken');
 
             if (!accessToken) {
                 // No access token found, redirect to login
@@ -7477,7 +7478,7 @@ async function refreshToken() {
 }
 
 async function ensureValidToken() {
-  const accessToken = localStorage.getItem('accessToken');
+  accessToken = localStorage.getItem('accessToken');
   console.log('Retrieved access token:', accessToken);
 
     try {
@@ -7543,7 +7544,7 @@ function getFromGoogleDrive() {
         return;
     }
 
-      const accessToken = localStorage.getItem(accessToken);
+      accessToken = localStorage.getItem(accessToken);
       console.log('Using access token:', accessToken)
         .then(accessToken => {
             if (!accessToken) {
@@ -7627,7 +7628,7 @@ function saveToGoogleDrive() {
         return;
     }
 
-        const accessToken = localStorage.getItem(accessToken);
+        accessToken = localStorage.getItem(accessToken);
         console.log('Using access token:', accessToken)
   .then(accessToken => {
             return retryOperation(() => deleteExistingFile(accessToken))
@@ -7666,7 +7667,7 @@ function saveToGoogleDrivePublic() {
         return;
     }
     
-        const accessToken = localStorage.getItem(accessToken);
+        accessToken = localStorage.getItem(accessToken);
         console.log('Using access token:', accessToken)
   .then(accessToken => {
             return findExistingPublicFile(accessToken, PUBLIC_FILE)
@@ -7808,7 +7809,7 @@ async function createUpdateCommonMarko() {
 
   
     try {
-        const accessToken = localStorage.getItem(accessToken);
+        accessToken = localStorage.getItem(accessToken);
         console.log('Using access token:', accessToken);
         const fileData = await findExistingPublicWritableFile(accessToken, fileName);
         const fileContent = await prepareFileContent();
@@ -7852,7 +7853,7 @@ async function updateMarko(fileId) {
         console.log("Adding to fileId:", fileId);
 
     try {
-        const accessToken = localStorage.getItem(accessToken);
+        accessToken = localStorage.getItem(accessToken);
         console.log('Using access token:', accessToken);
         const fileContent = await prepareFileContent(fileId);
         let result;
@@ -7898,7 +7899,7 @@ async function writeToPublicWritableFile(fileId = '1UvMaQ5qr7DSJV9ovFmaZQkV751_X
         //initializeGoogleIdentity();
         //const accessToken = localStorage.getItem('accessToken');
         //console.log("blum: " + accessToken);
-        const accessToken = localStorage.getItem(accessToken);
+        accessToken = localStorage.getItem(accessToken);
         console.log('Using access token:', accessToken);
         // Prepare the file content
         const fileContent = await prepareFileContent();
@@ -8089,7 +8090,7 @@ async function setFileUserWritable(accessToken, fileId) {
 }
 
 async function lockFile(fileId) {
-    const accessToken = localStorage.getItem('accessToken');
+    accessToken = localStorage.getItem('accessToken');
     if (!accessToken) {
         throw new Error('No access token available');
     }
@@ -8116,7 +8117,7 @@ async function lockFile(fileId) {
 }
 
 async function unlockFile(fileId) {
-    const accessToken = localStorage.getItem('accessToken');
+    accessToken = localStorage.getItem('accessToken');
     if (!accessToken) {
         throw new Error('No access token available');
     }
@@ -8186,7 +8187,7 @@ function getUserEmailAndStore() {
         }
 
         console.log('No stored email, fetching from Google');
-        const accessToken = localStorage.getItem(accessToken);
+        accessToken = localStorage.getItem(accessToken);
         console.log('Using access token:', accessToken)
       .then(accessToken => {
                 if (!accessToken) {
