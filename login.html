@@ -720,41 +720,12 @@ function initializeGoogleSignIn() {
     google.accounts.id.prompt((notification) => {
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
             console.log('One Tap prompt was not displayed');
-            fallbackToImplicitFlow();  // Fallback to implicit flow
+            showManualSignInButton();
         }
     });
 }
 
-function fallbackToImplicitFlow() {
-    // Redirect the user to Google's OAuth 2.0 authorization endpoint
-    const redirectUri = encodeURIComponent(window.location.origin);
-    const scope = encodeURIComponent(SCOPES);
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}&state=state_parameter_passthrough_value`;
 
-    window.location.href = authUrl;
-}
-
-function handleImplicitFlowRedirect() {
-    const hash = window.location.hash;
-    if (hash.includes('access_token')) {
-        const params = new URLSearchParams(hash.substring(1));  // Remove the # and parse the params
-        const accessToken = params.get('access_token');
-
-        if (accessToken) {
-            // Store access token and proceed with user information fetching
-            localStorage.setItem('accessToken', accessToken);
-            getUserInfo(accessToken)
-                .then(userInfo => {
-                    localStorage.setItem('userInfo', JSON.stringify(userInfo));
-                    console.log('User Info:', userInfo);
-                    window.location.href = getRedirectUrl();  // Redirect to the app
-                })
-                .catch(error => {
-                    console.error('Error fetching user info:', error);
-                });
-        }
-    }
-}
         
         function showManualSignInButton() {
             const signInButtonContainer = document.getElementById('signInButtonContainer');
@@ -785,40 +756,77 @@ function handleImplicitFlowRedirect() {
             }
         }
         
-        function getAccessToken(credential) {
-            return new Promise((resolve, reject) => {
-                const tokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: CLIENT_ID,
-                    scope: SCOPES,
-                    callback: (tokenResponse) => {
-                        if (tokenResponse && tokenResponse.access_token) {
-                            console.log('Access Token obtained successfully');
-                            getUserInfo(tokenResponse.access_token)
-                                .then(userInfo => {
-                                    resolve({ accessToken: tokenResponse.access_token, userInfo });
-                                })
-                                .catch(error => {
-                                    reject(error);
-                                });
-                        } else {
-                            console.error('Failed to get access token:', tokenResponse);
-                            reject(new Error('Failed to get access token'));
-                        }
-                    },
-                    error_callback: (error) => {
-                        console.error('Token client error:', error);
-                        reject(error);
-                    }
-                });
-
-                try {
-                    tokenClient.requestAccessToken({ prompt: '' });
-                } catch (error) {
-                    console.error('Error requesting access token:', error);
+function getAccessToken(credential) {
+    return new Promise((resolve, reject) => {
+        const tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: SCOPES,
+            callback: (tokenResponse) => {
+                if (tokenResponse && tokenResponse.access_token) {
+                    console.log('Access Token obtained successfully');
+                    getUserInfo(tokenResponse.access_token)
+                        .then(userInfo => {
+                            resolve({ accessToken: tokenResponse.access_token, userInfo });
+                        })
+                        .catch(error => {
+                            reject(error);
+                        });
+                } else {
+                    console.error('Failed to get access token:', tokenResponse);
+                    reject(new Error('Failed to get access token'));
+                }
+            },
+            error_callback: (error) => {
+                console.error('Token client error:', error);
+                if (error.type === 'popup_failed_to_open') {
+                    console.log('Popup blocked, falling back to redirect-based flow');
+                    fallbackToImplicitFlow();
+                } else {
                     reject(error);
                 }
-            });
+            }
+        });
+
+        try {
+            tokenClient.requestAccessToken({ prompt: '' });
+        } catch (error) {
+            console.error('Error requesting access token:', error);
+            reject(error);
         }
+    });
+}
+
+function fallbackToImplicitFlow() {
+    // Redirect the user to Google's OAuth 2.0 authorization endpoint
+    const redirectUri = encodeURIComponent(window.location.origin);
+    const scope = encodeURIComponent(SCOPES);
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=${CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scope}&state=state_parameter_passthrough_value`;
+
+    window.location.href = authUrl;
+}
+
+function handleImplicitFlowRedirect() {
+    const hash = window.location.hash;
+    if (hash.includes('access_token')) {
+        const params = new URLSearchParams(hash.substring(1)); // Remove the # and parse the params
+        const accessToken = params.get('access_token');
+
+        if (accessToken) {
+            // Store access token and proceed with user information fetching
+            localStorage.setItem('accessToken', accessToken);
+            getUserInfo(accessToken)
+                .then(userInfo => {
+                    localStorage.setItem('userInfo', JSON.stringify(userInfo));
+                    console.log('User Info:', userInfo);
+                    window.location.href = getRedirectUrl();  // Redirect to the app
+                })
+                .catch(error => {
+                    console.error('Error fetching user info:', error);
+                });
+        }
+    }
+}
+        
 
         function getUserInfo(accessToken) {
             return new Promise((resolve, reject) => {
