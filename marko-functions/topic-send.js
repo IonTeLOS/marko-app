@@ -1,6 +1,6 @@
 const admin = require("firebase-admin");
 const cors = require("cors")({
-  origin: "https://marko-app.netlify.app"
+  origin: "*"
 });
 
 const firebaseConfig = {
