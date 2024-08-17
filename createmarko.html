@@ -1757,7 +1757,7 @@ function onFinish() {
             setTimeout(() => {
                 sessionStorage.clear();
             }, 1000); // 1 second timeout
-        window.location.href = 'https://teloslinux.org/marko/newfile';
+        window.location.href = 'https://marko-app.netlify.app';
     }, { backgroundColor: '#a9a9a9' });
     
     // Create selfShare button if the condition is met
@@ -2016,7 +2016,7 @@ function constructShareLink() {
     console.log(encodedLink); // Check the result
 
     // Base URL for the shareable link
-    const url = new URL('https://teloslinux.org/marko/newfile');
+    const url = new URL('https://marko-app.netlify.app');
     url.searchParams.append('createMarko', 'true');
     
     // Append common parameters with proper encoding
@@ -2173,7 +2173,7 @@ function saveToStorage(array = 'bookmarks') {
                 sessionStorage.clear();
             }, 1000); // 1 second timeout
     // TODO add specific url param for other arrays
-    window.location.href = 'https://teloslinux.org/marko/newfile?scroll=down';
+    window.location.href = 'https://marko-app.netlify.app?scroll=down';
 }
 
 // currently not implemented        
@@ -7088,7 +7088,7 @@ window.onfocus = checkVisibilityAndReload;
 
             // Function to redirect to a specific URL
             function redirectToUrl() {
-                window.location.href = 'https://teloslinux.org/marko/newfile'; // Change this to your specific URL
+                window.location.href = 'https://marko-app.netlify.app'; 
             }
 
             // Only override the back button if 'fromApp' parameter is present
