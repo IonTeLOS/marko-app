@@ -1,19 +1,12 @@
 const admin = require('firebase-admin');
 
-const firebaseConfig = {
-  apiKey: "AIzaSyD96IBVqGKVEdmXIVCYL_7kvlBhJNSD1Ww",
-  authDomain: "marko-be9a9.firebaseapp.com",
-  databaseURL: "https://marko-be9a9-default-rtdb.firebaseio.com",
-  projectId: "marko-be9a9",
-  storageBucket: "marko-be9a9.appspot.com",
-  messagingSenderId: "7036670175",
-  appId: "1:7036670175:web:99992356716578ea13996a"
-};
+// Parse the JSON from environment variable
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
-// Initialize Firebase Admin SDK
-if (!admin.apps.length) {
-  admin.initializeApp(firebaseConfig);
-}
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: "https://marko-be9a9-default-rtdb.firebaseio.com"
+});
 
 exports.handler = async (event, context) => {
   // Handle non-POST requests
