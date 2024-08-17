@@ -3875,6 +3875,39 @@ function countAchievements() {
     return count;
 }
 
+// URL of your login page
+        const LOGIN_PAGE_URL = 'https://marko-app.netlify.app/login';
+
+        // Function to check if the user is logged in
+        async function checkLoginStatus() {
+            const accessToken = localStorage.getItem('accessToken');
+
+            if (!accessToken) {
+                // No access token found, redirect to login
+                window.location.href = LOGIN_PAGE_URL;
+                return;
+            }
+
+            try {
+                // Validate the access token by calling a Google API endpoint
+                const response = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + accessToken);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Access Token is valid:', data);
+                    getUserEmailAndStore();
+                    // Proceed to load the main page content
+                } else {
+                    console.warn('Invalid Access Token:', response.status);
+                    // Token is invalid, redirect to login
+                    window.location.href = LOGIN_PAGE_URL;
+                }
+            } catch (error) {
+                console.error('Error validating Access Token:', error);
+                // Redirect to login on any error
+                window.location.href = LOGIN_PAGE_URL;
+            }
+        }
 
 
 
@@ -7380,40 +7413,7 @@ const APP_ID = 'marko';
 let tokenClient;
 let loggedInUserEmail;
 
-        // URL of your login page
-        const LOGIN_PAGE_URL = 'https://marko-app.netlify.app/login';
-
-        // Function to check if the user is logged in
-        async function checkLoginStatus() {
-            const accessToken = localStorage.getItem('accessToken');
-
-            if (!accessToken) {
-                // No access token found, redirect to login
-                window.location.href = LOGIN_PAGE_URL;
-                return;
-            }
-
-            try {
-                // Validate the access token by calling a Google API endpoint
-                const response = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + accessToken);
-
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('Access Token is valid:', data);
-                    getUserEmailAndStore();
-                    // Proceed to load the main page content
-                } else {
-                    console.warn('Invalid Access Token:', response.status);
-                    // Token is invalid, redirect to login
-                    window.location.href = LOGIN_PAGE_URL;
-                }
-            } catch (error) {
-                console.error('Error validating Access Token:', error);
-                // Redirect to login on any error
-                window.location.href = LOGIN_PAGE_URL;
-            }
-        }
-
+        
   
 async function initializeGoogleIdentity() {
     tokenClient = google.accounts.oauth2.initTokenClient({
@@ -7544,7 +7544,7 @@ function getFromGoogleDrive() {
     }
 
       const accessToken = localStorage.getItem(accessToken);
-      console.log('Using access token:', accessToken);
+      console.log('Using access token:', accessToken)
         .then(accessToken => {
             if (!accessToken) {
                 throw new Error('No valid access token available');
@@ -7628,7 +7628,7 @@ function saveToGoogleDrive() {
     }
 
         const accessToken = localStorage.getItem(accessToken);
-        console.log('Using access token:', accessToken);
+        console.log('Using access token:', accessToken)
   .then(accessToken => {
             return retryOperation(() => deleteExistingFile(accessToken))
                 .then(() => retryOperation(() => {
@@ -7667,7 +7667,7 @@ function saveToGoogleDrivePublic() {
     }
     
         const accessToken = localStorage.getItem(accessToken);
-        console.log('Using access token:', accessToken);
+        console.log('Using access token:', accessToken)
   .then(accessToken => {
             return findExistingPublicFile(accessToken, PUBLIC_FILE)
                 .then(fileData => {
@@ -8187,7 +8187,7 @@ function getUserEmailAndStore() {
 
         console.log('No stored email, fetching from Google');
         const accessToken = localStorage.getItem(accessToken);
-        console.log('Using access token:', accessToken);
+        console.log('Using access token:', accessToken)
       .then(accessToken => {
                 if (!accessToken) {
                     throw new Error('No valid access token available');
