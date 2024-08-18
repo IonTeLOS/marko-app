@@ -559,30 +559,38 @@ async function handleMarkoButtonClick(event) {
         window.open('https://marko-app.netlify.app', '_blank');
     });
     
-    // Handle touchstart and touchend for long press detection (useful for iOS devices)
-	let touchStartTime;
-	const longPressDelay = 500; // Long press duration in milliseconds
+let touchStartTime;
+const longPressDelay = 400; // Long press duration in milliseconds
+let longPressTriggered = false; // Flag to track if long press was triggered
 
-	button.addEventListener('touchstart', (event) => {
-    	touchStartTime = Date.now();
-    	// Prevent default behavior to avoid showing the default iOS context menu
-    	event.preventDefault();
-	});
+button.addEventListener('touchstart', (event) => {
+    touchStartTime = Date.now();
+    longPressTriggered = false; // Reset the flag on touchstart
+});
 
-	button.addEventListener('touchend', (event) => {
-    	const touchEndTime = Date.now();
-    	// Check if the touch duration meets the long press threshold
-    	if (touchEndTime - touchStartTime >= longPressDelay) {
-        	event.preventDefault(); // Prevent default touch behavior
-        	event.stopPropagation(); // Prevent the event from bubbling up
-        	window.open('https://marko-app.netlify.app', '_blank'); // Open the URL in a new tab/window
-   	 	}
-	});
+button.addEventListener('touchend', (event) => {
+    const touchEndTime = Date.now();
+    const touchDuration = touchEndTime - touchStartTime;
 
-	button.addEventListener('touchcancel', (event) => {
-    	// Reset touch start time if the touch is canceled
-    	touchStartTime = null;
-	});
+    if (touchDuration >= longPressDelay) {
+        longPressTriggered = true; // Set the flag to indicate long press
+        event.preventDefault(); // Prevent default touch behavior
+        event.stopPropagation(); // Prevent the event from bubbling up
+        window.open('https://marko-app.netlify.app', '_blank'); // Open the URL in a new tab/window
+    }
+});
+
+button.addEventListener('touchcancel', (event) => {
+    touchStartTime = null;
+    longPressTriggered = false; // Reset the flag on touchcancel
+});
+
+button.addEventListener('click', (event) => {
+    if (longPressTriggered) {
+        event.preventDefault(); // Prevent click if it was a long press
+    }
+});
+
   
     // Handle hover effects
     button.addEventListener('mouseenter', () => {
