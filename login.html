@@ -708,6 +708,7 @@ function handleEULA() {
                     const { accessToken, userInfo } = await getAccessToken(response.credential);
                     localStorage.setItem('accessToken', accessToken);
                     localStorage.setItem('userInfo', JSON.stringify(userInfo));
+                    localStorage.removeItem('explicitLogout');
                     console.log('Access Token:', accessToken);
                     console.log('User Info:', userInfo);
                     window.location.href = getRedirectUrl();  
