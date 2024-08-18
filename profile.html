@@ -545,7 +545,7 @@
 
             if (!accessToken) {
                 // No access token found, redirect to login
-                window.location.href = LOGIN_PAGE_URL;
+                window.location.href = `${LOGIN_PAGE_URL}?redirect=profile`;
                 return;
             }
 
@@ -561,12 +561,12 @@
                 } else {
                     console.warn('Invalid Access Token:', response.status);
                     // Token is invalid, redirect to login
-                    window.location.href = LOGIN_PAGE_URL;
+                    window.location.href = `${LOGIN_PAGE_URL}?redirect=profile`;
                 }
             } catch (error) {
                 console.error('Error validating Access Token:', error);
                 // Redirect to login on any error
-                window.location.href = LOGIN_PAGE_URL;
+                window.location.href = `${LOGIN_PAGE_URL}?redirect=profile`;
             }
         }
 
