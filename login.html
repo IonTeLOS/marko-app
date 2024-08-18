@@ -701,22 +701,29 @@ function handleEULA() {
     }
 }
 
-        async function handleCredentialResponse(response) {
-            if (response.credential) {
-                document.getElementById('signInButtonContainer').style.display = 'none';
-                try {
-                    const { accessToken, userInfo } = await getAccessToken(response.credential);
-                    localStorage.setItem('accessToken', accessToken);
-                    localStorage.setItem('userInfo', JSON.stringify(userInfo));
-                    localStorage.removeItem('explicitLogout');
-                    console.log('Access Token:', accessToken);
-                    console.log('User Info:', userInfo);
-                    window.location.href = getRedirectUrl();  
-                } catch (error) {
-                    console.error('Error obtaining access token or user info:', error);
-                }
+async function handleCredentialResponse(response) {
+    if (response.credential) {
+        document.getElementById('signInButtonContainer').style.display = 'none';
+        try {
+            const { accessToken, userInfo } = await getAccessToken(response.credential);
+            localStorage.setItem('accessToken', accessToken);
+            localStorage.setItem('userInfo', JSON.stringify(userInfo));
+
+            if (userInfo && userInfo.email) {
+                localStorage.setItem('userEmail', userInfo.email);
+                console.log('Logged in user email:', userInfo.email);
             }
+
+            localStorage.removeItem('explicitLogout');
+            console.log('Access Token:', accessToken);
+            console.log('User Info:', userInfo);
+
+            window.location.href = getRedirectUrl();  
+        } catch (error) {
+            console.error('Error during authentication process:', error);
         }
+    }
+}
 
         function initializeGSI() {
             // Check if user is already logged in by looking for an access token in localStorage
