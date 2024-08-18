@@ -37,17 +37,23 @@
 
     <script src="https://cdn.jsdelivr.net/npm/notiflix@3/dist/notiflix-aio-3.2.7.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/notiflix@3/src/notiflix.min.css" rel="stylesheet">
-  <script type="speculationrules">
-  {
-    "prerender": [
-      {
-        "source": "list",
-        "urls": ["https://marko-app.netlify.app/createmarko"],
-        "eagerness": "immediate"
-      }
-    ]
-  }
+<script type="speculationrules">
+{
+  "prerender": [
+    {
+      "source": "list",
+      "urls": [
+        "https://marko-app.netlify.app/createmarko",
+        "https://marko-app.netlify.app/login",
+        "https://marko-app.netlify.app/logout",
+        "https://marko-app.netlify.app/profile2"
+      ],
+      "eagerness": "immediate"
+    }
+  ]
+}
 </script>
+
 <style>
 body {
   font-family: Roboto, sans-serif;
@@ -1800,6 +1806,11 @@ function toggleTheme() {
  // window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', toggleTheme);
 
 let isSignedIn = false;
+const accessToken = localStorage.getItem('accessToken');
+
+if (accessToken) {
+    isSignedIn = true;
+}
 
 function toggleSignInOut() {
     if (isSignedIn) {
@@ -1810,41 +1821,17 @@ function toggleSignInOut() {
 }
 
 function handleSignIn() {
-    // Disable the button and show loading state
     updateButtonState('loading');
-    
-    authorize()
-        .then((result) => {
-            console.log('Authorization successful');
-            console.log('User email:', result.email);
-            isSignedIn = true;
-            updateButtonState('signedIn');
-            // Proceed with your application logic
-        })
-        .catch(error => {
-            console.error('Authorization failed:', error);
-            isSignedIn = false;
-            updateButtonState('signedOut');
-            // Handle the error appropriately
-        });
+    setTimeout(() => {
+      window.location.href = LOGIN_PAGE_URL;
+    }, 1000);
 }
 
 function handleSignOut() {
-    // Disable the button and show loading state
     updateButtonState('loading');
-
-    // Perform sign out operations
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('accessToken');
-    isSignedIn = false;
-    
-    // Update button state after a short delay to ensure state changes are processed
     setTimeout(() => {
-        updateButtonState('signedOut');
-        console.log('User signed out');
-    }, 100);
-
-    // Additional sign-out logic if needed...
+      window.location.href = LOGOUT_PAGE_URL;
+    }, 1000);
 }
 
 function updateButtonState(state) {
@@ -1872,12 +1859,13 @@ function updateButtonState(state) {
 }
 
 function checkInitialState() {
-    const storedEmail = localStorage.getItem('userEmail');
-    if (storedEmail) {
+    updateButtonState('loading');
+    const accessToken = localStorage.getItem('accessToken');
+    if (accessToken) {
         isSignedIn = true;
-        updateButtonState('signedIn');
+        setTimeout(() => updateButtonState('signedIn'), 1000);
     } else {
-        updateButtonState('signedOut');
+        setTimeout(() => updateButtonState('signedOut'), 1000);
     }
 }
 
@@ -2912,6 +2900,15 @@ async function syncAndShowPublicMarkos() {
     }
 
     try {
+        const userLoggedOut = localStorage.getItem('explicitLogout');
+        if (userLoggedOut === 'true') {
+          if (confirm('You have to login to use this feature. Login now?')) {
+                localStorage.removeItem('explicitLogout');
+                window.location.href = LOGIN_PAGE_URL;
+          } else {
+            return;
+          }
+        }
         accessToken = localStorage.getItem('accessToken');
         console.log('Using access token:', accessToken);
 
@@ -2981,6 +2978,15 @@ async function syncAndShowCommonMarko(fileId, title = 'Shared with me') {
         return;
     }
     try {
+        const userLoggedOut = localStorage.getItem('explicitLogout');
+        if (userLoggedOut === 'true') {
+          if (confirm('You have to login to use this feature. Login now?')) {
+                localStorage.removeItem('explicitLogout');
+                window.location.href = LOGIN_PAGE_URL;
+          } else {
+            return;
+          }
+        }
         // refresh token
         //await initializeGoogleIdentity();
         accessToken = localStorage.getItem('accessToken');
@@ -3878,9 +3884,15 @@ function countAchievements() {
 
 // URL of your login page
         const LOGIN_PAGE_URL = 'https://marko-app.netlify.app/login';
+        const LOGOUT_PAGE_URL = 'https://marko-app.netlify.app/logout';
 
         // Function to check if the user is logged in
         async function checkLoginStatus() {
+            const userLoggedOut = localStorage.getItem('explicitLogout');
+            if (userLoggedOut === 'true' {
+              return;
+            }
+          
             accessToken = localStorage.getItem('accessToken');
 
             if (!accessToken) {
@@ -7538,7 +7550,17 @@ function getFromGoogleDrive() {
     const syncFromIcon = document.getElementById('syncFromIcon');
     syncFromButton.disabled = true;
     syncFromIcon.classList.add('spinning');
-
+  
+        const userLoggedOut = localStorage.getItem('explicitLogout');
+        if (userLoggedOut === 'true') {
+          if (confirm('You have to login to use this feature. Login now?')) {
+                localStorage.removeItem('explicitLogout');
+                window.location.href = LOGIN_PAGE_URL;
+          } else {
+            return;
+          }
+        }
+  
     if (!confirm("Are you sure you want to sync your bookmarks from Google Drive? This will overwrite any existing local Marko bookmarks.")) {
         stopSpinning(syncFromButton, syncFromIcon);
         return;
@@ -7619,7 +7641,16 @@ function saveToGoogleDrive() {
         alert("Connect to the Internet to proceed");
         return;
     }
-
+        const userLoggedOut = localStorage.getItem('explicitLogout');
+        if (userLoggedOut === 'true') {
+          if (confirm('You have to login to use this feature. Login now?')) {
+                localStorage.removeItem('explicitLogout');
+                window.location.href = LOGIN_PAGE_URL;
+          } else {
+            return;
+          }
+        }
+  
     const syncToButton = document.getElementById('syncToDrive');
     const syncToIcon = document.getElementById('syncToIcon');
     syncToButton.disabled = true;
@@ -7665,7 +7696,16 @@ function saveToGoogleDrivePublic() {
         alert("Connect to the Internet to proceed");
         return;
     }
-
+        const userLoggedOut = localStorage.getItem('explicitLogout');
+        if (userLoggedOut === 'true') {
+          if (confirm('You have to login to use this feature. Login now?')) {
+                localStorage.removeItem('explicitLogout');
+                window.location.href = LOGIN_PAGE_URL;
+          } else {
+            return;
+          }
+        }
+  
     const syncToPublicButton = document.getElementById('syncToPublicDrive');
     const syncToPublicIcon = document.getElementById('syncToPublicIcon');
     syncToPublicButton.disabled = true;
@@ -7791,9 +7831,19 @@ async function createUpdateCommonMarko() {
     }
     const syncButton = document.getElementById('syncToPublicWritableDrive');
     const syncIcon = document.getElementById('syncToPublicWritableIcon');
+    
+        const userLoggedOut = localStorage.getItem('explicitLogout');
+        if (userLoggedOut === 'true') {
+          if (confirm('You have to login to use this feature. Login now?')) {
+                localStorage.removeItem('explicitLogout');
+                window.location.href = LOGIN_PAGE_URL;
+          } else {
+            return;
+          }
+        }
+  
     syncButton.disabled = true;
     syncIcon.classList.add('spinning');
-  
     // Prompt user to input name of Marko
     let userInput = prompt("Do you want to save your Markos to Google Drive as a publicly accessible file? If yes, enter a filename:");
 
@@ -7897,6 +7947,16 @@ async function writeToPublicWritableFile(fileId = '1UvMaQ5qr7DSJV9ovFmaZQkV751_X
         alert("Connect to the Internet to proceed");
         return;
     }
+    const userLoggedOut = localStorage.getItem('explicitLogout');
+        if (userLoggedOut === 'true') {
+          if (confirm('You have to login to use this feature. Login now?')) {
+                localStorage.removeItem('explicitLogout');
+                window.location.href = LOGIN_PAGE_URL;
+          } else {
+            return;
+          }
+        }
+    
     const syncButton = document.getElementById('syncToPublicWritableDrive');
     const syncIcon = document.getElementById('syncToPublicWritableIcon');
     syncButton.disabled = true;
@@ -8191,6 +8251,11 @@ function copyToClipboard(fileId, name) {
 
 
 function getUserEmailAndStore() {
+    const userLoggedOut = localStorage.getItem('explicitLogout');
+        if (userLoggedOut === 'true') {
+            return;
+          }
+        
     return new Promise((resolve, reject) => {
         const storedEmail = localStorage.getItem('userEmail');
         if (storedEmail) {
@@ -8198,7 +8263,7 @@ function getUserEmailAndStore() {
             resolve(storedEmail);
             return;
         }
-
+      
         console.log('No stored email, fetching from Google');
         const accessToken = localStorage.getItem('accessToken');
         console.log('Using access token:', accessToken);
