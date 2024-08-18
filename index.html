@@ -3624,8 +3624,12 @@ function handleSharedLink(url, title, text) {
     const link = decodeURIComponent(theLink || '').replace(/\n/g, '<br>');
     const scrollRequest = params.get('scroll');
     const randomColor = getColor();
-    const navUrl = params.get('nav');  // Extract the value associated with 'nav'
+    const navUrl = params.get('nav'); 
+    const func = params.get('then');  
 
+    if (func) {
+        func;
+    }
     if (navUrl) {
         window.open(navUrl, '_blank');
     }
