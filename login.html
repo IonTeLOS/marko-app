@@ -270,20 +270,22 @@ function getRedirectUrl() {
         finalUrl = `${APP_URL}/${formattedRedirectPath}`;
     }
 
-    // Append remaining parameters if any
-    if (remainingParams) {
+    // Handle 'then' parameter separately to avoid trailing slash issue
+    if (thenParam) {
+        if (finalUrl.endsWith('/')) {
+            finalUrl = finalUrl.slice(0, -1);  // Remove trailing slash if present
+        }
+        const separator = finalUrl.includes('?') ? '&' : '?';
+        finalUrl += `${separator}then=${thenParam}`;
+    } else if (remainingParams) {
+        // Append remaining parameters if there are no 'then' parameters
         const separator = finalUrl.includes('?') ? '&' : '?';
         finalUrl += `${separator}${remainingParams}`;
     }
 
-    // Handle 'then' parameter separately
-    if (thenParam) {
-        const separator = finalUrl.includes('?') ? '&' : '?';
-        finalUrl += `${separator}then=${thenParam}`;
-    }
-
     return finalUrl;
 }
+
 
         // simplified language
         function getBrowserLanguage() {
