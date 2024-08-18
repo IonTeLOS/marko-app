@@ -1806,7 +1806,7 @@ function toggleTheme() {
  // window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', toggleTheme);
 
 let isSignedIn = false;
-const accessToken = localStorage.getItem('accessToken');
+let accessToken = localStorage.getItem('accessToken') || '';
 
 if (accessToken) {
     isSignedIn = true;
@@ -1903,10 +1903,7 @@ let linkTypeSelect;
 let iconSourceSelect;
 let currentLink = null; // Global variable to store current link    
 let allCommonMarkos = JSON.parse(localStorage.getItem('commonMarkos')) || [];
-let myCommonMarkos = JSON.parse(localStorage.getItem('myCommons')) || [];
-let accessToken = localStorage.getItem('accessToken') || '';
-
-      
+let myCommonMarkos = JSON.parse(localStorage.getItem('myCommons')) || [];    
 
 document.addEventListener('DOMContentLoaded', function() {
     // definitions of elements
