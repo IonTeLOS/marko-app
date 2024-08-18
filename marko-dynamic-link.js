@@ -6,8 +6,6 @@
 // your users can hide the button, or keep it as a shortcut to Marko app website
 // learn more about Marko© and how it can help you and your users grow at https://github.com/IonTeLOS/marko-app
 
-let APP_URL = 'https://marko-app.netlify.app';
-
 // Load tinycolor for color manipulation
 function loadTinyColor() {
     const tinyColorScript = document.createElement('script');
@@ -73,7 +71,7 @@ async function handleMarkoButtonClick(event) {
     
     const goToApp = localStorage.getItem('Marko-app-direct');
     if (goToApp === 'true') {
-       window.open(APP_URL, '_blank');
+       window.open('https://marko-app.netlify.app', '_blank');
        return;
     }
     
@@ -81,7 +79,7 @@ async function handleMarkoButtonClick(event) {
     if (hasClickedBefore === 'true') {
         if (confirm(getTranslatedTrueText())) {
             localStorage.setItem('Marko-app-direct', 'true');
-            window.open(APP_URL, '_blank');
+            window.open('https://marko-app.netlify.app', '_blank');
         } 
         else {
             localStorage.setItem('Marko-hide', 'true');
@@ -107,7 +105,7 @@ async function handleMarkoButtonClick(event) {
         const finalColor = getPrimaryColor();
         const encodedColor = encodeURIComponent(finalColor);
 	// this is where all the magic happens    
-        const finalUrl = `${APP_URL}?type=website&link=${url}&title=${title}&icon=${favicon}&color=${encodedColor}&createMarko=true&noConfirm=true`;
+        const finalUrl = `https://marko-app.netlify.app?type=website&link=${url}&title=${title}&icon=${favicon}&color=${encodedColor}&createMarko=true&noConfirm=true`;
 
         // Log the details to the console
 	console.log(`Adding a Marko for the website ${decodeURIComponent(url)} with title ${decodeURIComponent(title)} and color ${decodeURIComponent(encodedColor)}`);
@@ -558,7 +556,7 @@ async function handleMarkoButtonClick(event) {
     // Prevent context menu from showing
     button.addEventListener('contextmenu', (event) => {
         event.preventDefault();
-        window.open(APP_URL, '_blank');
+        window.open('https://marko-app.netlify.app', '_blank');
     });
     
     // Handle touchstart and touchend for long press detection (useful for iOS devices)
@@ -577,7 +575,7 @@ async function handleMarkoButtonClick(event) {
     	if (touchEndTime - touchStartTime >= longPressDelay) {
         	event.preventDefault(); // Prevent default touch behavior
         	event.stopPropagation(); // Prevent the event from bubbling up
-        	window.open(APP_URL, '_blank'); // Open the URL in a new tab/window
+        	window.open('https://marko-app.netlify.app', '_blank'); // Open the URL in a new tab/window
    	 	}
 	});
 
