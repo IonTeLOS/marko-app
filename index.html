@@ -3626,10 +3626,15 @@ function handleSharedLink(url, title, text) {
     const randomColor = getColor();
     const navUrl = params.get('nav'); 
     const func = params.get('then');  
+    const functionsMap = {
+        getFromGoogleDrive,
+        saveToGoogleDrive
+    };
 
-    if (func) {
-        func;
+    if (func && functionsMap[func]) {
+        functionsMap[func](); // Execute the corresponding function
     }
+    
     if (navUrl) {
         window.open(navUrl, '_blank');
     }
