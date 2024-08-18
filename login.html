@@ -248,6 +248,8 @@
         const CLIENT_ID = '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid';
 
+const APP_URL = 'https://marko-app.netlify.app';
+
 function getRedirectUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     const redirectPath = urlParams.get('redirect');
@@ -261,7 +263,7 @@ function getRedirectUrl() {
     const remainingParams = urlParams.toString();
 
     // Start with the base URL
-    let finalUrl = 'https://marko-app.netlify.app';
+    let finalUrl = APP_URL;
 
     // Handle 'redirect' parameter
     if (redirectPath) {
@@ -275,13 +277,17 @@ function getRedirectUrl() {
         if (finalUrl.endsWith('/')) {
             finalUrl = finalUrl.slice(0, -1);  // Remove trailing slash if present
         }
+        const encodedThenParam = encodeURIComponent(thenParam);
         const separator = finalUrl.includes('?') ? '&' : '?';
-        finalUrl += `${separator}then=${thenParam}`;
+        finalUrl += `${separator}then=${encodedThenParam}`;
     } else if (remainingParams) {
         // Append remaining parameters if there are no 'then' parameters
         const separator = finalUrl.includes('?') ? '&' : '?';
         finalUrl += `${separator}${remainingParams}`;
     }
+
+    // Substitute '/main' with an empty string
+    finalUrl = finalUrl.replace('/main', '');
 
     return finalUrl;
 }
