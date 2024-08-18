@@ -1822,16 +1822,24 @@ function toggleSignInOut() {
 
 function handleSignIn() {
     updateButtonState('loading');
+    const loadingButton = document.getElementById('signInOutButton');
+    const loadingIcon = document.getElementById('signInOutIcon');
+    loadingButton.disabled = true;
+    loadingIcon.classList.add('spinning');
     setTimeout(() => {
       window.location.href = LOGIN_PAGE_URL;
-    }, 1000);
+    }, 1200);
 }
 
 function handleSignOut() {
     updateButtonState('loading');
+    const loadingButton = document.getElementById('signInOutButton');
+    const loadingIcon = document.getElementById('signInOutIcon');
+    loadingButton.disabled = true;
+    loadingIcon.classList.add('spinning');
     setTimeout(() => {
       window.location.href = LOGOUT_PAGE_URL;
-    }, 1000);
+    }, 1200);
 }
 
 function updateButtonState(state) {
