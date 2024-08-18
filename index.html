@@ -7568,7 +7568,7 @@ function getFromGoogleDrive() {
         if (userLoggedOut === 'true') {
           if (confirm('You have to login to use this feature. Login now?')) {
                 localStorage.removeItem('explicitLogout');
-                window.location.href = LOGIN_PAGE_URL;
+                window.location.href = `${LOGIN_PAGE_URL}?redirect=index.html?then=getFromGoogleDrive`;
           } else {
             return;
           }
@@ -7658,7 +7658,7 @@ function saveToGoogleDrive() {
         if (userLoggedOut === 'true') {
           if (confirm('You have to login to use this feature. Login now?')) {
                 localStorage.removeItem('explicitLogout');
-                window.location.href = LOGIN_PAGE_URL;
+                window.location.href = `${LOGIN_PAGE_URL}?redirect=index.html?then=saveToGoogleDrive`;
           } else {
             return;
           }
