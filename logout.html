@@ -134,6 +134,7 @@
         function handleLogout() {
             localStorage.removeItem('accessToken');
             localStorage.removeItem('userInfo');
+            localStorage.removeItem('userEmail');
             localStorage.removeItem('eulaAccepted');
             localStorage.setItem('explicitLogout', 'true');
             window.location.href = 'https://marko-app.netlify.app';
