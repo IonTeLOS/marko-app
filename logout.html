@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marko Logout</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Kanit', 'Roboto', 'Open Sans', sans-serif;
+            background-color: #ffa426;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .logout-container {
+            text-align: center;
+            padding: 15px;
+            margin-left: 15px;
+            margin-right: 15px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 92vw;
+            max-width: 500px;
+            position: relative;
+            overflow-y: auto;
+        }
+
+        .logo {
+            max-width: 100px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        p {
+            font-size: 16px;
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background-color: #ff0f0f;
+            color: #ffffff;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: fit-content;
+            margin: 0 auto;
+            margin-bottom: 10px;
+        }
+
+        .material-icons {
+            font-family: 'Material Icons', sans-serif;
+            font-size: 24px;
+            display: inline-block;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        .blinking {
+            animation: blink 1.2s step-start infinite;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="logoutContainer" class="logout-container">
+        <img src="https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg" alt="Marko Logo" class="logo">
+        <h1 id="logoutTitle">Marko Logout</h1>
+        <p id="logoutMessage"></p>
+        <button onclick="handleLogout()">
+            <span class="material-icons notranslate">logout</span>
+            <span id="logoutButtonText">Logout</span>
+        </button>
+    </div>
+
+    <script>
+   
+        const logoutMessages = {
+    en: "Logging out will sign you out of Marko©, and you’ll lose access to features like reminders, syncing, and public profile creation. Your data will remain safe on Google Drive. You can log back in anytime from Settings.",
+    zh: "退出登录将使您退出 Marko©，并且您将失去提醒、同步和创建公共档案等功能的访问权限。您的数据将安全地保存在 Google Drive 上。您可以随时从设置中重新登录。",
+    es: "Cerrar sesión te desconectará de Marko©, y perderás acceso a funciones como recordatorios, sincronización y creación de perfil público. Tus datos permanecerán seguros en Google Drive. Puedes iniciar sesión nuevamente en cualquier momento desde Configuración.",
+    ar: "تسجيل الخروج سيؤدي إلى خروجك من Marko© وستفقد الوصول إلى ميزات مثل التذكيرات والمزامنة وإنشاء الملف الشخصي العام. ستبقى بياناتك آمنة على Google Drive. يمكنك تسجيل الدخول مرة أخرى في أي وقت من الإعدادات.",
+    pt: "Sair irá desconectá-lo do Marko©, e você perderá acesso a recursos como lembretes, sincronização e criação de perfil público. Seus dados permanecerão seguros no Google Drive. Você pode fazer login novamente a qualquer momento nas Configurações.",
+    ja: "ログアウトすると、Marko© からサインアウトされ、リマインダー、同期、パブリック プロファイルの作成などの機能にアクセスできなくなります。データは Google Drive に安全に保管されます。設定からいつでも再度ログインできます。",
+    ms: "Log keluar akan menandatangani anda keluar dari Marko©, dan anda akan kehilangan akses kepada ciri-ciri seperti peringatan, penyegerakan, dan penciptaan profil awam. Data anda akan kekal selamat di Google Drive. Anda boleh log masuk semula pada bila-bila masa dari Tetapan.",
+    ru: "Выход из системы приведет к выходу из Marko©, и вы потеряете доступ к функциям, таким как напоминания, синхронизация и создание общедоступного профиля. Ваши данные останутся в безопасности на Google Drive. Вы можете войти снова в любое время через настройки.",
+    fr: "La déconnexion vous déconnectera de Marko©, et vous perdrez l'accès à des fonctionnalités telles que les rappels, la synchronisation et la création de profil public. Vos données resteront en sécurité sur Google Drive. Vous pouvez vous reconnecter à tout moment depuis les paramètres.",
+    de: "Das Abmelden führt dazu, dass Sie von Marko© abgemeldet werden und den Zugriff auf Funktionen wie Erinnerungen, Synchronisierung und die Erstellung eines öffentlichen Profils verlieren. Ihre Daten bleiben sicher auf Google Drive. Sie können sich jederzeit über die Einstellungen wieder anmelden.",
+    vi: "Đăng xuất sẽ khiến bạn rời khỏi Marko© và bạn sẽ mất quyền truy cập vào các tính năng như lời nhắc, đồng bộ hóa và tạo hồ sơ công khai. Dữ liệu của bạn sẽ an toàn trên Google Drive. Bạn có thể đăng nhập lại bất cứ lúc nào từ Cài đặt.",
+    fa: "با خروج از حساب، از Marko© خارج خواهید شد و دسترسی به ویژگی‌هایی مانند یادآورها، همگام‌سازی و ایجاد پروفایل عمومی را از دست خواهید داد. داده‌های شما به صورت ایمن در Google Drive باقی می‌ماند. می‌توانید هر زمان که بخواهید از تنظیمات وارد حساب خود شوید.",
+    tr: "Oturum kapatma işlemi, Marko© hesabınızdan çıkış yapmanıza neden olacak ve hatırlatmalar, senkronizasyon ve herkese açık profil oluşturma gibi özelliklere erişimi kaybedeceksiniz. Verileriniz Google Drive üzerinde güvende kalacak. Ayarlardan istediğiniz zaman tekrar giriş yapabilirsiniz.",
+    th: "การออกจากระบบจะทำให้คุณออกจาก Marko© และคุณจะสูญเสียการเข้าถึงฟีเจอร์เช่น การเตือน การซิงค์ และการสร้างโปรไฟล์สาธารณะ ข้อมูลของคุณจะยังคงปลอดภัยใน Google Drive คุณสามารถเข้าสู่ระบบอีกครั้งได้ตลอดเวลาจากการตั้งค่า",
+    id: "Keluar akan mengeluarkan Anda dari Marko©, dan Anda akan kehilangan akses ke fitur seperti pengingat, sinkronisasi, dan pembuatan profil publik. Data Anda akan tetap aman di Google Drive. Anda dapat masuk lagi kapan saja dari Pengaturan.",
+    ko: "로그아웃하면 Marko©에서 로그아웃되며 알림, 동기화 및 공개 프로필 생성과 같은 기능에 접근할 수 없게 됩니다. 데이터는 Google Drive에 안전하게 보관됩니다. 설정에서 언제든지 다시 로그인할 수 있습니다.",
+    it: "Disconnettendoti verrà eseguita l'uscita da Marko© e perderai l'accesso a funzionalità come promemoria, sincronizzazione e creazione del profilo pubblico. I tuoi dati rimarranno al sicuro su Google Drive. Puoi accedere nuovamente in qualsiasi momento dalle Impostazioni.",
+    pl: "Wylogowanie spowoduje wylogowanie z Marko© i utratę dostępu do funkcji takich jak przypomnienia, synchronizacja i tworzenie publicznego profilu. Twoje dane pozostaną bezpieczne na Google Drive. Możesz zalogować się ponownie w dowolnym momencie w ustawieniach.",
+    nl: "Uitloggen betekent dat je wordt afgemeld van Marko© en je geen toegang meer hebt tot functies zoals herinneringen, synchronisatie en het aanmaken van een openbaar profiel. Je gegevens blijven veilig op Google Drive. Je kunt je op elk moment opnieuw aanmelden via Instellingen.",
+    el: "Η αποσύνδεση θα σας αποσυνδέσει από το Marko© και θα χάσετε την πρόσβαση σε λειτουργίες όπως υπενθυμίσεις, συγχρονισμό και δημιουργία δημόσιου προφίλ. Τα δεδομένα σας θα παραμείνουν ασφαλή στο Google Drive. Μπορείτε να συνδεθείτε ξανά οποιαδήποτε στιγμή από τις Ρυθμίσεις."
+};
+        function getBrowserLanguage() {
+            return navigator.language.slice(0, 2) || 'en';
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('userInfo');
+            localStorage.removeItem('eulaAccepted');
+            localStorage.setItem('explicitLogout', 'true');
+            window.location.href = 'https://marko-app.netlify.app';
+        }
+
+        function initializeLogoutPage() {
+            const language = getBrowserLanguage();
+            const message = logoutMessages[language] || logoutMessages['en'];
+
+            const logoutTitle = document.getElementById('logoutTitle');
+            const logoutMessage = document.getElementById('logoutMessage');
+            const logoutButtonText = document.getElementById('logoutButtonText');
+
+            if (logoutMessage) logoutMessage.textContent = message;
+            if (logoutButtonText) logoutButtonText.textContent = 'Logout';
+        }
+
+        window.onload = initializeLogoutPage;
+    </script>
+</body>
+</html>
