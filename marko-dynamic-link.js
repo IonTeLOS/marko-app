@@ -670,41 +670,88 @@ button.addEventListener('click', (event) => {
 
 // Function to get favicon
 async function getFavicon() {
-    let faviconElement = document.querySelector('link[rel="icon"], link[rel="shortcut icon"]');
-    if (faviconElement) {
-        return faviconElement.href;
-    }
-
     const baseUrl = window.location.origin;
-    try {
-        const response = await fetch(`${baseUrl}/favicon.ico`);
-        if (response.ok) {
-            return `${baseUrl}/favicon.ico`;
+    
+    // Helper function to resolve relative URLs
+    const resolveUrl = (url) => {
+        return url.startsWith('http') ? url : new URL(url, baseUrl).href;
+    };
+
+    // Helper function to check if URL returns a valid image
+    async function isValidImage(url) {
+        try {
+            const response = await fetch(url, { method: 'HEAD' });
+            return response.ok && response.headers.get('Content-Type').startsWith('image/');
+        } catch (e) {
+            console.log(`Error checking image at ${url}:`, e);
+            return false;
         }
-    } catch (e) {
-        console.log("Error fetching favicon from home page:", e);
     }
 
+    // Check for apple-touch-icon first
+    const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+    if (appleIcon && appleIcon.href && await isValidImage(appleIcon.href)) {
+        return resolveUrl(appleIcon.href);
+    }
+
+    // Check for other icons
+    const iconSelectors = [
+        'link[rel="icon"]',
+        'link[rel="shortcut icon"]'
+    ];
+    
+    for (const selector of iconSelectors) {
+        const element = document.querySelector(selector);
+        if (element && element.href && await isValidImage(element.href)) {
+            return resolveUrl(element.href);
+        }
+    }
+
+    // Check Web App Manifest
     const manifestLink = document.querySelector('link[rel="manifest"]');
     if (manifestLink) {
         try {
-            const manifestUrl = manifestLink.href;
+            const manifestUrl = resolveUrl(manifestLink.href);
             const response = await fetch(manifestUrl);
             const manifest = await response.json();
             if (manifest.icons && manifest.icons.length > 0) {
-                return new URL(manifest.icons[0].src, baseUrl).href;
+                const sortedIcons = manifest.icons.sort((a, b) => {
+                    const sizeA = a.sizes ? parseInt(a.sizes.split('x')[0]) : 0;
+                    const sizeB = b.sizes ? parseInt(b.sizes.split('x')[0]) : 0;
+                    return sizeB - sizeA;
+                });
+                for (const icon of sortedIcons) {
+                    const iconUrl = resolveUrl(icon.src);
+                    if (await isValidImage(iconUrl)) {
+                        return iconUrl;
+                    }
+                }
             }
         } catch (e) {
             console.log("Error fetching icon from manifest:", e);
         }
     }
 
-    const ogImageElement = document.querySelector('meta[property="og:image"]');
-    if (ogImageElement) {
-        return ogImageElement.content;
+    // Try to fetch favicon.ico from the root
+    const faviconUrl = `${baseUrl}/favicon.ico`;
+    if (await isValidImage(faviconUrl)) {
+        return faviconUrl;
     }
 
-    return `https://www.google.com/s2/favicons?domain=${baseUrl}&sz=64`;
+    // Check for og:image
+    const ogImageElement = document.querySelector('meta[property="og:image"]');
+    if (ogImageElement && ogImageElement.content && await isValidImage(ogImageElement.content)) {
+        return resolveUrl(ogImageElement.content);
+    }
+
+    // Try Google's favicon service
+    const googleFaviconUrl = `https://www.google.com/s2/favicons?domain=${baseUrl}&sz=64`;
+    if (await isValidImage(googleFaviconUrl)) {
+        return googleFaviconUrl;
+    }
+
+    // Final fallback to Material Symbols icon
+    return "https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/link/default/48px.svg";
 }
 
 	// Load tinycolor for color manipulation
