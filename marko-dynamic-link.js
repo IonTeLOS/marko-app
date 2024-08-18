@@ -106,10 +106,11 @@ async function handleMarkoButtonClick(event) {
         const favicon = encodeURIComponent(await getFavicon());
         const finalColor = getPrimaryColor();
         const encodedColor = encodeURIComponent(finalColor);
-        const finalUrl = `${APP_URL}/marko/newfile?type=website&link=${url}&title=${title}&icon=${favicon}&color=${encodedColor}&createMarko=true&noConfirm=true`;
+	// this is where all the magic happens    
+        const finalUrl = `${APP_URL}?type=website&link=${url}&title=${title}&icon=${favicon}&color=${encodedColor}&createMarko=true&noConfirm=true`;
 
         // Log the details to the console
-		console.log(`Adding a Marko for the website ${decodeURIComponent(url)} with title ${decodeURIComponent(title)} and color ${decodeURIComponent(encodedColor)}`);
+	console.log(`Adding a Marko for the website ${decodeURIComponent(url)} with title ${decodeURIComponent(title)} and color ${decodeURIComponent(encodedColor)}`);
         localStorage.setItem('Marko-clicked', 'true');
         window.open(finalUrl, '_blank');
     } else {
