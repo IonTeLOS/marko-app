@@ -3905,7 +3905,6 @@ function countAchievements() {
                 if (response.ok) {
                     const data = await response.json();
                     console.log('Access Token is valid:', data);
-                    getUserEmailAndStore();
                     // Proceed to load the main page content
                 } else {
                     console.warn('Invalid Access Token:', response.status);
@@ -4102,7 +4101,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Construct notification details
         const { textInput, delay } = constructNotification();
         console.log('Constructed notification details:', { textInput, delay });
-        getUserEmailAndStore();
         scheduleNotification(textInput, shareBody, delay, shareIcon, uuid);
         console.log('Notification scheduled with:', { textInput, shareBody, delay, shareIcon, uuid });
     });
