@@ -8,6 +8,7 @@
 // your users can hide the button, or keep it as a shortcut to Marko app website
 // learn more about Marko© and how it can help you and your users grow at https://github.com/IonTeLOS/marko-app
 
+let MARKO_URL = 'https://marko-app.netlify.app';
 let MARKOBUTTON_APP_URL = 'https://marko-app.netlify.app';
 let MARKOBUTTON_ICON_URL = 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';
 let IS_CUSTOM = false;
@@ -584,7 +585,7 @@ function createAndStyleButton() {
     // Prevent context menu from showing
     button.addEventListener('contextmenu', (event) => {
         event.preventDefault();
-        window.open('https://marko-app.netlify.app', '_blank');
+        window.open(MARKO_URL, '_blank');
     });
     
 let touchStartTime;
@@ -604,7 +605,7 @@ button.addEventListener('touchend', (event) => {
         longPressTriggered = true; // Set the flag to indicate long press
         event.preventDefault(); // Prevent default touch behavior
         event.stopPropagation(); // Prevent the event from bubbling up
-        window.open(MARKOBUTTON_APP_URL, '_blank'); // Open the URL in a new tab/window
+        window.open(MARKO_URL, '_blank'); // Open the URL in a new tab/window
     }
 });
 
