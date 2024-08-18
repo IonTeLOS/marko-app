@@ -247,7 +247,7 @@
         let APP_URL = 'https://marko-app.netlify.app';
         const CLIENT_ID = '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid';
-
+        
 function getRedirectUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     const redirectPath = urlParams.get('redirect');
@@ -255,19 +255,25 @@ function getRedirectUrl() {
     // Remove 'redirect' from the URL parameters
     urlParams.delete('redirect');
 
-    // Extract 'then' parameter if it exists
-    const thenParam = urlParams.get('then');
+    // Convert remaining parameters to a query string
+    const remainingParams = urlParams.toString();
+    
+    // Construct base URL
+    let baseUrl = APP_URL;
 
-    // Construct base URL with remaining parameters
-    const baseUrl = APP_URL + (urlParams.toString() ? '?' + urlParams.toString() : '');
+    // Append remaining parameters to the base URL
+    if (remainingParams) {
+        baseUrl += '?' + remainingParams;
+    }
 
     // Handle redirectPath
     if (redirectPath) {
-        return `${baseUrl}${redirectPath.startsWith('/') ? '' : '/'}${redirectPath}`;
+        // Construct the redirect URL
+        const redirectUrl = `${baseUrl}${redirectPath.startsWith('/') ? '' : '/'}${redirectPath}`;
+        return redirectUrl;
     }
 
-    // If no redirectPath, return the base URL and handle 'then' parameter
-    return thenParam ? `${baseUrl}${thenParam.startsWith('?') ? '' : '?'}${thenParam}` : baseUrl;
+    return baseUrl;
 }
 
         // simplified language
