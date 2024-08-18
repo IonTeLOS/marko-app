@@ -247,7 +247,12 @@
         let APP_URL = 'https://marko-app.netlify.app';
         const CLIENT_ID = '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid';
-        
+
+// Helper function to ensure no trailing slash
+function removeTrailingSlash(url) {
+    return url.endsWith('/') ? url.slice(0, -1) : url;
+}
+
 function getRedirectUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     const redirectPath = urlParams.get('redirect');
@@ -258,23 +263,26 @@ function getRedirectUrl() {
     // Convert remaining parameters to a query string
     const remainingParams = urlParams.toString();
     
-    // Construct base URL
+    // Handle base URL and parameters
     let baseUrl = APP_URL;
 
-    // Append remaining parameters to the base URL
-    if (remainingParams) {
-        baseUrl += '?' + remainingParams;
+    // Remove trailing slash if no redirectPath and remainingParams are present
+    if (!redirectPath && !remainingParams) {
+        baseUrl = removeTrailingSlash(baseUrl);
     }
 
-    // Handle redirectPath
+    // Construct the final URL
     if (redirectPath) {
-        // Construct the redirect URL
-        const redirectUrl = `${baseUrl}${redirectPath.startsWith('/') ? '' : '/'}${redirectPath}`;
-        return redirectUrl;
+        // If redirectPath starts with '/', remove it to avoid double slashes
+        const formattedRedirectPath = redirectPath.startsWith('/') ? redirectPath.slice(1) : redirectPath;
+        const redirectUrl = `${baseUrl}/${formattedRedirectPath}`;
+        return remainingParams ? `${redirectUrl}?${remainingParams}` : redirectUrl;
     }
 
-    return baseUrl;
+    // If there are remaining parameters, append them to the base URL
+    return remainingParams ? `${baseUrl}?${remainingParams}` : baseUrl;
 }
+
 
         // simplified language
         function getBrowserLanguage() {
