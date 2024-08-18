@@ -253,11 +253,11 @@ function getRedirectUrl() {
     const redirectPath = urlParams.get('redirect');
     const functionPath = urlParams.get('then');
 
-    if (functionPath) {
-        return `${APP_URL}?then=${functionPath}`;
-    } else if (redirectPath) {
+    if (redirectPath) {
         const cleanRedirectPath = redirectPath.startsWith('/') ? redirectPath.slice(1) : redirectPath;
-        return `${APP_URL}/${cleanRedirectPath}`;
+        return `https://marko-app.netlify.app/${cleanRedirectPath}`;
+    } else if (functionPath) {
+        return `https://marko-app.netlify.app?then=${functionPath}`;
     } else {
         return APP_URL;
     }
