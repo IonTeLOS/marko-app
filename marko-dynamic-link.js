@@ -2,13 +2,27 @@
 // a tiny app that adds a dynamic Marko© button on your website
 // add the button by adding this script in the <head> section of your website like this: 
 // <script src="https://marko-app.netlify.app/marko-dynamic-link.js" defer></script>
+// optionally add data-alt-url and/or data-alt-icon to program the button. here is an example:
+// <script src="https://marko-app.netlify.app/marko-dynamic-link.js" defer data-alt-url='https://my-other-site.com' data-alt-icon='https://my-other-site.com/icons/my-icon.svg'></script>
 // clicking on the button bookmarks your website on user's Marko© application
 // your users can hide the button, or keep it as a shortcut to Marko app website
 // learn more about Marko© and how it can help you and your users grow at https://github.com/IonTeLOS/marko-app
 
-    const scriptTag = document.querySelector('script[src="https://marko-app.netlify.app/marko-dynamic-link.js"]');
-    const paramValue = scriptTag.getAttribute('data-alt-url');
-    console.log(paramValue); // Output: someValue
+let MARKOBUTTON_APP_URL = 'https://marko-app.netlify.app';
+let MARKOBUTTON_APP_ICON = 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';
+let IS_CUSTOM = false;
+const scriptTag = document.querySelector('script[src="https://marko-app.netlify.app/marko-dynamic-link.js"]');
+const altUrlValue = scriptTag.getAttribute('data-alt-url');
+if (altUrlValue) {
+    MARKOBUTTON_APP_URL = altUrlValue;
+    IS_CUSTOM = true;	
+    console.log(`extra url added by webmaster: ${altUrlValue}`);
+}
+const altIconValue = scriptTag.getAttribute('data-alt-icon');
+if (altIconValue) {
+    MARKOBUTTON_ICON_URL = altIconValue;
+    console.log(`extra icon added by webmaster: ${altIconValue}`);
+}
 
 // Load tinycolor for color manipulation
 function loadTinyColor() {
@@ -75,7 +89,7 @@ async function handleMarkoButtonClick(event) {
     
     const goToApp = localStorage.getItem('Marko-app-direct');
     if (goToApp === 'true') {
-       window.open('https://marko-app.netlify.app', '_blank');
+       window.open(MARKOBUTTON_APP_URL, '_blank');
        return;
     }
     
@@ -83,7 +97,8 @@ async function handleMarkoButtonClick(event) {
     if (hasClickedBefore === 'true') {
         if (confirm(getTranslatedTrueText())) {
             localStorage.setItem('Marko-app-direct', 'true');
-            window.open('https://marko-app.netlify.app', '_blank');
+            // TODO: 
+            window.open(MARKOBUTTON_APP_URL, '_blank');
         } 
         else {
             localStorage.setItem('Marko-hide', 'true');
@@ -102,6 +117,10 @@ async function handleMarkoButtonClick(event) {
      }
    
     const translatedText = getTranslatedText();
+    if (MARKOBUTTON_APP_URL !== 'https://marko-app.netlify.app') {
+        window.open(MARKOBUTTON_APP_URL, '_blank');
+	return;    
+    }
     if (confirm(translatedText)) {
         const url = encodeURIComponent(window.location.href);
         const title = encodeURIComponent(document.title);
@@ -412,7 +431,7 @@ async function handleMarkoButtonClick(event) {
     	return window.innerWidth <= mobileBreakpoint;
 	}
 
-	function createAndStyleButton() {
+function createAndStyleButton() {
     // Check if the button already exists
     if (document.getElementById('dynamicMarkoButton')) {
         return; // Exit if button already exists
@@ -431,8 +450,13 @@ async function handleMarkoButtonClick(event) {
 
     // Create and append the SVG element
     const img = document.createElement('img');
-    img.src = getSvgUrl(primaryColor);
-    img.alt = 'Marko Icon';
+    if (!MARKOBUTTON_ICON_URL.includes('https://raw.githubusercontent.com/IonTeLOS/marko-app')) {
+        img.src = MARKOBUTTON_ICON_URL;
+        img.alt = 'Custom Button Icon';   
+    } else {
+    	img.src = getSvgUrl(primaryColor);
+    	img.alt = 'Marko Icon';
+    }	    
     button.appendChild(img);
 
     // Set initial styles for the button and SVG
@@ -469,7 +493,7 @@ async function handleMarkoButtonClick(event) {
     tooltip.textContent = getTranslatedText(); 
     
     const shortcut = localStorage.getItem('Marko-app-direct');
-    if (shortcut !== 'true' && !isMobileDevice()) {
+    if (shortcut !== 'true' && !isMobileDevice() && !IS_CUSTOM) {
         document.body.appendChild(tooltip);
     }
     
@@ -580,7 +604,7 @@ button.addEventListener('touchend', (event) => {
         longPressTriggered = true; // Set the flag to indicate long press
         event.preventDefault(); // Prevent default touch behavior
         event.stopPropagation(); // Prevent the event from bubbling up
-        window.open('https://marko-app.netlify.app', '_blank'); // Open the URL in a new tab/window
+        window.open(MARKOBUTTON_APP_URL, '_blank'); // Open the URL in a new tab/window
     }
 });
 
