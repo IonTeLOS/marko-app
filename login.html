@@ -248,35 +248,29 @@
         const CLIENT_ID = '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid';
 
+const APP_URL = 'https://marko-app.netlify.app';
+
 function getRedirectUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     const redirectPath = urlParams.get('redirect');
-    
-    if (redirectPath) {
-        // Check if the redirectPath contains query parameters
-        const [path, queryString] = redirectPath.split('?');
-        
-        // If the redirectPath has a query string, treat it as part of the main URL query
-        if (queryString) {
-            // Remove the 'redirect' parameter from the URL
-            urlParams.delete('redirect');
-            
-            // Add the remaining query parameters to the main URL
-            const remainingParams = urlParams.toString();
-            const baseUrl = `${APP_URL}${remainingParams ? '?' + remainingParams : ''}`;
-            
-            // Return the URL with the redirect query string
-            return `${baseUrl}?${queryString}`;
-        }
-        
-        // If no query string in redirectPath, just append the path
-        return `${APP_URL}/${path}`;
-    }
-    
-    // Return base URL with current query parameters if no redirect parameter
-    return APP_URL + window.location.search;
-}
 
+    // Remove 'redirect' from the URL parameters
+    urlParams.delete('redirect');
+
+    // Extract 'then' parameter if it exists
+    const thenParam = urlParams.get('then');
+
+    // Construct base URL with remaining parameters
+    const baseUrl = APP_URL + (urlParams.toString() ? '?' + urlParams.toString() : '');
+
+    // Handle redirectPath
+    if (redirectPath) {
+        return `${baseUrl}${redirectPath.startsWith('/') ? '' : '/'}${redirectPath}`;
+    }
+
+    // If no redirectPath, return the base URL and handle 'then' parameter
+    return thenParam ? `${baseUrl}${thenParam.startsWith('?') ? '' : '?'}${thenParam}` : baseUrl;
+}
 
         // simplified language
         function getBrowserLanguage() {
