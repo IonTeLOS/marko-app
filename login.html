@@ -823,6 +823,7 @@ function getAccessToken(credential) {
                 console.error('Token client error:', error);
                 if (error.type === 'popup_failed_to_open') {
                     showPopupBlockedMessage();
+                    showManualSignInButton();
                 }
                 reject(error);
             }
