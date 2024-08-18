@@ -118,10 +118,12 @@ async function handleMarkoButtonClick(event) {
      }
    
     const translatedText = getTranslatedText();
+    /*
     if (MARKOBUTTON_APP_URL !== 'https://marko-app.netlify.app') {
         window.open(MARKOBUTTON_APP_URL, '_blank');
 	return;    
     }
+    */
     if (confirm(translatedText)) {
         const url = encodeURIComponent(window.location.href);
         const title = encodeURIComponent(document.title);
