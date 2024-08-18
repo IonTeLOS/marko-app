@@ -171,25 +171,50 @@
             animation: blink 1.2s step-start infinite;
         }
 
-        .notiflix-report {
-            font-family: 'Kanit', 'Roboto', 'Open Sans', sans-serif !important;
-            background-color: #0d47a1 !important;
+        .custom-notification {
+            position: fixed;
+            top: -100px; 
+            left: 50%;
+            transform: translateX(-50%);
+            width: 85vw;
+            max-width: 500px;
+            background-color: #0d47a1;
+            color: white;
+            font-size: 14px;
+            font-family: 'Kanit', 'Roboto', 'Open Sans', sans-serif;
+            padding: 15px;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-radius: 8px;
+            z-index: 9999;
+            opacity: 0;
+            transition: top 0.5s ease-in-out, opacity 0.5s ease-in-out;
         }
 
-       .notiflix-report .nx-message-icon path,
-       .notiflix-report .nx-close-button svg path {
-            fill: white !important;
+        .custom-notification.show {
+            top: 90px;
+            opacity: 1;
         }
 
-        .notiflix-report {
-            max-width: 85vw; 
-            margin: 0 auto; 
+        .custom-notification .warning-icon,
+        .custom-notification .reload-icon {
+            color: #ffa426;
+            font-size: 24px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        .custom-notification .reload-icon {
+            margin-left: 10px;
         }
         
     </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+    
     <div id="loginContainer" class="login-container">
       <img 
         src="https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg" 
@@ -214,6 +239,11 @@
                 <span id="eulaAcceptButtonText">Accept and Proceed</span>
             </button>
         </div>
+    </div>
+    <div id="customNotification" class="custom-notification">
+        <span class="material-icons warning-icon">warning</span>
+        <span id="notificationText"></span>
+        <span class="material-icons reload-icon" onclick="window.location.reload()">refresh</span>
     </div>
 
     <script>
@@ -831,38 +861,21 @@ function showPopupBlockedMessage() {
     const language = localStorage.getItem('language') || 'en';
     const message = getLocalizedPopupBlockedMessage(language);
 
-    Notiflix.Notify.init({
-        position: 'center-top',
-        distance: '90px',
-        timeout: 15000,
-        background: '#0d47a1',
-        fontFamily: 'Kanit,Roboto,Open Sans,sans-serif',
-        cssAnimationStyle: 'from-top',
-        closeButton: true,
-    });
+    const notification = document.getElementById('customNotification');
+    const notificationText = document.getElementById('notificationText');
 
-    Notiflix.Notify.warning(
-        message,
-        {
-            ID: 'popupBlockedNotification',
-            className: 'notiflix-report',
-            width: '260px',
-            backOverlay: true,
-            backOverlayColor: 'rgba(0,0,0,0.5)',
-            fontFamily: 'Roboto,Arial,sans-serif',
-            svgSize: '30px',
-            plainText: false,
-            titleFontSize: '16px',
-            titleMaxLength: 34,
-            messageFontSize: '13px',
-            messageMaxLength: 400,
-            buttonFontSize: '14px',
-            cssAnimationStyle: 'fade',
-            cssAnimationDuration: 800,
-            plainText: true,
-        }
-    );
+    // Set the message
+    notificationText.innerText = message;
+
+    // Show the notification with animation
+    notification.classList.add('show');
+
+    // Hide the notification after 10 seconds
+    setTimeout(() => {
+        notification.classList.remove('show');
+    }, 10000);
 }
+
         function getUserInfo(accessToken) {
             return new Promise((resolve, reject) => {
                 fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
