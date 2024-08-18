@@ -251,9 +251,11 @@
 function getRedirectUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     const redirectPath = urlParams.get('redirect');
+    const thenParam = urlParams.get('then');
 
-    // Remove 'redirect' from the URL parameters
+    // Remove 'redirect' and 'then' from URL parameters
     urlParams.delete('redirect');
+    urlParams.delete('then');
     
     // Convert remaining parameters to a query string
     const remainingParams = urlParams.toString();
@@ -261,30 +263,27 @@ function getRedirectUrl() {
     // Start with the base URL
     let finalUrl = APP_URL;
 
-    // Append the redirectPath if it exists
+    // Handle 'redirect' parameter
     if (redirectPath) {
         // Remove leading slash from redirectPath if present
         const formattedRedirectPath = redirectPath.startsWith('/') ? redirectPath.slice(1) : redirectPath;
         finalUrl = `${APP_URL}/${formattedRedirectPath}`;
     }
 
-    // Append remaining parameters to the URL
+    // Append remaining parameters if any
     if (remainingParams) {
-        // Check if the final URL already contains a '?' (for parameters)
         const separator = finalUrl.includes('?') ? '&' : '?';
         finalUrl += `${separator}${remainingParams}`;
     }
 
-    // If the final URL is exactly APP_URL and has no redirectPath or parameters,
-    // make sure not to add a trailing slash or extra `?` in the case of clean URLs
-    if (finalUrl === APP_URL && remainingParams) {
-        finalUrl += `?${remainingParams}`;
+    // Handle 'then' parameter separately
+    if (thenParam) {
+        const separator = finalUrl.includes('?') ? '&' : '?';
+        finalUrl += `${separator}then=${thenParam}`;
     }
 
     return finalUrl;
 }
-
-
 
         // simplified language
         function getBrowserLanguage() {
