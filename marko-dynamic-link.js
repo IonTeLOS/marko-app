@@ -6,6 +6,10 @@
 // your users can hide the button, or keep it as a shortcut to Marko app website
 // learn more about Marko© and how it can help you and your users grow at https://github.com/IonTeLOS/marko-app
 
+    const scriptTag = document.querySelector('script[src="https://marko-app.netlify.app/marko-dynamic-link.js"]');
+    const paramValue = scriptTag.getAttribute('data-alt-url');
+    console.log(paramValue); // Output: someValue
+
 // Load tinycolor for color manipulation
 function loadTinyColor() {
     const tinyColorScript = document.createElement('script');
