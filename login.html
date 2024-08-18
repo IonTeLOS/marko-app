@@ -248,29 +248,18 @@
         const CLIENT_ID = '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid';
 
-function getRedirectUrl() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const redirectPath = urlParams.get('redirect');
-    const functionPath = urlParams.get('then');
-
-    if (redirectPath) {
-        const cleanRedirectPath = redirectPath.startsWith('/') ? redirectPath.slice(1) : redirectPath;
-        return `https://marko-app.netlify.app/${cleanRedirectPath}`;
-    } else if (functionPath) {
-        return `https://marko-app.netlify.app?then=${functionPath}`;
-    } else {
-        return APP_URL;
-    }
-}
-        // simplified language
+        function getRedirectUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const redirectPath = urlParams.get('redirect');
+            return redirectPath ? `${APP_URL}/${redirectPath}` : APP_URL;
+        }
+        
         function getBrowserLanguage() {
             return navigator.language.slice(0, 2) || 'en';
             localStorage.setItem('language');
         }
 
-        // Function to load EULA text based on the selected language
         function loadEULAText(language) {
-        // Define EULA texts in different languages
         const eulaTexts = {
         en: `
             1. **Free and Open Source**: This software is free to use and open source. Copyright is held by Ion.<br><br>
@@ -514,16 +503,13 @@ function getRedirectUrl() {
            `
     };
 
-    // Get the EULA content element and set its HTML
     const eulaContent = document.getElementById('eulaContent');
     if (eulaContent) {
         eulaContent.innerHTML = eulaTexts[language] || eulaTexts.en;
     }
 }
 
-// Function to get translations for UI elements
 function getTranslations(language) {
-// Translations for title, checkbox text, and button text
 const translations = {
     en: {
         title: "Marko Login",
@@ -649,12 +635,10 @@ const translations = {
     return translations[language] || translations.en;
 }
 
-// Function to initialize EULA handling
 function handleEULA() {
     const language = getBrowserLanguage(); 
     const translations = getTranslations(language);
 
-    // Update UI elements with the translations
     const loginTitle = document.getElementById('loginTitle');
     const eulaCheckboxText = document.getElementById('eulaCheckboxText');
     const eulaAcceptButton = document.getElementById('eulaAcceptButton');
@@ -668,7 +652,6 @@ function handleEULA() {
     if (eulaAcceptButton) eulaAcceptButtonText.textContent = translations.buttonText;
     if (eulaTitle) eulaTitle.textContent = translations.eulaTitle || 'End-User License Agreement (EULA)'; 
     
-    // Show EULA container if it hasn't been accepted
     if (!localStorage.getItem('eulaAccepted')) {
         if (eulaContainer) {
             eulaContainer.style.display = 'block';
@@ -692,12 +675,11 @@ function handleEULA() {
                         if (loginTitle) {
                             loginTitle.classList.add('blinking');
 
-                            // Remove blinking effect after a short delay
                             setTimeout(() => {
                                 if (loginTitle) {
                                     loginTitle.classList.remove('blinking');
                                 }
-                            }, 10000); // Duration of the blinking effect
+                            }, 10000); 
                         }                        
                     }
                     initializeGoogleSignIn(); 
@@ -734,29 +716,25 @@ async function handleCredentialResponse(response) {
 }
 
         function initializeGSI() {
-            // Check if user is already logged in by looking for an access token in localStorage
             const accessToken = localStorage.getItem('accessToken');
             const userInfo = localStorage.getItem('userInfo');
 
             if (accessToken && userInfo) {
                 console.log('User is already logged in:', JSON.parse(userInfo));
-                window.location.href = getRedirectUrl();  // Redirect to app if user is already logged in
+                window.location.href = getRedirectUrl(); 
                 return;
             }
 
-            // Check if EULA has been accepted
             const eulaAccepted = localStorage.getItem('eulaAccepted');
             if (eulaAccepted === 'true') {
-                // Initialize Google Sign-In if EULA was previously accepted
                 initializeGoogleSignIn();
             } else {
-                // Show EULA
                 document.getElementById('eulaContainer').style.display = 'block';
                 document.getElementById('eulaAcceptButton').addEventListener('click', () => {
                     const eulaCheckbox = document.getElementById('eulaAgree');
                     if (eulaCheckbox.checked) {
                         localStorage.setItem('eulaAccepted', 'true');
-                        document.getElementById('eulaContainer').style.display = 'none'; // Hide EULA after acceptance
+                        document.getElementById('eulaContainer').style.display = 'none';
                         initializeGoogleSignIn();
                     } else {
                         alert('You must agree to the terms of the EULA to proceed.');
@@ -770,11 +748,10 @@ async function handleCredentialResponse(response) {
         }
 
         function initializeGoogleSignIn() {
-            // Initialize Google Sign-In
             google.accounts.id.initialize({
                 client_id: CLIENT_ID,
                 callback: handleCredentialResponse,
-                auto_select: true,  // Automatically selects the account if the user has signed in before
+                auto_select: true,  
                 cancel_on_tap_outside: false
             });
 
@@ -803,7 +780,6 @@ async function handleCredentialResponse(response) {
 
         function centerSignInButton() {
             const signInButton = document.getElementById('signInButton');
-            // Find the div with the iframe (Google Sign-In button) to center it
             const buttonDiv = signInButton.querySelector('div');
             
             if (buttonDiv) {
@@ -867,7 +843,7 @@ function getLocalizedPopupBlockedMessage(language) {
         'el': 'Το αναδυόμενο παράθυρο αποκλείστηκε: Παρακαλούμε επιτρέψτε τα αναδυόμενα παράθυρα για αυτόν τον ιστότοπο για να συνδεθείτε. Ίσως χρειαστεί να ανανεώσετε τη σελίδα αφού επιτρέψετε τα αναδυόμενα παράθυρα.'
     };
 
-    return messages[language] || messages['en']; // Default to English if language not found
+    return messages[language] || messages['en']; 
 }
 
 function showPopupBlockedMessage() {
@@ -877,13 +853,10 @@ function showPopupBlockedMessage() {
     const notification = document.getElementById('customNotification');
     const notificationText = document.getElementById('notificationText');
 
-    // Set the message
     notificationText.innerText = message;
 
-    // Show the notification with animation
     notification.classList.add('show');
 
-    // Hide the notification after 10 seconds
     setTimeout(() => {
         notification.classList.remove('show');
     }, 10000);
@@ -902,12 +875,10 @@ function showPopupBlockedMessage() {
             });
         }
 
-// Function to handle image click and open a link
 function navImageClick() {
     window.open('https://github.com/IonTeLOS/marko-app', '_blank'); 
 }
         
-// on load it starts by checking EULA acceptance        
 window.onload = handleEULA;
         
 </script>
