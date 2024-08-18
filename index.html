@@ -3633,6 +3633,7 @@ function handleSharedLink(url, title, text) {
 
     if (func && functionsMap[func]) {
         functionsMap[func](); // Execute the corresponding function
+        window.history.replaceState({}, document.title, window.location.pathname);
     }
     
     if (navUrl) {
