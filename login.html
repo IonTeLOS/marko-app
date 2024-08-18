@@ -248,50 +248,20 @@
         const CLIENT_ID = '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid';
 
-
 function getRedirectUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     const redirectPath = urlParams.get('redirect');
-    const thenParam = urlParams.get('then');
+    const functionPath = urlParams.get('then');
 
-    // Remove 'redirect' and 'then' from URL parameters
-    urlParams.delete('redirect');
-    urlParams.delete('then');
-    
-    // Convert remaining parameters to a query string
-    const remainingParams = urlParams.toString();
-
-    // Start with the base URL
-    let finalUrl = APP_URL;
-
-    // Handle 'redirect' parameter
-    if (redirectPath) {
-        // Remove leading slash from redirectPath if present
-        const formattedRedirectPath = redirectPath.startsWith('/') ? redirectPath.slice(1) : redirectPath;
-        finalUrl = `${APP_URL}/${formattedRedirectPath}`;
+    if (functionPath) {
+        return `${APP_URL}?then=${functionPath}`;
+    } else if (redirectPath) {
+        const cleanRedirectPath = redirectPath.startsWith('/') ? redirectPath.slice(1) : redirectPath;
+        return `${APP_URL}/${cleanRedirectPath}`;
+    } else {
+        return APP_URL;
     }
-
-    // Handle 'then' parameter separately to avoid trailing slash issue
-    if (thenParam) {
-        if (finalUrl.endsWith('/')) {
-            finalUrl = finalUrl.slice(0, -1);  // Remove trailing slash if present
-        }
-        const encodedThenParam = encodeURIComponent(thenParam);
-        const separator = finalUrl.includes('?') ? '&' : '?';
-        finalUrl += `${separator}then=${encodedThenParam}`;
-    } else if (remainingParams) {
-        // Append remaining parameters if there are no 'then' parameters
-        const separator = finalUrl.includes('?') ? '&' : '?';
-        finalUrl += `${separator}${remainingParams}`;
-    }
-
-    // Substitute '/main' with an empty string
-    finalUrl = finalUrl.replace('/main', '');
-
-    return finalUrl;
 }
-
-
         // simplified language
         function getBrowserLanguage() {
             return navigator.language.slice(0, 2) || 'en';
