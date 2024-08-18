@@ -257,24 +257,33 @@ function getRedirectUrl() {
     
     // Convert remaining parameters to a query string
     const remainingParams = urlParams.toString();
-    
-    // Handle the base URL and parameters
+
+    // Start with the base URL
     let finalUrl = APP_URL;
 
+    // Append the redirectPath if it exists
     if (redirectPath) {
-        // Format redirectPath, remove leading slash if present
+        // Remove leading slash from redirectPath if present
         const formattedRedirectPath = redirectPath.startsWith('/') ? redirectPath.slice(1) : redirectPath;
         finalUrl = `${APP_URL}/${formattedRedirectPath}`;
     }
 
     // Append remaining parameters to the URL
     if (remainingParams) {
-        // Ensure that '?' is used correctly
-        finalUrl += (redirectPath ? '?' : (finalUrl.includes('?') ? '&' : '?')) + remainingParams;
+        // Check if the final URL already contains a '?' (for parameters)
+        const separator = finalUrl.includes('?') ? '&' : '?';
+        finalUrl += `${separator}${remainingParams}`;
+    }
+
+    // If the final URL is exactly APP_URL and has no redirectPath or parameters,
+    // make sure not to add a trailing slash or extra `?` in the case of clean URLs
+    if (finalUrl === APP_URL && remainingParams) {
+        finalUrl += `?${remainingParams}`;
     }
 
     return finalUrl;
 }
+
 
 
         // simplified language
