@@ -9,7 +9,7 @@
 // learn more about Marko© and how it can help you and your users grow at https://github.com/IonTeLOS/marko-app
 
 let MARKOBUTTON_APP_URL = 'https://marko-app.netlify.app';
-let MARKOBUTTON_APP_ICON = 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';
+let MARKOBUTTON_ICON_URL = 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';
 let IS_CUSTOM = false;
 const scriptTag = document.querySelector('script[src="https://marko-app.netlify.app/marko-dynamic-link.js"]');
 const altUrlValue = scriptTag.getAttribute('data-alt-url');
