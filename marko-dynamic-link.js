@@ -670,7 +670,6 @@ button.addEventListener('click', (event) => {
 }
 
 
-// Function to get favicon
 async function getFavicon() {
     const baseUrl = window.location.origin;
     
@@ -690,10 +689,17 @@ async function getFavicon() {
         }
     }
 
+    // Function to check and return a valid icon URL
+    async function checkAndReturnIcon(url) {
+        const fullUrl = resolveUrl(url);
+        return await isValidImage(fullUrl) ? fullUrl : null;
+    }
+
     // Check for apple-touch-icon first
     const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
-    if (appleIcon && appleIcon.href && await isValidImage(appleIcon.href)) {
-        return resolveUrl(appleIcon.href);
+    if (appleIcon && appleIcon.href) {
+        const iconUrl = await checkAndReturnIcon(appleIcon.href);
+        if (iconUrl) return iconUrl;
     }
 
     // Check for other icons
@@ -704,8 +710,9 @@ async function getFavicon() {
     
     for (const selector of iconSelectors) {
         const element = document.querySelector(selector);
-        if (element && element.href && await isValidImage(element.href)) {
-            return resolveUrl(element.href);
+        if (element && element.href) {
+            const iconUrl = await checkAndReturnIcon(element.href);
+            if (iconUrl) return iconUrl;
         }
     }
 
@@ -723,10 +730,8 @@ async function getFavicon() {
                     return sizeB - sizeA;
                 });
                 for (const icon of sortedIcons) {
-                    const iconUrl = resolveUrl(icon.src);
-                    if (await isValidImage(iconUrl)) {
-                        return iconUrl;
-                    }
+                    const iconUrl = await checkAndReturnIcon(icon.src);
+                    if (iconUrl) return iconUrl;
                 }
             }
         } catch (e) {
@@ -736,20 +741,25 @@ async function getFavicon() {
 
     // Try to fetch favicon.ico from the root
     const faviconUrl = `${baseUrl}/favicon.ico`;
-    if (await isValidImage(faviconUrl)) {
-        return faviconUrl;
-    }
+    const rootFaviconUrl = await checkAndReturnIcon(faviconUrl);
+    if (rootFaviconUrl) return rootFaviconUrl;
 
     // Check for og:image
     const ogImageElement = document.querySelector('meta[property="og:image"]');
-    if (ogImageElement && ogImageElement.content && await isValidImage(ogImageElement.content)) {
-        return resolveUrl(ogImageElement.content);
+    if (ogImageElement && ogImageElement.content) {
+        const ogImageUrl = await checkAndReturnIcon(ogImageElement.content);
+        if (ogImageUrl) return ogImageUrl;
     }
 
     // Try Google's favicon service
     const googleFaviconUrl = `https://www.google.com/s2/favicons?domain=${baseUrl}&sz=64`;
-    if (await isValidImage(googleFaviconUrl)) {
-        return googleFaviconUrl;
+    try {
+        const response = await fetch(googleFaviconUrl);
+        if (response.ok && response.headers.get('Content-Type').startsWith('image/') && response.headers.get('Content-Length') !== '425') {
+            return googleFaviconUrl;
+        }
+    } catch (e) {
+        console.log("Error fetching Google favicon:", e);
     }
 
     // Final fallback to Material Symbols icon
