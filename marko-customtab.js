@@ -95,6 +95,32 @@ if (altCanNav === 'false') {
     // Create iframe
     const dockIframe = document.createElement('iframe');
     dockIframe.id = 'customDockIframe';
+        // Check if the URL is a YouTube link
+        if (MARKO_IFRAME_URL.includes('youtube.com/watch') || MARKO_IFRAME_URL.includes('youtu.be/')) {
+            let videoId;
+
+            if (MARKO_IFRAME_URL.includes('youtube.com/watch')) {
+                // Extract the video ID from youtube.com/watch URL
+                const url = new URL(droppedText);
+                const urlParams = new URLSearchParams(url.search);
+                videoId = urlParams.get('v');
+            } else if (MARKO_IFRAME_URL.includes('youtu.be/')) {
+                // Extract the video ID from youtu.be/ short URL
+                videoId = MARKO_IFRAME_URL.split('/').pop();
+            }
+
+            // Debugging: Log the extracted video ID
+            console.log('Extracted Video ID:', videoId);
+
+            // Transform the URL to YouTube nocookie embed link
+            if (videoId) {
+                MARKO_IFRAME_URL = `https://www.youtube-nocookie.com/embed/${videoId}`;
+            }
+        }
+
+        // Debugging: Log the final URL being set to the iframe
+        console.log('Final URL:', MARKO_IFRAME_URL);
+        
     dockIframe.src = MARKO_IFRAME_URL; // Change this to your desired URL
     dockIframe.style.width = '100%';
     dockIframe.style.height = '100%';
@@ -443,7 +469,110 @@ if (altCanNav === 'false') {
         dock.style.display = 'none';
     });
     
-    
+    // Function to handle dropped text or URLs
+function handleDroppedText(droppedText) {
+    if (droppedText) {
+        if (!droppedText.startsWith('http://') && !droppedText.startsWith('https://')) {
+            droppedText = 'https://' + droppedText;
+        }
+        // Check if the URL is a YouTube link
+        	if (droppedText.includes('youtube.com/watch') || droppedText.includes('youtu.be/')) {
+            let videoId;
+
+            if (droppedText.includes('youtube.com/watch')) {
+                // Extract the video ID from youtube.com/watch URL
+                const url = new URL(droppedText);
+                const urlParams = new URLSearchParams(url.search);
+                videoId = urlParams.get('v');
+            } else if (droppedText.includes('youtu.be/')) {
+                // Extract the video ID from youtu.be/ short URL
+                videoId = droppedText.split('/').pop();
+            }
+
+            // Debugging: Log the extracted video ID
+            console.log('Extracted Video ID:', videoId);
+
+            // Transform the URL to YouTube nocookie embed link
+            if (videoId) {
+                droppedText = `https://www.youtube-nocookie.com/embed/${videoId}`;
+            }
+           }
+        dockIframe.src = droppedText;
+    }
+}
+
+// Function to handle dropped files
+function handleDroppedFiles(files) {
+    const file = files[0];
+    if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+        const reader = new FileReader();
+        reader.onload = function (event) {
+            dockIframe.src = event.target.result;
+            dockIframe.style.objectFit = 'contain';
+        };
+        reader.readAsDataURL(file);
+    } else {
+        const fileURL = URL.createObjectURL(file);
+        dockIframe.src = fileURL;
+        dockIframe.style.objectFit = 'contain';
+    }
+    console.log('Dropped file:', file);
+}
+
+// Variables to track drag state
+let dragCounter = 0;
+let dragTimer;
+
+// Function to show overlay
+function showOverlay() {
+    overlay.style.display = 'block';
+    urlInput.style.display = 'none';
+}
+
+// Function to hide overlay
+function hideOverlay() {
+    overlay.style.display = 'none';
+    urlInput.style.display = 'none';
+}
+
+// Handle dragenter event
+dock.addEventListener('dragenter', (event) => {
+    event.preventDefault();
+    dragCounter++;
+    showOverlay();
+});
+
+// Handle dragover event
+dock.addEventListener('dragover', (event) => {
+    event.preventDefault();
+});
+
+// Handle dragleave event
+dock.addEventListener('dragleave', (event) => {
+    event.preventDefault();
+    dragCounter--;
+    if (dragCounter === 0) {
+        dragTimer = setTimeout(hideOverlay, 50);
+    }
+});
+
+// Handle drop event
+dock.addEventListener('drop', (event) => {
+    event.preventDefault();
+    dragCounter = 0;
+    clearTimeout(dragTimer);
+    hideOverlay();
+
+    if (event.dataTransfer.files.length > 0) {
+        handleDroppedFiles(event.dataTransfer.files);
+    } else {
+        const droppedText = event.dataTransfer.getData('text');
+        if (droppedText) {
+            handleDroppedText(droppedText);
+        }
+    }
+});
+
             // Close the URL input when the overlay is clicked
         overlay.addEventListener('click', function() {
             urlInput.style.display = 'none';
@@ -454,4 +583,4 @@ if (altCanNav === 'false') {
 
     // Initialize position
     setPosition();
- 
+});
