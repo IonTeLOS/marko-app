@@ -400,6 +400,7 @@ if (altCanNav === 'false') {
         resizeHandle.style.cursor = 'auto'; // Set cursor to default
       } else {
         console.log('webmaster disabled iframe navigation');
+        window.open(MARKOBUTTON_IFRAME_URL, '_blank');      
         }
     }
 
