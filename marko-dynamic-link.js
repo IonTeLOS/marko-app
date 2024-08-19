@@ -124,10 +124,13 @@ async function handleMarkoButtonClick(event) {
 	return;    
     }
     */
+    // get this before calling confirm!!
+    const favicon = encodeURIComponent(await getFavicon());
+
     if (confirm(translatedText)) {
         const url = encodeURIComponent(window.location.href);
         const title = encodeURIComponent(document.title);
-        const favicon = encodeURIComponent(await getFavicon());
+        //const favicon = encodeURIComponent(await getFavicon());
         const finalColor = getPrimaryColor();
         const encodedColor = encodeURIComponent(finalColor);
 	// this is where all the magic happens    
