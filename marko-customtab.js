@@ -1,7 +1,7 @@
 let MARKO_IFRAME_URL = 'https://marko-app.netlify.app';
 let MARKOFRAME_CAN_NAV = true; 
 const scriptTag = document.querySelector('script[src="https://marko-app.netlify.app/marko-customtab.js"]');
-/*
+
 const altIframeUrlValue = scriptTag.getAttribute('data-alt-iframe-url');
 if (altIframeUrlValue) {
     MARKO_IFRAME_URL = altIframeUrlValue;	
@@ -12,7 +12,6 @@ const altCanNav = scriptTag.getAttribute('data-alt-can-nav');
 if (altCanNav === 'false') {
     MARKOFRAME_CAN_NAV = false;	
 }
-*/
 
     // Add viewport meta tag dynamically for mobile optimization
     const viewportMeta = document.createElement('meta');
