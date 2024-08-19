@@ -583,4 +583,3 @@ dock.addEventListener('drop', (event) => {
 
     // Initialize position
     setPosition();
-});
