@@ -1,3 +1,4 @@
+let MARKOURL = 'hhtps://marko-app.netlify.app';
 let MARKO_IFRAME_URL = 'https://marko-app.netlify.app';
 let MARKOFRAME_CAN_NAV = true; 
 const frameScriptTag = document.querySelector('script[src="https://marko-app.netlify.app/marko-customtab.js"]');
@@ -400,7 +401,7 @@ if (altCanNav === 'false') {
         resizeHandle.style.cursor = 'auto'; // Set cursor to default
       } else {
         console.log('webmaster disabled iframe navigation');
-        window.open(MARKOBUTTON_IFRAME_URL, '_blank');      
+        window.open(MARKOURL, '_blank');      
         }
     }
 
