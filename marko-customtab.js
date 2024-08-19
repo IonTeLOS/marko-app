@@ -1,4 +1,4 @@
-let MARKOURL = 'hhtps://marko-app.netlify.app';
+let MARKOURL = 'https://marko-app.netlify.app';
 let MARKO_IFRAME_URL = 'https://marko-app.netlify.app';
 let MARKOFRAME_CAN_NAV = true; 
 const frameScriptTag = document.querySelector('script[src="https://marko-app.netlify.app/marko-customtab.js"]');
