@@ -8,7 +8,7 @@ if (altIframeUrlValue) {
     console.log(`extra iframe url added by webmaster: ${altIframeUrlValue}`);
 }
 
-const altCanNav = scriptTag.getAttribute('data-alt-can-nav');
+const altCanNav = frameScriptTag.getAttribute('data-alt-can-nav');
 if (altCanNav === 'false') {
     MARKOFRAME_CAN_NAV = false;	
 }
