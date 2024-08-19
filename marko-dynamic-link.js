@@ -751,12 +751,15 @@ async function getFavicon() {
         if (ogImageUrl) return ogImageUrl;
     }
 
-    // Try Google's favicon service
+    // Try Google's favicon service with more stringent checks
     const googleFaviconUrl = `https://www.google.com/s2/favicons?domain=${baseUrl}&sz=64`;
     try {
         const response = await fetch(googleFaviconUrl);
-        if (response.ok && response.headers.get('Content-Type').startsWith('image/') && response.headers.get('Content-Length') !== '425') {
-            return googleFaviconUrl;
+        if (response.ok && response.headers.get('Content-Type').startsWith('image/')) {
+            const blob = await response.blob();
+            if (blob.size > 1200) {  
+                return googleFaviconUrl;
+            }
         }
     } catch (e) {
         console.log("Error fetching Google favicon:", e);
@@ -765,7 +768,6 @@ async function getFavicon() {
     // Final fallback to Material Symbols icon
     return "https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/link/default/48px.svg";
 }
-
 	// Load tinycolor for color manipulation
 	function loadTinyColor() {
     	const tinyColorScript = document.createElement('script');
