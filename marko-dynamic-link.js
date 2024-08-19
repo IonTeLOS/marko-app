@@ -678,14 +678,20 @@ async function getFavicon() {
 
     const resolveUrl = (url) => url.startsWith('http') ? url : new URL(url, baseUrl).href;
 
-    async function isValidImage(url) {
-        try {
-            const response = await fetch(url, { method: 'HEAD' });
-            return response.ok && response.headers.get('Content-Type').startsWith('image/');
-        } catch (e) {
-            return false;
-        }
+async function isValidImage(url) {
+    try {
+        console.log(`Checking image at ${url}`);
+        // Use GET instead of HEAD if HEAD is not supported
+        const response = await fetch(url, { method: 'GET' });
+        const isValid = response.ok && response.headers.get('Content-Type').startsWith('image/');
+        console.log(`Image at ${url} is ${isValid ? 'valid' : 'invalid'}`);
+        return isValid;
+    } catch (e) {
+        console.error(`Error checking image at ${url}:`, e);
+        return false;
     }
+}
+
 
     async function checkAndReturnIcon(url) {
         const fullUrl = resolveUrl(url);
