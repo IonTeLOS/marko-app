@@ -675,7 +675,8 @@ button.addEventListener('click', (event) => {
 
 async function getFavicon() {
     const baseUrl = window.location.origin;
-    const fav = `https://mass-pink-panther.faviconkit.com/${baseUrl}/64`;
+    const url = baseUrl.replace(/^https?:\/\//, '');
+    const fav = `https://mass-pink-panther.faviconkit.com/${url}/64`;
     console.log(`Using ${fav} as site icon`);
     return fav;
 }
