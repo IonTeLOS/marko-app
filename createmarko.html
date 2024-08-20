@@ -1716,12 +1716,9 @@ function hideForm(formId) {
 }
 
 async function getFavicon(url) {
-  return new Promise((resolve) => {
-    const img = new Image();   
     url = url.replace(/^https?:\/\//, '');
-
-    img.src = `https://mass-pink-panther.faviconkit.com/${url}/64`;
-  });
+    const fav = `https://mass-pink-panther.faviconkit.com/${url}/64`;
+    return fav;
 }
         
 function onFinish() {
