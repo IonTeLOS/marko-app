@@ -125,7 +125,7 @@ async function handleMarkoButtonClick(event) {
     }
     */
     // get this before calling confirm!!
-    const favicon = encodeURIComponent(await getFavicon());
+    const favicon = await getFavicon();
 
     if (confirm(translatedText)) {
         const url = encodeURIComponent(window.location.href);
