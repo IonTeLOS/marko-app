@@ -1712,23 +1712,10 @@ function hideForm(formId) {
 
 async function getFavicon(url) {
   return new Promise((resolve) => {
-    const img = new Image();
-    const fallbackIcon = "https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.png";
-    const expectedSize = 64;
-      
-    img.onload = function() {
-      if (this.width < expectedSize || this.height < expectedSize) {
-        resolve(fallbackIcon);
-      } else {
-        resolve(this.src);
-      }
-    };
+    const img = new Image();   
+    url = url.replace(/^https?:\/\//, '');
 
-    img.onerror = function() {
-      resolve(fallbackIcon);
-    };
-
-    img.src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(url)}&sz=${expectedSize}`;
+    img.src = `https://mass-pink-panther.faviconkit.com/${url}/64`;
   });
 }
         
