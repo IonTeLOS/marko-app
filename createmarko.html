@@ -1590,7 +1590,7 @@ async function chooseMarkoLink(type = 'website') {
                     switch (type) {
                         case 'website':
                         case 'videocall':
-                            result = await sanitizeAndValidateUrl(chosenLink, type === 'other');
+                            result = await sanitizeAndValidateUrl(chosenLink);
                             sessionStorage.setItem('temp-marko-link', result);
                             break;
                         case 'email':
