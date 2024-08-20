@@ -1240,14 +1240,14 @@ async function sanitizeAndValidateUrl(url, allowCustomProtocol = false) {
     function stripProtocolFromUrl(url) {
         const prefixes = [
             'https://', 'http://',
-            'mailto:', 'tel:', 'viber://chat?number=', 'whatsapp://send?phone=',
+            'mailto:', 'sms:', 'tel:', 'viber://chat?number=', 'whatsapp://send?phone=',
             'file://',
         ];
         const prefixPattern = new RegExp('^(' + prefixes.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'i');
         let strippedUrl = url.replace(prefixPattern, '');
         if (url.startsWith('mailto:')) {
             return strippedUrl;
-        } else if (url.startsWith('tel:') || url.startsWith('viber://') || url.startsWith('whatsapp://')) {
+        } else if (url.startsWith('tel:') || url.startsWith('sms:') || url.startsWith('viber://') || url.startsWith('whatsapp://')) {
             return strippedUrl.replace(/[?=]/g, '');
         } else {
             try {
@@ -1275,30 +1275,32 @@ async function sanitizeAndValidateUrl(url, allowCustomProtocol = false) {
         return url;
     }
 
-    function validateUrl(url) {
-        const urlregex = new RegExp(
-            "^(http|https|ftp)://(www.)?[a-zA-Z0-9@:%._\\+~#?&//=]{1,256}\\.[a-zA-Z0-9(){},;:@&=+$_.-]{1,256}\\.[a-zA-Z0-9]{1,6}\\/?$",
-            "i"
-        );
-        return urlregex.test(url);
+function validateUrl(url) {
+    try {
+        new URL(url);
+        return true;
+    } catch (_) {
+        return false;
     }
+}
 
-    // Strip unwanted protocols
-    let cleanedUrl = stripProtocolFromUrl(url);
-
-    // Format and validate URL
-    cleanedUrl = formatUrl(cleanedUrl, allowCustomProtocol);
-    if (!validateUrl(cleanedUrl)) {
+    if (!validateUrl(url)) {
         Notiflix.Notify.failure('Invalid URL format. Please enter a valid URL.');
         throw new Error('Invalid URL format');
     }
+    
+    // Strip unwanted protocols
+    let bareUrl = stripProtocolFromUrl(url);
+
+    // Format and validate URL
+    bareUrl = formatUrl(bareUrl, allowCustomProtocol);
 
     // Ensure the URL starts with 'https://'
-    if (!cleanedUrl.startsWith('https://')) {
-        cleanedUrl = 'https://' + cleanedUrl;
+    if (!bareUrl.startsWith('https://')) {
+        bareUrl = 'https://' + bareUrl;
     }
 
-    return cleanedUrl;
+    return bareUrl;
 }
 
 function sanitizeAndValidateEmail(email) {
