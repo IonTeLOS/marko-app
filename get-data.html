@@ -106,7 +106,7 @@
 </a>
 
         <div class="card">
-            <h2 id="header">Metadata for ..:</h2>
+            <h3 id="header"></h3>
             <p class="inline-left" onclick="copyText('title')"><strong>Title:</strong> <span id="title">No title found</span></p>
             <p><strong>Short Name:</strong> <span id="shortName" style="display: none;"></span></p>
             <p class="inline-left" onclick="copyText('description')"><strong>Description:</strong> <span id="description">No description found</span></p>
@@ -414,7 +414,6 @@
         }
     } catch (error) {
         console.error('Error fetching WHOIS data:', error);
-        // Handle errors gracefully if needed
     }
 }
 
@@ -433,8 +432,10 @@
                     country: document.getElementById('country').innerText,
                     createdDate: document.getElementById('createdDate').innerText
                 };
+		    
+                const strippedUrl = url.replace(/^https?:\/\//, '');
 
-                localStorage.setItem('metadata', JSON.stringify(data));
+                localStorage.setItem(`marko-metadata-${strippedUrl}`, JSON.stringify(data));
 
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
@@ -497,12 +498,12 @@
             document.getElementById('country').innerText = '';
             document.getElementById('createdDate').innerText = '';
 
-            // Hide containers
             document.querySelectorAll('[id$="Container"]').forEach(el => el.style.display = 'none');
         }
             window.fetchMetadata = fetchMetadata;
             window.downloadJSON = downloadJSON;
         });
+	    
         function copyText(id) {
             const text = document.getElementById(id).innerText;
             navigator.clipboard.writeText(text).then(() => {
@@ -511,9 +512,6 @@
                 console.error('Failed to copy text: ', err);
                 M.toast({ html: 'Failed to copy text' });
             });
-        }
-                function openNewUrl() {
-            window.open('https://www.example.com', '_blank'); // Change to the URL you want to open
         }
     </script>
     <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="ionas" data-color="#FF5F5F" data-emoji="🍪"  data-font="Bree" data-text="Buy me some cookies" data-outline-color="#000000" data-font-color="#ffffff" data-coffee-color="#FFDD00" ></script>
