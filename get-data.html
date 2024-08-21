@@ -407,7 +407,7 @@
         }
 
         if (create_date) {
-            document.getElementById('createdDate').innerText = `Created Date: ${create_date}`;
+            document.getElementById('createdDate').innerText = `Online since: ${create_date}`;
             document.getElementById('createdDate').style.display = 'block';
         } else {
             document.getElementById('createdDate').style.display = 'none';
@@ -420,7 +420,7 @@
 
             function downloadJSON() {
 		const checkedUrl = localStorage.getItem('marko-getdatafor');
-		const fav = localStorage.geetItem('latest-marko-favicon');	 
+		const fav = localStorage.getItem('latest-marko-favicon');	 
 		const image = localStorage.getItem('latest-marko-ogimage');	    
 
                 const data = {
