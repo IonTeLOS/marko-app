@@ -262,11 +262,6 @@
             }
 
             async function extractCategory(doc, baseUrl) {
-                const categoryMeta = doc.querySelector('meta[name="category"]');
-                if (categoryMeta) {
-                    return categoryMeta.getAttribute('content');
-                }
-
                 const keywordsMeta = doc.querySelector('meta[name="keywords"]');
                 if (keywordsMeta) {
                     return keywordsMeta.getAttribute('content');
