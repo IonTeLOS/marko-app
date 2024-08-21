@@ -176,7 +176,7 @@
                         (doc.querySelector('meta[property="og:description"]') ?
                             doc.querySelector('meta[property="og:description"]').getAttribute('content') : 'No description found');
                     const image = doc.querySelector('meta[property="og:image"]') ? doc.querySelector('meta[property="og:image"]').getAttribute('content') : null;
-
+                    
                     let faviconUrl = null;
                     const appleTouchIcon = doc.querySelector('link[rel="apple-touch-icon"]');
                     if (appleTouchIcon) {
@@ -194,11 +194,13 @@
                         (faviconUrl.startsWith('http') ? faviconUrl : new URL(faviconUrl, urlInput).href) :
                         'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/question_mark/default/48px.svg';
 
+		    localStorage.setItem('latest-marko-favicon', faviconSrc);	
                     document.getElementById('title').innerText = title;
                     document.getElementById('description').innerText = description;
 
                     const imageElement = document.getElementById('image');
                     if (image) {
+			localStorage.setItem('latest-marko-ogimage', image);	    
                         imageElement.src = image;
                         imageElement.style.display = 'block';
                     } else {
@@ -418,6 +420,9 @@
 
             function downloadJSON() {
 		const checkedUrl = localStorage.getItem('marko-getdatafor');
+		const fav = localStorage.geetItem('latest-marko-favicon');	 
+		const image = localStorage.getItem('latest-marko-ogimage');	    
+
                 const data = {
 		    domain: checkedUrl,	
                     title: document.getElementById('title').innerText,
@@ -425,6 +430,8 @@
                     description: document.getElementById('description').innerText,
                     keywords: document.getElementById('keywords').innerText,
                     category: document.getElementById('category').innerText,
+		    favicon: fav,
+		    ogImage: image,	
                     language: document.getElementById('language').innerText,
                     faviconProminentColor: document.getElementById('prominentColorHex').innerText,
                     themeColor: document.getElementById('themeColorHex').innerText,
@@ -507,6 +514,8 @@
             document.getElementById('createdDate').innerText = '';
 
             document.querySelectorAll('[id$="Container"]').forEach(el => el.style.display = 'none');
+            localStorage.removeItem('latest-marko-ogimage');	 
+	    localStorage.removeItem('latest-marko-favicon');	    		
         }
             window.fetchMetadata = fetchMetadata;
             window.downloadJSON = downloadJSON;
