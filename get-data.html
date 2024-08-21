@@ -422,25 +422,34 @@
 
 
             function downloadJSON() {
+		const checkedUrl = localStorage.getItem('marko-getdatafor');
                 const data = {
+		    domain: checkedUrl,	
                     title: document.getElementById('title').innerText,
                     shortName: document.getElementById('shortName').innerText,
                     description: document.getElementById('description').innerText,
                     keywords: document.getElementById('keywords').innerText,
                     category: document.getElementById('category').innerText,
                     language: document.getElementById('language').innerText,
-                    prominentColor: document.getElementById('prominentColorHex').innerText,
+                    faviconProminentColor: document.getElementById('prominentColorHex').innerText,
                     themeColor: document.getElementById('themeColorHex').innerText,
-                    org: document.getElementById('org').innerText,
-                    country: document.getElementById('country').innerText,
-                    createdDate: document.getElementById('createdDate').innerText
+                    belongsTo: document.getElementById('org').innerText,
+                    basedIn: document.getElementById('country').innerText,
+                    firstOnline: document.getElementById('createdDate').innerText
                 };
-	        const checkedUrl = localStorage.getItem('marko-getdatafor');
                 const strippedUrl = checkedUrl.replace(/^https?:\/\//, '');
-
                 localStorage.setItem(`marko-metadata-${strippedUrl}`, JSON.stringify(data));
 
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const allKeys = Object.keys(localStorage);
+
+		const metadataKeys = allKeys.filter(key => key.startsWith('marko-metadata-'));
+
+		const arrayOfArrays = metadataKeys.map(key => {
+                const value = localStorage.getItem(key);
+    			return JSON.parse(value);
+		});
+
+		const blob = new Blob([JSON.stringify(arrayOfArrays, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
