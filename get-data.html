@@ -140,11 +140,14 @@
                 clearValues();
                 M.toast({ html: 'Searching.. please wait !' });
                 let urlInput = document.getElementById('urlInput').value.trim();
-
+                localStorage.setItem('marko-getdatafor', urlInput);
+		    
                 if (!urlInput) {
                     M.toast({ html: 'Please enter a valid URL' });
                     return;
                 }
+		    
+		console.log(`getting data for ${urlInput}');    
 
                 // Normalize URL
                 if (!urlInput.startsWith('http://') && !urlInput.startsWith('https://')) {
@@ -432,8 +435,8 @@
                     country: document.getElementById('country').innerText,
                     createdDate: document.getElementById('createdDate').innerText
                 };
-		    
-                const strippedUrl = url.replace(/^https?:\/\//, '');
+	        const checkedUrl = localStorage.getItem('marko-getdatafor');
+                const strippedUrl = checkedUrl.replace(/^https?:\/\//, '');
 
                 localStorage.setItem(`marko-metadata-${strippedUrl}`, JSON.stringify(data));
 
