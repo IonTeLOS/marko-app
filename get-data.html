@@ -456,6 +456,7 @@
                 a.download = 'metadata.json';
                 a.click();
                 URL.revokeObjectURL(url);
+	        M.toast({ html: 'Data stored and downloaded' });    
             }
 
             document.getElementById('prominentColor').addEventListener('click', () => {
