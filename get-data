@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes">
+    <title>Site Data</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tinycolor2@1.6.0/cjs/tinycolor.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            padding: 20px;
+            font-family: 'Kanit', Arial, Helvetica, sans-serif;
+        }
+
+        .container {
+            max-width: 900px;
+        }
+
+        .card {
+            padding: 20px;
+        }
+
+        #favicon,
+        #defaultFavicon,
+        #themeColor,
+        #prominentColor {
+            width: 32px;
+            height: 32px;
+            display: inline-block;
+            border: 1px solid #000;
+            margin-top: 10px;
+            position: relative;
+            cursor: pointer;
+        }
+        
+        #defaultFavicon,
+        #favicon {
+        	display: none;
+        }
+
+		#image {
+			cursor: pointer;
+		}
+
+        .color-square {
+            display: inline-block;
+            width: 64px;
+            height: 64px;
+            margin-right: 10px;
+            border: 2px solid #000;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .color-hex {
+            display: inline-block;
+            margin-left: 10px;
+            vertical-align: center;
+            font-weight: bold;
+        }
+        .banner-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .banner {
+            width: 100%;
+            max-width: 728px;
+            height: 90px;
+            background-color: #f0f0f0;
+            display: inline-block;
+            line-height: 90px;
+            text-align: center;
+        }
+        p.inline-left {
+            display: inline-block;
+            text-align: left;
+            margin: 0;
+            padding: 0;
+            cursor: pointer; /* Add cursor pointer for copying */
+        }
+        .bmc-btn-container {
+            text-align: left; /* Aligns the button to the right */
+            margin-top: 30px; /* Adds some spacing from the content above */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1 class="center-align">Get metadata for any website</h1>
+        <p style="padding-bottom: 30px;">
+    As shown on <a href="https://github.com/IonTeLOS" target="_blank" rel="noopener noreferrer">GitHub</a>.
+</p>
+        <div class="input-field">
+            <input type="text" id="urlInput" placeholder="Enter website URL">
+            <label for="urlInput">Website URL</label>
+        </div>
+<a class="btn waves-effect waves-light" onclick="fetchMetadata()">
+    <i class="material-icons left">cloud_download</i> Get Data
+</a>
+
+        <div class="card">
+            <h2 id="header">Metadata for ..:</h2>
+            <p class="inline-left" onclick="copyText('title')"><strong>Title:</strong> <span id="title">No title found</span></p>
+            <p><strong>Short Name:</strong> <span id="shortName" style="display: none;"></span></p>
+            <p class="inline-left" onclick="copyText('description')"><strong>Description:</strong> <span id="description">No description found</span></p>
+            <p class="inline-left" onclick="copyText('keywords')"><strong>Keywords:</strong> <span id="keywords" style="display: none;"></span></p>
+            <p><strong>Image:</strong> <img id="image" style="max-width: 100%; display: none;" alt="Website Image"></p>
+            <p><strong>Favicon:</strong> <img id="favicon" alt="Favicon"><span id="defaultFavicon"></span></p>
+            <p class="inline-left" onclick="copyText('category')"><strong>Category:</strong> <span id="category">No category found</span></p>
+            <p><strong>Language:</strong> <span id="language">No language found</span></p>
+            <p><strong>Prominent Color:</strong>
+                <div id="prominentColor" class="color-square"></div>
+                <span id="prominentColorHex" class="color-hex"></span>
+            </p>
+            <p><strong>Theme Color:</strong>
+                <div id="themeColor" class="color-square"></div>
+                <span id="themeColorHex" class="color-hex"></span>
+            </p>
+            <p class="inline-left" onclick="copyText('org')"><strong>WHOIS Organization:</strong> <span id="org" style="display: none;"></span></p>
+            <p><strong>WHOIS Country:</strong> <span id="country" style="display: none;"></span></p>
+            <p><strong>Created Date:</strong> <span id="createdDate" style="display: none;"></span></p>
+        </div>
+        <a class="btn waves-effect waves-light" onclick="downloadJSON()">
+    <i class="material-icons left">download</i>Download JSON</a>
+
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            async function fetchMetadata() {
+                clearValues();
+                M.toast({ html: 'Searching.. please wait !' });
+                let urlInput = document.getElementById('urlInput').value.trim();
+
+                if (!urlInput) {
+                    M.toast({ html: 'Please enter a valid URL' });
+                    return;
+                }
+
+                // Normalize URL
+                if (!urlInput.startsWith('http://') && !urlInput.startsWith('https://')) {
+                    urlInput = 'https://' + urlInput;
+                }
+
+                try {
+                    new URL(urlInput);
+                } catch (_) {
+                    M.toast({ html: 'Please enter a valid URL' });
+                    return;
+                }
+
+                document.getElementById('header').innerText = `Metadata for ${urlInput}:`;
+
+                try {
+                    const encodedUrl = encodeURIComponent(urlInput);
+                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodedUrl}`;
+                    const response = await axios.get(proxyUrl);
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(response.data, 'text/html');
+
+                    const title = doc.querySelector('title') ? doc.querySelector('title').innerText : 'No title found';
+                    const description = doc.querySelector('meta[name="description"]') ?
+                        doc.querySelector('meta[name="description"]').getAttribute('content') :
+                        (doc.querySelector('meta[property="og:description"]') ?
+                            doc.querySelector('meta[property="og:description"]').getAttribute('content') : 'No description found');
+                    const image = doc.querySelector('meta[property="og:image"]') ? doc.querySelector('meta[property="og:image"]').getAttribute('content') : null;
+
+                    let faviconUrl = null;
+                    const appleTouchIcon = doc.querySelector('link[rel="apple-touch-icon"]');
+                    if (appleTouchIcon) {
+                        faviconUrl = appleTouchIcon.getAttribute('href');
+                    } else {
+                        const icon = doc.querySelector('link[rel="icon"]') || doc.querySelector('link[rel="shortcut icon"]');
+                        if (icon) {
+                            faviconUrl = icon.getAttribute('href');
+                        } else {
+                            faviconUrl = 'favicon.ico';
+                        }
+                    }
+
+                    const faviconSrc = faviconUrl ?
+                        (faviconUrl.startsWith('http') ? faviconUrl : new URL(faviconUrl, urlInput).href) :
+                        'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/question_mark/default/48px.svg';
+
+                    document.getElementById('title').innerText = title;
+                    document.getElementById('description').innerText = description;
+
+                    const imageElement = document.getElementById('image');
+                    if (image) {
+                        imageElement.src = image;
+                        imageElement.style.display = 'block';
+                    } else {
+                        imageElement.style.display = 'none';
+                    }
+
+                    const faviconElement = document.getElementById('favicon');
+                    const defaultFavicon = document.getElementById('defaultFavicon');
+                    if (faviconSrc && faviconSrc !== 'favicon.ico') {
+                        faviconElement.src = faviconSrc;
+                        faviconElement.style.display = 'block';
+                        defaultFavicon.style.display = 'none';
+                    } else {
+                        faviconElement.style.display = 'none';
+                        defaultFavicon.style.display = 'block';
+                    }
+
+                    const category = await extractCategory(doc, urlInput);
+                    document.getElementById('category').innerText = category;
+
+                    const keywords = doc.querySelector('meta[name="keywords"]')?.getAttribute('content');
+                    if (keywords) {
+                        document.getElementById('keywords').innerText = keywords;
+                        document.getElementById('keywords').style.display = 'block';
+                    }
+
+                    const language = doc.documentElement.getAttribute('lang') ||
+                        doc.querySelector('meta[name="language"]')?.getAttribute('content') ||
+                        'No language found';
+                    document.getElementById('language').innerText = language;
+
+                    const prominentColor = await extractProminentColor(faviconSrc);
+                    const prominentColorElement = document.getElementById('prominentColor');
+                    const prominentColorHex = document.getElementById('prominentColorHex');
+                    if (prominentColor) {
+                        prominentColorElement.style.backgroundColor = prominentColor;
+                        prominentColorHex.innerText = prominentColor;
+                    } else {
+                        prominentColorElement.style.backgroundColor = '#ccc';
+                        prominentColorHex.innerText = '#ccc';
+                    }
+
+                    const themeColor = doc.querySelector('meta[name="theme-color"]')?.getAttribute('content');
+                    const themeColorElement = document.getElementById('themeColor');
+                    const themeColorHex = document.getElementById('themeColorHex');
+                    if (themeColor) {
+                        themeColorElement.style.backgroundColor = themeColor;
+                        themeColorHex.innerText = themeColor;
+                        themeColorHex.style.display = 'inline-block';
+                    } else {
+                        themeColorElement.style.backgroundColor = '#ccc';
+                        themeColorHex.style.display = 'none';
+                    }
+
+                    await fetchWHOISData(urlInput);
+
+                } catch (error) {
+                    console.error('Error fetching metadata:', error);
+                    M.toast({ html: 'Failed to fetch metadata. Please ensure the URL is correct and try again.' });
+                }
+            }
+
+            async function extractCategory(doc, baseUrl) {
+                const categoryMeta = doc.querySelector('meta[name="category"]');
+                if (categoryMeta) {
+                    return categoryMeta.getAttribute('content');
+                }
+
+                const keywordsMeta = doc.querySelector('meta[name="keywords"]');
+                if (keywordsMeta) {
+                    return keywordsMeta.getAttribute('content');
+                }
+
+                let manifestLink = doc.querySelector('link[rel="manifest"]');
+                if (manifestLink) {
+                    let manifestUrl = manifestLink.href;
+                    manifestUrl = new URL(manifestUrl, baseUrl).href;
+                    try {
+                        const manifestResponse = await axios.get(`https://api.allorigins.win/raw?url=${manifestUrl}`);
+                        const manifestData = manifestResponse.data;
+                        const categories = manifestData.categories || [];
+                        if (categories.length > 0) {
+                            return categories.join(', ');
+                        }
+
+                        const shortName = manifestData.short_name;
+                        if (shortName) {
+                            document.getElementById('shortName').innerText = shortName;
+                            document.getElementById('shortName').style.display = 'block';
+                        }
+
+                    } catch (error) {
+                        console.error('Error fetching manifest.json:', error);
+                    }
+                }
+                return 'No category found';
+            }
+
+            async function extractProminentColor(imageUrl) {
+                try {
+                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(imageUrl)}`;
+                    const response = await fetch(proxyUrl);
+
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch image: ${response.statusText}`);
+                    }
+
+                    const blob = await response.blob();
+
+                    const img = new Image();
+                    img.crossOrigin = 'Anonymous';
+
+                    const loadImage = new Promise((resolve, reject) => {
+                        img.onload = () => resolve(img);
+                        img.onerror = () => reject(new Error('Image failed to load'));
+                        img.src = URL.createObjectURL(blob);
+                    });
+
+                    const loadedImg = await loadImage;
+
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.width = loadedImg.width;
+                    canvas.height = loadedImg.height;
+                    context.drawImage(loadedImg, 0, 0, canvas.width, canvas.height);
+
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
+                    let colors = [];
+
+                    const BLACK_THRESHOLD = 50;
+                    const WHITE_THRESHOLD = 200;
+
+                    function isNearBlack(r, g, b) {
+                        return r < BLACK_THRESHOLD && g < BLACK_THRESHOLD && b < BLACK_THRESHOLD;
+                    }
+
+                    function isNearWhite(r, g, b) {
+                        return r > WHITE_THRESHOLD && g > WHITE_THRESHOLD && b > WHITE_THRESHOLD;
+                    }
+
+                    for (let i = 0; i < data.length; i += 4) {
+                        const r = data[i];
+                        const g = data[i + 1];
+                        const b = data[i + 2];
+                        const a = data[i + 3];
+
+                        if (a > 0) {
+                            if (!isNearBlack(r, g, b) && !isNearWhite(r, g, b)) {
+                                colors.push(tinycolor({ r, g, b }).toHexString());
+                            }
+                        }
+                    }
+
+                    if (colors.length === 0) {
+                        return '#ccc';
+                    }
+
+                    const colorCounts = {};
+                    colors.forEach(color => {
+                        colorCounts[color] = (colorCounts[color] || 0) + 1;
+                    });
+
+                    const prominentColor = Object.keys(colorCounts).reduce((a, b) => colorCounts[a] > colorCounts[b] ? a : b, '#ccc');
+
+                    URL.revokeObjectURL(img.src);
+
+                    return prominentColor;
+                } catch (error) {
+                    console.error('Error extracting prominent color:', error);
+                    return '#ccc';
+                }
+            }
+
+            async function fetchWHOISData(domain) {
+    try {
+        
+        const apiKey = 'CE665DE316868397EDE7A908921A56AD';
+        const apiUrl = `https://api.ip2whois.com/v2?key=${encodeURIComponent(apiKey)}&domain=${encodeURIComponent(domain)}&format=json`;
+        const fetchUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
+
+        // Fetch WHOIS data from the IP2WHOIS API
+        const response = await fetch(fetchUrl);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const whoisData = await response.json();
+
+        console.log('WHOIS Data:', whoisData); // Log the full response for debugging
+
+        // Extract data from the response
+        const { admin, create_date } = whoisData;
+        const organization = admin?.organization || 'No organization found';
+        const country = admin?.country || 'No country found';
+
+        // Display extracted data
+        if (organization) {
+            document.getElementById('org').innerText = `Organization: ${organization}`;
+            document.getElementById('org').style.display = 'block';
+        } else {
+            document.getElementById('org').style.display = 'none';
+        }
+
+        if (country) {
+            document.getElementById('country').innerText = `Country: ${country}`;
+            document.getElementById('country').style.display = 'block';
+        } else {
+            document.getElementById('country').style.display = 'none';
+        }
+
+        if (create_date) {
+            document.getElementById('createdDate').innerText = `Created Date: ${create_date}`;
+            document.getElementById('createdDate').style.display = 'block';
+        } else {
+            document.getElementById('createdDate').style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Error fetching WHOIS data:', error);
+        // Handle errors gracefully if needed
+    }
+}
+
+
+            function downloadJSON() {
+                const data = {
+                    title: document.getElementById('title').innerText,
+                    shortName: document.getElementById('shortName').innerText,
+                    description: document.getElementById('description').innerText,
+                    keywords: document.getElementById('keywords').innerText,
+                    category: document.getElementById('category').innerText,
+                    language: document.getElementById('language').innerText,
+                    prominentColor: document.getElementById('prominentColorHex').innerText,
+                    themeColor: document.getElementById('themeColorHex').innerText,
+                    org: document.getElementById('org').innerText,
+                    country: document.getElementById('country').innerText,
+                    createdDate: document.getElementById('createdDate').innerText
+                };
+
+                localStorage.setItem('metadata', JSON.stringify(data));
+
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'metadata.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            document.getElementById('prominentColor').addEventListener('click', () => {
+                copyToClipboard(document.getElementById('prominentColorHex').innerText);
+            });
+
+            document.getElementById('themeColor').addEventListener('click', () => {
+                copyToClipboard(document.getElementById('themeColorHex').innerText);
+            });
+
+            document.getElementById('favicon').addEventListener('click', () => {
+                downloadImage(document.getElementById('favicon').src, 'favicon.ico');
+            });
+
+            document.getElementById('image').addEventListener('click', () => {
+                downloadImage(document.getElementById('image').src, 'website-image.png');
+            });
+
+            function copyToClipboard(text) {
+                const el = document.createElement('textarea');
+                el.value = text;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                M.toast({ html: 'Copied to clipboard' });
+            }
+
+            function downloadImage(url, filename) {
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+            }
+            
+
+        function clearValues() {
+            document.getElementById('title').innerText = '';
+            document.getElementById('shortName').innerText = '';
+            document.getElementById('description').innerText = '';
+            document.getElementById('keywords').innerText = '';
+            document.getElementById('image').style.display = 'none';
+            document.getElementById('favicon').style.display = 'none';
+            document.getElementById('defaultFavicon').style.display = 'none';
+            document.getElementById('category').innerText = '';
+            document.getElementById('language').innerText = '';
+            document.getElementById('prominentColor').style.backgroundColor = '';
+            document.getElementById('themeColor').style.backgroundColor = '';
+            document.getElementById('prominentColorHex').innerText = '';
+            document.getElementById('themeColorHex').innerText = '';
+            document.getElementById('org').innerText = '';
+            document.getElementById('country').innerText = '';
+            document.getElementById('createdDate').innerText = '';
+
+            // Hide containers
+            document.querySelectorAll('[id$="Container"]').forEach(el => el.style.display = 'none');
+        }
+            window.fetchMetadata = fetchMetadata;
+            window.downloadJSON = downloadJSON;
+        });
+        function copyText(id) {
+            const text = document.getElementById(id).innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                M.toast({ html: 'Copied to clipboard!' });
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                M.toast({ html: 'Failed to copy text' });
+            });
+        }
+                function openNewUrl() {
+            window.open('https://www.example.com', '_blank'); // Change to the URL you want to open
+        }
+    </script>
+    <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="ionas" data-color="#FF5F5F" data-emoji="🍪"  data-font="Bree" data-text="Buy me some cookies" data-outline-color="#000000" data-font-color="#ffffff" data-coffee-color="#FFDD00" ></script>
+</body>
+
+</html>
