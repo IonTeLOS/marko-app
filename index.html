@@ -2255,23 +2255,114 @@ function clearFrame() {
 }  
     
 function showShareNote(title, text) {
-if (confirm("Do you want to share the note with your friends or other apps?")) {
-    shareNote(title, text);
-    return;
-}
-else {    
-      var iframe = document.getElementById('lightbox-iframe');
+ 
+var iframe = document.getElementById('lightbox-iframe');
+
 iframe.srcdoc = `
-<div style="display: flex; justify-content: center; align-items: center; height: 100vh; background-color: lightgrey; text-align: center; font-family: 'monospace';">
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Share Note</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: lightgrey;
+            text-align: center;
+            font-family: 'monospace', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            position: relative;
+        }
+        .content {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .share-button {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 24px;
+            color: black;
+        }
+        .share-button:hover {
+            color: #007bff;
+            transform: scale(1.1); 
+        }
     </style>
-    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px;">
+</head>
+<body>
+    <div class="content">
         <div style="font-weight: bold; font-size: 24px;">${title}</div>
         <br>
         <div style="font-weight: normal; font-size: 18px;">${text}</div>
     </div>
-</div>`;
+    <button class="share-button" onclick="shareText('${text}', '${title}')">
+        <span class="material-icons">share</span>
+    </button>
+    <script>
+        function stripHtmlTags(htmlString) {
+            const tempDiv = document.createElement('div');
+            // Replace <br> with newlines, escaping the backslash properly
+            htmlString = htmlString.replace(/<br\\s*\\/?>/gi, '\\n');
+            tempDiv.innerHTML = htmlString;
+            return tempDiv.textContent || tempDiv.innerText || '';
+        }
+
+        function shareText(htmlText, title) {
+            window.focus();
+            
+            // Strip HTML tags
+            const text = stripHtmlTags(htmlText);
+            
+            // Share link if Web Share API is available
+            if (navigator.share) {
+                navigator.share({
+                    title: title,
+                    text: text
+                })
+                .then(() => {
+                    console.log('Successfully shared');
+                })
+                .catch(err => {
+                    console.error('Error sharing', err);
+                    // Fallback to clipboard if sharing fails
+                    navigator.clipboard.writeText(\`\${title}: \${text}\`)
+                    .then(() => {
+                        console.log('Successfully copied to clipboard');
+                        alert('Copied to clipboard');
+                    })
+                    .catch(err => {
+                        console.error('Error copying to clipboard:', err);              
+                    });
+                });
+            } else {
+                // Fallback to clipboard
+                navigator.clipboard.writeText(\`\${title}: \${text}\`)
+                .then(() => {
+                    console.log('Successfully copied to clipboard');
+                    alert('Copied to clipboard');
+                })
+                .catch(err => {
+                    console.error('Error copying to clipboard:', err);
+                });
+            } 
+        }
+    <\/script>
+</body>
+</html>
+`;
+
+
 // Display the lightbox
 document.getElementById('lightbox').style.display = 'flex';
 document.getElementById('add-banner').style.display = 'none';
@@ -2280,33 +2371,6 @@ setTimeout(function() {
     document.getElementById('lightbox').style.display = 'none';
     document.getElementById('add-banner').style.display = 'block';
 }, 20000);
-}
-}
-
-function shareNote(title, text) {
-    if (navigator.share) {
-    window.focus();  
-    navigator.share({
-      title: title,
-      text: text
-    })
-    .then(() => {
-      console.log('Successfully shared');
-    })
-    .catch((error) => {
-      console.error('Error sharing:', error);
-    });
-  } else if (navigator.clipboard) {
-    window.focus();  
-    navigator.clipboard.writeText(title + ": " + text)
-      .then(() => {
-        //alert('Note text has been copied to the clipboard.');
-      })
-      .catch((error) => {
-        console.error('Error copying to clipboard:', error);
-        alert('Failed to copy text to clipboard.');
-      });
-  } 
 }
 
     // create a random number, this is used to be added in the name of friends, so that possibly same names dont collide
