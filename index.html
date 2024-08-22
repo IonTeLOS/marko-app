@@ -1965,7 +1965,7 @@ document.addEventListener('DOMContentLoaded', checkInitialState);
 
 
 let links = [];    
-    const linkIcon = 'https://fonts.gstatic.com/s/i/materialicons/open_in_new/v15/24px.svg';
+    const linkIcon = 'https://fonts.gstatic.com/s/i/materialicons/link/v15/24px.svg';
     const mailIcon = 'https://fonts.gstatic.com/s/i/materialicons/mail/v15/24px.svg';
     const phoneIcon = 'https://fonts.gstatic.com/s/i/materialicons/call/v15/24px.svg';
     const fileIcon = 'https://fonts.gstatic.com/s/i/materialicons/insert_drive_file/v15/24px.svg';
@@ -1985,18 +1985,20 @@ let links = [];
         checkConnection();
     });
 
-    // show an offline notice in the form of a banner if offline, autohide it when back online
     function checkConnection() {
 
         const offlineBanner = document.getElementById('offline-banner');
         if (!navigator.onLine) {
             document.getElementById('offline-banner').classList.add('show');
+            console.log('no internet connection');
         }
         window.addEventListener('online', () => {
             document.getElementById('offline-banner').classList.remove('show');
+            console.log('internet connection restored');
         });
         window.addEventListener('offline', () => {
             document.getElementById('offline-banner').classList.add('show');
+            console.log('internet connection lost');
         });
     }
 
@@ -2247,74 +2249,6 @@ function moveMarkoTo() {
         }
     });
 }
-// main function to add a new bookmark
-function addLink() {
-    const urlInput = document.getElementById('new-link-url');
-    const nameInput = document.getElementById('new-link-name');
-    const iconFile = document.getElementById('new-link-icon').files[0];
-
-    let url = urlInput.value.trim();
-    let name = nameInput.value.trim();
-
-    // Check if the URL contains a protocol
-    const protocolPattern = /^[a-zA-Z]+:/;
-    const isCustomProtocol = protocolPattern.test(url);
-
-    if (!isCustomProtocol && !url.startsWith('https://')) {
-        // Check for email links
-        if (url.includes('@')) {
-            url = "mailto:" + url;
-        } else if (/^[0-9+\s]+$/.test(url)) { // Check for tel links
-            url = "tel:" + url;
-        } else if (url.startsWith('file:')) {
-            // Handle local file links
-            // Assuming the file exists, bypass security to access local storage
-            const filename = url.substring(7); // Remove "file://" from the URL
-            url = 'file://' + filename;
-        } else {
-            url = "https://" + url;
-        }
-    }
-
-    // If name is empty or only spaces, use URL as the title
-    if (!name) {
-        // Remove protocol handler from the URL
-        const urlWithoutProtocol = url.replace(/^[a-zA-Z]+:\/\//, '');
-        name = urlWithoutProtocol;
-    }
-
-    let iconUrl;
-    let iconColor;
-        if (isCustomProtocol) {
-            // If it's a custom protocol, determine iconUrl based on the protocol
-            if (url.startsWith('mailto:')) {
-                iconUrl = mailIcon;
-            } else if (url.startsWith('tel:')) {
-                iconUrl = phoneIcon;
-            } else if (url.startsWith('file://')) {
-                iconUrl = fileIcon;
-            } else {
-                iconUrl = linkIcon;
-            }
-        } else {
-            // If it's not a custom protocol, fetch favicon
-            const hostname = new URL(url).hostname;
-            iconUrl = getIconUrl(url, hostname);
-            iconColor = getRandomColor();
-            // Push the new link with iconUrl to links array
-            links.push({ url, name, iconUrl, iconColor });
-            // Render links to UI
-            passCheck();
-           
-        }
-
-    console.log(links);
-    // Clear the form inputs and hide the form
-    urlInput.value = '';
-    nameInput.value = '';
-    toggleNewLinkForm();
-    saveLinks();
-}
     
 function clearFrame() {
     document.getElementById("lightbox-iframe").srcdoc = "";
@@ -2328,12 +2262,13 @@ if (confirm("Do you want to share the note with your friends or other apps?")) {
 else {    
       var iframe = document.getElementById('lightbox-iframe');
 iframe.srcdoc = `
-<div style="display: flex; justify-content: center; align-items: center; height: 100vh; background-color: lightgrey; text-align: center; font-family: 'Roboto', sans-serif;">
+<div style="display: flex; justify-content: center; align-items: center; height: 100vh; background-color: lightgrey; text-align: center; font-family: 'monospace';">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
     </style>
-    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
+    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px;">
         <div style="font-weight: bold; font-size: 24px;">${title}</div>
+        <br>
         <div style="font-weight: normal; font-size: 18px;">${text}</div>
     </div>
 </div>`;
@@ -4270,16 +4205,6 @@ function removeMarko(index) {
     function cancelAddLink() {
         toggleButtonContainerVisibility();
     }
-
-    // Listen for Enter key press to add link
-    document.addEventListener('keydown', function(event) {
-        if (event.key === "Enter") {
-            const addBtn = document.querySelector('.add');
-            if (addBtn.style.display === 'inline-block') {
-                addLink();
-            }
-        }
-    });
 
     function getIconUrl(url, hostname) {
             if (url.startsWith('mailto:')) {
@@ -8408,7 +8333,7 @@ function fetchSearchResults(query) {
   <button class="material-btn left-btn" onclick="downloadPage()">
     <i class="material-icons material-icon">cloud_download</i>
   </button>
-  <button class="material-btn middle-btn" style="margin-left: 10%; margin-right: 10%;" onclick="addLink()">
+  <button class="material-btn middle-btn" style="margin-left: 10%; margin-right: 10%;" onclick="console.log('upper middle button clicked')">
     <i class="material-icons material-icon">bookmark_add</i>
   </button>
   <button class="material-btn right-btn" onclick="cancelAddLink()">
