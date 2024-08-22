@@ -1964,7 +1964,7 @@ document.addEventListener('DOMContentLoaded', checkInitialState);
         }
 
 
-let links = [];    
+let bookmarks = [];    
     const linkIcon = 'https://fonts.gstatic.com/s/i/materialicons/link/v15/24px.svg';
     const mailIcon = 'https://fonts.gstatic.com/s/i/materialicons/mail/v15/24px.svg';
     const phoneIcon = 'https://fonts.gstatic.com/s/i/materialicons/call/v15/24px.svg';
@@ -1975,11 +1975,10 @@ let links = [];
     // this is what is mainly done: each time page is loaded it checks local storage and -after it confirms if user is logged it- it renders the bbokmarks
     document.addEventListener("DOMContentLoaded", () => {
     
-        const savedLinks = JSON.parse(localStorage.getItem('bookmarks')) || [];
-        console.log('Saved Links:', savedLinks);  // Debug log
-        // links = [mainLink, ...savedLinks];
+        const savedMarkos = JSON.parse(localStorage.getItem('bookmarks')) || [];
+        console.log('Saved Markos:', savedMarkos);  // Debug log
 
-        links = savedLinks;  // Initialize links array
+        bookmarks = savedMarkos;  // Initialize links array
         passCheck();  // Render the bookmarks
         detectTheme();
         checkConnection();
@@ -2910,13 +2909,12 @@ console.log("No valid sharing data found.");
     if (purelink) {
         if (confirm("Do you want to add " + params.get('friendname') + " as friend?")) {
             linkData = ['friend', params.get('friendlink'), params.get('friendname'), 'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/person/default/48px.svg', randomColor];
-            let bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
+            let markos = JSON.parse(localStorage.getItem('bookmarks')) || [];
 
-            bookmarks.push(linkData);
-            localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
-            console.log('Bookmarks saved:', bookmarks);
+            markos.push(linkData);
+            localStorage.setItem('bookmarks', JSON.stringify(markos));
+            console.log('Markos saved:', markos);
 
-            links = bookmarks;
             passCheck();
         }
     }
@@ -2966,10 +2964,8 @@ if (commonMarkoId && isCommon) {
 
                 bookmarks.push(linkData);
                 localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
-                console.log('Bookmarks saved:', bookmarks);
+                console.log('Markos saved:', bookmarks);
 
-                // Assuming links and passCheck are defined elsewhere in your script
-                links = bookmarks;
                 passCheck();
             }
         } catch (error) {
@@ -3067,29 +3063,29 @@ function countAchievements() {
     // delete a bookmark from local storage and remove it from now shown (the later by calling removeMarko function) TODO: maybe merge to 1 with clearLink()
     function deleteLink(index, array = 'bookmarks') {
             // nowPlaying is the bunch of Markos currently shown
-            const nowPlaying = sessionStorage.getItem('now-showing') || 'bookmarks';
-            const currentLinks = JSON.parse(localStorage.getItem(nowPlaying)) || [];
-            if (confirm('Are you sure you want to delete this bookmark?')) {
+            const nowShowing = sessionStorage.getItem('now-showing') || 'bookmarks';
+            const currentMarkosArray = JSON.parse(sessionStorage.getItem(nowShowing)) || [];
+            if (confirm('Are you sure you want to delete this Marko?')) {
               removeMarko(index);
-              currentLinks.splice(index, 1);
-              localStorage.setItem(nowPlaying, JSON.stringify(currentLinks));
+              currentMarkosArray.splice(index, 1);
+              localStorage.setItem(nowShowing, JSON.stringify(currentMarkosArray));
             }
-            if (nowPlaying !== 'bookmarks') {
-              syncAndShowCommonMarko(nowPlaying);
+            if (nowShowing !== 'bookmarks') {
+              syncAndShowCommonMarko(nowShowing);
             }
     }
     
         function clearLink(index, array = 'bookmarks') {
               removeMarko(index);
-              links.splice(index, 1);
-              localStorage.setItem(array, JSON.stringify(links));
+              bookmarks.splice(index, 1);
+              localStorage.setItem(array, JSON.stringify(bookmarks));
               saveLinks();
     }
     
             function moveMarkoUp(index) {
                 if (index > 0) {
-                    [links[index - 1], links[index]] = [links[index], links[index - 1]];
-                    localStorage.setItem('bookmarks', JSON.stringify(links));
+                    [bookmarks[index - 1], bookmarks[index]] = [bookmarks[index], bookmarks[index - 1]];
+                    localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
                     saveLinks();
                     renderLinks();
                 } else {
@@ -3098,15 +3094,15 @@ function countAchievements() {
             }    
     
             function moveMarkoDown(index) {
-                if (index < links.length - 1) {
-                    const [link] = links.splice(index, 1);
-                    links.push(link);
-                    localStorage.setItem('bookmarks', JSON.stringify(links));
+                if (index < bookmarks.length - 1) {
+                    const [link] = bookmarks.splice(index, 1);
+                    bookmarks.push(link);
+                    localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
                     saveLinks();
                     renderLinks();
 
                 } else {
-                    alert("This bookmark is already at the bottom.");
+                    alert("This Marko is already at the bottom.");
                 }
             }
 
