@@ -275,13 +275,7 @@
                 }
 	    }
 	
-
-            async function extractCategory(doc, baseUrl) {
-                const keywordsMeta = doc.querySelector('meta[name="keywords"]');
-                if (keywordsMeta) {
-                    return keywordsMeta.getAttribute('content');
-                }
-                
+            async function extractCategory(doc, baseUrl) {                
                 let manifestLink = doc.querySelector('link[rel="manifest"]');
                 if (manifestLink) {
                     let manifestUrl = manifestLink.href;
