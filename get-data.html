@@ -219,9 +219,14 @@
                     }
 
                     const category = await extractCategory(doc, urlInput);
-                    document.getElementById('category').innerText = category;
+                    if (!category) {
+                        document.getElementById('category').style.display = 'none';
+                    } else {
+		    	document.getElementById('category').innerText = category;
+		    }
+		    
 
-                    const keywords = doc.querySelector('meta[name="keywords"]')?.getAttribute('content');
+                    const keywords = await extractKeywords(doc, urlInput);
                     if (keywords) {
                         document.getElementById('keywords').innerText = keywords;
                         document.getElementById('keywords').style.display = 'block';
@@ -263,12 +268,20 @@
                 }
             }
 
+	    async function extractKeywords(doc, baseUrl) {
+                const keywordsMeta = doc.querySelector('meta[name="keywords"]');
+                if (keywordsMeta) {
+                    return keywordsMeta.getAttribute('content');
+                }
+	    }
+	
+
             async function extractCategory(doc, baseUrl) {
                 const keywordsMeta = doc.querySelector('meta[name="keywords"]');
                 if (keywordsMeta) {
                     return keywordsMeta.getAttribute('content');
                 }
-
+                
                 let manifestLink = doc.querySelector('link[rel="manifest"]');
                 if (manifestLink) {
                     let manifestUrl = manifestLink.href;
@@ -285,7 +298,9 @@
                         if (shortName) {
                             document.getElementById('shortName').innerText = shortName;
                             document.getElementById('shortName').style.display = 'block';
-                        }
+                        } else {
+			    document.getElementById('shortName').style.display = 'none';
+			}
 
                     } catch (error) {
                         console.error('Error fetching manifest.json:', error);
