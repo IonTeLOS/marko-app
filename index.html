@@ -2373,13 +2373,20 @@ setTimeout(function() {
 }, 20000);
 }
 
-    // create a random number, this is used to be added in the name of friends, so that possibly same names dont collide
     function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        let r = Math.random() * 16 | 0,
-            v = c == 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
+    // Generate 16 random bytes
+    const bytes = new Uint8Array(16);
+    window.crypto.getRandomValues(bytes);
+
+    // Set version to 4 and variant to 8, 9, A, or B
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant 10xx
+
+    // Convert bytes to UUID string format
+    return [...bytes].map((byte, index) => {
+        const hex = byte.toString(16).padStart(2, '0');
+        return (index === 4 || index === 6 || index === 8 || index === 10) ? `-${hex}` : hex;
+    }).join('');
 }
 
  // change address bar text when a friend's links are shown   
@@ -7128,14 +7135,6 @@ async function prepareFileContent(array = 'bookmarks') {
     const contentJson = localStorage.getItem('bookmarks'); 
     const content = JSON.parse(contentJson);
     return JSON.stringify(content);
-}
-
-
-function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
 }
 
 async function findExistingPublicWritableFile(accessToken, fileName) {
