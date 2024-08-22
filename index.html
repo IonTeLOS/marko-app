@@ -4654,12 +4654,11 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error("Close button not found");
     }
 });
-   const easyMDE = new EasyMDE({element: document.getElementById('intro-content')});
 
-    const bookmarks = document.querySelectorAll('.bookmark');
+    const markos = document.querySelectorAll('.bookmark');
     let currentActiveBookmark = null;
 
-    bookmarks.forEach(bookmark => {
+    markos.forEach(bookmark => {
       const iconWrapper = bookmark.querySelector('.icon-wrapper') || bookmark;
       const deleteIcon = bookmark.querySelector('.delete-icon');
 
@@ -4759,9 +4758,9 @@ function sharePage() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    const bookmarks = document.querySelectorAll('.bookmark');
+    const markos = document.querySelectorAll('.bookmark');
 
-    bookmarks.forEach(bookmark => {
+    markos.forEach(bookmark => {
         // Click event
         bookmark.addEventListener('click', function() {
             setActiveBookmark(this);
@@ -4789,7 +4788,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function setActiveBookmark(bookmark) {
-        bookmarks.forEach(b => b.classList.remove('active'));
+        markos.forEach(b => b.classList.remove('active'));
         bookmark.classList.add('active');
     }
 
@@ -4847,9 +4846,9 @@ function openAdd() {
 
     // Add long-press detection for mobile devices (same as before)
     let longPressTimer;
-    const longPressDuration = 500; // 500 milliseconds
+    const longPressDuration = 450; // 500 milliseconds
 
-    bookmarks.forEach(bookmark => {
+    markos.forEach(bookmark => {
       bookmark.addEventListener('touchstart', () => { /* ... */ });
       bookmark.addEventListener('touchend', () => { /* ... */ });
       bookmark.addEventListener('touchmove', () => { /* ... */ });
