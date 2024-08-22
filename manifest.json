@@ -1,7 +1,7 @@
 {
   "name": "Marko",
   "short_name": "Marko",
-  "description": "A sophisticated bookmarking application",
+  "description": "Sophisticated bookmarking application",
   "categories": ["business", "productivity", "utilities", "lifestyle"],
   "launch_handler": {
     "client_mode": "navigate-existing"
