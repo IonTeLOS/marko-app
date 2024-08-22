@@ -93,7 +93,7 @@
 
 <body>
     <div class="container">
-        <h1 class="center-align">Get metadata for any website</h1>
+        <h1 class="center-align">Get website info</h1>
         <p style="padding-bottom: 30px;">
     As shown on <a href="https://github.com/IonTeLOS" target="_blank" rel="noopener noreferrer">GitHub</a>.
 </p>
@@ -161,7 +161,7 @@
                     return;
                 }
 
-                document.getElementById('header').innerText = `Metadata for ${urlInput}:`;
+                document.getElementById('header').innerText = `${urlInput}`;
 
                 try {
                     const encodedUrl = encodeURIComponent(urlInput);
