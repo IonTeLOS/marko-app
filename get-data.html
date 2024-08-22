@@ -225,7 +225,6 @@
 		    	document.getElementById('category').innerText = category;
 		    }
 		    
-
                     const keywords = await extractKeywords(doc, urlInput);
                     if (keywords) {
                         document.getElementById('keywords').innerText = keywords;
@@ -267,8 +266,32 @@
                     M.toast({ html: 'Failed to fetch metadata. Please ensure the URL is correct and try again.' });
                 }
             }
+		
+	    async function extractShortname(doc, baseUrl) {                
+                let manifestLink = doc.querySelector('link[rel="manifest"]');
+                if (manifestLink) {
+                    let manifestUrl = manifestLink.href;
+                    manifestUrl = new URL(manifestUrl, baseUrl).href;
+                    try {
+                        const manifestResponse = await axios.get(`https://api.allorigins.win/raw?url=${manifestUrl}`);
+                        const manifestData = manifestResponse.data;
 
-	    async function extractKeywords(doc, baseUrl) {
+                        const shortName = manifestData.short_name;
+                        if (shortName) {
+                            document.getElementById('shortName').innerText = shortName;
+                            document.getElementById('shortName').style.display = 'block';
+                        } else {
+			    document.getElementById('shortName').style.display = 'none';
+			}
+
+                    } catch (error) {
+                        console.error('Error fetching manifest.json:', error);
+                    }
+                }
+                return 'No short name found';
+            }
+		
+	   async function extractKeywords(doc, baseUrl) {
                 const keywordsMeta = doc.querySelector('meta[name="keywords"]');
                 if (keywordsMeta) {
                     return keywordsMeta.getAttribute('content');
@@ -283,18 +306,17 @@
                     try {
                         const manifestResponse = await axios.get(`https://api.allorigins.win/raw?url=${manifestUrl}`);
                         const manifestData = manifestResponse.data;
-                        const categories = manifestData.categories || [];
-                        if (categories.length > 0) {
-                            return categories.join(', ');
-                        }
-
-                        const shortName = manifestData.short_name;
+			const shortName = manifestData.short_name;
                         if (shortName) {
                             document.getElementById('shortName').innerText = shortName;
                             document.getElementById('shortName').style.display = 'block';
                         } else {
 			    document.getElementById('shortName').style.display = 'none';
-			}
+			}    
+                        const categories = manifestData.categories || [];
+                        if (categories.length > 0) {
+                            return categories.join(', ');
+                        }
 
                     } catch (error) {
                         console.error('Error fetching manifest.json:', error);
