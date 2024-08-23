@@ -4742,14 +4742,14 @@ function openAdd() {
     }
 }
   
-  async function createShareableLink(title) {
-              const loggedIn = sessionStorage.getItem('loggedIn');
+    async function createShareableLink(title) {
+       const loggedIn = sessionStorage.getItem('loggedIn');
           // make sure the user is logged in before they can create a shareable link.
           if (loggedIn !== "true") {
             alert("log in to create a shareable link");
             return;
         }
-    let bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
+    let bookmarks = JSON.parse(localStorage.getItem('public-bookmarks')) || [];
     
     // Exclude bookmarks of friends
     bookmarks = bookmarks.filter(bookmark => bookmark[0] !== "friend");
@@ -4772,43 +4772,32 @@ function openAdd() {
         const compressed = LZString.compressToEncodedURIComponent(jsonString);
         const url = `${window.location.origin}${window.location.pathname}?title=${title}&data=${compressed}&globalMarko=true`;
 
-        // Load array from URL (assume this is a function you have)
-        loadArrayFromURL();
-
-        // Copy to clipboard
-        try {
-            window.focus();
-            await navigator.clipboard.writeText(url);
-            //alert('Link copied to clipboard!');
-        } catch (clipboardError) {
-            console.error('Error copying to clipboard:', clipboardError);
-            alert('Failed to copy link to clipboard. You can manually copy the link.');
-        }
-
-        // Check if Web Share API is supported
         if (navigator.share) {
-            try {
-                await navigator.share({
+        navigator.share({
                     title: `${title}`,
                     text: 'This is my Marko superlink!',
-                    url: url,
-                });
-            } catch (shareError) {
-                console.error('Error sharing:', shareError);
-            }
-        } else {
-            alert('Share link has been copied to clipboard.');
-        }
+                    url: url
+        })
+        .then(() => console.log('Page shared successfully'))
+        .catch((error) => console.error('Error in sharing:', error));
+    } else {
+        // Fallback for browsers that do not support Web Share API
+        const tempInput = document.createElement('input');
+        tempInput.style.position = 'absolute';
+        tempInput.style.left = '-9999px'; // Or use tempInput.style.visibility = 'hidden';
+        tempInput.value = url;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+
+        // Optionally, provide user feedback
+        alert('Page URL copied to clipboard');
+    }
     } catch (error) {
         alert(`Invalid JSON array. Please enter a valid array. Error: ${error.message}`);
     }
 }
-
-
-
-
-
-
 </script>
 
         <script>
