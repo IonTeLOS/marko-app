@@ -1735,7 +1735,6 @@ window.cancelScheduledNotification = cancelScheduledNotification;
 });
 function onWindowFocus() {
     console.log("Window is focused!");
-    checkConnection();
     // Your function code here
 
       // Retrieve a value using localForage
@@ -1985,21 +1984,35 @@ let bookmarks = [];
         checkConnection();
     });
 
+   document.addEventListener('DOMContentLoaded', () => {
     function checkConnection() {
         const offlineBanner = document.getElementById('offline-banner');
+
+        // Initial check for online status
         if (!navigator.onLine) {
-            document.getElementById('offline-banner').classList.add('show');
+            offlineBanner.classList.add('show');
             console.log('no internet connection');
+        } else {
+            offlineBanner.classList.remove('show');
+            console.log('internet connection is active');
         }
+
+        // Listen for online event to remove the banner
         window.addEventListener('online', () => {
-            document.getElementById('offline-banner').classList.remove('show');
+            offlineBanner.classList.remove('show');
             console.log('internet connection restored');
         });
+
+        // Listen for offline event to show the banner
         window.addEventListener('offline', () => {
-            document.getElementById('offline-banner').classList.add('show');
+            offlineBanner.classList.add('show');
             console.log('internet connection lost');
         });
     }
+
+    // Call the function to set up event listeners and perform the initial check
+    checkConnection();
+});
 
 async function syncAndShowPublicMarkos() {
     if (!navigator.onLine) {
