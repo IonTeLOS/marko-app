@@ -4719,6 +4719,17 @@ document.addEventListener('DOMContentLoaded', function() {
     function removeActiveBookmark(bookmark) {
         bookmark.classList.remove('active');
     }
+    
+    // Add long-press detection for mobile devices (same as before)
+    let longPressTimer;
+    const longPressDuration = 450; // 450 milliseconds
+
+    markos.forEach(bookmark => {
+      bookmark.addEventListener('touchstart', () => { /* ... */ });
+      bookmark.addEventListener('touchend', () => { /* ... */ });
+      bookmark.addEventListener('touchmove', () => { /* ... */ });
+      bookmark.addEventListener('touchcancel', () => { /* ... */ });
+    });    
 });
 
 function hideInstallBanner(event) {
@@ -4768,16 +4779,7 @@ function openAdd() {
 
     
 
-    // Add long-press detection for mobile devices (same as before)
-    let longPressTimer;
-    const longPressDuration = 450; // 500 milliseconds
 
-    markos.forEach(bookmark => {
-      bookmark.addEventListener('touchstart', () => { /* ... */ });
-      bookmark.addEventListener('touchend', () => { /* ... */ });
-      bookmark.addEventListener('touchmove', () => { /* ... */ });
-      bookmark.addEventListener('touchcancel', () => { /* ... */ });
-    });    
 function createContainer() {
     const container = document.createElement('div');
     container.id = 'dropdownContainer';
