@@ -4749,7 +4749,7 @@ function openAdd() {
             alert("log in to create a shareable link");
             return;
         }
-    let bookmarks = JSON.parse(localStorage.getItem('public-bookmarks')) || [];
+    let bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
     
     // Exclude bookmarks of friends
     bookmarks = bookmarks.filter(bookmark => bookmark[0] !== "friend");
