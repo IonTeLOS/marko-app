@@ -2970,6 +2970,8 @@ if (commonMarkoId && isCommon) {
                 console.log('Markos saved:', bookmarks);
                 history.pushState({}, '', '/');
                 passCheck();
+            } else {
+                history.pushState({}, '', '/');
             }
         } catch (error) {
             console.log('Failed to load array from URL.');
