@@ -3151,12 +3151,12 @@ function toggleBellIcons() {
 
 function addReminderToMarko(index) {
     // Check if index is within bounds of the links array
-    if (index >= 0 && index < links.length) {
+    if (index >= 0 && index < bookmarks.length) {
         // Generate a UUID
         const uuid = generateUUID();
 
         // Get the bookmark array at the specified index
-        let bookmark = links[index];
+        let bookmark = bookmarks[index];
 
         // If bookmark is undefined (should not happen with proper index validation), create a new bookmark array
         if (!bookmark) {
@@ -3180,10 +3180,10 @@ function addReminderToMarko(index) {
         console.log('Updated bookmark array:', bookmark);
 
         // Update the bookmark in the links array
-        links[index] = bookmark;
+        bookmarks[index] = bookmark;
 
         // Save the updated links array to localStorage
-        localStorage.setItem('bookmarks', JSON.stringify(links));
+        localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
 
         // Call saveLinks and renderLinks to update the UI
         saveLinks();
@@ -3237,9 +3237,9 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function renameMarko(index) {
-    if (index >= 0 && index < links.length) {
+    if (index >= 0 && index < bookmarks.length) {
         // Check if there's a bookmark at the specified index
-        let bookmark = links[index];
+        let bookmark = bookmarks[index];
 
         const currentTitle = bookmark[2];
 
@@ -3261,10 +3261,10 @@ function renameMarko(index) {
             bookmark[2] = newTitle;
 
             // Update the links array
-            links[index] = bookmark;
+            bookmarks[index] = bookmark;
 
             // Save the updated links array to localStorage
-            localStorage.setItem('bookmarks', JSON.stringify(links));
+            localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
 
             // Call saveLinks and renderLinks to update the UI
             saveLinks();
@@ -3276,9 +3276,9 @@ function renameMarko(index) {
 }
         
 function removeReminder(index) {
-    if (index >= 0 && index < links.length) {
+    if (index >= 0 && index < bookmarks.length) {
         // Check if there's a bookmark at the specified index
-        let bookmark = links[index];
+        let bookmark = bookmarks[index];
 
         if (!bookmark || bookmark.length < 6) {
             console.error(`No valid bookmark found at index ${index}`);
@@ -3292,10 +3292,10 @@ function removeReminder(index) {
             bookmark[5] = "";
 
             // Update the links array
-            links[index] = bookmark;
+            bookmarks[index] = bookmark;
 
             // Save the updated links array to localStorage
-            localStorage.setItem('bookmarks', JSON.stringify(links));
+            localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
 
             // Call saveLinks and renderLinks to update the UI
             saveLinks();
@@ -3315,7 +3315,7 @@ function removeReminder(index) {
     
 function removeBellAfterNotification(uuid) {
     // Find the bookmark index that matches the provided UUID
-    const index = links.findIndex(bookmark => bookmark && bookmark.length >= 6 && bookmark[5] === uuid);
+    const index = bookmarks.findIndex(bookmark => bookmark && bookmark.length >= 6 && bookmark[5] === uuid);
 
     if (index === -1) {
         console.error(`Bookmark with UUID ${uuid} not found in links array.`);
@@ -3323,14 +3323,14 @@ function removeBellAfterNotification(uuid) {
     }
 
     // Get the current UUID
-    const currentUUID = links[index][5];
+    const currentUUID = bookmarks[index][5];
 
     
         // Remove the UUID (invalidate it)
-        links[index][5] = "";
+        bookmarks[index][5] = "";
 
         // Save the updated links array to localStorage
-        localStorage.setItem('bookmarks', JSON.stringify(links));
+        localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
 
         // Update the UI
         saveLinks();
@@ -4031,8 +4031,8 @@ function showTooltip(link) {
             const defaultIconUrl = 'https://example.com/default-icon.png';  // Replace with an actual default icon URL
             const savedFriendLinks = JSON.parse(localStorage.getItem(`${friend}`)) || [];
             console.log('Saved Friend Links:', savedFriendLinks);  // Debug log
-            links = savedFriendLinks;
-            links.forEach((link, index) => {
+            bookmarks = savedFriendLinks;
+            bookmarks.forEach((link, index) => {
                 const iconUrl = link[3] || defaultIconUrl;  // Use default icon if iconurl is undefined
 
                 const bookmarkElement = document.createElement('div');
@@ -4257,7 +4257,7 @@ function removeMarko(index) {
             if (noteText) {
                 const iconUrl = noteIcon;
                 const iconColor = getRandomColor();
-                links.push({ text: noteText, iconUrl, iconColor });
+                bookmarks.push({ text: noteText, iconUrl, iconColor });
                 passCheck();
                 saveLinks();
             }
@@ -4296,7 +4296,7 @@ function addNote() {
             const iconUrl = noteIcon;
             const iconColor = getRandomColor();
 
-            links.push({ text: noteText, iconUrl, iconColor });
+            bookmarks.push({ text: noteText, iconUrl, iconColor });
             noteInput.value = '';
             passCheck();
             saveLinks();
@@ -4389,7 +4389,7 @@ function redirectToHomepage(event) {
 
 // this is very important, this is what actually saves array in local storage    
 function saveLinks() {
-    localStorage.setItem('bookmarks', JSON.stringify(links));
+    localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
 }
  
   // this is the way friends are added..    
@@ -6706,7 +6706,7 @@ function getFromGoogleDrive() {
         })
         .then(data => {
             localStorage.setItem('bookmarks', JSON.stringify(data));
-            links = data;
+            bookmarks = data;
             stopSpinning(syncFromButton, syncFromIcon);
             location.reload();
             alert("Your Markos are now in sync. Enjoy!");
