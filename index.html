@@ -627,19 +627,19 @@ input:focus {
 
         .offline-banner {
             position: fixed;
-            bottom: 0;
+            bottom: 80px;
             left: 0;
             width: 100%;
             height: 40px;
-            background-color: #ffcc00; /* Adjust color as needed */
-            color: #333; /* Adjust text color as needed */
+            background-color: #ffcc00;
+            color: #333;
             text-align: center;
             padding: 10px;
             box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
-            z-index: 998; /* Ensure it appears above other elements */
-            transition: transform 0.3s ease-in-out; /* Smooth transition for sliding effect */
-            transform: translateY(100%); /* Initially hidden off the bottom of the viewport */
-            visibility: hidden; /* Initially hidden */
+            z-index: 998; 
+            transition: transform 0.3s ease-in-out; 
+            transform: translateY(100%); 
+            visibility: hidden;
         }
 
         /* Show the banner */
@@ -1984,35 +1984,24 @@ let bookmarks = [];
         checkConnection();
     });
 
-   document.addEventListener('DOMContentLoaded', () => {
+// show an offline notice in the form of a banner if offline, autohide it when back online
     function checkConnection() {
+
         const offlineBanner = document.getElementById('offline-banner');
-
-        // Initial check for online status
         if (!navigator.onLine) {
-            offlineBanner.classList.add('show');
+            document.getElementById('offline-banner').classList.add('show');
             console.log('no internet connection');
-        } else {
-            offlineBanner.classList.remove('show');
-            console.log('internet connection is active');
         }
-
-        // Listen for online event to remove the banner
         window.addEventListener('online', () => {
-            offlineBanner.classList.remove('show');
+            document.getElementById('offline-banner').classList.remove('show');
             console.log('internet connection restored');
         });
-
-        // Listen for offline event to show the banner
         window.addEventListener('offline', () => {
-            offlineBanner.classList.add('show');
+            document.getElementById('offline-banner').classList.add('show');
             console.log('internet connection lost');
         });
     }
 
-    // Call the function to set up event listeners and perform the initial check
-    checkConnection();
-});
 
 async function syncAndShowPublicMarkos() {
     if (!navigator.onLine) {
@@ -5449,7 +5438,7 @@ background-color: #1f1b24;
 
         .offline-banner {
             position: fixed;
-            bottom: 0;
+            bottom: 80px;
             left: 0;
             width: 100%;
             height: 30px;
