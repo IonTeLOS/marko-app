@@ -2949,7 +2949,7 @@ if (commonMarkoId && isCommon) {
         try {
             if (confirm("Do you want to add " + `${sharedTitle}` + " as a friend?")) {
                 const decompressed = LZString.decompressFromEncodedURIComponent(compressed);
-                console.log(decompressed);
+                console.log('decompressed data: ' + decompressed);
                 const array = JSON.parse(decompressed);
                 const friendString = JSON.stringify(array);
                 
@@ -2963,7 +2963,7 @@ if (commonMarkoId && isCommon) {
                 
                 const friendUrl = `${storageKey}`;
                 const linkData = ["friend", friendUrl, `${sharedTitle}`, "https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/person/default/48px.svg", getRandomColor()];
-                let bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
+                bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
 
                 bookmarks.push(linkData);
                 localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
