@@ -2407,7 +2407,7 @@ function changeURL(url) {
             // Get the base URL including the file name
             const cleanUrl = window.location.href.split('?')[0];
             history.replaceState(null, '', cleanUrl);
-            const friendName = url.substring(0, url.lastIndexOf('+'));
+            const friendName = url.substring(0, url.lastIndexOf('&'));
             history.pushState({}, '', cleanUrl + "/" + friendName);
             }
             else {
@@ -3742,9 +3742,11 @@ function addAd() {
                     linkContainer.appendChild(bookmarkElement);
 }
 
-//localStorage.clear();
 // main function to show the bookmarks that are stored as arrays in local storage as visual elements    
-function renderLinks() {
+function renderLinks(customArray = '') {
+  if (customArray) {
+    bookmarks = JSON.parse(localStorage.getItem(`${customArray}`));
+  }
             let title = document.title;
             let pageUrl = window.location.href;
             const linkContainer = document.querySelector('.bookmarks-container');
@@ -4017,39 +4019,7 @@ function showTooltip(link) {
             tooltip.style.display = 'none';
         }
     }
-        
-
-        function renderFriend(friend) {
-            const linkContainer = document.querySelector('.bookmarks-container');
-            linkContainer.innerHTML = ''; // Clear the container
-
-            const defaultIconUrl = 'https://example.com/default-icon.png';  // Replace with an actual default icon URL
-            const savedFriendLinks = JSON.parse(localStorage.getItem(`${friend}`)) || [];
-            console.log('Saved Friend Links:', savedFriendLinks);  // Debug log
-            bookmarks = savedFriendLinks;
-            bookmarks.forEach((link, index) => {
-                const iconUrl = link[3] || defaultIconUrl;  // Use default icon if iconurl is undefined
-
-                const bookmarkElement = document.createElement('div');
-                bookmarkElement.className = 'bookmark';
-                bookmarkElement.dataset.index = index; // Store the index as a data attribute
-
-                bookmarkElement.id = `bookmark-${index}`;
-                
-                bookmarkElement.innerHTML = `
-    <div class="bookmark-wrapper" data-type='${link[0]}' onclick="openMarko(openLink, '${link[1]}')" style="cursor: pointer;">
-        <div class="icon-wrapper">
-            <div class="icon-container" style="--ring-color: ${link[4]};">
-                <img src="${iconUrl}" alt="${link[2]}" class="bookmark-icon">
-            </div>
-            <span class="bookmark-title">${link[2]}</span>
-        </div>
-        <span id="delete-${index}" class="material-icons delete-icon" onclick="deleteLink(${index}); event.stopPropagation();">delete</span>
-    </div>
-`;
-                linkContainer.appendChild(bookmarkElement);
-            });
-        }
+      
     
         function showPost(htmlContent) {
             document.getElementById('add-banner').style.display = 'none';
@@ -4196,7 +4166,7 @@ iframe.srcdoc = `
             if (url.startsWith("friends/")) {
                console.log("friend!!");
                changeURL(url);
-               renderFriend(url);
+               renderLinks(url);
             } else {
                 window.open(url, '_blank');
             }
