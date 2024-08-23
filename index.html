@@ -4658,28 +4658,31 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function sharePage() {
-  window.focus();
-  if (navigator.share) {
-    navigator.share({
-      title: document.title,
-      url: window.location.href
-    })
-    .then(() => console.log('Shared successfully'))
-    .catch((error) => console.error('Error in sharing:', error));
-  } else {
-    // Fallback for browsers that do not support Web Share API
-    const url = window.location.href;
-    const tempInput = document.createElement('input');
-    tempInput.style.position = 'absolute';
-    tempInput.style.left = '-9999px';
-    tempInput.value = url;
-    document.body.appendChild(tempInput);
-    tempInput.select();
-    document.execCommand('copy');
-    document.body.removeChild(tempInput);
-    //alert("Link has been copied to your clipboard.");
-  }
+    if (navigator.share) {
+        navigator.share({
+            title: 'I use Marko app',
+            text: 'A whole new way to keep bookmarks',
+            url: window.location.href
+        })
+        .then(() => console.log('Page shared successfully'))
+        .catch((error) => console.error('Error in sharing:', error));
+    } else {
+        // Fallback for browsers that do not support Web Share API
+        const url = window.location.href;
+        const tempInput = document.createElement('input');
+        tempInput.style.position = 'absolute';
+        tempInput.style.left = '-9999px'; // Or use tempInput.style.visibility = 'hidden';
+        tempInput.value = url;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+
+        // Optionally, provide user feedback
+        alert('Page URL copied to clipboard');
+    }
 }
+
 
 document.addEventListener('DOMContentLoaded', function() {
     const markos = document.querySelectorAll('.bookmark');
