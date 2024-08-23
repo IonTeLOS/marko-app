@@ -2962,7 +2962,7 @@ if (commonMarkoId && isCommon) {
                 console.log("Friend " + `${sharedTitle}` + " saved:", friendString);
                 
                 const friendUrl = `${storageKey}`;
-                const linkData = ["friend", friendUrl, `${sharedTitle}`, "https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/person/default/48px.svg", getRandomColor()];
+                const linkData = ["friend", friendUrl, `${sharedTitle}`, "https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/person/default/48px.svg", getColor()];
                 bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
 
                 bookmarks.push(linkData);
