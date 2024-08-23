@@ -3801,7 +3801,6 @@ linkContainer.appendChild(bookmarkElement);
     </div>
 `;
                     linkContainer.appendChild(bookmarkElement);
-                hideAdd();   
                     
                 }           
                 else if (link[0] === "window") {
@@ -3825,7 +3824,6 @@ linkContainer.appendChild(bookmarkElement);
     </div>
 `;
                     linkContainer.appendChild(bookmarkElement);
-                hideAdd();   
                     
                 }    else if (link[0] === "pdf") {
                 const iconUrl = 'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/picture_as_pdf/default/48px.svg';
@@ -3850,7 +3848,6 @@ linkContainer.appendChild(bookmarkElement);
     </div>
 `;
                     linkContainer.appendChild(bookmarkElement);
-                hideAdd();   
                     
                 } 
                 else if (link[0] === "download") {
@@ -3876,7 +3873,6 @@ linkContainer.appendChild(bookmarkElement);
     </div>
 `;
                     linkContainer.appendChild(bookmarkElement);
-                hideAdd();      
                 }   else if (link[0] === "contact") {
                 // const iconUrl = 'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/download/default/48px.svg';
                 // const proxied = "https://corsproxy.io/?" + link[1];
@@ -3898,7 +3894,6 @@ linkContainer.appendChild(bookmarkElement);
     </div>
 `;
                     linkContainer.appendChild(bookmarkElement);
-                hideAdd();      
                 }     
                 else if (link[0] === "post") {
                 const iconUrl = 'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/wysiwyg/default/48px.svg';
@@ -3922,7 +3917,6 @@ linkContainer.appendChild(bookmarkElement);
     </div>
 `;
                     linkContainer.appendChild(bookmarkElement);
-                hideAdd();   
                     
                 }  
                 else if (link[0] === "note") {
@@ -3951,7 +3945,6 @@ linkContainer.appendChild(bookmarkElement);
     </div>
 `;
                     linkContainer.appendChild(bookmarkElement);
-                hideAdd();   
                 }
                 else {
     
@@ -3979,7 +3972,6 @@ linkContainer.appendChild(bookmarkElement);
     </div>
 `;
                     linkContainer.appendChild(bookmarkElement);
-                hideAdd();   
                             
                 }
 
@@ -4740,36 +4732,14 @@ function hideInstallBanner(event) {
     document.getElementById('install-banner').style.display = 'none';
 }
     
-// this is the definition of what the main button does, it initiates (or if clicked again ends!) the process of adding a new bookmark, shows the form and an extra row of buttons    
+// this opens createmarko page   
 function openAdd() {
       if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         window.location.href = 'https://marko-app.netlify.app/createmarko?fromApp&darkMode';
     } else {
         window.location.href = 'https://marko-app.netlify.app/createmarko?fromApp';
     }
-  /*
-    const linkContainer = document.querySelector('.bookmarks-container');
-    const upperContainer = document.querySelector('.container'); 
-    if (upperContainer.style.display === 'none') {
-        linkContainer.style.display = 'none';
-        upperContainer.style.display = 'block';
-        document.getElementById('new-link-form').style.display = 'block';
-    } 
-    else {
-        document.getElementById('new-link-form').style.display = 'none';
-        upperContainer.style.display = 'none';
-        linkContainer.style.display = 'block';
-    }
-    */
-  
-    }
-    
-    function hideAdd() {
-    document.getElementById('upper-container').style.display = 'none';
-    document.getElementById('new-link-form').style.display = 'none';
-    const linkContainer = document.querySelector('.bookmarks-container'); 
-    linkContainer.style.display = 'block';
-    }
+}
 
     // TODO check if necessary
     function generate() {
