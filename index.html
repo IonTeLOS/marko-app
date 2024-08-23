@@ -2917,7 +2917,7 @@ console.log("No valid sharing data found.");
             markos.push(linkData);
             localStorage.setItem('bookmarks', JSON.stringify(markos));
             console.log('Markos saved:', markos);
-
+            history.pushState({}, '', '/');
             passCheck();
         }
     }
