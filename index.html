@@ -2968,7 +2968,7 @@ if (commonMarkoId && isCommon) {
                 bookmarks.push(linkData);
                 localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
                 console.log('Markos saved:', bookmarks);
-
+                history.pushState({}, '', '/');
                 passCheck();
             }
         } catch (error) {
