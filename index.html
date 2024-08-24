@@ -2215,41 +2215,23 @@ function updateUI(fileId, name) {
 }
 }
 
-function moveMarkoTo() {
-    const bookmarkContainer = document.querySelector('.bookmarks-container');
-    const bookmarks = bookmarkContainer.querySelectorAll('.bookmark-wrapper[onclick^="openMarko(syncAndShowCommonMarko,"]');
+function moveMarkoTo(index) {
+    const myShownBookmarks = JSON.parse(localStorage.getItem('bookmarks'));
+    let targetBookmarks = JSON.parse(localStorage.getItem('public-bookmarks'));
 
-    // Hide all bookmarks
-    bookmarkContainer.querySelectorAll('.bookmark').forEach(el => el.style.display = 'none');
+    if (!targetBookmarks) {
+        targetBookmarks = [];
+        localStorage.setItem('public-bookmarks', JSON.stringify(targetBookmarks));
+    }
 
-    // Show and modify only the matching bookmarks
-    bookmarks.forEach((bookmark) => {
-        const bookmarkParent = bookmark.closest('.bookmark');
-        bookmarkParent.style.display = 'block';
+    const targetBookmark = myShownBookmarks[index];
+    console.log(targetBookmark);
 
-        const onclickValue = bookmark.getAttribute('onclick');
-        const match = onclickValue.match(/openMarko\(syncAndShowCommonMarko,\s*'([^']+)',\s*'([^']+)'\)/);
-
-        if (match) {
-            const [, firstArg, secondArg] = match;
-            const index = parseInt(bookmarkParent.getAttribute('data-index'));
-
-            bookmark.onclick = function(event) {
-                event.preventDefault();
-                if (confirm(`Do you want to copy chosen Marko to ${secondArg}?`)) {
-                    const allBookmarks = JSON.parse(localStorage.getItem('bookmarks') || '[]');
-                    const targetBookmark = allBookmarks[index];
-
-                    if (targetBookmark) {
-                        const targetArray = JSON.parse(localStorage.getItem(firstArg) || '[]');
-                        targetArray.push(targetBookmark);
-                        localStorage.setItem(firstArg, JSON.stringify(targetArray));
-                        updateMarko(firstArg);
-                    }
-                }
-            };
-        }
-    });
+    if (targetBookmark) {
+        // Push the bookmark and update localStorage
+        targetBookmarks.push(targetBookmark);
+        localStorage.setItem('public-bookmarks', JSON.stringify(targetBookmarks));
+    }
 }
     
 function clearFrame() {
