@@ -1964,7 +1964,7 @@ document.addEventListener('DOMContentLoaded', checkInitialState);
             }
         }
 
-
+let APP_URL = 'https://marko-app.netlify.app';
 let bookmarks = [];    
     const linkIcon = 'https://fonts.gstatic.com/s/i/materialicons/link/v15/24px.svg';
     const mailIcon = 'https://fonts.gstatic.com/s/i/materialicons/mail/v15/24px.svg';
@@ -2231,8 +2231,8 @@ function moveMarkoTo(index) {
         // Push the bookmark and update localStorage
         targetBookmarks.push(targetBookmark);
         localStorage.setItem('public-bookmarks', JSON.stringify(targetBookmarks));
-        // show page
-        window.location.href = ;
+        // show page with new bookmark
+        window.location.href = APP_URL + '/public';
     }
 }
     
