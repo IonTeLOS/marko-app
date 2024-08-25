@@ -2075,7 +2075,7 @@ async function syncAndShowPublicMarkos() {
                 }
             } else {
                 if (confirm('No public bookmarks file found in Drive or locally. Do you want to save your current bookmarks as public bookmarks?')) {
-                    const currentBookmarks = []; // Fetch or define the current bookmarks here
+                    const currentBookmarks = JSON.parse(localStorage.getItem('bookmarks')) || []; // Fetch or define the current bookmarks here
                     await saveToDrive(currentBookmarks);
                     localStorage.setItem('public-bookmarks', JSON.stringify(currentBookmarks));
                     alert('Your current bookmarks have been saved as public bookmarks.');
@@ -2086,17 +2086,13 @@ async function syncAndShowPublicMarkos() {
         }
 
         // After fetching and storing, proceed to show public Markos
-        const linkContainer = document.querySelector('.bookmarks-container');
-        linkContainer.innerHTML = ''; // Clear the container
+    const userConfirmed = confirm('Public Markos in sync. Do you want to proceed to the public page?');
 
-        const bookmarks = JSON.parse(localStorage.getItem('public-bookmarks')) || [];
-        console.log('Saved Links:', bookmarks); // Debug log
-
-        passCheck(); // Render the bookmarks
-        detectTheme();
-        checkConnection();
-
-        alert("Your public Markos are now in sync. Enjoy!");
+    // Check if the user clicked "OK"
+    if (userConfirmed) {
+        // Redirect to the specified URL
+        window.location.href = APP_URL + '/public';
+    }
     } catch (error) {
         console.error('Full error object:', error);
         let errorMessage = 'Error retrieving file: ' + error.message;
