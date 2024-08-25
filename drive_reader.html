@@ -92,6 +92,7 @@
         let APP_URL = 'https://marko-app.netlify.app';
         const LOGIN_PAGE_URL = APP_URL + '/login';
         let accessToken = '';
+        const API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
 
         async function syncAndShowFile() {
             if (!navigator.onLine) {
@@ -143,17 +144,14 @@
                 const fileListData = await fileListResponse.json();
                 console.log('File list data:', fileListData);
 
-                if (fileListData.files && fileListData.files.length > 0) {
-                    const fileId = fileListData.files[0].id;
-
-                    // Fetch file content
-                    const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-                        method: 'GET',
-                        headers: new Headers({
-                            'Authorization': 'Bearer ' + accessToken,
-                            'Cache-Control': 'no-cache, no-store, must-revalidate'
-                        })
-                    });
+                // Fetch file content
+                const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`, {
+                    method: 'GET',
+                    headers: new Headers({
+                        'Authorization': 'Bearer ' + accessToken,
+                        'Cache-Control': 'no-cache, no-store, must-revalidate'
+                    })
+                });
 
                     if (!fileResponse.ok) {
                         throw new Error(`File fetch failed. HTTP status: ${fileResponse.status}`);
