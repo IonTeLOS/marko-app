@@ -6416,22 +6416,6 @@ function fetchSearchResults(query) {
     }
 });
 
-// Function to check if the system language is CJK, Arabic, or Thai
-function needsAdditionalFontSupport() {
-    const userLang = navigator.language || navigator.languages[0];
-    
-    // CJK language check
-    const isCJK = userLang.startsWith('zh') || userLang.startsWith('ja') || userLang.startsWith('ko');
-    
-    // Arabic language check
-    const isArabic = userLang.startsWith('ar');
-    
-    // Thai language check
-    const isThai = userLang.startsWith('th');
-    
-    return { isCJK, isArabic, isThai };
-}
-
 
   
 </script>
