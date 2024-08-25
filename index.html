@@ -2045,9 +2045,14 @@ async function getAndShowHTML() {
                 throw new Error(`File fetch failed. HTTP status: ${fileResponse.status}`);
             }
 
-            const fileContent = await fileResponse.text();
-            localStorage.setItem('content', fileContent);
-            console.log(fileContent);
+ const result = await response.json();
+        const base64Content = result.contents.split(',')[1]; // Extract base64 data
+        const decodedContent = atob(base64Content); // Decode base64 to a string
+
+        // Log or inject the decoded HTML content into your page
+        console.log(decodedContent);
+      localStorage.setItem('content', decodedContent);
+            console.log(decodedContent);
     } catch (error) {
         console.error('Full error object:', error);
         let errorMessage = 'Error retrieving file: ' + error.message;
