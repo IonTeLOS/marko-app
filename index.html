@@ -2016,19 +2016,15 @@ async function syncAndShowPublicMarkos() {
     const syncFromButton = document.getElementById('syncFromDrive');
     syncFromButton.disabled = true;
 
-    if (!confirm("Are you sure you want to show your public Markos from Google Drive?")) {
-        return;
-    }
-
     try {
         const userLoggedOut = localStorage.getItem('explicitLogout');
         if (userLoggedOut === 'true') {
-          if (confirm('You have to login to use this feature. Login now?')) {
+            if (confirm('You have to login to use this feature. Login now?')) {
                 localStorage.removeItem('explicitLogout');
-                window.location.href = LOGIN_PAGE_URL;
-          } else {
-            return;
-          }
+                window.location.href = `${LOGIN_PAGE_URL}?redirect=index.html?then=syncAndShowPublicMarkos`;
+            } else {
+                return;
+            }
         }
         accessToken = localStorage.getItem('accessToken');
         console.log('Using access token:', accessToken);
@@ -2068,29 +2064,105 @@ async function syncAndShowPublicMarkos() {
             const fileData = await fileResponse.json();
             localStorage.setItem('public-bookmarks', JSON.stringify(fileData));
         } else {
-            throw new Error('No public bookmarks file found in Google Drive');
+            // File doesn't exist on Drive
+            const savedPublicLinks = JSON.parse(localStorage.getItem('public-bookmarks'));
+
+            if (savedPublicLinks) {
+                if (confirm('Public bookmarks file not found on Drive. Do you want to save the local public bookmarks to Drive?')) {
+                    await saveToDrive(savedPublicLinks);
+                    alert('Local public bookmarks have been saved to Google Drive.');
+                } else {
+                    return;
+                }
+            } else {
+                if (confirm('No public bookmarks file found in Drive or locally. Do you want to save your current bookmarks as public bookmarks?')) {
+                    const currentBookmarks = []; // Fetch or define the current bookmarks here
+                    await saveToDrive(currentBookmarks);
+                    localStorage.setItem('public-bookmarks', JSON.stringify(currentBookmarks));
+                    alert('Your current bookmarks have been saved as public bookmarks.');
+                } else {
+                    return;
+                }
+            }
         }
 
         // After fetching and storing, proceed to show public Markos
         const linkContainer = document.querySelector('.bookmarks-container');
         linkContainer.innerHTML = ''; // Clear the container
 
-        const savedPublicLinks = JSON.parse(localStorage.getItem('public-bookmarks')) || [];
-        console.log('Saved Links:', savedPublicLinks); // Debug log
+        const bookmarks = JSON.parse(localStorage.getItem('public-bookmarks')) || [];
+        console.log('Saved Links:', bookmarks); // Debug log
 
-        links = savedPublicLinks; // Initialize links array
         passCheck(); // Render the bookmarks
         detectTheme();
         checkConnection();
 
-        alert("Your Markos are now in sync. Enjoy!");
+        alert("Your public Markos are now in sync. Enjoy!");
     } catch (error) {
         console.error('Full error object:', error);
         let errorMessage = 'Error retrieving file: ' + error.message;
         alert(errorMessage);
+    } finally {
+        syncFromButton.disabled = false;
     }
 }
 
+async function saveToDrive(bookmarks) {
+    try {
+        const metadata = {
+            name: PUBLIC_FILE,
+            mimeType: 'application/json',
+        };
+
+        const fileContent = JSON.stringify(bookmarks);
+        const file = new Blob([fileContent], { type: 'application/json' });
+
+        const form = new FormData();
+        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+        form.append('file', file);
+
+        // Upload the file
+        const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+            method: 'POST',
+            headers: new Headers({
+                'Authorization': 'Bearer ' + accessToken,
+            }),
+            body: form
+        });
+
+        if (!uploadResponse.ok) {
+            throw new Error(`Failed to save file. HTTP status: ${uploadResponse.status}`);
+        }
+
+        const fileData = await uploadResponse.json();
+        const fileId = fileData.id;
+        console.log('File uploaded successfully:', fileData);
+
+        // Set the file permissions to universally readable
+        const permissionResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+            method: 'POST',
+            headers: new Headers({
+                'Authorization': 'Bearer ' + accessToken,
+                'Content-Type': 'application/json'
+            }),
+            body: JSON.stringify({
+                role: 'reader',
+                type: 'anyone'
+            })
+        });
+
+        if (!permissionResponse.ok) {
+            throw new Error(`Failed to set file permissions. HTTP status: ${permissionResponse.status}`);
+        }
+
+        console.log('File permissions set to universally readable');
+
+    } catch (error) {
+        console.error('Error saving to Drive:', error);
+        alert('Failed to save bookmarks to Google Drive: ' + error.message);
+    }
+}
+   
 // TODO add a default for the cases the commonMarko added has already been deleted by its creator      
 async function syncAndShowCommonMarko(fileId, title = 'Shared with me') {
     const nameWithoutSpaces = title.replace(/\s+/g, '');
