@@ -92,7 +92,7 @@
         let APP_URL = 'https://marko-app.netlify.app';
         const LOGIN_PAGE_URL = APP_URL + '/login';
         let accessToken = '';
-        const API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
+        const API_KEY = 'AIzaSyBc75KlBm10rP8vB0u3yDsM4vdMqSNfdzo';
 
         async function syncAndShowFile() {
             if (!navigator.onLine) {
@@ -129,7 +129,7 @@
                 localStorage.setItem('lastFileId', fileId);
 
                 // Fetch file content
-                const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+                const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`, {
                     method: 'GET',
                     headers: new Headers({
                         'Authorization': 'Bearer ' + accessToken,
