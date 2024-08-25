@@ -5,8 +5,8 @@ window.onload = () => {
     gisLoaded()
 }
 
-const CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
-const API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
+const CLIENT_ID = '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com';
+const API_KEY = 'AIzaSyD96IBVqGKVEdmXIVCYL_7kvlBhJNSD1Ww';
 var DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
 var SCOPES = 'https://www.googleapis.com/auth/drive';
 var signinButton = document.getElementsByClassName('signin')[0];
