@@ -129,7 +129,7 @@
                 localStorage.setItem('lastFileId', fileId);
 
                 // Fetch file content
-                const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`, {
+                const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
                     method: 'GET',
                     headers: new Headers({
                         'Authorization': 'Bearer ' + accessToken,
