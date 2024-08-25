@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Drive Integration</title>
+    <style>
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .blinking {
+            animation: blink 1s linear infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <input type="text" id="inputText" placeholder="Enter text to write">
+        <button id="authorizeButton">Authorize</button>
+        <button id="submitBtn" style="display: none;">Submit</button>
+        <div id="message"></div>
+    </div>
+    <div id="allMessages"></div>
+
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    <script>
+        // Replace with your actual client ID and API key
+        const CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
+        let FILE_ID = '18q2Wi81gqCe1Wu7o2dpDL6sDITmIyweK';
+        let WRITE_ID = '1ibK6nDzI25ivbIU64n8_RyHuD1IV0yIj';
+
+        // Discovery doc URL for APIs used by the quickstart
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
+
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        async function initializeGapiClient() {
+            try {
+                await gapi.client.init({
+                    apiKey: API_KEY,
+                    discoveryDocs: [DISCOVERY_DOC],
+                });
+                gapiInited = true;
+                maybeEnableButtons();
+            } catch (error) {
+                showSystemMessage('Error initializing Google API client: ' + error.message);
+            }
+        }
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: handleAuthCallback
+            });
+            gisInited = true;
+            maybeEnableButtons();
+        }
+
+        function maybeEnableButtons() {
+            if (gapiInited && gisInited) {
+                document.getElementById('authorizeButton').style.display = 'block';
+            }
+        }
+
+        function handleAuthClick() {
+            tokenClient.requestAccessToken({ prompt: '' });
+        }
+
+        function handleAuthCallback(resp) {
+            if (resp.error) {
+                showSystemMessage('Error during authentication: ' + resp.error);
+                return;
+            }
+            document.getElementById('submitBtn').style.display = 'block';
+            document.getElementById('authorizeButton').innerText = 'Refresh';
+            startReading(); // Start reading after successful authorization
+        }
+
+        async function writeToFile() {
+            const content = document.getElementById('inputText').value;
+            if (!content) {
+                showSystemMessage('Please enter some text to write.');
+                return;
+            }
+
+            const timestamp = new Date().toISOString();
+            const name = localStorage.getItem('my-name') || 'Socrates';
+            const newMessage = [timestamp, 'Me', content, 'none'];
+
+            const messageId = Date.now();
+            displayMessage(newMessage, true, messageId);
+
+            try {
+                const response = await gapi.client.drive.files.get({
+                    fileId: WRITE_ID,
+                    alt: 'media'
+                });
+
+                let jsonContent;
+                try {
+                    jsonContent = JSON.parse(response.body);
+                } catch {
+                    jsonContent = { messages: [], settings: [] };
+                }
+
+                if (!Array.isArray(jsonContent.messages)) {
+                    jsonContent.messages = [];
+                }
+                jsonContent.messages.push(newMessage);
+
+                const blob = new Blob([JSON.stringify(jsonContent)], { type: 'application/json' });
+
+                const form = new FormData();
+                form.append('metadata', new Blob([JSON.stringify({})], { type: 'application/json' }));
+                form.append('file', blob);
+
+                const uploadResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${WRITE_ID}?uploadType=multipart`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': 'Bearer ' + gapi.auth.getToken().access_token,
+                    },
+                    body: form
+                });
+
+                if (uploadResponse.ok) {
+                    showSystemMessage('Successfully written to file!');
+                    stopBlinking(messageId);
+                } else {
+                    throw new Error(uploadResponse.statusText);
+                }
+            } catch (error) {
+                showSystemMessage('Error: ' + error.message);
+                removeMessage(messageId);
+            }
+
+            document.getElementById('inputText').value = '';
+        }
+
+        let lastReadTimestamp = null;
+
+        async function readAndDisplayAllMessages() {
+            if (!gapi.client.getToken()) {
+                showSystemMessage('Not authorized. Please authorize first.');
+                return;
+            }
+
+            try {
+                const responseRead = await gapi.client.drive.files.get({
+                    fileId: FILE_ID,
+                    alt: 'media'
+                });
+
+                const responseWrite = await gapi.client.drive.files.get({
+                    fileId: WRITE_ID,
+                    alt: 'media'
+                });
+
+                let jsonContentRead, jsonContentWrite;
+                try {
+                    jsonContentRead = JSON.parse(responseRead.body);
+                    jsonContentWrite = JSON.parse(responseWrite.body);
+                } catch {
+                    showSystemMessage('Error parsing file content.');
+                    return;
+                }
+
+                let allMessages = [];
+                if (Array.isArray(jsonContentRead.messages)) {
+                    allMessages = allMessages.concat(jsonContentRead.messages);
+                }
+                if (Array.isArray(jsonContentWrite.messages)) {
+                    allMessages = allMessages.concat(jsonContentWrite.messages.map(msg => [msg[0], 'Me', msg[2]]));
+                }
+
+                allMessages.sort((a, b) => new Date(a[0]) - new Date(b[0]));
+
+                let newMessages = allMessages;
+                if (lastReadTimestamp) {
+                    newMessages = newMessages.filter(msg => new Date(msg[0]) > new Date(lastReadTimestamp));
+                }
+
+                if (newMessages.length > 0) {
+                    lastReadTimestamp = newMessages[newMessages.length - 1][0];
+                    newMessages.forEach(msg => displayMessage(msg));
+                }
+
+                setTimeout(readAndDisplayAllMessages, 10000);
+            } catch (error) {
+                showSystemMessage('Error reading files: ' + error.message);
+                setTimeout(readAndDisplayAllMessages, 5000);
+            }
+        }
+
+        function displayMessage(msg, blinking = false, id = null) {
+            const messagesDiv = document.getElementById('allMessages');
+            const messageElement = document.createElement('p');
+            messageElement.textContent = `[${msg[0]}] ${msg[1]}: ${msg[2]}`;
+            if (blinking) {
+                messageElement.classList.add('blinking');
+            }
+            if (id) {
+                messageElement.id = `msg-${id}`;
+            }
+            messagesDiv.appendChild(messageElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function stopBlinking(id) {
+            const messageElement = document.getElementById(`msg-${id}`);
+            if (messageElement) {
+                messageElement.classList.remove('blinking');
+            }
+        }
+
+        function removeMessage(id) {
+            const messageElement = document.getElementById(`msg-${id}`);
+            if (messageElement) {
+                messageElement.remove();
+            }
+        }
+
+        function startReading() {
+            if (!gapi.client.getToken()) {
+                tokenClient.requestAccessToken({ prompt: '' });
+            } else {
+                readAndDisplayAllMessages();
+            }
+        }
+
+        function showSystemMessage(msg) {
+            document.getElementById('message').textContent = msg;
+        }
+
+        function loadParams() {
+            const params = new URLSearchParams(window.location.search);
+            let friendData = [];
+            const friendName = params.get('friend-name');
+            const friendFile = params.get('main-file');
+            const commonFile = params.get('other-file');
+            friendData = [friendName, friendFile, commonFile, 'none for now'];
+
+            if (friendFile) {
+                FILE_ID = friendFile;
+                WRITE_ID = commonFile;
+                let friends = JSON.parse(localStorage.getItem('friends')) || [];
+                friends.push(friendData);
+                localStorage.setItem('friends', JSON.stringify(friends));
+                console.log('Friends saved: ', friends); 
+            }
+        }
+
+        document.getElementById('authorizeButton').addEventListener('click', handleAuthClick);
+        document.getElementById('submitBtn').addEventListener('click', writeToFile);
+
+        window.onload = function() {
+            loadParams();
+            document.getElementById('authorizeButton').addEventListener('click', function() {
+                if (!gapi.client.getToken()) {
+                    handleAuthClick();
+                } else {
+                    startReading();
+                }
+            });
+        };
+    </script>
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+</body>
+</html>
