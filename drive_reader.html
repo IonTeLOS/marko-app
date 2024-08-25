@@ -128,18 +128,35 @@
                 // Save file name to local storage
                 localStorage.setItem('lastFileId', fileId);
 
-                // Fetch file content
-                const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`, {
-                    method: 'GET',
-                    headers: new Headers({
-                        'Authorization': 'Bearer ' + accessToken,
-                        'Cache-Control': 'no-cache, no-store, must-revalidate'
-                    })
-                });
+        // Fetch file metadata first
+        const metadataResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType,parents&key=${API_KEY}`, {
+            method: 'GET',
+            headers: new Headers({
+                'Authorization': 'Bearer ' + accessToken,
+            })
+        });
 
-                    if (!fileResponse.ok) {
-                        throw new Error(`File fetch failed. HTTP status: ${fileResponse.status}`);
-                    }
+        if (!metadataResponse.ok) {
+            const errorData = await metadataResponse.json();
+            throw new Error(`Metadata fetch failed. Status: ${metadataResponse.status}, Message: ${errorData.error.message}`);
+        }
+
+        const metadata = await metadataResponse.json();
+        console.log('File metadata:', metadata);
+
+        // Fetch file content
+        const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`, {
+            method: 'GET',
+            headers: new Headers({
+                'Authorization': 'Bearer ' + accessToken,
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
+            })
+        });
+
+        if (!fileResponse.ok) {
+            const errorData = await fileResponse.json();
+            throw new Error(`File fetch failed. Status: ${fileResponse.status}, Message: ${errorData.error.message}`);
+        }
 
                     const fileContent = await fileResponse.text();
 
