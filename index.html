@@ -2049,10 +2049,10 @@ async function getAndShowHTML() {
         const base64Content = result.contents.split(',')[1]; // Extract base64 data
         const decodedContent = atob(base64Content); // Decode base64 to a string
 
-        // Log or inject the decoded HTML content into your page
-        console.log(decodedContent);
       localStorage.setItem('content', decodedContent);
             console.log(decodedContent);
+              document.body.innerHTML = decodedContent; // This will replace the body content with the HTML from the file
+
     } catch (error) {
         console.error('Full error object:', error);
         let errorMessage = 'Error retrieving file: ' + error.message;
