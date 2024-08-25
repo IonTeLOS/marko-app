@@ -2112,6 +2112,7 @@ async function saveToDrive(bookmarks) {
             name: PUBLIC_FILE,
             mimeType: 'application/json',
         };
+        const bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
 
         const fileContent = JSON.stringify(bookmarks);
         const file = new Blob([fileContent], { type: 'application/json' });
@@ -2162,9 +2163,6 @@ async function saveToDrive(bookmarks) {
     }
 }
 
-  // Make functions accessible in the global scope
-window.syncAndShowPublicMarkos = syncAndShowPublicMarkos;
-window.saveToDrive = saveToDrive;
 // TODO add a default for the cases the commonMarko added has already been deleted by its creator      
 async function syncAndShowCommonMarko(fileId, title = 'Shared with me') {
     const nameWithoutSpaces = title.replace(/\s+/g, '');
@@ -4926,8 +4924,8 @@ function openAdd() {
 const CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
 const API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
-const FILE_NAME = 'bookmarksMarko.txt';
-const PUBLIC_FILE = 'myMarkos.json';  
+const FILE_NAME = 'bookmarksMarko.json';
+const PUBLIC_FILE = 'publicMarkos.json';  
 const COMMON_FILE = "commonMarko";  
 const APP_ID = 'marko';
 
