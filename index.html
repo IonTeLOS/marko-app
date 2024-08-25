@@ -2026,11 +2026,13 @@ async function getAndShowHTML() {
         let headers = new Headers({
             'Cache-Control': 'no-cache, no-store, must-revalidate'
         });
-                    // If the user is logged in, add the Authorization header
+          
+       /* 
+       // If the user is logged in, add the Authorization header
         if (accessToken) {
             headers.append('Authorization', 'Bearer ' + accessToken);
         }
-
+        */
         // Fetch file content with or without the Authorization header
         const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/1tQQm4A6ilXq5PdnHrcId8P_788Fj4wT7?alt=media`, {
             method: 'GET',
