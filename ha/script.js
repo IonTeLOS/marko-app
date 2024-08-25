@@ -23,6 +23,7 @@ async function initializeGapiClient() {
     await gapi.client.init({
         apiKey: API_KEY,
         discoveryDocs: DISCOVERY_DOCS,
+        redirect_uri: 'https://marko-app.netlify.app/ha/backup-file'
     });
     gapiInited = true;
     maybeEnableButtons();
