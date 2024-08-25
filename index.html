@@ -3826,6 +3826,45 @@ function openReminder(uuid) {
         }
     });
 }
+
+// detect if run on mobile or on desktop based on screen width. TODO use this function to make it more mobile friendly
+    
+function showTooltip(link) {
+    currentLink = link;
+    const isGoodForStatus = () => {
+        return 'maxTouchPoints' in navigator && navigator.maxTouchPoints > 0 ||
+               window.matchMedia('(max-width: 768px)').matches;
+    };
+
+    if (!isGoodForStatus ()) {
+        const tooltip = document.getElementById('tooltip');
+        const tooltipContent = document.getElementById('tooltip-content');
+
+        if (tooltip && tooltipContent) {
+            tooltipContent.textContent = link;
+            tooltip.style.display = 'block';
+
+            const tooltipWidth = tooltip.offsetWidth;
+            const textWidth = tooltipContent.scrollWidth;
+
+            // If the text overflows the tooltip, apply the scrolling animation
+            if (textWidth > tooltipWidth) {
+                tooltipContent.style.animation = 'scroll-text 10s linear infinite';
+            } else {
+                tooltipContent.style.animation = 'none';
+            }
+        }
+    }
+}
+
+
+    function hideTooltip() {
+        const tooltip = document.getElementById('tooltip');
+        if (tooltip) {
+            tooltip.style.display = 'none';
+        }
+    }
+  
 function addAd() {
                 const linkContainer = document.querySelector('.bookmarks-container');
 
@@ -4090,43 +4129,7 @@ linkContainer.appendChild(bookmarkElement);
             // TODO : decide if we always want to scroll down (to see most recently added Markos)
             // scrollDown();
         }
-// detect if run on mobile or on desktop based on screen width. TODO use this function to make it more mobile friendly
-    
-function showTooltip(link) {
-    currentLink = link;
-    const isGoodForStatus = () => {
-        return 'maxTouchPoints' in navigator && navigator.maxTouchPoints > 0 ||
-               window.matchMedia('(max-width: 768px)').matches;
-    };
 
-    if (!isGoodForStatus ()) {
-        const tooltip = document.getElementById('tooltip');
-        const tooltipContent = document.getElementById('tooltip-content');
-
-        if (tooltip && tooltipContent) {
-            tooltipContent.textContent = link;
-            tooltip.style.display = 'block';
-
-            const tooltipWidth = tooltip.offsetWidth;
-            const textWidth = tooltipContent.scrollWidth;
-
-            // If the text overflows the tooltip, apply the scrolling animation
-            if (textWidth > tooltipWidth) {
-                tooltipContent.style.animation = 'scroll-text 10s linear infinite';
-            } else {
-                tooltipContent.style.animation = 'none';
-            }
-        }
-    }
-}
-
-
-    function hideTooltip() {
-        const tooltip = document.getElementById('tooltip');
-        if (tooltip) {
-            tooltip.style.display = 'none';
-        }
-    }
       
     
         function showPost(htmlContent) {
