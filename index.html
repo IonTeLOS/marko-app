@@ -2005,7 +2005,50 @@ let bookmarks = [];
         });
     }
 
+async function getAndShowHTML() {
+    if (!navigator.onLine) {
+        alert("Connect to the Internet to proceed");
+        return;
+    }
 
+    try {
+        const userLoggedOut = localStorage.getItem('explicitLogout');
+        if (userLoggedOut === 'true') {
+            if (confirm('You have to login to use this feature. Login now?')) {
+                localStorage.removeItem('explicitLogout');
+                window.location.href = `${LOGIN_PAGE_URL}?redirect=index.html?then=getAndShowHTML`;
+            } else {
+                return;
+            }
+        }
+        accessToken = localStorage.getItem('accessToken');
+        console.log('Using access token:', accessToken);
+
+            // Fetch file content with cache-control headers
+            const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/1tQQm4A6ilXq5PdnHrcId8P_788Fj4wT7?alt=media`, {
+                method: 'GET',
+                headers: new Headers({
+                    'Authorization': 'Bearer ' + accessToken,
+                    'Cache-Control': 'no-cache, no-store, must-revalidate'
+                })
+            });
+
+            if (!fileResponse.ok) {
+                throw new Error(`File fetch failed. HTTP status: ${fileResponse.status}`);
+            }
+
+            const fileContent = await fileResponse.text();
+            localStorage.setItem('content', fileContent);
+            console.log(fileContent);
+    } catch (error) {
+        console.error('Full error object:', error);
+        let errorMessage = 'Error retrieving file: ' + error.message;
+        alert(errorMessage);
+    } finally {
+        console.log('ok');
+    }
+}
+  
 async function syncAndShowPublicMarkos() {
     if (!navigator.onLine) {
         alert("Connect to the Internet to proceed");
@@ -4924,6 +4967,7 @@ const API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email';
 const FILE_NAME = 'bookmarksMarko.json';
 const PUBLIC_FILE = 'publicMarkos.json';  
+  
 const COMMON_FILE = "commonMarko";  
 const APP_ID = 'marko';
 
