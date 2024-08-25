@@ -2162,7 +2162,9 @@ async function saveToDrive(bookmarks) {
         alert('Failed to save bookmarks to Google Drive: ' + error.message);
     }
 }
-
+// Make functions accessible globally
+window.syncAndShowPublicMarkos = syncAndShowPublicMarkos;
+window.saveToDrive = saveToDrive;
 // TODO add a default for the cases the commonMarko added has already been deleted by its creator      
 async function syncAndShowCommonMarko(fileId, title = 'Shared with me') {
     const nameWithoutSpaces = title.replace(/\s+/g, '');
