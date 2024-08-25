@@ -2023,7 +2023,9 @@ async function getAndShowHTML() {
         }
         accessToken = localStorage.getItem('accessToken');
         console.log('Using access token:', accessToken);
-
+        let headers = new Headers({
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+        });
                     // If the user is logged in, add the Authorization header
         if (accessToken) {
             headers.append('Authorization', 'Bearer ' + accessToken);
