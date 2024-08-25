@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Drive File Reader</title>
+    <style>
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            margin: 0;
+            padding: 16px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 24px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            font-size: 24px;
+            color: #333;
+            margin-top: 0;
+        }
+        .input-field {
+            position: relative;
+            margin-bottom: 24px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: none;
+            border-bottom: 1px solid #9e9e9e;
+            outline: none;
+            background-color: transparent;
+        }
+        input[type="text"]:focus {
+            border-bottom: 2px solid #2196F3;
+        }
+        label {
+            position: absolute;
+            top: 0;
+            left: 0;
+            font-size: 16px;
+            color: #9e9e9e;
+            transition: 0.2s ease all;
+            pointer-events: none;
+        }
+        input[type="text"]:focus ~ label,
+        input[type="text"]:valid ~ label {
+            top: -20px;
+            font-size: 12px;
+            color: #2196F3;
+        }
+        button {
+            background-color: #2196F3;
+            color: white;
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #1976D2;
+        }
+        button:disabled {
+            background-color: #9e9e9e;
+            cursor: not-allowed;
+        }
+        #content {
+            margin-top: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Google Drive File Reader</h1>
+        <div class="input-field">
+            <input type="text" id="fileId" required>
+            <label for="fileId">Enter Google Drive File Name</label>
+        </div>
+        <button id="syncFromDrive" onclick="syncAndShowFile()">Read File</button>
+        <div id="content"></div>
+    </div>
+
+    <script>
+        let APP_URL = 'https://marko-app.netlify.app';
+        const LOGIN_PAGE_URL = APP_URL + '/login';
+        let accessToken = '';
+
+        async function syncAndShowFile() {
+            if (!navigator.onLine) {
+                alert("Connect to the Internet to proceed");
+                return;
+            }
+
+            const syncFromButton = document.getElementById('syncFromDrive');
+            syncFromButton.disabled = true;
+
+            try {
+                const userLoggedOut = localStorage.getItem('explicitLogout');
+                if (userLoggedOut === 'true') {
+                    if (confirm('You have to login to use this feature. Login now?')) {
+                        localStorage.removeItem('explicitLogout');
+                        window.location.href = `${LOGIN_PAGE_URL}?redirect=index.html?then=syncAndShowFile`;
+                    } else {
+                        syncFromButton.disabled = false;
+                        return;
+                    }
+                }
+
+                accessToken = localStorage.getItem('accessToken');
+                console.log('Using access token:', accessToken);
+
+                const fileId = document.getElementById('fileId').value;
+                if (!fileId) {
+                    alert('Please enter a file id');
+                    syncFromButton.disabled = false;
+                    return;
+                }
+
+                // Save file name to local storage
+                localStorage.setItem('lastFileId', fileId);
+
+                // Fetch file list
+                const fileListResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E`, {
+                    method: 'GET',
+                    headers: new Headers({
+                        'Authorization': 'Bearer ' + accessToken,
+                        'Cache-Control': 'no-cache, no-store, must-revalidate'
+                    })
+                });
+
+                if (!fileListResponse.ok) {
+                    throw new Error(`File list fetch failed. HTTP status: ${fileListResponse.status}`);
+                }
+
+                const fileListData = await fileListResponse.json();
+                console.log('File list data:', fileListData);
+
+                if (fileListData.files && fileListData.files.length > 0) {
+                    const fileId = fileListData.files[0].id;
+
+                    // Fetch file content
+                    const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+                        method: 'GET',
+                        headers: new Headers({
+                            'Authorization': 'Bearer ' + accessToken,
+                            'Cache-Control': 'no-cache, no-store, must-revalidate'
+                        })
+                    });
+
+                    if (!fileResponse.ok) {
+                        throw new Error(`File fetch failed. HTTP status: ${fileResponse.status}`);
+                    }
+
+                    const fileContent = await fileResponse.text();
+
+                    // Save content to local storage
+                    localStorage.setItem('fileContent', fileContent);
+
+                    // Display content
+                    document.getElementById('content').innerHTML = fileContent;
+
+                    // Replace body with content
+                    document.body.innerHTML = fileContent;
+                } else {
+                    alert('File not found');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            } finally {
+                syncFromButton.disabled = false;
+            }
+        }
+
+        // Load last used file name if available
+        window.onload = function() {
+            const lastFileId = localStorage.getItem('lastFileId');
+            if (lastFileId) {
+                document.getElementById('fileId').value = lastFileId;
+            }
+        };
+    </script>
+</body>
+</html>
