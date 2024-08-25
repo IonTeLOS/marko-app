@@ -2045,7 +2045,7 @@ async function getAndShowHTML() {
                 throw new Error(`File fetch failed. HTTP status: ${fileResponse.status}`);
             }
 
- const result = await response.json();
+ const result = await fileResponse.json();
         const base64Content = result.contents.split(',')[1]; // Extract base64 data
         const decodedContent = atob(base64Content); // Decode base64 to a string
 
