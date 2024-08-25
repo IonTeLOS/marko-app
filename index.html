@@ -57,6 +57,7 @@
     <script src="https://cdn.jsdelivr.net/npm/notiflix@3/dist/notiflix-aio-3.2.7.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/notiflix@3/src/notiflix.min.css" rel="stylesheet">
   <script src="https://marko-app.netlify.app/create-marko-page.js" defer></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <script type="speculationrules">
 {
   "prerender": [
@@ -76,7 +77,7 @@
 
 <style>
 body {
-  font-family: Roboto, sans-serif;
+  font-family: Fira Sans, Arial, sans-serif;
   position: relative;
   display: flex;
   min-height: 100vh;
@@ -84,10 +85,12 @@ body {
   flex-direction: column;
   max-width: 100%;
   overflow-x: hidden;
-  height: auto !important;    
-  margin: 8px !important;
-  padding: 0;
-  padding-bottom: 150px;  transition: background-color 0.2s ease-in-out, color; /* place for last bookmark */
+  height: auto !important;
+  margin: 0 !important;
+  padding: 8px;
+  padding-bottom: 150px;
+  transition: background-color 0.2s ease-in-out, color;
+  box-shadow: inset 0 0 0 4px #0d47a1;
 }
     
 body.light-mode {
@@ -200,7 +203,7 @@ background-color: #1f1b24;
 
 /* Hover effect (if needed, but make sure it doesn’t override swipe states) */
 .bookmark:hover::before {
-  background: blue;
+  background: #0d47a1;
   animation: blink 2s infinite; /* Ensure duration and iteration are set */
 }
 
@@ -3042,6 +3045,7 @@ function countAchievements() {
     checkLoginStatus();
     Notiflix.Notify.warning('Site under active development. Breaking changes ahead..');
     loadArrayFromURL();  
+    loadFontsIfNeeded();
     loadDonationParams();
     toggleBellIcons();
     console.log('You have ' + countAchievements() + ' Markos');  // Logs the count of elements with IDs starting with 'bookmark-'
@@ -6298,6 +6302,49 @@ function fetchSearchResults(query) {
         setInterval(rotatePlaceholder, 3000);
     }
 });
+
+// Function to check if the system language is CJK, Arabic, or Thai
+function needsAdditionalFontSupport() {
+    const userLang = navigator.language || navigator.languages[0];
+    
+    // CJK language check
+    const isCJK = userLang.startsWith('zh') || userLang.startsWith('ja') || userLang.startsWith('ko');
+    
+    // Arabic language check
+    const isArabic = userLang.startsWith('ar');
+    
+    // Thai language check
+    const isThai = userLang.startsWith('th');
+    
+    return { isCJK, isArabic, isThai };
+}
+
+// Function to dynamically load Noto Sans CJK, Noto Naskh Arabic, and Noto Sans Thai if needed
+function loadFontsIfNeeded() {
+    const { isCJK, isArabic, isThai } = needsAdditionalFontSupport();
+    
+    if (isCJK) {
+        const linkCJK = document.createElement('link');
+        linkCJK.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC&family=Noto+Sans+JP&family=Noto+Sans+KR&display=swap';
+        linkCJK.rel = 'stylesheet';
+        document.head.appendChild(linkCJK);
+    }
+    
+    if (isArabic) {
+        const linkArabic = document.createElement('link');
+        linkArabic.href = 'https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;700&display=swap';
+        linkArabic.rel = 'stylesheet';
+        document.head.appendChild(linkArabic);
+    }
+    
+    if (isThai) {
+        const linkThai = document.createElement('link');
+        linkThai.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;700&display=swap';
+        linkThai.rel = 'stylesheet';
+        document.head.appendChild(linkThai);
+    }
+}
+  
 </script>
 
 
@@ -6777,7 +6824,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (linkPlace) {
             linkPlace.querySelector('.ml-3').textContent = currentLink.substring(0, 30);
 
-            // Apply initial blue color
+            // Apply initial color
             linkPlace.querySelector('.ml-3').style.color = 'orange';
 
             // After 1 second, change text color to white
