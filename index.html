@@ -3039,7 +3039,55 @@ function countAchievements() {
             }
         }
 
+// Function to check if the system language is CJK, Arabic, or Thai
+function needsAdditionalFontSupport() {
+    const userLang = navigator.language || navigator.languages[0];
+    
+    // CJK language check
+    const isCJK = userLang.startsWith('zh') || userLang.startsWith('ja') || userLang.startsWith('ko');
+    
+    // Arabic language check
+    const isArabic = userLang.startsWith('ar');
+    
+    // Thai language check
+    const isThai = userLang.startsWith('th');
+    
+    return { isCJK, isArabic, isThai };
+}
 
+// Function to dynamically load necessary fonts and apply them to the body
+function loadFontsIfNeeded() {
+    const { isCJK, isArabic, isThai } = needsAdditionalFontSupport();
+    
+    let fontFamily = "'Fira Sans', sans-serif"; // Default font stack
+
+    if (isCJK) {
+        const linkCJK = document.createElement('link');
+        linkCJK.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC&family=Noto+Sans+JP&family=Noto+Sans+KR&display=swap';
+        linkCJK.rel = 'stylesheet';
+        document.head.appendChild(linkCJK);
+        fontFamily = "'Fira Sans', 'Noto Sans SC', 'Noto Sans JP', 'Noto Sans KR', sans-serif";
+    }
+    
+    if (isArabic) {
+        const linkArabic = document.createElement('link');
+        linkArabic.href = 'https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;700&display=swap';
+        linkArabic.rel = 'stylesheet';
+        document.head.appendChild(linkArabic);
+        fontFamily = "'Fira Sans', 'Noto Naskh Arabic', sans-serif";
+    }
+    
+    if (isThai) {
+        const linkThai = document.createElement('link');
+        linkThai.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;700&display=swap';
+        linkThai.rel = 'stylesheet';
+        document.head.appendChild(linkThai);
+        fontFamily = "'Fira Sans', 'Noto Sans Thai', sans-serif";
+    }
+    
+    // Apply the font family to the body element
+    document.body.style.fontFamily = fontFamily;
+}
 
     window.onload = function() {
     checkLoginStatus();
@@ -6319,31 +6367,7 @@ function needsAdditionalFontSupport() {
     return { isCJK, isArabic, isThai };
 }
 
-// Function to dynamically load Noto Sans CJK, Noto Naskh Arabic, and Noto Sans Thai if needed
-function loadFontsIfNeeded() {
-    const { isCJK, isArabic, isThai } = needsAdditionalFontSupport();
-    
-    if (isCJK) {
-        const linkCJK = document.createElement('link');
-        linkCJK.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC&family=Noto+Sans+JP&family=Noto+Sans+KR&display=swap';
-        linkCJK.rel = 'stylesheet';
-        document.head.appendChild(linkCJK);
-    }
-    
-    if (isArabic) {
-        const linkArabic = document.createElement('link');
-        linkArabic.href = 'https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;700&display=swap';
-        linkArabic.rel = 'stylesheet';
-        document.head.appendChild(linkArabic);
-    }
-    
-    if (isThai) {
-        const linkThai = document.createElement('link');
-        linkThai.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;700&display=swap';
-        linkThai.rel = 'stylesheet';
-        document.head.appendChild(linkThai);
-    }
-}
+
   
 </script>
 
