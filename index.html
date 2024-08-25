@@ -2024,14 +2024,16 @@ async function getAndShowHTML() {
         accessToken = localStorage.getItem('accessToken');
         console.log('Using access token:', accessToken);
 
-            // Fetch file content with cache-control headers
-            const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/1tQQm4A6ilXq5PdnHrcId8P_788Fj4wT7?alt=media`, {
-                method: 'GET',
-                headers: new Headers({
-                    'Authorization': 'Bearer ' + accessToken,
-                    'Cache-Control': 'no-cache, no-store, must-revalidate'
-                })
-            });
+                    // If the user is logged in, add the Authorization header
+        if (accessToken) {
+            headers.append('Authorization', 'Bearer ' + accessToken);
+        }
+
+        // Fetch file content with or without the Authorization header
+        const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/1tQQm4A6ilXq5PdnHrcId8P_788Fj4wT7?alt=media`, {
+            method: 'GET',
+            headers: headers
+        });
 
             if (!fileResponse.ok) {
                 throw new Error(`File fetch failed. HTTP status: ${fileResponse.status}`);
