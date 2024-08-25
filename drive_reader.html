@@ -128,22 +128,6 @@
                 // Save file name to local storage
                 localStorage.setItem('lastFileId', fileId);
 
-                // Fetch file list
-                const fileListResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E`, {
-                    method: 'GET',
-                    headers: new Headers({
-                        'Authorization': 'Bearer ' + accessToken,
-                        'Cache-Control': 'no-cache, no-store, must-revalidate'
-                    })
-                });
-
-                if (!fileListResponse.ok) {
-                    throw new Error(`File list fetch failed. HTTP status: ${fileListResponse.status}`);
-                }
-
-                const fileListData = await fileListResponse.json();
-                console.log('File list data:', fileListData);
-
                 // Fetch file content
                 const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`, {
                     method: 'GET',
