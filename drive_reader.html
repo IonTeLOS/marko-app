@@ -94,41 +94,32 @@
         let accessToken = '';
         const API_KEY = 'AIzaSyBc75KlBm10rP8vB0u3yDsM4vdMqSNfdzo';
 
-        async function syncAndShowFile() {
-            if (!navigator.onLine) {
-                alert("Connect to the Internet to proceed");
-                return;
-            }
+async function syncAndShowFile() {
+    if (!navigator.onLine) {
+        alert("Connect to the Internet to proceed");
+        return;
+    }
 
-            const syncFromButton = document.getElementById('syncFromDrive');
-            syncFromButton.disabled = true;
+    const syncFromButton = document.getElementById('syncFromDrive');
+    syncFromButton.disabled = true;
 
-            try {
-                const userLoggedOut = localStorage.getItem('explicitLogout');
-                if (userLoggedOut === 'true') {
-                    if (confirm('You have to login to use this feature. Login now?')) {
-                        localStorage.removeItem('explicitLogout');
-                        window.location.href = `${LOGIN_PAGE_URL}?redirect=index.html?then=syncAndShowFile`;
-                    } else {
-                        syncFromButton.disabled = false;
-                        return;
-                    }
-                }
+    try {
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) {
+            alert("Access token not found. Please log in again.");
+            return;
+        }
+        console.log('Using access token:', accessToken);
 
-                accessToken = localStorage.getItem('accessToken');
-                console.log('Using access token:', accessToken);
+        const fileId = document.getElementById('fileId').value;
+        if (!fileId) {
+            alert('Please enter a file id');
+            syncFromButton.disabled = false;
+            return;
+        }
 
-                const fileId = document.getElementById('fileId').value;
-                if (!fileId) {
-                    alert('Please enter a file id');
-                    syncFromButton.disabled = false;
-                    return;
-                }
+        localStorage.setItem('lastFileId', fileId);
 
-                // Save file name to local storage
-                localStorage.setItem('lastFileId', fileId);
-
-        // Fetch file metadata first
         const metadataResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType,parents&key=${API_KEY}`, {
             method: 'GET',
             headers: new Headers({
@@ -144,7 +135,6 @@
         const metadata = await metadataResponse.json();
         console.log('File metadata:', metadata);
 
-        // Fetch file content
         const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`, {
             method: 'GET',
             headers: new Headers({
@@ -158,23 +148,20 @@
             throw new Error(`File fetch failed. Status: ${fileResponse.status}, Message: ${errorData.error.message}`);
         }
 
-                    const fileContent = await fileResponse.text();
+        const fileContent = await fileResponse.text();
+        console.log('File content fetched successfully.');
 
-                    // Save content to local storage
-                    localStorage.setItem('fileContent', fileContent);
+        localStorage.setItem('fileContent', fileContent);
+        document.body.innerHTML = fileContent;
 
-                    // Display content
-                    document.getElementById('content').innerHTML = fileContent;
+    } catch (error) {
+        console.error('Error:', error);
+        alert(`An error occurred: ${error.message}`);
+    } finally {
+        syncFromButton.disabled = false;
+    }
+}
 
-                    // Replace body with content
-                    document.body.innerHTML = fileContent;
-               } catch (error) {
-                console.error('Error:', error);
-                alert('An error occurred. Please try again.');
-            } finally {
-                syncFromButton.disabled = false;
-            }
-        }
 
         // Load last used file name if available
         window.onload = function() {
