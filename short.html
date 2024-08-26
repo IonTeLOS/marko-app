@@ -117,7 +117,7 @@
     </div>
 
     <script>
- document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function() {
     const createForm = document.getElementById('createForm');
     const result = document.getElementById('result');
     const moreOptionsBtn = document.getElementById('moreOptionsBtn');
@@ -183,10 +183,10 @@
         fetch(apiUrl)
             .then(response => response.json())
             .then(data => {
-                // Use the `path` field from the response
-                const { path, redirectPath, expires, once, message } = data;
+                const { path, redirectPath, expires, once } = data;
+                const fullPath = `https://marko-app.netlify.app/o/${path}`;
 
-                resultMessage.innerHTML = `Shortlink created: <a href="${redirectPath}" target="_blank">${redirectPath}</a><br>Expiration: ${expires}<br>${once ? 'One-time use only' : ''}`;
+                resultMessage.innerHTML = `Shortlink created: <a href="${fullPath}" target="_blank">${fullPath}</a><br>Expiration: ${expires}<br>${once ? 'One-time use only' : ''}`;
 
                 createForm.classList.add('hidden');
                 result.classList.remove('hidden');
@@ -197,13 +197,13 @@
                     resultMessage.insertAdjacentHTML('beforeend', '<p>Opening this link will invalidate it.</p>');
                 } else {
                     testBtn.classList.remove('hidden');
-                    testBtn.addEventListener('click', () => window.open(redirectPath, '_blank'));
+                    testBtn.addEventListener('click', () => window.open(fullPath, '_blank'));
                 }
 
                 restartBtn.classList.remove('hidden');
 
                 saveShortlink({
-                    shortlink: `${window.location.origin}/${path}`, // Use the path for the shortlink
+                    shortlink: path, // Save just the path in local storage
                     redirectPath: url,
                     expires: expires,
                     once: once ? 'true' : 'false'
@@ -216,7 +216,7 @@
     function saveShortlink(data) {
         const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
         shortlinks.push([
-            data.shortlink,
+            data.shortlink, // Save only the path
             data.redirectPath,
             data.expires || '',
             data.once ? 'true' : 'false'
@@ -231,7 +231,8 @@
             const li = document.createElement('li');
             const now = new Date();
             const expired = link[2] && new Date(link[2]) < now;
-            li.textContent = `${index + 1}. ${link[0]} -> ${link[1]}`;
+            const fullPath = `https://marko-app.netlify.app/o/${link[0]}`;
+            li.textContent = `${index + 1}. ${fullPath} -> ${link[1]}`;
             if (expired) li.classList.add('expired');
             if (link[3] === 'true') li.classList.add('once');
             linkList.appendChild(li);
