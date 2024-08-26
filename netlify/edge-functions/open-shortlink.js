@@ -28,13 +28,11 @@ export default async (request, context) => {
 
     // Check if redirectPath exists in the fetched data
     if (data && data.redirectPath) {
-      // Perform a transaction to safely increment hits
-      try {
-        // Fetch current hits and increment
-        const currentHits = data.hits || 0;
-        const newHits = currentHits + 1;
+      // Increment the hit counter
+      const newHits = (data.hits || 0) + 1;
 
-        // Update the hits in Firebase
+      // Update the hits in Firebase
+      try {
         const updateResponse = await fetch(firebaseUrl, {
           method: "PATCH", // Use PATCH to update only the 'hits' field
           body: JSON.stringify({ hits: newHits }),
