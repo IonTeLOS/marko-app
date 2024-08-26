@@ -184,29 +184,38 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.message) {
-                            const [_, path, redirectPath, expiration, onceUse] = data.message.match(/Successfully created path "(.*?)" with redirect URL "(.*?)". Expiration: (.*?) \(One-time use only\)/) || [];
-                            resultMessage.innerHTML = `Shortlink created: <a href="${redirectPath}" target="_blank">${redirectPath}</a><br>Expiration: ${expiration}<br>${onceUse ? 'One-time use only' : ''}`;
-                            
-                            createForm.classList.add('hidden');
-                            result.classList.remove('hidden');
-                            
-                            // Show or hide buttons based on 'once' value
-                            if (once) {
-                                testBtn.classList.add('hidden');
-                                resultMessage.insertAdjacentHTML('beforeend', '<p>Opening this link will invalidate it.</p>');
-                            } else {
-                                testBtn.classList.remove('hidden');
-                                testBtn.addEventListener('click', () => window.open(redirectPath, '_blank'));
-                            }
+                            // Parse the response message
+                            const regex = /Successfully created path "(.*?)" with redirect URL "(.*?)". Expiration: (.*?)\s*(?:\(One-time use only\))?/;
+                            const match = data.message.match(regex);
 
-                            restartBtn.classList.remove('hidden');
-                            saveShortlink({
-                                shortlink: redirectPath,
-                                redirectPath: url,
-                                expires: expiration,
-                                once: onceUse ? 'true' : 'false'
-                            });
-                            updateLinkList();
+                            if (match) {
+                                const [, path, redirectPath, expiration] = match;
+                                const onceUse = data.message.includes('One-time use only');
+
+                                resultMessage.innerHTML = `Shortlink created: <a href="${redirectPath}" target="_blank">${redirectPath}</a><br>Expiration: ${expiration}<br>${onceUse ? 'One-time use only' : ''}`;
+
+                                createForm.classList.add('hidden');
+                                result.classList.remove('hidden');
+
+                                // Show or hide buttons based on 'once' value
+                                if (onceUse) {
+                                    testBtn.classList.add('hidden');
+                                    resultMessage.insertAdjacentHTML('beforeend', '<p>Opening this link will invalidate it.</p>');
+                                } else {
+                                    testBtn.classList.remove('hidden');
+                                    testBtn.addEventListener('click', () => window.open(redirectPath, '_blank'));
+                                }
+
+                                restartBtn.classList.remove('hidden');
+
+                                saveShortlink({
+                                    shortlink: redirectPath,
+                                    redirectPath: url,
+                                    expires: expiration,
+                                    once: onceUse ? 'true' : 'false'
+                                });
+                                updateLinkList();
+                            }
                         }
                     })
                     .catch(error => console.error('Error:', error));
