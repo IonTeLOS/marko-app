@@ -74,7 +74,7 @@ export default async (request, context) => {
     if (createResponse.ok) {
       return new Response(
         JSON.stringify({
-          path,
+          path, // Include path in the response
           redirectPath,
           expires: expireTime,
           once,
