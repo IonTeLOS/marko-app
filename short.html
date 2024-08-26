@@ -27,29 +27,32 @@
         }
         input[type="text"], input[type="date"] {
             width: 100%;
-            padding: 10px;
-            border: none;
-            border-bottom: 1px solid #9e9e9e;
+            padding: 12px;
+            border: 1px solid #9e9e9e;
+            border-radius: 4px;
             outline: none;
             font-size: 16px;
+            box-sizing: border-box; /* Adjust box model */
         }
         .btn {
             background-color: #2196F3;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 12px 20px;
             border-radius: 4px;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
             font-size: 16px;
+            box-sizing: border-box; /* Adjust box model */
         }
         .btn-small {
-            padding: 5px 10px;
-            font-size: 14px;
+            padding: 12px 20px;
+            font-size: 16px;
+            box-sizing: border-box; /* Adjust box model */
         }
         .material-icons {
-            margin-right: 5px;
+            margin-right: 8px;
         }
         .hidden {
             display: none;
@@ -65,12 +68,39 @@
         .link-list li {
             padding: 10px;
             border-bottom: 1px solid #e0e0e0;
+            box-sizing: border-box; /* Adjust box model */
+            margin-bottom: 10px; /* Space between items */
         }
         .link-list li.expired {
             color: #9e9e9e;
         }
         .link-list li.once {
             color: #2196F3;
+        }
+        .link-list a {
+            display: block;
+            padding: 10px;
+            border-radius: 4px;
+            text-decoration: none;
+        }
+        .link-list a.fullpath {
+            border: 2px solid #2196F3;
+            background-color: #e3f2fd;
+            color: #2196F3;
+        }
+        .link-list a.redirectpath {
+            border: 2px solid #4caf50;
+            background-color: #e8f5e9;
+            color: #4caf50;
+        }
+        .link-list a:hover {
+            opacity: 0.8;
+        }
+        #moreOptions {
+            padding-top: 10px; /* Padding around the additional options */
+        }
+        #expiryDate {
+            margin-top: 5px;
         }
     </style>
 </head>
@@ -84,7 +114,7 @@
                 <i class="material-icons">link</i>
                 Create Shortlink
             </button>
-            <button id="moreOptionsBtn" class="btn btn-small">
+            <button id="moreOptionsBtn" class="btn btn-small" style="float: right;">
                 <i class="material-icons">more_horiz</i>
                 More Options
             </button>
@@ -94,6 +124,7 @@
                 </div>
                 <div class="input-field">
                     <input type="date" id="expiryDate">
+                    <small id="expiryDateInfo" style="color: #757575;">Pick an expiration date (optional)</small>
                 </div>
                 <label>
                     <input type="checkbox" id="onceCheckbox">
@@ -186,7 +217,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const { path, redirectPath, expires, once } = data;
                 const fullPath = `https://marko-app.netlify.app/o/${path}`;
 
-                resultMessage.innerHTML = `Shortlink created: <a href="${fullPath}" target="_blank">${fullPath}</a><br>Expiration: ${expires}<br>${once ? 'One-time use only' : ''}`;
+                resultMessage.innerHTML = `
+                    Shortlink created: <a href="${fullPath}" target="_blank" class="fullpath">${fullPath}</a><br>
+                    Redirect Path: <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
+                    Expiration: ${expires}<br>${once ? 'One-time use only' : ''}
+                `;
 
                 createForm.classList.add('hidden');
                 result.classList.remove('hidden');
@@ -232,7 +267,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const now = new Date();
             const expired = link[2] && new Date(link[2]) < now;
             const fullPath = `https://marko-app.netlify.app/o/${link[0]}`;
-            li.innerHTML = `${index + 1}. <a href="${fullPath}" target="_blank">${fullPath}</a> -> ${link[1]}`;
+            const redirectPath = link[1];
+            li.innerHTML = `
+                ${index + 1}. 
+                <a href="${fullPath}" target="_blank" class="fullpath">${fullPath}</a><br>
+                Redirect Path: <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a>
+            `;
             if (expired) li.classList.add('expired');
             if (link[3] === 'true') li.classList.add('once');
             linkList.appendChild(li);
