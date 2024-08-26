@@ -103,11 +103,11 @@
         </div>
         <div id="result" class="hidden">
             <p>Shortlink created: <span id="createdLink"></span></p>
-            <button id="testBtn" class="btn">
+            <button id="testBtn" class="btn hidden">
                 <i class="material-icons">open_in_new</i>
-                Test Link
+                Open Link
             </button>
-            <button id="restartBtn" class="btn">
+            <button id="restartBtn" class="btn hidden">
                 <i class="material-icons">refresh</i>
                 Create Another
             </button>
@@ -140,69 +140,73 @@
             restartBtn.addEventListener('click', () => {
                 location.reload();
             });
-            
-function createShortlink() {
-    const url = urlInput.value;
-    const alias = aliasInput.value;
-    const expires = expiryDate.value ? new Date(expiryDate.value + 'T23:59:00').toISOString() : '';
-    const once = onceCheckbox.checked;
-    const owner = localStorage.getItem('userEmail') || 'anon@anon.org';
 
-    let apiUrl = `https://marko-app.netlify.app/s/?redirectpath=${encodeURIComponent(url)}&owner=${encodeURIComponent(owner)}`;
-    if (alias) apiUrl += `&path=${encodeURIComponent(alias)}`;
-    if (once) apiUrl += '&once=true';
-    if (expires) apiUrl += `&expires=${encodeURIComponent(expires)}`;
+            function createShortlink() {
+                const url = urlInput.value;
+                let alias = aliasInput.value;
+                const expires = expiryDate.value ? new Date(expiryDate.value + 'T23:59:00').toISOString() : '';
+                const once = onceCheckbox.checked;
+                const owner = localStorage.getItem('userEmail') || 'anon@anon.org';
 
-    fetch(apiUrl)
-        .then(response => response.json())
-        .then(data => {
-            if (data.shortlink) {
-                createdLink.textContent = data.shortlink;
-                createForm.classList.add('hidden');
-                result.classList.remove('hidden');
-                
-                // Create a button to open the link
-                const openLinkBtn = document.createElement('button');
-                openLinkBtn.className = 'btn';
-                openLinkBtn.innerHTML = '<i class="material-icons">open_in_new</i> Open Link';
-                openLinkBtn.addEventListener('click', () => window.open(data.shortlink, '_blank'));
-                
-                if (once) {
-                    testBtn.classList.add('hidden');
-                    result.insertAdjacentHTML('beforeend', '<p>Opening this link will invalidate it.</p>');
-                } else {
-                    result.appendChild(openLinkBtn);
+                // Validate and normalize alias
+                if (alias) {
+                    alias = alias.toLowerCase().replace(/[^a-z0-9-_]/g, '');
                 }
-                
-                saveShortlink(data);
-                updateLinkList();
+
+                let apiUrl = `https://marko-app.netlify.app/s/?redirectpath=${encodeURIComponent(url)}&owner=${encodeURIComponent(owner)}`;
+                if (alias) apiUrl += `&path=${encodeURIComponent(alias)}`;
+                if (once) apiUrl += '&once=true';
+                if (expires) apiUrl += `&expires=${encodeURIComponent(expires)}`;
+
+                fetch(apiUrl)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.shortlink) {
+                            createdLink.textContent = data.shortlink;
+                            createForm.classList.add('hidden');
+                            result.classList.remove('hidden');
+
+                            // Create a button to open the link
+                            if (!once) {
+                                testBtn.classList.remove('hidden');
+                                testBtn.addEventListener('click', () => window.open(data.shortlink, '_blank'));
+                            } else {
+                                testBtn.classList.add('hidden');
+                                result.insertAdjacentHTML('beforeend', '<p>Opening this link will invalidate it.</p>');
+                            }
+
+                            restartBtn.classList.remove('hidden');
+                            saveShortlink(data);
+                            updateLinkList();
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
             }
-        })
-        .catch(error => console.error('Error:', error));
-}
+
             function saveShortlink(data) {
-    const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
-    shortlinks.push([
-        data.shortlink,
-        data.redirectPath,
-        data.expires || '',
-        data.once ? 'true' : 'false'
-    ]);
-    localStorage.setItem('shortlinks', JSON.stringify(shortlinks));
-}
+                const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
+                shortlinks.push([
+                    data.shortlink,
+                    data.redirectPath,
+                    data.expires || '',
+                    data.once ? 'true' : 'false'
+                ]);
+                localStorage.setItem('shortlinks', JSON.stringify(shortlinks));
+            }
+
             function updateLinkList() {
-    linkList.innerHTML = '';
-    const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
-    shortlinks.forEach((link, index) => {
-        const li = document.createElement('li');
-        const now = new Date();
-        const expired = link[2] && new Date(link[2]) < now;
-        li.textContent = `${index + 1}. ${link[0]} -> ${link[1]}`;
-        if (expired) li.classList.add('expired');
-        if (link[3] === 'true') li.classList.add('once');
-        linkList.appendChild(li);
-    });
-}
+                linkList.innerHTML = '';
+                const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
+                shortlinks.forEach((link, index) => {
+                    const li = document.createElement('li');
+                    const now = new Date();
+                    const expired = link[2] && new Date(link[2]) < now;
+                    li.textContent = `${index + 1}. ${link[0]} -> ${link[1]}`;
+                    if (expired) li.classList.add('expired');
+                    if (link[3] === 'true') li.classList.add('once');
+                    linkList.appendChild(li);
+                });
+            }
 
             // Set min and max date for expiry date picker
             const tomorrow = new Date();
@@ -212,6 +216,7 @@ function createShortlink() {
             expiryDate.min = tomorrow.toISOString().split('T')[0];
             expiryDate.max = fiveYearsLater.toISOString().split('T')[0];
 
+            // Initial update of the link list
             updateLinkList();
         });
     </script>
