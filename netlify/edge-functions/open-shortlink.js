@@ -4,9 +4,9 @@ export default async (request, context) => {
   const { pathname } = new URL(request.url);
 
   // Check if the request path starts with /s/
-  if (pathname.startsWith("/s/")) {
+  if (pathname.startsWith("/o/")) {
     // Extract the 'something' part from the URL
-    const shortCode = pathname.replace("/s/", "");
+    const shortCode = pathname.replace("/o/", "");
 
     // Firebase Realtime Database URL (within the 'redirects' path)
     const firebaseUrl = `https://marko-be9a9-default-rtdb.firebaseio.com/shortlink/${shortCode}.json`;
