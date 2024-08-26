@@ -102,7 +102,7 @@
             </div>
         </div>
         <div id="result" class="hidden">
-            <p>Shortlink created: <span id="createdLink"></span></p>
+            <p id="resultMessage"></p>
             <button id="testBtn" class="btn hidden">
                 <i class="material-icons">open_in_new</i>
                 Open Link
@@ -127,7 +127,7 @@
             const aliasInput = document.getElementById('aliasInput');
             const expiryDate = document.getElementById('expiryDate');
             const onceCheckbox = document.getElementById('onceCheckbox');
-            const createdLink = document.getElementById('createdLink');
+            const resultMessage = document.getElementById('resultMessage');
             const testBtn = document.getElementById('testBtn');
             const restartBtn = document.getElementById('restartBtn');
             const linkList = document.getElementById('linkList');
@@ -141,8 +141,22 @@
                 location.reload();
             });
 
+            function isValidUrl(url) {
+                try {
+                    new URL(url);
+                    return true;
+                } catch {
+                    return false;
+                }
+            }
+
             function createShortlink() {
                 const url = urlInput.value;
+                if (!isValidUrl(url)) {
+                    alert("The provided URL is invalid.");
+                    return;
+                }
+
                 let alias = aliasInput.value;
                 const expires = expiryDate.value ? new Date(expiryDate.value + 'T23:59:00').toISOString() : '';
                 const once = onceCheckbox.checked;
@@ -169,22 +183,29 @@
                 fetch(apiUrl)
                     .then(response => response.json())
                     .then(data => {
-                        if (data.shortlink) {
-                            createdLink.textContent = data.shortlink;
+                        if (data.message) {
+                            const [_, path, redirectPath, expiration, onceUse] = data.message.match(/Successfully created path "(.*?)" with redirect URL "(.*?)". Expiration: (.*?) \(One-time use only\)/) || [];
+                            resultMessage.innerHTML = `Shortlink created: <a href="${redirectPath}" target="_blank">${redirectPath}</a><br>Expiration: ${expiration}<br>${onceUse ? 'One-time use only' : ''}`;
+                            
                             createForm.classList.add('hidden');
                             result.classList.remove('hidden');
-
-                            // Create a button to open the link
-                            if (!once) {
-                                testBtn.classList.remove('hidden');
-                                testBtn.addEventListener('click', () => window.open(data.shortlink, '_blank'));
-                            } else {
+                            
+                            // Show or hide buttons based on 'once' value
+                            if (once) {
                                 testBtn.classList.add('hidden');
-                                result.insertAdjacentHTML('beforeend', '<p>Opening this link will invalidate it.</p>');
+                                resultMessage.insertAdjacentHTML('beforeend', '<p>Opening this link will invalidate it.</p>');
+                            } else {
+                                testBtn.classList.remove('hidden');
+                                testBtn.addEventListener('click', () => window.open(redirectPath, '_blank'));
                             }
 
                             restartBtn.classList.remove('hidden');
-                            saveShortlink(data);
+                            saveShortlink({
+                                shortlink: redirectPath,
+                                redirectPath: url,
+                                expires: expiration,
+                                once: onceUse ? 'true' : 'false'
+                            });
                             updateLinkList();
                         }
                     })
@@ -224,7 +245,6 @@
             expiryDate.min = tomorrow.toISOString().split('T')[0];
             expiryDate.max = fiveYearsLater.toISOString().split('T')[0];
 
-            // Initial update of the link list
             updateLinkList();
         });
     </script>
