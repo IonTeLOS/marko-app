@@ -140,7 +140,46 @@
             restartBtn.addEventListener('click', () => {
                 location.reload();
             });
+            
+function createShortlink() {
+    const url = urlInput.value;
+    const alias = aliasInput.value;
+    const expires = expiryDate.value ? new Date(expiryDate.value + 'T23:59:00').toISOString() : '';
+    const once = onceCheckbox.checked;
+    const owner = localStorage.getItem('userEmail') || 'anon@anon.org';
 
+    let apiUrl = `https://marko-app.netlify.app/s/?redirectpath=${encodeURIComponent(url)}&owner=${encodeURIComponent(owner)}`;
+    if (alias) apiUrl += `&path=${encodeURIComponent(alias)}`;
+    if (once) apiUrl += '&once=true';
+    if (expires) apiUrl += `&expires=${encodeURIComponent(expires)}`;
+
+    fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+            if (data.shortlink) {
+                createdLink.textContent = data.shortlink;
+                createForm.classList.add('hidden');
+                result.classList.remove('hidden');
+                
+                // Create a button to open the link
+                const openLinkBtn = document.createElement('button');
+                openLinkBtn.className = 'btn';
+                openLinkBtn.innerHTML = '<i class="material-icons">open_in_new</i> Open Link';
+                openLinkBtn.addEventListener('click', () => window.open(data.shortlink, '_blank'));
+                
+                if (once) {
+                    testBtn.classList.add('hidden');
+                    result.insertAdjacentHTML('beforeend', '<p>Opening this link will invalidate it.</p>');
+                } else {
+                    result.appendChild(openLinkBtn);
+                }
+                
+                saveShortlink(data);
+                updateLinkList();
+            }
+        })
+        .catch(error => console.error('Error:', error));
+}
             function saveShortlink(data) {
     const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
     shortlinks.push([
