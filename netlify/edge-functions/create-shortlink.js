@@ -10,7 +10,13 @@ export default async (request, context) => {
 
   // Check for required parameters
   if (!redirectPath || !ownerEmail) {
-    return new Response("Missing required query parameters.", { status: 400 });
+    return new Response(
+      JSON.stringify({
+        error: "Missing required query parameters.",
+        message: "Please provide `redirectpath` and `owner` query parameters."
+      }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
   }
 
   // Function to generate a random 7-character alphanumeric string
@@ -68,6 +74,10 @@ export default async (request, context) => {
     if (createResponse.ok) {
       return new Response(
         JSON.stringify({
+          path,
+          redirectPath,
+          expires: expireTime,
+          once,
           message: `Successfully created path "${path}" with redirect URL "${redirectPath}". Expiration: ${expireTime}${once ? ' (One-time use only)' : ''}`,
         }),
         { status: 201, headers: { "Content-Type": "application/json" } }
