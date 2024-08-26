@@ -3,6 +3,10 @@ path = "/sites/*"
 function = "link-map"
 
 [[edge_functions]]
+path = "/o/"
+function = "open-shortlink"
+
+[[edge_functions]]
 path = "/createsite/"
 function = "create-site"
 
