@@ -28,27 +28,26 @@ export default async (request, context) => {
 
     // Check if redirectPath exists in the fetched data
     if (data && data.redirectPath) {
+      // Perform a transaction to safely increment hits
       try {
-        // Perform a transaction to safely increment hits
-        const transactionResponse = await fetch(firebaseUrl, {
-          method: "PATCH",
-          body: JSON.stringify({
-            hits: {
-              ".sv": {
-                "increment": 1 // Atomically increment hits by 1
-              }
-            }
-          }),
+        // Fetch current hits and increment
+        const currentHits = data.hits || 0;
+        const newHits = currentHits + 1;
+
+        // Update the hits in Firebase
+        const updateResponse = await fetch(firebaseUrl, {
+          method: "PATCH", // Use PATCH to update only the 'hits' field
+          body: JSON.stringify({ hits: newHits }),
           headers: {
             "Content-Type": "application/json",
           },
         });
 
-        if (!transactionResponse.ok) {
-          console.error("Error incrementing hits in Firebase:", transactionResponse.statusText);
+        if (!updateResponse.ok) {
+          console.error("Error updating hits in Firebase:", updateResponse.statusText);
         }
       } catch (error) {
-        console.error("Error incrementing hits in Firebase:", error);
+        console.error("Error updating hits in Firebase:", error);
       }
 
       // Redirect to the redirectPath
