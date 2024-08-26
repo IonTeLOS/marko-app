@@ -1,0 +1,7 @@
+[[edge_functions]]
+path = "/sites/*"
+function = "link-map"
+
+[[edge_functions]]
+path = "/hiya*"
+function = "hello-world"
