@@ -7,7 +7,7 @@ path = "/createsite/"
 function = "create-site"
 
 [[edge_functions]]
-path = "/o/"
+path = "/o/*"
 function = "open-shortlink"
 
 [[edge_functions]]
