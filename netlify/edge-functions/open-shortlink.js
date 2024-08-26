@@ -1,14 +1,14 @@
-// netlify/edge-functions/shortlink.js
+// netlify/edge-functions/open-shortlink.js
 
 export default async (request, context) => {
   const { pathname } = new URL(request.url);
 
-  // Check if the request path starts with /s/
+  // Check if the request path starts with /o/
   if (pathname.startsWith("/o/")) {
-    // Extract the 'something' part from the URL
+    // Extract the 'shortCode' part from the URL
     const shortCode = pathname.replace("/o/", "");
 
-    // Firebase Realtime Database URL (within the 'redirects' path)
+    // Firebase Realtime Database URL (within the 'shortlink' path)
     const firebaseUrl = `https://marko-be9a9-default-rtdb.firebaseio.com/shortlink/${shortCode}.json`;
 
     // Fetch the data from Firebase
@@ -28,6 +28,30 @@ export default async (request, context) => {
 
     // Check if redirectPath exists in the fetched data
     if (data && data.redirectPath) {
+      try {
+        // Perform a transaction to safely increment hits
+        const transactionResponse = await fetch(firebaseUrl, {
+          method: "PATCH",
+          body: JSON.stringify({
+            hits: {
+              ".sv": {
+                "increment": 1 // Atomically increment hits by 1
+              }
+            }
+          }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!transactionResponse.ok) {
+          console.error("Error incrementing hits in Firebase:", transactionResponse.statusText);
+        }
+      } catch (error) {
+        console.error("Error incrementing hits in Firebase:", error);
+      }
+
+      // Redirect to the redirectPath
       return Response.redirect(data.redirectPath, 301);
     }
 
@@ -35,6 +59,6 @@ export default async (request, context) => {
     return new Response("Not Found", { status: 404 });
   }
 
-  // If the path doesn't match /sites/{something}, continue with the normal flow
+  // If the path doesn't match /o/{something}, continue with the normal flow
   return context.next();
 };
