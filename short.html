@@ -232,7 +232,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const now = new Date();
             const expired = link[2] && new Date(link[2]) < now;
             const fullPath = `https://marko-app.netlify.app/o/${link[0]}`;
-            li.textContent = `${index + 1}. ${fullPath} -> ${link[1]}`;
+            li.innerHTML = `${index + 1}. <a href="${fullPath}" target="_blank">${fullPath}</a> -> ${link[1]}`;
             if (expired) li.classList.add('expired');
             if (link[3] === 'true') li.classList.add('once');
             linkList.appendChild(li);
