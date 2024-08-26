@@ -117,145 +117,137 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const createForm = document.getElementById('createForm');
-            const result = document.getElementById('result');
-            const moreOptionsBtn = document.getElementById('moreOptionsBtn');
-            const moreOptions = document.getElementById('moreOptions');
-            const createBtn = document.getElementById('createBtn');
-            const urlInput = document.getElementById('urlInput');
-            const aliasInput = document.getElementById('aliasInput');
-            const expiryDate = document.getElementById('expiryDate');
-            const onceCheckbox = document.getElementById('onceCheckbox');
-            const resultMessage = document.getElementById('resultMessage');
-            const testBtn = document.getElementById('testBtn');
-            const restartBtn = document.getElementById('restartBtn');
-            const linkList = document.getElementById('linkList');
+ document.addEventListener('DOMContentLoaded', function() {
+    const createForm = document.getElementById('createForm');
+    const result = document.getElementById('result');
+    const moreOptionsBtn = document.getElementById('moreOptionsBtn');
+    const moreOptions = document.getElementById('moreOptions');
+    const createBtn = document.getElementById('createBtn');
+    const urlInput = document.getElementById('urlInput');
+    const aliasInput = document.getElementById('aliasInput');
+    const expiryDate = document.getElementById('expiryDate');
+    const onceCheckbox = document.getElementById('onceCheckbox');
+    const resultMessage = document.getElementById('resultMessage');
+    const testBtn = document.getElementById('testBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const linkList = document.getElementById('linkList');
 
-            moreOptionsBtn.addEventListener('click', () => {
-                moreOptions.classList.toggle('hidden');
-            });
+    moreOptionsBtn.addEventListener('click', () => {
+        moreOptions.classList.toggle('hidden');
+    });
 
-            createBtn.addEventListener('click', createShortlink);
-            restartBtn.addEventListener('click', () => {
-                location.reload();
-            });
+    createBtn.addEventListener('click', createShortlink);
+    restartBtn.addEventListener('click', () => {
+        location.reload();
+    });
 
-            function isValidUrl(url) {
-                try {
-                    new URL(url);
-                    return true;
-                } catch {
-                    return false;
-                }
+    function isValidUrl(url) {
+        try {
+            new URL(url);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    function createShortlink() {
+        const url = urlInput.value;
+        if (!isValidUrl(url)) {
+            alert("The provided URL is invalid.");
+            return;
+        }
+
+        let alias = aliasInput.value;
+        const expires = expiryDate.value ? new Date(expiryDate.value + 'T23:59:00').toISOString() : '';
+        const once = onceCheckbox.checked;
+        const owner = localStorage.getItem('userEmail') || 'anon@anon.org';
+
+        // Validate and normalize alias
+        if (alias) {
+            alias = alias.trim() // Remove leading and trailing spaces
+                .toLowerCase() // Convert to lowercase
+                .replace(/\s+/g, '-') // Replace internal spaces with hyphens
+                .replace(/[^a-z0-9-_]/g, ''); // Remove invalid characters
+
+            // Limit the alias length to 30 characters
+            if (alias.length > 30) {
+                alias = alias.substring(0, 30);
             }
+        }
 
-            function createShortlink() {
-                const url = urlInput.value;
-                if (!isValidUrl(url)) {
-                    alert("The provided URL is invalid.");
-                    return;
+        let apiUrl = `https://marko-app.netlify.app/s/?redirectpath=${encodeURIComponent(url)}&owner=${encodeURIComponent(owner)}`;
+        if (alias) apiUrl += `&path=${encodeURIComponent(alias)}`;
+        if (once) apiUrl += '&once=true';
+        if (expires) apiUrl += `&expires=${encodeURIComponent(expires)}`;
+
+        fetch(apiUrl)
+            .then(response => response.json())
+            .then(data => {
+                // Use the `path` field from the response
+                const { path, redirectPath, expires, once, message } = data;
+
+                resultMessage.innerHTML = `Shortlink created: <a href="${redirectPath}" target="_blank">${redirectPath}</a><br>Expiration: ${expires}<br>${once ? 'One-time use only' : ''}`;
+
+                createForm.classList.add('hidden');
+                result.classList.remove('hidden');
+
+                // Show or hide buttons based on 'once' value
+                if (once) {
+                    testBtn.classList.add('hidden');
+                    resultMessage.insertAdjacentHTML('beforeend', '<p>Opening this link will invalidate it.</p>');
+                } else {
+                    testBtn.classList.remove('hidden');
+                    testBtn.addEventListener('click', () => window.open(redirectPath, '_blank'));
                 }
 
-                let alias = aliasInput.value;
-                const expires = expiryDate.value ? new Date(expiryDate.value + 'T23:59:00').toISOString() : '';
-                const once = onceCheckbox.checked;
-                const owner = localStorage.getItem('userEmail') || 'anon@anon.org';
+                restartBtn.classList.remove('hidden');
 
-                // Validate and normalize alias
-                if (alias) {
-                    alias = alias.trim() // Remove leading and trailing spaces
-                        .toLowerCase() // Convert to lowercase
-                        .replace(/\s+/g, '-') // Replace internal spaces with hyphens
-                        .replace(/[^a-z0-9-_]/g, ''); // Remove invalid characters
-
-                    // Limit the alias length to 30 characters
-                    if (alias.length > 30) {
-                        alias = alias.substring(0, 30);
-                    }
-                }
-
-                let apiUrl = `https://marko-app.netlify.app/s/?redirectpath=${encodeURIComponent(url)}&owner=${encodeURIComponent(owner)}`;
-                if (alias) apiUrl += `&path=${encodeURIComponent(alias)}`;
-                if (once) apiUrl += '&once=true';
-                if (expires) apiUrl += `&expires=${encodeURIComponent(expires)}`;
-
-                fetch(apiUrl)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.message) {
-                            // Parse the response message
-                            const regex = /Successfully created path "(.*?)" with redirect URL "(.*?)". Expiration: (.*?)\s*(?:\(One-time use only\))?/;
-                            const match = data.message.match(regex);
-
-                            if (match) {
-                                const [, path, redirectPath, expiration] = match;
-                                const onceUse = data.message.includes('One-time use only');
-
-                                resultMessage.innerHTML = `Shortlink created: <a href="${redirectPath}" target="_blank">${redirectPath}</a><br>Expiration: ${expiration}<br>${onceUse ? 'One-time use only' : ''}`;
-
-                                createForm.classList.add('hidden');
-                                result.classList.remove('hidden');
-
-                                // Show or hide buttons based on 'once' value
-                                if (onceUse) {
-                                    testBtn.classList.add('hidden');
-                                    resultMessage.insertAdjacentHTML('beforeend', '<p>Opening this link will invalidate it.</p>');
-                                } else {
-                                    testBtn.classList.remove('hidden');
-                                    testBtn.addEventListener('click', () => window.open(redirectPath, '_blank'));
-                                }
-
-                                restartBtn.classList.remove('hidden');
-
-                                saveShortlink({
-                                    shortlink: redirectPath,
-                                    redirectPath: url,
-                                    expires: expiration,
-                                    once: onceUse ? 'true' : 'false'
-                                });
-                                updateLinkList();
-                            }
-                        }
-                    })
-                    .catch(error => console.error('Error:', error));
-            }
-
-            function saveShortlink(data) {
-                const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
-                shortlinks.push([
-                    data.shortlink,
-                    data.redirectPath,
-                    data.expires || '',
-                    data.once ? 'true' : 'false'
-                ]);
-                localStorage.setItem('shortlinks', JSON.stringify(shortlinks));
-            }
-
-            function updateLinkList() {
-                linkList.innerHTML = '';
-                const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
-                shortlinks.forEach((link, index) => {
-                    const li = document.createElement('li');
-                    const now = new Date();
-                    const expired = link[2] && new Date(link[2]) < now;
-                    li.textContent = `${index + 1}. ${link[0]} -> ${link[1]}`;
-                    if (expired) li.classList.add('expired');
-                    if (link[3] === 'true') li.classList.add('once');
-                    linkList.appendChild(li);
+                saveShortlink({
+                    shortlink: `${window.location.origin}/${path}`, // Use the path for the shortlink
+                    redirectPath: url,
+                    expires: expires,
+                    once: once ? 'true' : 'false'
                 });
-            }
+                updateLinkList();
+            })
+            .catch(error => console.error('Error:', error));
+    }
 
-            // Set min and max date for expiry date picker
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            const fiveYearsLater = new Date();
-            fiveYearsLater.setFullYear(fiveYearsLater.getFullYear() + 5);
-            expiryDate.min = tomorrow.toISOString().split('T')[0];
-            expiryDate.max = fiveYearsLater.toISOString().split('T')[0];
+    function saveShortlink(data) {
+        const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
+        shortlinks.push([
+            data.shortlink,
+            data.redirectPath,
+            data.expires || '',
+            data.once ? 'true' : 'false'
+        ]);
+        localStorage.setItem('shortlinks', JSON.stringify(shortlinks));
+    }
 
-            updateLinkList();
+    function updateLinkList() {
+        linkList.innerHTML = '';
+        const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
+        shortlinks.forEach((link, index) => {
+            const li = document.createElement('li');
+            const now = new Date();
+            const expired = link[2] && new Date(link[2]) < now;
+            li.textContent = `${index + 1}. ${link[0]} -> ${link[1]}`;
+            if (expired) li.classList.add('expired');
+            if (link[3] === 'true') li.classList.add('once');
+            linkList.appendChild(li);
         });
+    }
+
+    // Set min and max date for expiry date picker
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const fiveYearsLater = new Date();
+    fiveYearsLater.setFullYear(fiveYearsLater.getFullYear() + 5);
+    expiryDate.min = tomorrow.toISOString().split('T')[0];
+    expiryDate.max = fiveYearsLater.toISOString().split('T')[0];
+
+    updateLinkList();
+});
     </script>
 </body>
 </html>
