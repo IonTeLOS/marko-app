@@ -11,12 +11,12 @@ export default async (request, context) => {
     // Firebase Realtime Database URL (within the 'redirects' path)
     const firebaseUrl = `https://marko-be9a9-default-rtdb.firebaseio.com/redirects/${shortCode}.json`;
 
-    // Fetch the redirect URL from Firebase
-    let redirectUrl;
+    // Fetch the data from Firebase
+    let data;
     try {
       const response = await fetch(firebaseUrl);
       if (response.ok) {
-        redirectUrl = await response.json();
+        data = await response.json();
       } else {
         console.error("Error fetching data from Firebase:", response.statusText);
         return new Response("Internal Server Error", { status: 500 });
@@ -26,15 +26,16 @@ export default async (request, context) => {
       return new Response("Internal Server Error", { status: 500 });
     }
 
-    // If the URL exists, redirect to it
-    if (redirectUrl) {
-      return Response.redirect(redirectUrl, 301);
+    // Check if redirectPath exists in the fetched data
+    if (data && data.redirectPath) {
+      return Response.redirect(data.redirectPath, 301);
     }
 
-    // If the short code is not found, return a 404 response
+    // If the short code is not found or redirectPath is missing, return a 404 response
     return new Response("Not Found", { status: 404 });
   }
 
   // If the path doesn't match /sites/{something}, continue with the normal flow
   return context.next();
 };
+
