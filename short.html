@@ -150,7 +150,15 @@
 
                 // Validate and normalize alias
                 if (alias) {
-                    alias = alias.toLowerCase().replace(/[^a-z0-9-_]/g, '');
+                    alias = alias.trim() // Remove leading and trailing spaces
+                        .toLowerCase() // Convert to lowercase
+                        .replace(/\s+/g, '-') // Replace internal spaces with hyphens
+                        .replace(/[^a-z0-9-_]/g, ''); // Remove invalid characters
+
+                    // Limit the alias length to 30 characters
+                    if (alias.length > 30) {
+                        alias = alias.substring(0, 30);
+                    }
                 }
 
                 let apiUrl = `https://marko-app.netlify.app/s/?redirectpath=${encodeURIComponent(url)}&owner=${encodeURIComponent(owner)}`;
