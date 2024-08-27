@@ -160,6 +160,12 @@ input[type="text"], input[type="date"], input[type="password"] {
 .password-container {
     display: flex;
     align-items: center;
+    gap: 8px; /* Space between icons */
+}
+
+.password-container .material-icons {
+    cursor: pointer;
+    margin-right: 8px; /* Space between icon and password text */
 }
 
 .password {
@@ -202,9 +208,9 @@ input[type="text"], input[type="date"], input[type="password"] {
                 <div class="input-field">
                     <input type="password" id="passwordInput" placeholder="Password (optional)" maxlength="16" pattern="^[^\s]*$">
                 </div>
-            </div>
-            <div class="input-field">
-                <input type="text" id="shareMessageInput" placeholder="Custom share message (optional)" maxlength="100">
+                <div class="input-field">
+                    <input type="text" id="shareMessageInput" placeholder="Custom share message (optional)" maxlength="100">
+                </div>
             </div>
             <button id="createBtn" class="btn">
                     <i class="material-icons">link</i>
@@ -238,46 +244,30 @@ document.addEventListener('DOMContentLoaded', function() {
     const expiryDate = document.getElementById('expiryDate');
     const onceCheckbox = document.getElementById('onceCheckbox');
     const passwordInput = document.getElementById('passwordInput');
-    const shareMessageInput = document.getElementById('shareMessageInput');
     const resultMessage = document.getElementById('resultMessage');
     const testBtn = document.getElementById('testBtn');
     const restartBtn = document.getElementById('restartBtn');
     const linkList = document.getElementById('linkList');
-
-    // Load saved share message from localStorage
-    const savedShareMessage = localStorage.getItem('shareMessage') || '';
-    shareMessageInput.value = savedShareMessage;
+    const shareMessageInput = document.getElementById('shareMessageInput');
 
     moreOptionsBtn.addEventListener('click', () => {
-        if (moreOptions.classList.contains('hidden')) {
-            moreOptions.classList.remove('hidden');
-        } else {
-            // Check if any custom options are filled
-            if (aliasInput.value || expiryDate.value || onceCheckbox.checked || passwordInput.value || shareMessageInput.value) {
-                const confirmation = confirm("Custom options have been cleared. Do you want to proceed?");
-                if (confirmation) {
-                    // Clear the fields
-                    aliasInput.value = '';
-                    expiryDate.value = '';
-                    onceCheckbox.checked = false;
-                    passwordInput.value = '';
-                    shareMessageInput.value = '';
-                    localStorage.removeItem('shareMessage'); // Remove saved message
-                    moreOptions.classList.add('hidden');
+        if (!moreOptions.classList.contains('hidden')) {
+            // More options are already visible, hide them
+            const fields = [aliasInput, expiryDate, passwordInput];
+            if (fields.some(field => field.value.trim() !== '')) {
+                if (confirm('Custom options have been cleared. Continue?')) {
+                    fields.forEach(field => field.value = '');
                 }
-            } else {
-                moreOptions.classList.add('hidden');
             }
+            moreOptions.classList.add('hidden');
+        } else {
+            moreOptions.classList.remove('hidden');
         }
     });
 
     createBtn.addEventListener('click', createShortlink);
     restartBtn.addEventListener('click', () => {
         location.reload();
-    });
-
-    shareMessageInput.addEventListener('input', () => {
-        localStorage.setItem('shareMessage', shareMessageInput.value);
     });
 
     function isValidUrl(url) {
@@ -328,7 +318,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const fullPath = `https://marko-app.netlify.app/o/${path}`;
 
                 resultMessage.innerHTML = `
-                    Shortlink created: <a href="${fullPath}" target="_blank" class="fullpath">${fullPath}</a><br>
+                    Shortlink created: <a href="${fullPath}" target="_blank" class="fullpath" onclick="handleFullPathClick('${fullPath}')">${fullPath}</a><br>
                     Redirect Path: <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
                     Expiration: ${expires}<br>${once ? 'One-time use only' : ''}
                 `;
@@ -352,7 +342,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     redirectPath: url,
                     expires: expires,
                     once: once ? 'true' : 'false',
-                    password: password || '' // Save the password
+                    password: password || '' // Save password if provided
                 });
                 updateLinkList();
             })
@@ -404,12 +394,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
             li.innerHTML = `
                 ${index + 1}. 
-                <a href="${fullPath}" target="_blank" class="fullpath">${fullPath}</a><br>
+                <a href="${fullPath}" target="_blank" class="fullpath" onclick="handleFullPathClick('${fullPath}')">${fullPath}</a><br>
                 Redirect Path: <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
-                ${hasPassword ? `<span class="password-container"><i class="material-icons" style="cursor: pointer;" onclick="revealPassword('${password}', this)">lock</i><span class="password hidden">${password}</span></span>` : ''}
-                ${once ? onceIcon : ''}
-                ${expirationIcon}
-                <button onclick="shareLink('${fullPath}')">Share</button>
+                ${hasPassword ? `
+                    <span class="password-container">
+                        <i class="material-icons" style="cursor: pointer;" onclick="revealPassword('${password}', this)">lock</i>
+                        <span class="password hidden">${password}</span>
+                        ${once ? onceIcon : ''}
+                        ${expirationIcon}
+                    </span>` : ''}
             `;
             if (expired) li.classList.add('expired');
             if (once) li.classList.add('once');
@@ -436,7 +429,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (navigator.share) {
                 navigator.share({
                     title: 'Here is my password-protected shortlink',
-                    text: 'This is only for you',
+                    text: localStorage.getItem('shareMessage') || 'This is only for you',
                     url: shortlinkWithPassword
                 }).catch(error => console.error('Error sharing:', error));
             } else {
@@ -454,20 +447,21 @@ document.addEventListener('DOMContentLoaded', function() {
         alert(`Expires: ${new Date(expirationDate).toLocaleString()}`);
     };
 
-    window.shareLink = function(fullPath) {
-        const shareMessage = localStorage.getItem('shareMessage') || '';
+    window.handleFullPathClick = function(fullPath) {
+        const shareMessage = localStorage.getItem('shareMessage') || 'Check out this link!';
+        const shortlinkWithPassword = fullPath;
 
-        // Use Web Share API if available
         if (navigator.share) {
             navigator.share({
                 title: 'Here is a shortlink',
                 text: shareMessage,
-                url: fullPath
-            }).catch(error => console.error('Error sharing:', error));
+                url: shortlinkWithPassword
+            }).catch(error => console.error('Error sharing:',
+                error => console.error('Error sharing:', error));
         } else {
             // Fallback to clipboard copy
-            navigator.clipboard.writeText(fullPath)
-                .then(() => alert('Link copied to clipboard'))
+            navigator.clipboard.writeText(shortlinkWithPassword)
+                .then(() => alert('Shortlink copied to clipboard'))
                 .catch(error => console.error('Error copying to clipboard:', error));
         }
     };
@@ -479,6 +473,17 @@ document.addEventListener('DOMContentLoaded', function() {
     fiveYearsLater.setFullYear(fiveYearsLater.getFullYear() + 5);
     expiryDate.min = tomorrow.toISOString().split('T')[0];
     expiryDate.max = fiveYearsLater.toISOString().split('T')[0];
+
+    // Load previously saved share message from local storage
+    const savedShareMessage = localStorage.getItem('shareMessage') || '';
+    if (savedShareMessage) {
+        document.getElementById('shareMessageInput').value = savedShareMessage;
+    }
+
+    // Save share message to local storage when changed
+    document.getElementById('shareMessageInput').addEventListener('input', (event) => {
+        localStorage.setItem('shareMessage', event.target.value);
+    });
 
     updateLinkList();
 });
