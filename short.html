@@ -342,13 +342,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function revealPassword(password, iconElement) {
-            const originalText = iconElement.innerHTML;
-            iconElement.innerHTML = password;
-            setTimeout(() => {
-                iconElement.innerHTML = originalText;
-            }, 10000); // Password visible for 10 seconds
-        }
+   window.revealPassword = function(password, iconElement) {
+        const originalText = iconElement.innerHTML;
+        iconElement.innerHTML = password;
+        setTimeout(() => {
+            iconElement.innerHTML = originalText;
+        }, 10000); // Password visible for 10 seconds
+    };
     
     // Set min and max date for expiry date picker
     const tomorrow = new Date();
