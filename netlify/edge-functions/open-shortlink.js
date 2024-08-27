@@ -103,6 +103,12 @@ export default async (request, context) => {
                       padding: 0.75rem;
                       font-size: 1.2rem;
                       margin-top: 1rem;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                    }
+                    .password-container .btn i {
+                      margin-right: 8px;
                     }
                     .password-container p {
                       color: red;
@@ -119,7 +125,7 @@ export default async (request, context) => {
                         <div class="input-field">
                           <input type="password" name="password" id="password" placeholder="${translation.label}" required />
                         </div>
-                        <button class="btn waves-effect waves-light" type="submit">${translation.button}</button>
+                        <button class="btn waves-effect waves-light" type="submit"><i class="material-icons">lock</i>${translation.button}</button>
                       </form>
                     ` : `<p>${translation.error}</p>`}
                   </div>
@@ -133,91 +139,22 @@ export default async (request, context) => {
               });
             } else if (providedPassword !== data.password) {
               // Password incorrect
-              const html = `
-                <!DOCTYPE html>
-                <html lang="${userLang}">
-                <head>
-                  <meta charset="UTF-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <title>${translations.en.title}</title>
-                  <!-- Fira Sans Font -->
-                  <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;700&display=swap" rel="stylesheet">
-                  <!-- Materialize CSS -->
-                  <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
-                  <style>
-                    body {
-                      display: flex;
-                      justify-content: center;
-                      align-items: center;
-                      height: 100vh;
-                      background-color: #f5f5f5;
-                      font-family: 'Fira Sans', Arial, sans-serif;
-                      margin: 0;
-                    }
-                    .password-container {
-                      background: white;
-                      padding: 2rem;
-                      border-radius: 8px;
-                      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                      text-align: center;
-                      max-width: 400px;
-                      width: 100%;
-                    }
-                    .password-container h1 {
-                      font-size: 2rem;
-                      margin-bottom: 1.5rem;
-                    }
-                    .password-container .input-field input {
-                      font-size: 1.2rem;
-                      padding: 0.75rem;
-                    }
-                    .password-container button {
-                      width: 100%;
-                      padding: 0.75rem;
-                      font-size: 1.2rem;
-                      margin-top: 1rem;
-                    }
-                    .password-container p {
-                      color: red;
-                      font-size: 1rem;
-                      margin-top: 1rem;
-                    }
-                  </style>
-                </head>
-                <body>
-                  <div class="password-container">
-                    <h1>${translations.en.title}</h1>
-                    <p>${translations[userLang]?.error || translations.en.error}</p>
-                    <form method="GET" action="">
-                      <div class="input-field">
-                        <input type="password" name="password" id="password" placeholder="${translations.en.label}" required />
-                      </div>
-                      <button class="btn waves-effect waves-light" type="submit">${translations.en.button}</button>
-                    </form>
-                  </div>
-                  <!-- Materialize JS -->
-                  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
-                </body>
-                </html>
-              `;
-              return new Response(html, {
-                headers: { "Content-Type": "text/html" },
-              });
-            }
+              const userLang = (navigator.language || navigator.userLanguage).split('-')[0];
+              const translations = {
+                en: { title: "Password Required", label: "Enter password", button: "Submit", error: "Incorrect password. Please try again." },
+                // ... (other translations as before)
+              };
 
-            // Check if the password is correct
-            if (providedPassword === data.password) {
-              // Password correct, redirect to the intended URL
-              return Response.redirect(data.redirectPath, 301);
-            } else {
-              // Password incorrect
+              const translation = translations[userLang] || translations.en;
+
+              // Show error page
               const html = `
                 <!DOCTYPE html>
                 <html lang="${userLang}">
                 <head>
                   <meta charset="UTF-8">
                   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <title>${translations.en.title}</title>
+                  <title>${translation.title}</title>
                   <!-- Fira Sans Font -->
                   <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;700&display=swap" rel="stylesheet">
                   <!-- Materialize CSS -->
@@ -254,6 +191,12 @@ export default async (request, context) => {
                       padding: 0.75rem;
                       font-size: 1.2rem;
                       margin-top: 1rem;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                    }
+                    .password-container .btn i {
+                      margin-right: 8px;
                     }
                     .password-container p {
                       color: red;
@@ -264,13 +207,13 @@ export default async (request, context) => {
                 </head>
                 <body>
                   <div class="password-container">
-                    <h1>${translations.en.title}</h1>
-                    <p>${translations.en.error}</p>
+                    <h1>${translation.title}</h1>
+                    <p>${translation.error}</p>
                     <form method="GET" action="">
                       <div class="input-field">
-                        <input type="password" name="password" id="password" placeholder="${translations.en.label}" required />
+                        <input type="password" name="password" id="password" placeholder="${translation.label}" required />
                       </div>
-                      <button class="btn waves-effect waves-light" type="submit">${translations.en.button}</button>
+                      <button class="btn waves-effect waves-light" type="submit"><i class="material-icons">lock</i>${translation.button}</button>
                     </form>
                   </div>
                   <!-- Materialize JS -->
