@@ -456,8 +456,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 title: 'Here is a shortlink',
                 text: shareMessage,
                 url: shortlinkWithPassword
-            }).catch(error => console.error('Error sharing:',
-                error => console.error('Error sharing:', error));
+            }).catch(error => console.error('Error sharing:', error));
         } else {
             // Fallback to clipboard copy
             navigator.clipboard.writeText(shortlinkWithPassword)
@@ -487,6 +486,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     updateLinkList();
 });
+
     </script>
 </body>
 </html>
