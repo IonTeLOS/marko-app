@@ -129,6 +129,10 @@ input[type="text"], input[type="date"], input[type="password"] {
     color: #757575;
 }
 
+#onceCheckbox {
+    margin-bottom: 15px;
+}
+
 /* Responsive Design */
 @media (max-width: 600px) {
     .btn, .btn-small {
@@ -198,11 +202,11 @@ input[type="text"], input[type="date"], input[type="password"] {
                 <div class="input-field">
                     <input type="password" id="passwordInput" placeholder="Password (optional)" maxlength="16" pattern="^[^\s]*$">
                 </div>
-                <button id="createBtn" class="btn">
+            </div>
+            <button id="createBtn" class="btn">
                     <i class="material-icons">link</i>
                 Create Shortlink
-                </button>
-            </div>
+            </button>
         </div>
         <div id="result" class="hidden">
             <p id="resultMessage"></p>
