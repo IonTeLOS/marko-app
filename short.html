@@ -399,12 +399,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Determine once status
             let onceIcon = '';
             if (once) {
-                onceIcon = `<i class="material-icons" id="onceIcon" title="This is a one-time link, click here to see if it has already been used">repeat_one</i>`;
+                onceIcon = `<i class="material-icons onceIcons" title="This is a one-time link, click here to see if it has already been used">repeat_one</i>`;
             }
 
             li.innerHTML = `
     ${index + 1}. 
-    <span class="fullpath" onclick="handleFullPathClick('${fullPath}')">${fullPath}</span><br>
+    <span class="fullpath" title"Click to share the shortlink" onclick="handleFullPathClick('${fullPath}')">${fullPath}</span><br>
     Redirect Path: 
     <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
     ${hasPassword ? `
@@ -420,8 +420,8 @@ document.addEventListener('DOMContentLoaded', function() {
             linkList.appendChild(li);
         });
     }
- // Select all icons with id starting with 'onceIcon-'
-const icons = document.querySelectorAll('[id="onceIcon"]');
+
+const icons = document.querySelectorAll('.onceIcons');
 
 // Add an onclick event listener to each icon
 icons.forEach(icon => {
