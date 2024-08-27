@@ -153,6 +153,24 @@ input[type="text"], input[type="date"], input[type="password"] {
         margin-bottom: 8px;
     }
 }
+.password-container {
+    display: flex;
+    align-items: center;
+}
+
+.password {
+    margin-left: 8px;
+    font-weight: bold;
+}
+
+.hidden {
+    display: none;
+}
+
+.password.visible {
+    display: inline;
+}
+
     </style>
 </head>
 <body>
@@ -334,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 ${index + 1}. 
                 <a href="${fullPath}" target="_blank" class="fullpath">${fullPath}</a><br>
                 Redirect Path: <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
-                ${hasPassword ? `<i class="material-icons" style="cursor: pointer;" onclick="revealPassword('${password}', this)">lock</i>` : ''}
+                ${hasPassword ? `<span class="password-container"><i class="material-icons" style="cursor: pointer;" onclick="revealPassword('${password}', this)">lock</i><span class="password hidden">${password}</span></span>` : ''}
             `;
             if (expired) li.classList.add('expired');
             if (link[3] === 'true') li.classList.add('once');
@@ -342,28 +360,31 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    window.revealPassword = function(password, iconElement) {
-        // Show password for 10 seconds
-        const originalText = iconElement.innerHTML;
-        iconElement.innerHTML = password;
-        setTimeout(() => {
-            iconElement.innerHTML = originalText;
-        }, 10000); // Password visible for 10 seconds
+window.revealPassword = function(password, iconElement) {
+    // Find the password span element
+    const passwordSpan = iconElement.nextElementSibling;
 
-        // Copy to clipboard and use Web Share API if available
-        const shortlinkWithPassword = `${iconElement.parentElement.querySelector('.fullpath').href}?password=${encodeURIComponent(password)}`;
-        if (navigator.share) {
-            navigator.share({
-                title: 'Shortlink with Password',
-                text: shortlinkWithPassword,
-                url: shortlinkWithPassword
-            }).catch(error => console.error('Error sharing:', error));
-        } else {
-            navigator.clipboard.writeText(shortlinkWithPassword)
-                .then(() => alert('Shortlink with password copied to clipboard'))
-                .catch(error => console.error('Error copying to clipboard:', error));
-        }
-    };
+    // Show password for 10 seconds
+    passwordSpan.classList.add('visible');
+    setTimeout(() => {
+        passwordSpan.classList.remove('visible');
+    }, 10000); // Password visible for 10 seconds
+
+    // Copy to clipboard and use Web Share API if available
+    const shortlinkWithPassword = `${iconElement.parentElement.querySelector('.fullpath').href}?password=${encodeURIComponent(password)}`;
+    if (navigator.share) {
+        navigator.share({
+            title: 'Shortlink with Password',
+            text: shortlinkWithPassword,
+            url: shortlinkWithPassword
+        }).catch(error => console.error('Error sharing:', error));
+    } else {
+        navigator.clipboard.writeText(shortlinkWithPassword)
+            .then(() => alert('Shortlink with password copied to clipboard'))
+            .catch(error => console.error('Error copying to clipboard:', error));
+    }
+};
+
 
     // Set min and max date for expiry date picker
     const tomorrow = new Date();
