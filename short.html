@@ -436,9 +436,6 @@ icons.forEach(icon => {
         const path = storedFullPath.replace(baseShortUrl, '');        
         const storedRedirectPath = closestLi.querySelector('.redirectpath').href;
 
-        // Query the Firebase Realtime Database
-        const url = `https://marko-be9a9-default-rtdb.firebaseio.com/shortlink/${path}.json`;
-
     // Construct the URL to query Firebase Realtime Database
     const url = `https://marko-be9a9-default-rtdb.firebaseio.com/shortlink/${path}.json`;
 
