@@ -28,7 +28,7 @@ body {
     margin-bottom: 20px;
 }
 
-input[type="text"], input[type="date"] {
+input[type="text"], input[type="date"], input[type="password"] {
     width: 100%;
     padding: 12px;
     border: 1px solid #9e9e9e;
@@ -181,6 +181,9 @@ input[type="text"], input[type="date"] {
                     <input type="checkbox" id="onceCheckbox">
                     Use once (optional)
                 </label>
+                <div class="input-field">
+                    <input type="password" id="passwordInput" placeholder="Password (optional)" maxlength="16" pattern="^[^\s]*$">
+                </div>
             </div>
         </div>
         <div id="result" class="hidden">
@@ -209,6 +212,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const aliasInput = document.getElementById('aliasInput');
     const expiryDate = document.getElementById('expiryDate');
     const onceCheckbox = document.getElementById('onceCheckbox');
+    const passwordInput = document.getElementById('passwordInput');
     const resultMessage = document.getElementById('resultMessage');
     const testBtn = document.getElementById('testBtn');
     const restartBtn = document.getElementById('restartBtn');
@@ -242,6 +246,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let alias = aliasInput.value;
         const expires = expiryDate.value ? new Date(expiryDate.value + 'T23:59:00').toISOString() : '';
         const once = onceCheckbox.checked;
+        const password = passwordInput.value;
         const owner = localStorage.getItem('userEmail') || 'anon@anon.org';
 
         // Validate and normalize alias
@@ -261,6 +266,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (alias) apiUrl += `&path=${encodeURIComponent(alias)}`;
         if (once) apiUrl += '&once=true';
         if (expires) apiUrl += `&expires=${encodeURIComponent(expires)}`;
+        if (password) apiUrl += `&password=${encodeURIComponent(password)}`;
 
         fetch(apiUrl)
             .then(response => response.json())
@@ -292,7 +298,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     shortlink: path, // Save just the path in local storage
                     redirectPath: url,
                     expires: expires,
-                    once: once ? 'true' : 'false'
+                    once: once ? 'true' : 'false',
+                    password: password || '' // Save password if provided
                 });
                 updateLinkList();
             })
@@ -305,7 +312,8 @@ document.addEventListener('DOMContentLoaded', function() {
             data.shortlink, // Save only the path
             data.redirectPath,
             data.expires || '',
-            data.once ? 'true' : 'false'
+            data.once ? 'true' : 'false',
+            data.password // Save the password
         ]);
         localStorage.setItem('shortlinks', JSON.stringify(shortlinks));
     }
@@ -319,15 +327,27 @@ document.addEventListener('DOMContentLoaded', function() {
             const expired = link[2] && new Date(link[2]) < now;
             const fullPath = `https://marko-app.netlify.app/o/${link[0]}`;
             const redirectPath = link[1];
+            const hasPassword = link[4]; // Check if there's a password
+            const password = hasPassword ? link[4] : '';
+
             li.innerHTML = `
                 ${index + 1}. 
                 <a href="${fullPath}" target="_blank" class="fullpath">${fullPath}</a><br>
-                Redirect Path: <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a>
+                Redirect Path: <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
+                ${hasPassword ? `<i class="material-icons" style="cursor: pointer;" onclick="revealPassword('${password}', this)">lock</i>` : ''}
             `;
             if (expired) li.classList.add('expired');
             if (link[3] === 'true') li.classList.add('once');
             linkList.appendChild(li);
         });
+    }
+
+    function revealPassword(password, iconElement) {
+        const originalText = iconElement.innerHTML;
+        iconElement.innerHTML = password;
+        setTimeout(() => {
+            iconElement.innerHTML = originalText;
+        }, 10000); // Password visible for 10 seconds
     }
 
     // Set min and max date for expiry date picker
@@ -340,6 +360,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     updateLinkList();
 });
+
     </script>
 </body>
 </html>
