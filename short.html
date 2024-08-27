@@ -317,16 +317,15 @@ document.addEventListener('DOMContentLoaded', function() {
         ]);
         localStorage.setItem('shortlinks', JSON.stringify(shortlinks));
     }
-
-    function revealPassword(password, iconElement) {
-        const originalText = iconElement.innerHTML;
-        iconElement.innerHTML = password;
-        setTimeout(() => {
-            iconElement.innerHTML = originalText;
-        }, 10000); // Password visible for 10 seconds
-    }
     
     function updateLinkList() {
+        function revealPassword(password, iconElement) {
+            const originalText = iconElement.innerHTML;
+            iconElement.innerHTML = password;
+            setTimeout(() => {
+                iconElement.innerHTML = originalText;
+            }, 10000); // Password visible for 10 seconds
+        }
         linkList.innerHTML = '';
         const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
         shortlinks.forEach((link, index) => {
