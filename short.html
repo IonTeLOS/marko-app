@@ -101,10 +101,12 @@ input[type="text"], input[type="date"], input[type="password"] {
     margin-bottom: 5px; /* Space between links */
 }
 
-.link-list a.fullpath {
+.link-list fullpath {
     border: 2px solid #2196F3;
     background-color: #e3f2fd;
     color: #2196F3;
+    text-decoration: underline; /* Underline to resemble a link */
+    cursor: pointer; /* Pointer cursor to mimic link behavior */
 }
 
 .link-list a.redirectpath {
@@ -397,7 +399,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             li.innerHTML = `
     ${index + 1}. 
-    <a href="${fullPath}" target="_blank" class="fullpath" onclick="handleFullPathClick('${fullPath}')">${fullPath}</a><br>
+    <span class="fullpath" onclick="handleFullPathClick('${fullPath}')">${fullPath}</span><br>
     Redirect Path: 
     <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
     ${hasPassword ? `
