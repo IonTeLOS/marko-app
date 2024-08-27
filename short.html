@@ -426,9 +426,6 @@ const icons = document.querySelectorAll('[id="onceIcon"]');
 // Add an onclick event listener to each icon
 icons.forEach(icon => {
     icon.onclick = function() {
-        // Extract the path from the id
-        const iconId = this.id; // Get the full ID (e.g., "onceIcon-12345")
-
         // Find the closest li element
         const closestLi = this.closest('li');
 
