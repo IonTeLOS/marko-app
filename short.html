@@ -317,7 +317,7 @@ document.addEventListener('DOMContentLoaded', function() {
         ]);
         localStorage.setItem('shortlinks', JSON.stringify(shortlinks));
     }
-    
+
     function updateLinkList() {
         linkList.innerHTML = '';
         const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
@@ -342,14 +342,29 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-   window.revealPassword = function(password, iconElement) {
+    window.revealPassword = function(password, iconElement) {
+        // Show password for 10 seconds
         const originalText = iconElement.innerHTML;
         iconElement.innerHTML = password;
         setTimeout(() => {
             iconElement.innerHTML = originalText;
         }, 10000); // Password visible for 10 seconds
+
+        // Copy to clipboard and use Web Share API if available
+        const shortlinkWithPassword = `${iconElement.parentElement.querySelector('.fullpath').href}?password=${encodeURIComponent(password)}`;
+        if (navigator.share) {
+            navigator.share({
+                title: 'Shortlink with Password',
+                text: shortlinkWithPassword,
+                url: shortlinkWithPassword
+            }).catch(error => console.error('Error sharing:', error));
+        } else {
+            navigator.clipboard.writeText(shortlinkWithPassword)
+                .then(() => alert('Shortlink with password copied to clipboard'))
+                .catch(error => console.error('Error copying to clipboard:', error));
+        }
     };
-    
+
     // Set min and max date for expiry date picker
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -360,7 +375,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     updateLinkList();
 });
-
     </script>
 </body>
 </html>
