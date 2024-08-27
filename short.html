@@ -238,17 +238,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const expiryDate = document.getElementById('expiryDate');
     const onceCheckbox = document.getElementById('onceCheckbox');
     const passwordInput = document.getElementById('passwordInput');
+    const shareMessageInput = document.getElementById('shareMessageInput');
     const resultMessage = document.getElementById('resultMessage');
     const testBtn = document.getElementById('testBtn');
     const restartBtn = document.getElementById('restartBtn');
     const linkList = document.getElementById('linkList');
+
+    // Load saved share message from localStorage
+    const savedShareMessage = localStorage.getItem('shareMessage') || '';
+    shareMessageInput.value = savedShareMessage;
 
     moreOptionsBtn.addEventListener('click', () => {
         if (moreOptions.classList.contains('hidden')) {
             moreOptions.classList.remove('hidden');
         } else {
             // Check if any custom options are filled
-            if (aliasInput.value || expiryDate.value || onceCheckbox.checked || passwordInput.value) {
+            if (aliasInput.value || expiryDate.value || onceCheckbox.checked || passwordInput.value || shareMessageInput.value) {
                 const confirmation = confirm("Custom options have been cleared. Do you want to proceed?");
                 if (confirmation) {
                     // Clear the fields
@@ -256,6 +261,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     expiryDate.value = '';
                     onceCheckbox.checked = false;
                     passwordInput.value = '';
+                    shareMessageInput.value = '';
+                    localStorage.removeItem('shareMessage'); // Remove saved message
                     moreOptions.classList.add('hidden');
                 }
             } else {
@@ -267,6 +274,10 @@ document.addEventListener('DOMContentLoaded', function() {
     createBtn.addEventListener('click', createShortlink);
     restartBtn.addEventListener('click', () => {
         location.reload();
+    });
+
+    shareMessageInput.addEventListener('input', () => {
+        localStorage.setItem('shareMessage', shareMessageInput.value);
     });
 
     function isValidUrl(url) {
@@ -341,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     redirectPath: url,
                     expires: expires,
                     once: once ? 'true' : 'false',
-                    password: password || '' // Save password if provided
+                    password: password || '' // Save the password
                 });
                 updateLinkList();
             })
@@ -398,6 +409,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 ${hasPassword ? `<span class="password-container"><i class="material-icons" style="cursor: pointer;" onclick="revealPassword('${password}', this)">lock</i><span class="password hidden">${password}</span></span>` : ''}
                 ${once ? onceIcon : ''}
                 ${expirationIcon}
+                <button onclick="shareLink('${fullPath}')">Share</button>
             `;
             if (expired) li.classList.add('expired');
             if (once) li.classList.add('once');
@@ -419,7 +431,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const fullPathElement = iconElement.closest('li').querySelector('.fullpath');
         if (fullPathElement) {
             const shortlinkWithPassword = `${fullPathElement.href}?password=${encodeURIComponent(password)}`;
-
+            
             // Use Web Share API if available
             if (navigator.share) {
                 navigator.share({
@@ -442,6 +454,24 @@ document.addEventListener('DOMContentLoaded', function() {
         alert(`Expires: ${new Date(expirationDate).toLocaleString()}`);
     };
 
+    window.shareLink = function(fullPath) {
+        const shareMessage = localStorage.getItem('shareMessage') || '';
+
+        // Use Web Share API if available
+        if (navigator.share) {
+            navigator.share({
+                title: 'Here is a shortlink',
+                text: shareMessage,
+                url: fullPath
+            }).catch(error => console.error('Error sharing:', error));
+        } else {
+            // Fallback to clipboard copy
+            navigator.clipboard.writeText(fullPath)
+                .then(() => alert('Link copied to clipboard'))
+                .catch(error => console.error('Error copying to clipboard:', error));
+        }
+    };
+
     // Set min and max date for expiry date picker
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -452,7 +482,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     updateLinkList();
 });
-
     </script>
 </body>
 </html>
