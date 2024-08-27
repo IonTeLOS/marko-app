@@ -323,7 +323,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 resultMessage.innerHTML = `
                     Shortlink created: <a href="${fullPath}" target="_blank" class="fullpath" onclick="handleFullPathClick('${fullPath}')">${fullPath}</a><br>
                     Redirect Path: <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
-                    Expiration: ${expires}<br>${once ? 'One-time use only' : ''}
+                    Expiration: ${expires}<br>${once ? 'One-time use only' : ''}<br>${password ? 'Password-protected' : ''}
                 `;
 
                 createForm.classList.add('hidden');
@@ -341,11 +341,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 restartBtn.classList.remove('hidden');
 
                 saveShortlink({
-                    shortlink: path, // Save just the path in local storage
+                    shortlink: path, 
                     redirectPath: url,
                     expires: expires,
                     once: once ? 'true' : 'false',
-                    password: password || '' // Save password if provided
+                    password: password || '' 
                 });
                 updateLinkList();
             })
@@ -355,11 +355,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function saveShortlink(data) {
         const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
         shortlinks.push([
-            data.shortlink, // Save only the path
+            data.shortlink, 
             data.redirectPath,
             data.expires || '',
             data.once ? 'true' : 'false',
-            data.password // Save the password
+            data.password
         ]);
         localStorage.setItem('shortlinks', JSON.stringify(shortlinks));
     }
@@ -373,7 +373,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const expired = link[2] && new Date(link[2]) < now;
             const fullPath = `https://marko-app.netlify.app/o/${link[0]}`;
             const redirectPath = link[1];
-            const hasPassword = link[4]; // Check if there's a password
+            const hasPassword = link[4]; 
             const password = hasPassword ? link[4] : '';
             const expires = link[2];
             const once = link[3] === 'true';
@@ -392,26 +392,68 @@ document.addEventListener('DOMContentLoaded', function() {
             // Determine once status
             let onceIcon = '';
             if (once) {
-                onceIcon = `<i class="material-icons" style="color: red;">cancel</i>`;
+                onceIcon = `<i class="material-icons" id="onceIcon-${path}" title="This is a one-time link, click here to see if it has already been used">counter_1</i>`;
             }
 
             li.innerHTML = `
-                ${index + 1}. 
-                <a href="${fullPath}" target="_blank" class="fullpath" onclick="handleFullPathClick('${fullPath}')">${fullPath}</a><br>
-                Redirect Path: <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
-                ${hasPassword ? `
-                    <span class="password-container">
-                        <i class="material-icons" style="cursor: pointer;" onclick="revealPassword('${password}', this)">lock</i>
-                        <span class="password hidden">${password}</span>
-                        ${once ? onceIcon : ''}
-                        ${expirationIcon}
-                    </span>` : ''}
+    ${index + 1}. 
+    <a href="${fullPath}" target="_blank" class="fullpath" onclick="handleFullPathClick('${fullPath}')">${fullPath}</a><br>
+    Redirect Path: 
+    <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
+    ${hasPassword ? `
+        <span class="password-container">
+            <i class="material-icons" style="cursor: pointer;" onclick="revealPassword('${password}', this)">lock</i>
+            <span class="password hidden">${password}</span>
+            ${once ? onceIcon : ''}
+            ${expirationIcon}
+        </span>` : ''}
             `;
             if (expired) li.classList.add('expired');
             if (once) li.classList.add('once');
             linkList.appendChild(li);
         });
     }
+ // Select all icons with id starting with 'onceIcon-'
+const icons = document.querySelectorAll('[id^="onceIcon-"]');
+
+// Add an onclick event listener to each icon
+icons.forEach(icon => {
+    icon.onclick = function() {
+        // Extract the path from the id
+        const iconId = this.id; // Get the full ID (e.g., "onceIcon-12345")
+        const path = iconId.split('-')[1]; // Extract the part after the hyphen (e.g., "12345")
+
+        // Find the closest li element
+        const closestLi = this.closest('li');
+
+        // Get the redirectPath from the 'redirectpath' link in the same li element
+        const storedRedirectPath = closestLi.querySelector('.redirectpath').href;
+
+        // Query the Firebase Realtime Database
+        const shortlinkRef = firebase.database().ref('shortlink/' + path);
+
+        shortlinkRef.once('value').then(snapshot => {
+            const shortlinkData = snapshot.val();
+            
+            if (shortlinkData) {
+                const { redirectPath } = shortlinkData;
+
+                // Check if the stored redirectPath matches the one in the database
+                if (redirectPath === storedRedirectPath) {
+                    alert('Your shortlink has not been clicked yet.');
+                    // Additional logic for handling this case can be added here
+                } else {
+                    alert('Target url does not match. Your shortlink probably has been used and now somebody else uses same alias');
+                }
+            } else {
+                alert('This shortlink does not exist. It was probably a once--only shortlink and has already been clicked');
+            }
+        }).catch(error => {
+            console.error('Error querying database:', error);
+        });
+    };
+});
+
 
     window.revealPassword = function(password, iconElement) {
         // Find the password span element
