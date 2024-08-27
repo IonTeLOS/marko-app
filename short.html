@@ -382,8 +382,8 @@ window.revealPassword = function(password, iconElement) {
         // Use Web Share API if available
         if (navigator.share) {
             navigator.share({
-                title: 'Shortlink with Password',
-                text: shortlinkWithPassword,
+                title: 'Here is my password-protected shortlink',
+                text: 'This is only for you',
                 url: shortlinkWithPassword
             }).catch(error => console.error('Error sharing:', error));
         } else {
