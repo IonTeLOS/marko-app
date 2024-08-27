@@ -424,12 +424,6 @@ document.addEventListener('DOMContentLoaded', function() {
 window.getOnceStatus = function() {    
 const icons = document.querySelectorAll('.onceIcons');
 
-// Add an onclick event listener to each icon
-icons.forEach(icon => {
-    icon.onclick = function() {
-        // Find the closest li element
-        const closestLi = this.closest('li');
-
         // Get path and redirectPath from the 'redirectpath' link in the same li element
         const storedFullPath = closestLi.querySelector('.path').href;
         const baseShortUrl = "https://marko-app.netlify.app/o/";
@@ -458,7 +452,7 @@ icons.forEach(icon => {
         .catch(error => {
             console.error('Error querying database:', error);
         });
-}
+
 
 // Attach click event listener to icons with class 'onceIcons'
 document.querySelectorAll('.onceIcons').forEach(icon => {
