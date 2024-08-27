@@ -399,7 +399,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Determine once status
             let onceIcon = '';
             if (once) {
-                onceIcon = `<i class="material-icons onceIcons" title="This is a one-time link, click here to see if it has already been used">repeat_one</i>`;
+                <i class="material-icons onceIcons" title="This is a one-time link, click here to see if it has already been used" onclick="getOnceStatus()">repeat_one</i>
             }
 
             li.innerHTML = `
@@ -421,6 +421,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+function getOnceStatus() {    
 const icons = document.querySelectorAll('.onceIcons');
 
 // Add an onclick event listener to each icon
@@ -459,7 +460,7 @@ icons.forEach(icon => {
         });
     };
 });
-
+}
 
     window.revealPassword = function(password, iconElement) {
         // Find the password span element
