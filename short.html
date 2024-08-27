@@ -421,7 +421,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-function getOnceStatus() {    
+window.getOnceStatus = function() {    
 const icons = document.querySelectorAll('.onceIcons');
 
 // Add an onclick event listener to each icon
@@ -437,30 +437,37 @@ icons.forEach(icon => {
         const storedRedirectPath = closestLi.querySelector('.redirectpath').href;
 
         // Query the Firebase Realtime Database
-        const shortlinkRef = firebase.database().ref('shortlink/' + path);
+        const url = `https://marko-be9a9-default-rtdb.firebaseio.com/shortlink/${path}.json`;
 
-        shortlinkRef.once('value').then(snapshot => {
-            const shortlinkData = snapshot.val();
-            
-            if (shortlinkData) {
-                const { redirectPath } = shortlinkData;
+    // Construct the URL to query Firebase Realtime Database
+    const url = `https://marko-be9a9-default-rtdb.firebaseio.com/shortlink/${path}.json`;
 
+    // Fetch data from Firebase Realtime Database
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data) {
                 // Check if the stored redirectPath matches the one in the database
-                if (redirectPath === storedRedirectPath) {
+                if (data.redirectPath === storedRedirectPath) {
                     alert('Your shortlink has not been clicked yet.');
                     // Additional logic for handling this case can be added here
                 } else {
-                    alert('Target url does not match. Your shortlink probably has been used and now somebody else uses same alias');
+                    alert('Target URL does not match. Your shortlink probably has been used and now somebody else uses the same alias.');
                 }
             } else {
-                alert('This shortlink does not exist. It was probably a once--only shortlink and has already been clicked');
+                alert('This shortlink does not exist. It was probably a one-time shortlink and has already been clicked.');
             }
-        }).catch(error => {
+        })
+        .catch(error => {
             console.error('Error querying database:', error);
         });
-    };
-});
 }
+
+// Attach click event listener to icons with class 'onceIcons'
+document.querySelectorAll('.onceIcons').forEach(icon => {
+    icon.addEventListener('click', handleIconClick);
+});
+};
 
     window.revealPassword = function(password, iconElement) {
         // Find the password span element
