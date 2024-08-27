@@ -159,6 +159,7 @@ export default async (request, context) => {
                   <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;700&display=swap" rel="stylesheet">
                   <!-- Materialize CSS -->
                   <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+                  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
                   <style>
                     body {
                       display: flex;
