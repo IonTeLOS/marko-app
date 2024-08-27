@@ -1,5 +1,5 @@
 export default async (request, context) => {
-  const { pathname } = new URL(request.url);
+  const { pathname, searchParams } = new URL(request.url);
 
   // Define the custom redirect URL for errors or expired links
   const customPageUrl = "https://marko-app.netlify.app/404.html";
@@ -31,6 +31,41 @@ export default async (request, context) => {
             console.log("Link is one-time use.");
             await fetch(firebaseUrl, { method: "DELETE" }); // Delete entry after use
             return Response.redirect(data.redirectPath, 301);
+          }
+
+          // Check if the link is password protected
+          if (data.password) {
+            const providedPassword = searchParams.get("password");
+
+            if (!providedPassword) {
+              // Show the password prompt page
+              const html = `
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>Password Protected</title>
+                </head>
+                <body>
+                  <h1>Password Required</h1>
+                  <form method="GET" action="">
+                    <input type="password" name="password" placeholder="Enter password" required />
+                    <button type="submit">Submit</button>
+                  </form>
+                </body>
+                </html>
+              `;
+              return new Response(html, {
+                headers: { "Content-Type": "text/html" },
+              });
+            } else if (providedPassword !== data.password) {
+              // Password incorrect
+              return new Response("Incorrect password. Please try again.", { status: 401 });
+            } else {
+              // Password correct, redirect to the intended URL
+              return Response.redirect(data.redirectPath, 301);
+            }
           }
 
           // Update only the hits field if `hits` key exists
