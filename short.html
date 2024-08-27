@@ -368,15 +368,36 @@ document.addEventListener('DOMContentLoaded', function() {
             const redirectPath = link[1];
             const hasPassword = link[4]; // Check if there's a password
             const password = hasPassword ? link[4] : '';
+            const expires = link[2];
+            const once = link[3] === 'true';
+
+            // Determine expiration status
+            let expirationIcon = '';
+            if (expires) {
+                const expirationDate = new Date(expires);
+                const fourYearsLater = new Date();
+                fourYearsLater.setFullYear(now.getFullYear() + 4);
+                if (expirationDate < fourYearsLater) {
+                    expirationIcon = `<i class="material-icons" style="cursor: pointer;" onclick="showExpiration('${expires}')">schedule</i>`;
+                }
+            }
+
+            // Determine once status
+            let onceIcon = '';
+            if (once) {
+                onceIcon = `<i class="material-icons" style="color: red;">cancel</i>`;
+            }
 
             li.innerHTML = `
                 ${index + 1}. 
                 <a href="${fullPath}" target="_blank" class="fullpath">${fullPath}</a><br>
                 Redirect Path: <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
                 ${hasPassword ? `<span class="password-container"><i class="material-icons" style="cursor: pointer;" onclick="revealPassword('${password}', this)">lock</i><span class="password hidden">${password}</span></span>` : ''}
+                ${once ? onceIcon : ''}
+                ${expirationIcon}
             `;
             if (expired) li.classList.add('expired');
-            if (link[3] === 'true') li.classList.add('once');
+            if (once) li.classList.add('once');
             linkList.appendChild(li);
         });
     }
@@ -414,6 +435,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
+    window.showExpiration = function(expirationDate) {
+        alert(`Expires: ${new Date(expirationDate).toLocaleString()}`);
+    };
+
     // Set min and max date for expiry date picker
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -424,6 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     updateLinkList();
 });
+
     </script>
 </body>
 </html>
