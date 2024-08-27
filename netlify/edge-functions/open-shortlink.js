@@ -2,7 +2,7 @@ export default async (request, context) => {
   const { pathname } = new URL(request.url);
 
   // Define the custom redirect URL for errors or expired links
-  const customPageUrl = "https://example.com";
+  const customPageUrl = "https://marko-app.netlify.app/404.html";
 
   if (pathname.startsWith("/o/")) {
     const shortCode = pathname.replace("/o/", "");
