@@ -179,10 +179,6 @@ input[type="text"], input[type="date"], input[type="password"] {
             <div class="input-field">
                 <input type="text" id="urlInput" placeholder="Enter URL to shorten">
             </div>
-            <button id="createBtn" class="btn">
-                <i class="material-icons">link</i>
-                Create Shortlink
-            </button>
             <button id="moreOptionsBtn" class="btn btn-small" style="float: right;">
                 <i class="material-icons">more_horiz</i>
                 More Options
@@ -202,6 +198,10 @@ input[type="text"], input[type="date"], input[type="password"] {
                 <div class="input-field">
                     <input type="password" id="passwordInput" placeholder="Password (optional)" maxlength="16" pattern="^[^\s]*$">
                 </div>
+                <button id="createBtn" class="btn">
+                    <i class="material-icons">link</i>
+                Create Shortlink
+                </button>
             </div>
         </div>
         <div id="result" class="hidden">
@@ -370,12 +370,12 @@ window.revealPassword = function(password, iconElement) {
         passwordSpan.classList.remove('visible');
     }, 10000); // Password visible for 10 seconds
 
-    // Correctly find the full path link
+    // Find the full path link
     const fullPathElement = iconElement.closest('li').querySelector('.fullpath');
     if (fullPathElement) {
         const shortlinkWithPassword = `${fullPathElement.href}?password=${encodeURIComponent(password)}`;
         
-        // Copy to clipboard and use Web Share API if available
+        // Use Web Share API if available
         if (navigator.share) {
             navigator.share({
                 title: 'Shortlink with Password',
@@ -383,6 +383,7 @@ window.revealPassword = function(password, iconElement) {
                 url: shortlinkWithPassword
             }).catch(error => console.error('Error sharing:', error));
         } else {
+            // Fallback to clipboard copy
             navigator.clipboard.writeText(shortlinkWithPassword)
                 .then(() => alert('Shortlink with password copied to clipboard'))
                 .catch(error => console.error('Error copying to clipboard:', error));
@@ -391,8 +392,6 @@ window.revealPassword = function(password, iconElement) {
         console.error('Full path link not found');
     }
 };
-
-
 
     // Set min and max date for expiry date picker
     const tomorrow = new Date();
