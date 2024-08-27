@@ -38,21 +38,93 @@ export default async (request, context) => {
             const providedPassword = searchParams.get("password");
 
             if (!providedPassword) {
+              // Detect language
+              const userLang = (navigator.language || navigator.userLanguage).split('-')[0];
+
+              const translations = {
+                en: { title: "Password Required", label: "Enter password", button: "Submit", error: "Incorrect password. Please try again." },
+                es: { title: "Contraseña Requerida", label: "Ingrese la contraseña", button: "Enviar", error: "Contraseña incorrecta. Inténtelo de nuevo." },
+                fr: { title: "Mot de Passe Requis", label: "Entrez le mot de passe", button: "Soumettre", error: "Mot de passe incorrect. Veuillez réessayer." },
+                de: { title: "Passwort Erforderlich", label: "Passwort eingeben", button: "Einreichen", error: "Falsches Passwort. Bitte versuchen Sie es erneut." },
+                hi: { title: "पासवर्ड आवश्यक", label: "पासवर्ड दर्ज करें", button: "जमा करें", error: "गलत पासवर्ड। कृपया पुनः प्रयास करें।" },
+                ru: { title: "Требуется пароль", label: "Введите пароль", button: "Отправить", error: "Неверный пароль. Попробуйте еще раз." },
+                zh: { title: "需要密码", label: "输入密码", button: "提交", error: "密码错误。请再试一次。" },
+                ar: { title: "كلمة المرور مطلوبة", label: "أدخل كلمة المرور", button: "إرسال", error: "كلمة المرور غير صحيحة. حاول مرة اخرى." },
+                it: { title: "Password Richiesta", label: "Inserisci la password", button: "Invia", error: "Password errata. Per favore riprova." },
+                ja: { title: "パスワードが必要です", label: "パスワードを入力してください", button: "送信", error: "パスワードが間違っています。もう一度やり直してください。" },
+                ko: { title: "비밀번호 필요", label: "비밀번호 입력", button: "제출", error: "잘못된 비밀번호입니다. 다시 시도하십시오." },
+                pt: { title: "Senha Requerida", label: "Digite a senha", button: "Enviar", error: "Senha incorreta. Por favor, tente novamente." },
+                gr: { title: "Απαιτείται Κωδικός", label: "Εισάγετε τον κωδικό πρόσβασης", button: "Υποβολή", error: "Λανθασμένος κωδικός πρόσβασης. Δοκιμάστε ξανά." },
+              };
+
+              const translation = translations[userLang] || translations.en;
+
               // Show the password prompt page
               const html = `
                 <!DOCTYPE html>
-                <html lang="en">
+                <html lang="${userLang}">
                 <head>
                   <meta charset="UTF-8">
                   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <title>Password Protected</title>
+                  <title>${translation.title}</title>
+                  <!-- Fira Sans Font -->
+                  <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;700&display=swap" rel="stylesheet">
+                  <!-- Materialize CSS -->
+                  <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+                  <style>
+                    body {
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      height: 100vh;
+                      background-color: #f5f5f5;
+                      font-family: 'Fira Sans', Arial, sans-serif;
+                      margin: 0;
+                    }
+                    .password-container {
+                      background: white;
+                      padding: 2rem;
+                      border-radius: 8px;
+                      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                      text-align: center;
+                      max-width: 400px;
+                      width: 100%;
+                    }
+                    .password-container h1 {
+                      font-size: 2rem;
+                      margin-bottom: 1.5rem;
+                    }
+                    .password-container .input-field input {
+                      font-size: 1.2rem;
+                      padding: 0.75rem;
+                    }
+                    .password-container button {
+                      width: 100%;
+                      padding: 0.75rem;
+                      font-size: 1.2rem;
+                      margin-top: 1rem;
+                    }
+                    .password-container p {
+                      color: red;
+                      font-size: 1rem;
+                      margin-top: 1rem;
+                    }
+                  </style>
                 </head>
                 <body>
-                  <h1>Password Required</h1>
-                  <form method="GET" action="">
-                    <input type="password" name="password" placeholder="Enter password" required />
-                    <button type="submit">Submit</button>
-                  </form>
+                  <div class="password-container">
+                    <h1>${translation.title}</h1>
+                    ${searchParams.get("password") === null ? `
+                      <form method="GET" action="">
+                        <div class="input-field">
+                          <input type="password" name="password" id="password" placeholder="${translation.label}" required />
+                        </div>
+                        <button class="btn waves-effect waves-light" type="submit">${translation.button}</button>
+                      </form>
+                    ` : `<p>${translation.error}</p>`}
+                  </div>
+                  <!-- Materialize JS -->
+                  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
                 </body>
                 </html>
               `;
@@ -61,25 +133,154 @@ export default async (request, context) => {
               });
             } else if (providedPassword !== data.password) {
               // Password incorrect
-              return new Response("Incorrect password. Please try again.", { status: 401 });
-            } else {
+              const html = `
+                <!DOCTYPE html>
+                <html lang="${userLang}">
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>${translations.en.title}</title>
+                  <!-- Fira Sans Font -->
+                  <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;700&display=swap" rel="stylesheet">
+                  <!-- Materialize CSS -->
+                  <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+                  <style>
+                    body {
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      height: 100vh;
+                      background-color: #f5f5f5;
+                      font-family: 'Fira Sans', Arial, sans-serif;
+                      margin: 0;
+                    }
+                    .password-container {
+                      background: white;
+                      padding: 2rem;
+                      border-radius: 8px;
+                      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                      text-align: center;
+                      max-width: 400px;
+                      width: 100%;
+                    }
+                    .password-container h1 {
+                      font-size: 2rem;
+                      margin-bottom: 1.5rem;
+                    }
+                    .password-container .input-field input {
+                      font-size: 1.2rem;
+                      padding: 0.75rem;
+                    }
+                    .password-container button {
+                      width: 100%;
+                      padding: 0.75rem;
+                      font-size: 1.2rem;
+                      margin-top: 1rem;
+                    }
+                    .password-container p {
+                      color: red;
+                      font-size: 1rem;
+                      margin-top: 1rem;
+                    }
+                  </style>
+                </head>
+                <body>
+                  <div class="password-container">
+                    <h1>${translations.en.title}</h1>
+                    <p>${translations[userLang]?.error || translations.en.error}</p>
+                    <form method="GET" action="">
+                      <div class="input-field">
+                        <input type="password" name="password" id="password" placeholder="${translations.en.label}" required />
+                      </div>
+                      <button class="btn waves-effect waves-light" type="submit">${translations.en.button}</button>
+                    </form>
+                  </div>
+                  <!-- Materialize JS -->
+                  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+                </body>
+                </html>
+              `;
+              return new Response(html, {
+                headers: { "Content-Type": "text/html" },
+              });
+            }
+
+            // Check if the password is correct
+            if (providedPassword === data.password) {
               // Password correct, redirect to the intended URL
               return Response.redirect(data.redirectPath, 301);
-            }
-          }
-
-          // Update only the hits field if `hits` key exists
-          if ('hits' in data) {
-            const updateResponse = await fetch(firebaseUrl, {
-              method: "PATCH",
-              body: JSON.stringify({ hits: (data.hits || 0) + 1 }),
-              headers: { "Content-Type": "application/json" }
-            });
-
-            if (updateResponse.ok) {
-              console.log("Hits updated successfully.");
             } else {
-              console.error("Error updating hits in Firebase:", await updateResponse.text());
+              // Password incorrect
+              const html = `
+                <!DOCTYPE html>
+                <html lang="${userLang}">
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>${translations.en.title}</title>
+                  <!-- Fira Sans Font -->
+                  <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;700&display=swap" rel="stylesheet">
+                  <!-- Materialize CSS -->
+                  <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+                  <style>
+                    body {
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      height: 100vh;
+                      background-color: #f5f5f5;
+                      font-family: 'Fira Sans', Arial, sans-serif;
+                      margin: 0;
+                    }
+                    .password-container {
+                      background: white;
+                      padding: 2rem;
+                      border-radius: 8px;
+                      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                      text-align: center;
+                      max-width: 400px;
+                      width: 100%;
+                    }
+                    .password-container h1 {
+                      font-size: 2rem;
+                      margin-bottom: 1.5rem;
+                    }
+                    .password-container .input-field input {
+                      font-size: 1.2rem;
+                      padding: 0.75rem;
+                    }
+                    .password-container button {
+                      width: 100%;
+                      padding: 0.75rem;
+                      font-size: 1.2rem;
+                      margin-top: 1rem;
+                    }
+                    .password-container p {
+                      color: red;
+                      font-size: 1rem;
+                      margin-top: 1rem;
+                    }
+                  </style>
+                </head>
+                <body>
+                  <div class="password-container">
+                    <h1>${translations.en.title}</h1>
+                    <p>${translations.en.error}</p>
+                    <form method="GET" action="">
+                      <div class="input-field">
+                        <input type="password" name="password" id="password" placeholder="${translations.en.label}" required />
+                      </div>
+                      <button class="btn waves-effect waves-light" type="submit">${translations.en.button}</button>
+                    </form>
+                  </div>
+                  <!-- Materialize JS -->
+                  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+                </body>
+                </html>
+              `;
+              return new Response(html, {
+                headers: { "Content-Type": "text/html" },
+              });
             }
           }
 
