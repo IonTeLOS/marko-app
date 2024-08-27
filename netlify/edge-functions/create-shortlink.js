@@ -7,6 +7,7 @@ export default async (request, context) => {
   const ownerEmail = searchParams.get("owner");
   let expireTime = searchParams.get("expires");
   const once = searchParams.get("once") === "true"; // Extract `once` parameter
+  const password = searchParams.get("password"); // Extract `password` parameter
 
   // Check for required parameters
   if (!redirectPath || !ownerEmail) {
@@ -63,6 +64,11 @@ export default async (request, context) => {
       data.once = true;
     }
 
+    // Add the `password` key if provided
+    if (password) {
+      data.password = password;
+    }
+
     const createResponse = await fetch(firebaseUrl, {
       method: "PUT",
       body: JSON.stringify(data),
@@ -78,6 +84,7 @@ export default async (request, context) => {
           redirectPath,
           expires: expireTime,
           once,
+          password: password || null, // Include password in the response if set
           message: `Successfully created path "${path}" with redirect URL "${redirectPath}". Expiration: ${expireTime}${once ? ' (One-time use only)' : ''}`,
         }),
         { status: 201, headers: { "Content-Type": "application/json" } }
