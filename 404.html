@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error Page</title>
+    <!-- Fira Sans Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Materialize CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fira Sans', Arial, sans-serif;
+        }
+        .error-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+            text-align: center;
+            padding: 20px;
+        }
+        .error-container h1 {
+            font-size: 5rem;
+            margin-bottom: 20px;
+        }
+        .error-container h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+        .error-container p {
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+        }
+        .error-container .btn-large {
+            font-size: 1.5rem;
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .error-container .btn-large i {
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="error-container">
+        <i class="material-icons large">error_outline</i>
+        <h1 id="errorMessage">404</h1>
+        <h2 id="errorDescription">Oops! Something went wrong.</h2>
+        <p id="errorDetails">The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.</p>
+        <a id="homeButton" class="btn-large waves-effect waves-light">
+            <i class="material-icons">home</i>
+            Go Home
+        </a>
+    </div>
+
+    <!-- Materialize JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script>
+        // Function to get translations based on system language
+        function getTranslation(language) {
+            const translations = {
+                en: {
+                    error: '404',
+                    description: 'Oops! Something went wrong.',
+                    details: 'The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.',
+                    button: 'Go Home'
+                },
+                es: {
+                    error: '404',
+                    description: '¡Vaya! Algo salió mal.',
+                    details: 'Es posible que la página que busca se haya eliminado, cambiado de nombre o no esté disponible temporalmente.',
+                    button: 'Ir a Inicio'
+                },
+                fr: {
+                    error: '404',
+                    description: 'Oups! Quelque chose s\'est mal passé.',
+                    details: 'La page que vous recherchez a peut-être été supprimée, renommée ou est temporairement indisponible.',
+                    button: 'Retourner à l\'accueil'
+                },
+                de: {
+                    error: '404',
+                    description: 'Hoppla! Da ist etwas schief gelaufen.',
+                    details: 'Die Seite, nach der Sie suchen, wurde möglicherweise entfernt, umbenannt oder ist vorübergehend nicht verfügbar.',
+                    button: 'Zur Startseite'
+                },
+                hi: {
+                    error: '404',
+                    description: 'अरे नहीं! कुछ गलत हो गया।',
+                    details: 'जिस पृष्ठ की आप तलाश कर रहे हैं, उसे हटा दिया गया है, उसका नाम बदल दिया गया है या वह अस्थायी रूप से अनुपलब्ध है।',
+                    button: 'मुख्य पृष्ठ पर जाएं'
+                },
+                ru: {
+                    error: '404',
+                    description: 'Упс! Что-то пошло не так.',
+                    details: 'Страница, которую вы ищете, возможно, была удалена, переименована или временно недоступна.',
+                    button: 'На главную'
+                },
+                zh: {
+                    error: '404',
+                    description: '哎呀！出了些问题。',
+                    details: '您要查找的页面可能已被删除，已更名，或暂时不可用。',
+                    button: '回到主页'
+                },
+                ar: {
+                    error: '404',
+                    description: 'عذرًا! حدث خطأ ما.',
+                    details: 'قد تكون الصفحة التي تبحث عنها قد أزيلت أو تغير اسمها أو أنها غير متاحة مؤقتًا.',
+                    button: 'العودة إلى الصفحة الرئيسية'
+                },
+                it: {
+                    error: '404',
+                    description: 'Ops! Qualcosa è andato storto.',
+                    details: 'La pagina che stai cercando potrebbe essere stata rimossa, rinominata o temporaneamente non disponibile.',
+                    button: 'Vai alla Home'
+                },
+                ja: {
+                    error: '404',
+                    description: 'おっと！何かがうまくいきませんでした。',
+                    details: 'お探しのページは削除されたか、名前が変更されたか、一時的に利用できない可能性があります。',
+                    button: 'ホームに戻る'
+                },
+                ko: {
+                    error: '404',
+                    description: '이런! 문제가 발생했습니다.',
+                    details: '찾고 있는 페이지가 삭제되었거나 이름이 변경되었거나 일시적으로 사용할 수 없습니다.',
+                    button: '홈으로 이동'
+                },
+                pt: {
+                    error: '404',
+                    description: 'Ops! Algo deu errado.',
+                    details: 'A página que você está procurando pode ter sido removida, renomeada ou está temporariamente indisponível.',
+                    button: 'Ir para a Página Inicial'
+                },
+                gr: {
+                    error: '404',
+                    description: 'Ωχ! Κάτι πήγε στραβά.',
+                    details: 'Η σελίδα που αναζητάτε μπορεί να έχει διαγραφεί, μετονομαστεί ή να μην είναι προσωρινά διαθέσιμη.',
+                    button: 'Πήγαινε στην Αρχική'
+                }
+            };
+            // Return the translation if found, otherwise default to English
+            return translations[language] || translations.en;
+        }
+
+        // Detect system language
+        document.addEventListener('DOMContentLoaded', function() {
+            const userLang = navigator.language || navigator.userLanguage;
+            const langCode = userLang.split('-')[0]; // Get the language code part
+
+            const translation = getTranslation(langCode);
+            document.getElementById('errorMessage').textContent = translation.error;
+            document.getElementById('errorDescription').textContent = translation.description;
+            document.getElementById('errorDetails').textContent = translation.details;
+            document.getElementById('homeButton').innerHTML = '<i class="material-icons">home</i>' + translation.button;
+
+            // Handle the home URL parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            const homeURL = urlParams.get('home') || '/';
+            document.getElementById('homeButton').setAttribute('href', homeURL);
+        });
+    </script>
+</body>
+</html>
