@@ -254,9 +254,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!moreOptions.classList.contains('hidden')) {
             // More options are already visible, hide them
             const fields = [aliasInput, expiryDate, passwordInput];
-            if (fields.some(field => field.value.trim() !== '')) {
+            const nonEmptyFields = fields.filter(field => field.value.trim() !== '');
+
+            if (nonEmptyFields.length > 0) {
                 if (confirm('Custom options have been cleared. Continue?')) {
                     fields.forEach(field => field.value = '');
+                    alert('Custom options cleared.');
                 }
             }
             moreOptions.classList.add('hidden');
@@ -486,6 +489,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     updateLinkList();
 });
+
 
     </script>
 </body>
