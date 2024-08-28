@@ -423,7 +423,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 window.getOnceStatus = function() {    
 const icons = document.querySelectorAll('.onceIcons');
-
+        // Find the closest li element
+        const closestLi = this.closest('li');
         // Get path and redirectPath from the 'redirectpath' link in the same li element
         const storedFullPath = closestLi.querySelector('.path').href;
         const baseShortUrl = "https://marko-app.netlify.app/o/";
