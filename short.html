@@ -387,7 +387,7 @@ function updateLinkList() {
         const expired = expirationDate < now;
         const isExpiringSoon = expirationDate < fourYearsFromNow && expirationDate >= now;
         const hasPassword = password && password.trim() !== '';
-        const onceStatus = once === 'true';
+        const onceStatus = once === 'true' || once === true; // Handle both 'true' (string) and true (boolean)
 
         // Create a new list item
         const li = document.createElement('li');
