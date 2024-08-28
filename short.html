@@ -600,9 +600,9 @@ function isMobile() {
 function handleMobileDisplay() {
     const inputFieldDiv = document.querySelector('.input-field.message');
     if (isMobile()) {
-        inputFieldDiv.style.display = 'block'; // Show the element on mobile
+        inputFieldDiv.style.display = 'block'; 
     } else {
-        inputFieldDiv.style.display = 'none';  // Hide the element on non-mobile
+        inputFieldDiv.style.display = 'none'; 
     }
 }
 
@@ -611,17 +611,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputField = document.getElementById('shareMessageInput');
 
     clearButton.addEventListener('click', () => {
-        inputField.value = ''; // Clear the input field
-        inputField.focus(); // Optionally refocus the input field
+        inputField.value = '';
+        localStorage.removeItem('shareMessage');
+        inputField.focus();
     });
 });
         
-// Attach the handleMobileDisplay function to the window.onload event
 window.onload = function() {
     handleMobileDisplay();
 };
-
-
+        
     </script>
 </body>
 </html>
