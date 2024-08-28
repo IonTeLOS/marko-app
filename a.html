@@ -6,6 +6,7 @@
     <title>Redirecting...</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.adapty.io/sdk/adapty.min.js"></script>
     <style>
         body {
             display: flex;
@@ -120,6 +121,8 @@ preloadLinks();
     </script>
 </head>
 <body>
+    <button id="check-subscription">Check Subscription</button>
+    <button id="purchase">Make Purchase</button>
     <div class="container">
         <div class="countdown" id="countdownMessage">Opening link in <span id="countdown">10</span> seconds...</div>
         <div class="message" id="billboardAd"></div>
@@ -138,6 +141,43 @@ preloadLinks();
     </div>
 
     <script>
+         // Initialize Adapty SDK
+        Adapty.initialize('public_live_vLjCouQE.TwD7IUC057mRss7xbKkN'); // Replace with your actual API key
+
+        // Function to check subscription status
+        function checkSubscription() {
+            Adapty.getSubscriptionStatus().then(status => {
+                console.log('Subscription Status:', status);
+                // Handle subscription status
+                if (status.isActive) {
+                    alert('You have an active subscription.');
+                } else {
+                    alert('No active subscription.');
+                }
+            }).catch(error => {
+                console.error('Error checking subscription:', error);
+            });
+        }
+
+        // Function to handle a purchase
+        function makePurchase() {
+            Adapty.purchaseProduct('bhgvcf').then(result => {
+                console.log('Purchase Result:', result);
+                // Handle purchase result
+                if (result.success) {
+                    alert('Purchase successful!');
+                } else {
+                    alert('Purchase failed.');
+                }
+            }).catch(error => {
+                console.error('Error making purchase:', error);
+            });
+        }
+
+        // Attach event listeners to buttons
+        document.getElementById('check-subscription').addEventListener('click', checkSubscription);
+        document.getElementById('purchase').addEventListener('click', makePurchase);
+
         const localizationMessages = {
     en: "Opening link in {count} seconds...",
     es: "Abriendo enlace en {count} segundos...",
