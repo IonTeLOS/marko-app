@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shortlink Creator</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
 body {
-    font-family: 'Roboto', sans-serif;
+    font-family: 'JetBrains Mono', monospace;
     margin: 0;
     padding: 20px;
     background-color: #f5f5f5;
@@ -297,9 +298,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const nonEmptyFields = fields.filter(field => field.value.trim() !== '');
 
             if (nonEmptyFields.length > 0) {
-                if (confirm('Custom options have been cleared. Continue?')) {
+                if (confirm('Clear custom options?')) {
                     fields.forEach(field => field.value = '');
                     alert('Custom options cleared.');
+                } else {
+                    alert('Custom options kept in the background.');
                 }
             }
             moreOptions.classList.add('hidden');
