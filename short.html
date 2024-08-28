@@ -374,10 +374,8 @@ document.addEventListener('DOMContentLoaded', function() {
 function updateLinkList() {
     linkList.innerHTML = '';
     const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
-    const now = new Date();
-
     shortlinks.forEach((link, index) => {
-        const li = document.createElement('li');
+        const now = new Date();
         const expired = link[2] && new Date(link[2]) < now;
         const fullPath = `https://marko-app.netlify.app/o/${link[0]}`;
         const redirectPath = link[1];
@@ -390,8 +388,9 @@ function updateLinkList() {
         let expirationIcon = '';
         if (expires) {
             const expirationDate = new Date(expires);
-            // Expired if current date is past the expiration date
             if (expirationDate < now) {
+                expirationIcon = `<i class="material-icons" style="cursor: pointer;" onclick="showExpiration('${expires}')">schedule</i>`;
+            } else {
                 expirationIcon = `<i class="material-icons" style="cursor: pointer;" onclick="showExpiration('${expires}')">schedule</i>`;
             }
         }
@@ -421,6 +420,7 @@ function updateLinkList() {
     });
 }
 
+
 window.getOnceStatus = function(iconElement) {
     // Find the closest li element
     const closestLi = iconElement.closest('li');
@@ -434,8 +434,8 @@ window.getOnceStatus = function(iconElement) {
             // Extract the URL from the span's text content
             const storedFullPath = pathElement.textContent.trim();
             const baseShortUrl = "https://marko-app.netlify.app/o/";
-            const path = storedFullPath.replace(baseShortUrl, '');        
-            const storedRedirectPath = redirectPathElement.href;
+            const path = storedFullPath.replace(baseShortUrl, '');
+            const storedRedirectPath = redirectPathElement.href.trim();
 
             // Construct the URL to query Firebase Realtime Database
             const url = `https://marko-be9a9-default-rtdb.firebaseio.com/shortlink/${path}.json`;
@@ -446,7 +446,7 @@ window.getOnceStatus = function(iconElement) {
                 .then(data => {
                     if (data) {
                         // Check if the stored redirectPath matches the one in the database
-                        if (data.redirectPath === storedRedirectPath) {
+                        if (data.redirectPath.trim() === storedRedirectPath) {
                             alert('Your shortlink has not been clicked yet.');
                         } else {
                             alert('Target URL does not match. Your shortlink probably has been used and now somebody else uses the same alias.');
