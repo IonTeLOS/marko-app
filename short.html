@@ -399,7 +399,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Determine once status
             let onceIcon = '';
             if (once) {
-               onceIcon = `<i class="material-icons onceIcons" title="This is a one-time link, click here to see if it has already been used">repeat_one</i>`;
+               onceIcon = `<i class="material-icons onceIcons" title="This is a one-time link, click here to see if it has already been used" onclick="getOnceStatus(this)">repeat_one</i>`;
             }
 
             li.innerHTML = `
@@ -459,15 +459,6 @@ window.getOnceStatus = function(iconElement) {
         console.error('Could not find the closest li element.');
     }
 };
-
-// Attach click event listener to icons with class 'onceIcons'
-document.querySelectorAll('.onceIcons').forEach(icon => {
-    icon.addEventListener('click', function(event) {
-        // Pass the clicked icon element (event.currentTarget) to the global function
-        getOnceStatus(event.currentTarget);
-    });
-});
-
 
     window.revealPassword = function(password, iconElement) {
         // Find the password span element
