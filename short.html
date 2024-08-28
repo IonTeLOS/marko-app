@@ -434,13 +434,13 @@ function updateLinkList() {
         // Determine expiration icon
         let expirationIcon = '';
         if (expires && isExpiringSoon) {
-            expirationIcon = `<i class="material-icons" style="cursor: pointer;" onclick="showExpiration('${expires}')">schedule</i>`;
+            expirationIcon = `<i class="material-icons" title="This is a shortlink that has a set expiration date, click here to see when it expires" style="cursor: pointer;" onclick="showExpiration('${expires}')">schedule</i>`;
         }
 
         // Determine once status icon
         let onceIcon = '';
         if (onceStatus) {
-            onceIcon = `<i class="material-icons onceIcons" title="This is a one-time link, click here to see if it has already been used" onclick="getOnceStatus(this)">repeat_one</i>`;
+            onceIcon = `<i class="material-icons onceIcons" title="This is a one-time shortlink, click here to see if it has already been used" onclick="getOnceStatus(this)">repeat_one</i>`;
         }
 
         // Construct the list item content
@@ -450,7 +450,7 @@ function updateLinkList() {
             Target: 
             <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
             <span class="password-container">
-                ${hasPassword ? `<i class="material-icons" style="cursor: pointer;" onclick="revealPassword('${password}', this)">lock</i><span class="password hidden">${password}</span>` : ''}
+                ${hasPassword ? `<i class="material-icons" title="This is a password-protected shortlink, click here to see password and optionally share it with its password" style="cursor: pointer;" onclick="revealPassword('${password}', this)">lock</i><span class="password hidden">${password}</span>` : ''}
                 ${onceIcon}
                 ${expirationIcon}
             </span>
