@@ -215,15 +215,15 @@ input[type="text"], input[type="date"], input[type="password"] {
                 <div class="input-field">
                     <input type="password" id="passwordInput" placeholder="Password (optional)" maxlength="16" pattern="^[^\s]*$">
                 </div>
-                <div class="input-field">
-                    <input type="text" id="shareMessageInput" placeholder="Custom share message (optional)" maxlength="100">
-                </div>
             </div>
             <button id="createBtn" class="btn">
                     <i class="material-icons">link</i>
                 Create Shortlink
             </button>
         </div>
+         <div class="input-field">
+                    <input type="text" id="shareMessageInput" placeholder="Custom share message (optional - this will be used when you share any shortlink on mobile)" maxlength="100">
+         </div>
         <div id="result" class="hidden">
             <p id="resultMessage"></p>
             <button id="testBtn" class="btn hidden">
