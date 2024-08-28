@@ -33,6 +33,13 @@ export default async (request, context) => {
             return Response.redirect(data.redirectPath, 301);
           }
 
+          // Handle the `na` field
+          if (data.na === true) {
+            console.log("Link is directly accessible.");
+            // Redirect directly to the target URL
+            return Response.redirect(data.redirectPath, 301);
+          }
+          
           // Check if the link is password protected
           if (data.password) {
             const providedPassword = searchParams.get("password");
@@ -229,30 +236,8 @@ export default async (request, context) => {
             }
           }
 
-          // Handle the `na` query parameter
-          const naParam = searchParams.get("na");
-          if (naParam !== null) {
-            const ownerEmail = data.owner; // Email associated with the link
-            const naDatabaseUrl = `https://marko-be9a9-default-rtdb.firebaseio.com/na.json`;
-
-            // Check if the owner is listed in the /na database
-            const naResponse = await fetch(naDatabaseUrl);
-            if (naResponse.ok) {
-              const naData = await naResponse.json();
-
-              // Check if any entry in /na matches the owner email
-              const isOwnerListed = Object.values(naData).some(entry => entry.owner === ownerEmail);
-
-              if (isOwnerListed) {
-                // Owner is listed in /na database, redirect without loading intermediate page
-                return Response.redirect(data.redirectPath, 301);
-              }
-            }
-
-            // If the owner is not listed or there is an error, continue with normal flow
-          }
-
-          // Redirect to the intermediate page with the target URL
+          
+          // If `na` is false or not present, redirect to the intermediate page
           const intermediatePageUrl = `/a/?target=${encodeURIComponent(data.redirectPath)}`;
           return Response.redirect(intermediatePageUrl, 301);
         } else {
