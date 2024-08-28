@@ -371,12 +371,13 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('shortlinks', JSON.stringify(shortlinks));
     }
 
-    function updateLinkList() {
+function updateLinkList() {
     linkList.innerHTML = '';
     const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
+    const now = new Date();
+
     shortlinks.forEach((link, index) => {
         const li = document.createElement('li');
-        const now = new Date();
         const expired = link[2] && new Date(link[2]) < now;
         const fullPath = `https://marko-app.netlify.app/o/${link[0]}`;
         const redirectPath = link[1];
@@ -389,6 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let expirationIcon = '';
         if (expires) {
             const expirationDate = new Date(expires);
+            // Expired if current date is past the expiration date
             if (expirationDate < now) {
                 expirationIcon = `<i class="material-icons" style="cursor: pointer;" onclick="showExpiration('${expires}')">schedule</i>`;
             }
@@ -464,10 +466,12 @@ window.getOnceStatus = function(iconElement) {
     }
 };
 
-    window.revealPassword = function(password, iconElement) {
-        // Find the password span element
-        const passwordSpan = iconElement.nextElementSibling;
 
+    window.revealPassword = function(password, iconElement) {
+    // Find the password span element
+    const passwordSpan = iconElement.nextElementSibling;
+
+    if (passwordSpan) {
         // Show password for 10 seconds
         passwordSpan.classList.add('visible');
         setTimeout(() => {
@@ -477,7 +481,7 @@ window.getOnceStatus = function(iconElement) {
         // Find the full path link
         const fullPathElement = iconElement.closest('li').querySelector('.fullpath');
         if (fullPathElement) {
-            const shortlinkWithPassword = `${fullPathElement.href}?password=${encodeURIComponent(password)}`;
+            const shortlinkWithPassword = `${fullPathElement.textContent.trim()}?password=${encodeURIComponent(password)}`;
             
             // Use Web Share API if available
             if (navigator.share) {
@@ -495,7 +499,11 @@ window.getOnceStatus = function(iconElement) {
         } else {
             console.error('Full path link not found');
         }
-    };
+    } else {
+        console.error('Password span not found');
+    }
+};
+
 
     window.showExpiration = function(expirationDate) {
         alert(`Expires: ${new Date(expirationDate).toLocaleString()}`);
