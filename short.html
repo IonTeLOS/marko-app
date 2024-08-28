@@ -421,10 +421,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-// Function to handle the click event
-function getOnceStatus() {
-    // `this` refers to the clicked icon element here
-    const closestLi = this.closest('li');
+// Global function to handle the click event
+window.getOnceStatus = function(iconElement) {
+    // Find the closest li element
+    const closestLi = iconElement.closest('li');
 
     if (closestLi) {
         // Get path and redirectPath from the 'redirectpath' link in the same li element
@@ -458,12 +458,16 @@ function getOnceStatus() {
     } else {
         console.error('Could not find the closest li element.');
     }
-}
+};
 
 // Attach click event listener to icons with class 'onceIcons'
 document.querySelectorAll('.onceIcons').forEach(icon => {
-    icon.addEventListener('click', handleIconClick);
+    icon.addEventListener('click', function() {
+        // Pass the clicked icon element to the global function
+        getOnceStatus(this);
+    });
 });
+
 
     window.revealPassword = function(password, iconElement) {
         // Find the password span element
