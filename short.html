@@ -221,7 +221,7 @@ input[type="text"], input[type="date"], input[type="password"] {
                 Create Shortlink
             </button>
         </div>
-         <div class="input-field">
+         <div class="input-field message">
                     <input type="text" id="shareMessageInput" placeholder="Custom share message (optional - this will be used when you share any shortlink on mobile)" maxlength="100">
          </div>
         <div id="result" class="hidden">
@@ -553,6 +553,26 @@ window.getOnceStatus = function(iconElement) {
 
     updateLinkList();
 });
+        
+// Function to check if the user is on a mobile device
+function isMobile() {
+    return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+// Function to display or hide the mobile-specific input field
+function handleMobileDisplay() {
+    const inputFieldDiv = document.querySelector('.input-field message');
+    if (isMobile()) {
+        inputFieldDiv.style.display = 'block'; // Show the element on mobile
+    } else {
+        inputFieldDiv.style.display = 'none';  // Hide the element on non-mobile
+    }
+}
+
+// Attach the handleMobileDisplay function to the window.onload event
+window.onload = function() {
+    handleMobileDisplay();
+};
 
 
     </script>
