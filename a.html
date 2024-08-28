@@ -4,10 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Redirecting...</title>
-    <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
-    <!-- Google Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <!-- Google Fonts for Roboto -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
     <style>
         body {
@@ -21,7 +18,9 @@
         }
         .container {
             text-align: center;
-            max-width: 600px;
+            width: 100%;
+            max-width: 1200px; /* Increase max-width for larger billboard-sized container */
+            height: auto;
             padding: 20px;
             background-color: #fff;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
@@ -32,10 +31,20 @@
             margin-bottom: 20px;
             color: #ff6f00;
         }
-        .adContainer {
+        .message {
             font-size: 18px;
             margin-bottom: 20px;
             color: #333;
+            height: 250px; /* Set height for the billboard ad space */
+            background-color: #e0e0e0; /* Placeholder background color */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background-image: url('https://theonlineadvertisingguide.com/wp-content/uploads/2017/07/BillboardExample.jpg');
+            background-size: cover;
+            background-position: center;
+            cursor: pointer; /* Makes the div appear clickable */
         }
         .button-group {
             display: flex;
@@ -59,80 +68,102 @@
         }
         .redirect-button {
             border-radius: 4px;
-            padding: 12px 40px; /* Increased padding for larger button */
+            padding: 16px 64px; /* Make the middle button larger */
             text-transform: uppercase;
-            font-size: 16px;
-            max-width: 300px; /* Increased max-width for larger button */
+            font-size: 18px;
+            max-width: 300px;
         }
         .redirect-button:hover,
         .icon-button:hover {
             background-color: #ff8f00;
         }
     </style>
+    <script>
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+function preloadLinks() {
+    const targetUrl = getQueryParam('target');
+    const extraLink = getQueryParam('message');
+
+    const addPreconnect = (url) => {
+        const linkElement = document.createElement('link');
+        linkElement.rel = 'preconnect';
+        linkElement.href = new URL(url).origin;
+        document.head.appendChild(linkElement);
+    };
+
+    const addDnsPrefetch = (url) => {
+        const linkElement = document.createElement('link');
+        linkElement.rel = 'dns-prefetch';
+        linkElement.href = new URL(url).origin;
+        document.head.appendChild(linkElement);
+    };
+
+    if (targetUrl) {
+        addPreconnect(targetUrl);
+        addDnsPrefetch(targetUrl);
+    }
+
+    if (extraLink) {
+        addPreconnect(extraLink);
+        addDnsPrefetch(extraLink);
+    }
+}
+
+// Call this function early in your script
+preloadLinks();
+
+
+    </script>
 </head>
 <body>
     <div class="container">
         <div class="countdown" id="countdownMessage">Opening link in <span id="countdown">10</span> seconds...</div>
-        <div id="adContainer"></div>
+        <div class="message" id="billboardAd"></div>
+
         <div class="button-group">
-            <div id="pauseButton" class="icon-button">
-                <i class="material-icons">pause</i>
+            <div id="pauseButton" class="icon-button" title="Pause-restart timer">
+                <i class="material-icons" >pause</i>
             </div>
-            <a id="redirectButton" class="redirect-button">
-                <i class="material-icons">exit_to_app</i>
+            <a id="redirectButton" class="redirect-button" title="Open the link now!">
+                <i class="material-icons" >exit_to_app</i>
             </a>
-            <div id="shareButton" class="icon-button">
+            <div id="shareButton" class="icon-button" title="Share this page">
                 <i class="material-icons">share</i>
             </div>
         </div>
     </div>
-    
 
     <script>
-        // Ensure googletag is defined
-        window.googletag = window.googletag || { cmd: [] };
-
-        // Define the ad slot
-        googletag.cmd.push(function() {
-            googletag.defineSlot('/1234567/test_ad', [300, 250], 'adContainer')
-                .addService(googletag.pubads());
-            googletag.pubads().enableSingleRequest();
-            googletag.enableServices();
-            googletag.display('adContainer'); // Display the ad in the container
-        });
-
-        // Load the ad on page load
-        window.onload = function() {
-            googletag.cmd.push(function() {
-                googletag.pubads().refresh(); // Refresh the ad to ensure it's displayed
-            });
-        };
-    </script>
-    <script>
-        // Localization messages for countdown
         const localizationMessages = {
-            en: "Opening link in {count} seconds...",
-            es: "Abriendo enlace en {count} segundos...",
-            fr: "Ouverture du lien dans {count} secondes...",
-            de: "Link öffnet in {count} Sekunden...",
-            it: "Apertura del link tra {count} secondi...",
-            nl: "Link opent in {count} seconden...",
-            pt: "Abrindo link em {count} segundos...",
-            ru: "Открытие ссылки через {count} секунд...",
-            zh: "将在 {count} 秒后打开链接...",
-            ja: "{count} 秒後にリンクを開きます...",
-            ar: "سيتم فتح الرابط خلال {count} ثانية...",
-            el: "Άνοιγμα συνδέσμου σε {count} δευτερόλεπτα...",
-        };
+    en: "Opening link in {count} seconds...",
+    es: "Abriendo enlace en {count} segundos...",
+    fr: "Ouverture du lien dans {count} secondes...",
+    de: "Link öffnet in {count} Sekunden...",
+    it: "Apertura del link tra {count} secondi...",
+    nl: "Link opent in {count} seconden...",
+    pt: "Abrindo link em {count} segundos...",
+    ru: "Открытие ссылки через {count} секунд...",
+    zh: "将在 {count} 秒后打开链接...",
+    ja: "{count} 秒後にリンクを開きます...",
+    ar: "سيتم فتح الرابط خلال {count} ثانية...",
+    el: "Άνοιγμα συνδέσμου σε {count} δευτερόλεπτα...",
+    ko: "{count} 초 후에 링크가 열립니다...",
+    tr: "{count} saniye içinde bağlantı açılıyor...",
+    hi: "{count} सेकंड में लिंक खुल रहा है...",
+    pl: "Link otworzy się za {count} sekund..."
+};
 
-        // Get browser language and localize the countdown message
         function localizeCountdownMessage(count) {
             const userLang = navigator.language.slice(0, 2);
             const messageTemplate = localizationMessages[userLang] || localizationMessages['en'];
             return messageTemplate.replace('{count}', count);
         }
 
-        const targetUrl = getQueryParam('target') || 'https://example.com'; // Default URL if no target param
+        const targetUrl = getQueryParam('target') || 'https://marko-app.netlify.app/short'; // Default URL if no target param
         const extraLink = getQueryParam('message'); // Get the additional link from the message param
         let countdownNumber = 10;
         const countdownElement = document.getElementById('countdown');
@@ -149,9 +180,6 @@
                 if (countdownNumber <= 0) {
                     clearInterval(countdownInterval);
                     window.location.href = targetUrl;
-                    if (extraLink) {
-                        window.open(extraLink, '_blank'); // Open the extra link in a new tab
-                    }
                 } else {
                     countdownElement.textContent = countdownNumber;
                     countdownMessageElement.textContent = localizeCountdownMessage(countdownNumber);
@@ -175,6 +203,7 @@
             if (navigator.share) {
                 navigator.share({
                     title: 'Check this out',
+                    text: 'Click me',
                     url: shareUrl,
                 }).catch(console.error);
             } else {
@@ -188,21 +217,20 @@
         // Redirect immediately when button is clicked
         redirectButton.addEventListener('click', function() {
             clearInterval(countdownInterval);
+            window.location.href = extraLink;
+            window.open(targetUrl, '_blank'); // Open the extra link in a new tab
+        });
+
+        // Add click event to the billboard ad div
+        const billboardAd = document.getElementById('billboardAd');
+        billboardAd.addEventListener('click', function() {
             window.location.href = targetUrl;
-            if (extraLink) {
-                window.open(extraLink, '_blank'); // Open the extra link in a new tab
-            }
+            window.open(extraLink, '_blank');
         });
 
         // Start countdown immediately
         countdownMessageElement.textContent = localizeCountdownMessage(countdownNumber);
         startCountdown();
-
-        // Function to get query parameters
-        function getQueryParam(param) {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get(param);
-        }
     </script>
 </body>
 </html>
