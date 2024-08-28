@@ -376,33 +376,33 @@ document.addEventListener('DOMContentLoaded', function() {
 function updateLinkList() {
     linkList.innerHTML = '';
     const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
+    const now = new Date();
+    const fourYearsFromNow = new Date();
+    fourYearsFromNow.setFullYear(now.getFullYear() + 4);
+
     shortlinks.forEach((link, index) => {
-        const now = new Date();
-        const expired = link[2] && new Date(link[2]) < now;
-        const fullPath = `https://marko-app.netlify.app/o/${link[0]}`;
-        const redirectPath = link[1];
-        const hasPassword = link[4]; 
-        const password = hasPassword ? link[4] : '';
-        const expires = link[2];
-        const once = link[3] === 'true'; // Check if 'once' is 'true'
+        const [path, redirectPath, expires, once, password] = link;
+        const fullPath = `https://marko-app.netlify.app/o/${path}`;
+        const expirationDate = new Date(expires);
+        const expired = expirationDate < now;
+        const isExpiringSoon = expirationDate < fourYearsFromNow && expirationDate >= now;
+        const hasPassword = password;
+        const onceStatus = once === 'true';
 
         // Create a new list item
         const li = document.createElement('li');
-        
-        // Determine expiration status
+        if (expired) li.classList.add('expired');
+        if (onceStatus) li.classList.add('once');
+
+        // Determine expiration icon
         let expirationIcon = '';
-        if (expires) {
-            const expirationDate = new Date(expires);
-            if (expirationDate < now) {
-                expirationIcon = `<i class="material-icons" style="cursor: pointer;" onclick="showExpiration('${expires}')">schedule</i>`;
-            } else {
-                expirationIcon = `<i class="material-icons" style="cursor: pointer;" onclick="showExpiration('${expires}')">schedule</i>`;
-            }
+        if (expires && isExpiringSoon) {
+            expirationIcon = `<i class="material-icons" style="cursor: pointer;" onclick="showExpiration('${expires}')">schedule</i>`;
         }
 
-        // Determine once status
+        // Determine once status icon
         let onceIcon = '';
-        if (once) {
+        if (onceStatus) {
             onceIcon = `<i class="material-icons onceIcons" title="This is a one-time link, click here to see if it has already been used" onclick="getOnceStatus(this)">repeat_one</i>`;
         }
 
@@ -419,11 +419,10 @@ function updateLinkList() {
             </span>
         `;
 
-        if (expired) li.classList.add('expired');
-        if (once) li.classList.add('once');
         linkList.appendChild(li);
     });
 }
+
 
 
 
