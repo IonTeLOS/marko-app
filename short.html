@@ -421,40 +421,46 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-// Global function to handle the click event
 window.getOnceStatus = function(iconElement) {
     // Find the closest li element
     const closestLi = iconElement.closest('li');
 
     if (closestLi) {
-        // Get path and redirectPath from the 'redirectpath' link in the same li element
-        const storedFullPath = closestLi.querySelector('.path').href;
-        const baseShortUrl = "https://marko-app.netlify.app/o/";
-        const path = storedFullPath.replace(baseShortUrl, '');        
-        const storedRedirectPath = closestLi.querySelector('.redirectpath').href;
+        // Get the 'fullpath' span element and the 'redirectpath' anchor element
+        const pathElement = closestLi.querySelector('.fullpath');
+        const redirectPathElement = closestLi.querySelector('.redirectpath');
 
-        // Construct the URL to query Firebase Realtime Database
-        const url = `https://marko-be9a9-default-rtdb.firebaseio.com/shortlink/${path}.json`;
+        if (pathElement && redirectPathElement) {
+            // Extract the URL from the span's text content
+            const storedFullPath = pathElement.textContent.trim();
+            const baseShortUrl = "https://marko-app.netlify.app/o/";
+            const path = storedFullPath.replace(baseShortUrl, '');        
+            const storedRedirectPath = redirectPathElement.href;
 
-        // Fetch data from Firebase Realtime Database
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                if (data) {
-                    // Check if the stored redirectPath matches the one in the database
-                    if (data.redirectPath === storedRedirectPath) {
-                        alert('Your shortlink has not been clicked yet.');
-                        // Additional logic for handling this case can be added here
+            // Construct the URL to query Firebase Realtime Database
+            const url = `https://marko-be9a9-default-rtdb.firebaseio.com/shortlink/${path}.json`;
+
+            // Fetch data from Firebase Realtime Database
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data) {
+                        // Check if the stored redirectPath matches the one in the database
+                        if (data.redirectPath === storedRedirectPath) {
+                            alert('Your shortlink has not been clicked yet.');
+                        } else {
+                            alert('Target URL does not match. Your shortlink probably has been used and now somebody else uses the same alias.');
+                        }
                     } else {
-                        alert('Target URL does not match. Your shortlink probably has been used and now somebody else uses the same alias.');
+                        alert('This shortlink does not exist. It was probably a one-time shortlink and has already been clicked.');
                     }
-                } else {
-                    alert('This shortlink does not exist. It was probably a one-time shortlink and has already been clicked.');
-                }
-            })
-            .catch(error => {
-                console.error('Error querying database:', error);
-            });
+                })
+                .catch(error => {
+                    console.error('Error querying database:', error);
+                });
+        } else {
+            console.error('Could not find the path or redirectPath elements.');
+        }
     } else {
         console.error('Could not find the closest li element.');
     }
