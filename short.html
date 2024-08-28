@@ -384,6 +384,9 @@ function updateLinkList() {
         const expires = link[2];
         const once = link[3] === 'true';
 
+        // Create a new list item
+        const li = document.createElement('li');
+        
         // Determine expiration status
         let expirationIcon = '';
         if (expires) {
@@ -401,7 +404,7 @@ function updateLinkList() {
             onceIcon = `<i class="material-icons onceIcons" title="This is a one-time link, click here to see if it has already been used" onclick="getOnceStatus(this)">repeat_one</i>`;
         }
 
-        // Construct the list item
+        // Construct the list item content
         li.innerHTML = `
             ${index + 1}. 
             <span class="fullpath" title="Click to share the shortlink" onclick="handleFullPathClick('${fullPath}')">${fullPath}</span><br>
@@ -419,6 +422,7 @@ function updateLinkList() {
         linkList.appendChild(li);
     });
 }
+
 
 
 window.getOnceStatus = function(iconElement) {
