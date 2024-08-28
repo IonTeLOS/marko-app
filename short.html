@@ -462,9 +462,9 @@ window.getOnceStatus = function(iconElement) {
 
 // Attach click event listener to icons with class 'onceIcons'
 document.querySelectorAll('.onceIcons').forEach(icon => {
-    icon.addEventListener('click', function() {
-        // Pass the clicked icon element to the global function
-        getOnceStatus(this);
+    icon.addEventListener('click', function(event) {
+        // Pass the clicked icon element (event.currentTarget) to the global function
+        getOnceStatus(event.currentTarget);
     });
 });
 
