@@ -290,86 +290,88 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function createShortlink() {
-        const url = urlInput.value;
-        if (!isValidUrl(url)) {
-            alert("The provided URL is invalid.");
-            return;
-        }
-
-        let alias = aliasInput.value;
-        const expires = expiryDate.value ? new Date(expiryDate.value + 'T23:59:00').toISOString() : '';
-        const once = onceCheckbox.checked;
-        const password = passwordInput.value;
-        const owner = localStorage.getItem('userEmail') || 'anon@anon.org';
-
-        // Validate and normalize alias
-        if (alias) {
-            alias = alias.trim() // Remove leading and trailing spaces
-                .toLowerCase() // Convert to lowercase
-                .replace(/\s+/g, '-') // Replace internal spaces with hyphens
-                .replace(/[^a-z0-9-_]/g, ''); // Remove invalid characters
-
-            // Limit the alias length to 30 characters
-            if (alias.length > 30) {
-                alias = alias.substring(0, 30);
-            }
-        }
-
-        let apiUrl = `https://marko-app.netlify.app/s/?redirectpath=${encodeURIComponent(url)}&owner=${encodeURIComponent(owner)}`;
-        if (alias) apiUrl += `&path=${encodeURIComponent(alias)}`;
-        if (once) apiUrl += '&once=true';
-        if (expires) apiUrl += `&expires=${encodeURIComponent(expires)}`;
-        if (password) apiUrl += `&password=${encodeURIComponent(password)}`;
-
-        fetch(apiUrl)
-            .then(response => response.json())
-            .then(data => {
-                const { path, redirectPath, expires, once } = data;
-                const fullPath = `https://marko-app.netlify.app/o/${path}`;
-
-                resultMessage.innerHTML = `
-                    Shortlink created: <a href="${fullPath}" target="_blank" class="fullpath" onclick="handleFullPathClick('${fullPath}')">${fullPath}</a><br>
-                    Redirect Path: <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
-                    Expiration: ${expires}<br>${once ? 'One-time use only' : ''}<br>${password ? 'Password-protected' : ''}
-                `;
-
-                createForm.classList.add('hidden');
-                result.classList.remove('hidden');
-
-                // Show or hide buttons based on 'once' value
-                if (once) {
-                    testBtn.classList.add('hidden');
-                    resultMessage.insertAdjacentHTML('beforeend', '<p>Opening this link will invalidate it.</p>');
-                } else {
-                    testBtn.classList.remove('hidden');
-                    testBtn.addEventListener('click', () => window.open(fullPath, '_blank'));
-                }
-
-                restartBtn.classList.remove('hidden');
-
-                saveShortlink({
-                    shortlink: path, 
-                    redirectPath: url,
-                    expires: expires,
-                    once: once ? 'true' : 'false',
-                    password: password || '' 
-                });
-                updateLinkList();
-            })
-            .catch(error => console.error('Error:', error));
+    const url = urlInput.value;
+    if (!isValidUrl(url)) {
+        alert("The provided URL is invalid.");
+        return;
     }
+
+    let alias = aliasInput.value;
+    const expires = expiryDate.value ? new Date(expiryDate.value + 'T23:59:00').toISOString() : '';
+    const once = onceCheckbox.checked ? 'true' : 'false';
+    const password = passwordInput.value;
+    const owner = localStorage.getItem('userEmail') || 'anon@anon.org';
+
+    // Validate and normalize alias
+    if (alias) {
+        alias = alias.trim() // Remove leading and trailing spaces
+            .toLowerCase() // Convert to lowercase
+            .replace(/\s+/g, '-') // Replace internal spaces with hyphens
+            .replace(/[^a-z0-9-_]/g, ''); // Remove invalid characters
+
+        // Limit the alias length to 30 characters
+        if (alias.length > 30) {
+            alias = alias.substring(0, 30);
+        }
+    }
+
+    let apiUrl = `https://marko-app.netlify.app/s/?redirectpath=${encodeURIComponent(url)}&owner=${encodeURIComponent(owner)}`;
+    if (alias) apiUrl += `&path=${encodeURIComponent(alias)}`;
+    if (once === 'true') apiUrl += '&once=true'; // Only append if 'once' is 'true'
+    if (expires) apiUrl += `&expires=${encodeURIComponent(expires)}`;
+    if (password) apiUrl += `&password=${encodeURIComponent(password)}`;
+
+    fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+            const { path, redirectPath, expires, once } = data;
+            const fullPath = `https://marko-app.netlify.app/o/${path}`;
+
+            resultMessage.innerHTML = `
+                Shortlink created: <a href="${fullPath}" target="_blank" class="fullpath" onclick="handleFullPathClick('${fullPath}')">${fullPath}</a><br>
+                Redirect Path: <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
+                Expiration: ${expires ? new Date(expires).toLocaleString() : 'No expiration'}<br>${once === 'true' ? 'One-time use only' : ''}<br>${password ? 'Password-protected' : ''}
+            `;
+
+            createForm.classList.add('hidden');
+            result.classList.remove('hidden');
+
+            // Show or hide buttons based on 'once' value
+            if (once === 'true') {
+                testBtn.classList.add('hidden');
+                resultMessage.insertAdjacentHTML('beforeend', '<p>Opening this link will invalidate it.</p>');
+            } else {
+                testBtn.classList.remove('hidden');
+                testBtn.addEventListener('click', () => window.open(fullPath, '_blank'));
+            }
+
+            restartBtn.classList.remove('hidden');
+
+            saveShortlink({
+                shortlink: path, 
+                redirectPath: url,
+                expires: expires,
+                once: once, // Ensure it's either 'true' or 'false'
+                password: password || '' 
+            });
+            updateLinkList();
+        })
+        .catch(error => console.error('Error:', error));
+}
+
 
     function saveShortlink(data) {
-        const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
-        shortlinks.push([
-            data.shortlink, 
-            data.redirectPath,
-            data.expires || '',
-            data.once ? 'true' : 'false',
-            data.password
-        ]);
-        localStorage.setItem('shortlinks', JSON.stringify(shortlinks));
-    }
+    const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
+    shortlinks.push([
+        data.shortlink, 
+        data.redirectPath,
+        data.expires || '',
+        data.once, // This should be either 'true' or 'false'
+        data.password
+    ]);
+    localStorage.setItem('shortlinks', JSON.stringify(shortlinks));
+}
+
 
 function updateLinkList() {
     linkList.innerHTML = '';
@@ -382,7 +384,7 @@ function updateLinkList() {
         const hasPassword = link[4]; 
         const password = hasPassword ? link[4] : '';
         const expires = link[2];
-        const once = link[3] === 'true';
+        const once = link[3] === 'true'; // Check if 'once' is 'true'
 
         // Create a new list item
         const li = document.createElement('li');
