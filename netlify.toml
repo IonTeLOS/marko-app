@@ -18,6 +18,4 @@ function = "create-shortlink"
 path = "/hiya*"
 function = "hello-world"
 
-[build]
-  functions = "netlify/edge-functions"
 
