@@ -229,8 +229,29 @@ export default async (request, context) => {
             }
           }
 
-          // Redirect to the intended URL
-          return Response.redirect(data.redirectPath, 301);
+ // Handle the `na` query parameter
+          const naParam = searchParams.get("na");
+          if (naParam !== null) {
+            const ownerEmail = data.owner; // Assuming owner email is stored in the data object
+            const naDatabaseUrl = `https://marko-be9a9-default-rtdb.firebaseio.com/na/${ownerEmail}.json`;
+
+            // Check if the owner is listed in the /na database
+            const naResponse = await fetch(naDatabaseUrl);
+            if (naResponse.ok) {
+              const naData = await naResponse.json();
+
+              if (naData) {
+                // Owner is listed in /na database, redirect without loading intermediate page
+                return Response.redirect(data.redirectPath, 301);
+              }
+            }
+
+            // If the owner is not listed or there is an error, continue with normal flow
+          }
+
+          // Redirect to the intermediate page with the target URL
+          const intermediatePageUrl = `/a/?target=${encodeURIComponent(data.redirectPath)}`;
+          return Response.redirect(intermediatePageUrl, 301);
         } else {
           // Path does not exist
           console.log("Path does not exist.");
