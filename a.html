@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting...</title>
+    <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
+    <!-- Google Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Google Fonts for Roboto -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Roboto', sans-serif;
+            background-color: #f0f0f0;
+        }
+        .container {
+            text-align: center;
+            max-width: 600px;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        .countdown {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #ff6f00;
+        }
+        .adContainer {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .redirect-button, .icon-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            background-color: #ff6f00;
+            color: white;
+            border-radius: 50%;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .icon-button {
+            width: 48px;
+            height: 48px;
+        }
+        .redirect-button {
+            border-radius: 4px;
+            padding: 12px 40px; /* Increased padding for larger button */
+            text-transform: uppercase;
+            font-size: 16px;
+            max-width: 300px; /* Increased max-width for larger button */
+        }
+        .redirect-button:hover,
+        .icon-button:hover {
+            background-color: #ff8f00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="countdown" id="countdownMessage">Opening link in <span id="countdown">10</span> seconds...</div>
+        <div id="adContainer"></div>
+        <div class="button-group">
+            <div id="pauseButton" class="icon-button">
+                <i class="material-icons">pause</i>
+            </div>
+            <a id="redirectButton" class="redirect-button">
+                <i class="material-icons">exit_to_app</i>
+            </a>
+            <div id="shareButton" class="icon-button">
+                <i class="material-icons">share</i>
+            </div>
+        </div>
+    </div>
+    
+
+    <script>
+        // Ensure googletag is defined
+        window.googletag = window.googletag || { cmd: [] };
+
+        // Define the ad slot
+        googletag.cmd.push(function() {
+            googletag.defineSlot('/1234567/test_ad', [300, 250], 'adContainer')
+                .addService(googletag.pubads());
+            googletag.pubads().enableSingleRequest();
+            googletag.enableServices();
+            googletag.display('adContainer'); // Display the ad in the container
+        });
+
+        // Load the ad on page load
+        window.onload = function() {
+            googletag.cmd.push(function() {
+                googletag.pubads().refresh(); // Refresh the ad to ensure it's displayed
+            });
+        };
+    </script>
+    <script>
+        // Localization messages for countdown
+        const localizationMessages = {
+            en: "Opening link in {count} seconds...",
+            es: "Abriendo enlace en {count} segundos...",
+            fr: "Ouverture du lien dans {count} secondes...",
+            de: "Link öffnet in {count} Sekunden...",
+            it: "Apertura del link tra {count} secondi...",
+            nl: "Link opent in {count} seconden...",
+            pt: "Abrindo link em {count} segundos...",
+            ru: "Открытие ссылки через {count} секунд...",
+            zh: "将在 {count} 秒后打开链接...",
+            ja: "{count} 秒後にリンクを開きます...",
+            ar: "سيتم فتح الرابط خلال {count} ثانية...",
+            el: "Άνοιγμα συνδέσμου σε {count} δευτερόλεπτα...",
+        };
+
+        // Get browser language and localize the countdown message
+        function localizeCountdownMessage(count) {
+            const userLang = navigator.language.slice(0, 2);
+            const messageTemplate = localizationMessages[userLang] || localizationMessages['en'];
+            return messageTemplate.replace('{count}', count);
+        }
+
+        const targetUrl = getQueryParam('target') || 'https://example.com'; // Default URL if no target param
+        const extraLink = getQueryParam('message'); // Get the additional link from the message param
+        let countdownNumber = 10;
+        const countdownElement = document.getElementById('countdown');
+        const countdownMessageElement = document.getElementById('countdownMessage');
+        const redirectButton = document.getElementById('redirectButton');
+        const pauseButton = document.getElementById('pauseButton');
+        const shareButton = document.getElementById('shareButton');
+        let countdownInterval;
+        let isPaused = false;
+
+        function updateCountdown() {
+            if (!isPaused) {
+                countdownNumber--;
+                if (countdownNumber <= 0) {
+                    clearInterval(countdownInterval);
+                    window.location.href = targetUrl;
+                    if (extraLink) {
+                        window.open(extraLink, '_blank'); // Open the extra link in a new tab
+                    }
+                } else {
+                    countdownElement.textContent = countdownNumber;
+                    countdownMessageElement.textContent = localizeCountdownMessage(countdownNumber);
+                }
+            }
+        }
+
+        function startCountdown() {
+            countdownInterval = setInterval(updateCountdown, 1000);
+        }
+
+        // Pause or resume the countdown
+        pauseButton.addEventListener('click', function() {
+            isPaused = !isPaused;
+            pauseButton.querySelector('.material-icons').textContent = isPaused ? 'play_arrow' : 'pause';
+        });
+
+        // Share button functionality
+        shareButton.addEventListener('click', function() {
+            const shareUrl = window.location.href;
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Check this out',
+                    url: shareUrl,
+                }).catch(console.error);
+            } else {
+                // Fallback to copy to clipboard
+                navigator.clipboard.writeText(shareUrl)
+                    .then(() => alert('Link copied to clipboard!'))
+                    .catch(console.error);
+            }
+        });
+
+        // Redirect immediately when button is clicked
+        redirectButton.addEventListener('click', function() {
+            clearInterval(countdownInterval);
+            window.location.href = targetUrl;
+            if (extraLink) {
+                window.open(extraLink, '_blank'); // Open the extra link in a new tab
+            }
+        });
+
+        // Start countdown immediately
+        countdownMessageElement.textContent = localizeCountdownMessage(countdownNumber);
+        startCountdown();
+
+        // Function to get query parameters
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+    </script>
+</body>
+</html>
