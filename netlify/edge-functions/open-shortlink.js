@@ -229,18 +229,21 @@ export default async (request, context) => {
             }
           }
 
- // Handle the `na` query parameter
+          // Handle the `na` query parameter
           const naParam = searchParams.get("na");
           if (naParam !== null) {
-            const ownerEmail = data.owner; // Assuming owner email is stored in the data object
-            const naDatabaseUrl = `https://marko-be9a9-default-rtdb.firebaseio.com/na/${ownerEmail}.json`;
+            const ownerEmail = data.owner; // Email associated with the link
+            const naDatabaseUrl = `https://marko-be9a9-default-rtdb.firebaseio.com/na.json`;
 
             // Check if the owner is listed in the /na database
             const naResponse = await fetch(naDatabaseUrl);
             if (naResponse.ok) {
               const naData = await naResponse.json();
 
-              if (naData) {
+              // Check if any entry in /na matches the owner email
+              const isOwnerListed = Object.values(naData).some(entry => entry.owner === ownerEmail);
+
+              if (isOwnerListed) {
                 // Owner is listed in /na database, redirect without loading intermediate page
                 return Response.redirect(data.redirectPath, 301);
               }
