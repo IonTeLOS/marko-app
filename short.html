@@ -414,10 +414,11 @@ document.addEventListener('DOMContentLoaded', function() {
             ${once ? onceIcon : ''}
             ${expirationIcon}
         </span>` : ''}
-            `;
-            if (expired) li.classList.add('expired');
-            if (once) li.classList.add('once');
-            linkList.appendChild(li);
+    `;
+
+if (expired) li.classList.add('expired');
+if (once) li.classList.add('once');
+linkList.appendChild(li);
         });
     }
 
