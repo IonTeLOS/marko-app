@@ -25,7 +25,28 @@ body {
 
 .input-field {
     position: relative;
-    margin-bottom: 20px;
+    width: 100%;
+}
+
+.input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.clear-button {
+    position: absolute;
+    top: 50%;
+    right: 10px; /* Adjust as needed */
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    outline: none;
+    z-index: 1; /* Ensure the button is above the input */
+}
+
+.clear-button i {
+    font-size: 16px; /* Adjust the size of the icon */
 }
 
 input[type="text"], input[type="date"], input[type="password"] {
@@ -38,6 +59,12 @@ input[type="text"], input[type="date"], input[type="password"] {
     box-sizing: border-box;
 }
 
+input[type="text"] {
+    width: 100%;
+    padding-right: 30px; /* Add space for the clear button */
+    box-sizing: border-box;
+}
+        
 .btn {
     background-color: #2196F3;
     color: white;
@@ -222,17 +249,25 @@ input[type="text"], input[type="date"], input[type="password"] {
             </button>
         </div>
          <div class="input-field message">
-                    <input type="text" id="shareMessageInput" placeholder="Custom share message (optional - this will be used when you share any shortlink on mobile)" maxlength="100">
+    <div class="input-wrapper">
+        <input type="text" id="shareMessageInput" placeholder="Custom share message (optional)" maxlength="100">
+        <button type="button" id="clearButton" class="clear-button" title="Clear text">
+            <i class="material-icons">clear</i>
+        </button>
+    </div>
+</div>
+<div class="input-field message">
+             <input type="text" id="shareMessageInput" placeholder="Custom share message (optional)" maxlength="100">
          </div>
         <div id="result" class="hidden">
             <p id="resultMessage"></p>
             <button id="testBtn" class="btn hidden">
                 <i class="material-icons">open_in_new</i>
-                Open Link
+                Test Shortlink
             </button>
             <button id="restartBtn" class="btn hidden">
                 <i class="material-icons">refresh</i>
-                Create Another
+                Create a new shortlink
             </button>
         </div>
         <div class="separator"></div>
@@ -329,7 +364,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             resultMessage.innerHTML = `
                 Shortlink created: <a href="${fullPath}" target="_blank" class="fullpath" onclick="handleFullPathClick('${fullPath}')">${fullPath}</a><br>
-                Redirect Path: <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
+                Target: <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
                 Expiration: ${expires ? new Date(expires).toLocaleString() : 'No expiration'}<br>${once === 'true' ? 'One-time use only' : ''}<br>${password ? 'Password-protected' : ''}
             `;
 
@@ -410,7 +445,7 @@ function updateLinkList() {
         li.innerHTML = `
             ${index + 1}. 
             <span class="fullpath" title="Click to share the shortlink" onclick="handleFullPathClick('${fullPath}')">${fullPath}</span><br>
-            Redirect Path: 
+            Target: 
             <a href="${redirectPath}" target="_blank" class="redirectpath">${redirectPath}</a><br>
             <span class="password-container">
                 ${hasPassword ? `<i class="material-icons" style="cursor: pointer;" onclick="revealPassword('${password}', this)">lock</i><span class="password hidden">${password}</span>` : ''}
@@ -569,6 +604,16 @@ function handleMobileDisplay() {
     }
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+    const clearButton = document.getElementById('clearButton');
+    const inputField = document.getElementById('shareMessageInput');
+
+    clearButton.addEventListener('click', () => {
+        inputField.value = ''; // Clear the input field
+        inputField.focus(); // Optionally refocus the input field
+    });
+});
+        
 // Attach the handleMobileDisplay function to the window.onload event
 window.onload = function() {
     handleMobileDisplay();
