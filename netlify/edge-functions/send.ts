@@ -1,27 +1,33 @@
-import { ApiClient, EmailCampaignsApi, CreateEmailCampaign } from 'https://cdn.skypack.dev/sib-api-v3-sdk';
-
 export default async (request: Request) => {
-  const apiKey = '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';  // Replace with your actual API key
-  const apiClient = new ApiClient();
-  const apiKeyAuth = apiClient.authentications['api-key'];
-  apiKeyAuth.apiKey = apiKey;
+  const apiKey = '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'; 
+  const apiUrl = 'https://api.brevo.com/v3/smtp/email';  
 
-  const apiInstance = new EmailCampaignsApi(apiClient);
-  
   if (request.method === 'POST') {
     try {
       const body = await request.json();
-      const emailCampaigns = new CreateEmailCampaign();
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': apiKey
+        },
+        body: JSON.stringify({
+          name: body.name,
+          subject: body.subject,
+          sender: { name: body.senderName, email: body.senderEmail },
+          type: 'classic',
+          htmlContent: body.htmlContent,
+          recipients: { listIds: body.listIds.split(',').map(Number) },
+          scheduledAt: body.scheduledAt
+        })
+      });
 
-      emailCampaigns.name = body.name;
-      emailCampaigns.subject = body.subject;
-      emailCampaigns.sender = { name: body.senderName, email: body.senderEmail };
-      emailCampaigns.type = 'classic';
-      emailCampaigns.htmlContent = body.htmlContent;
-      emailCampaigns.recipients = { listIds: body.listIds.split(',').map(Number) };
-      emailCampaigns.scheduledAt = body.scheduledAt;
+      if (!response.ok) {
+        throw new Error('Failed to create campaign');
+      }
 
-      const data = await apiInstance.createEmailCampaign(emailCampaigns);
+      const data = await response.json();
 
       return new Response(JSON.stringify({ message: 'Campaign created successfully!', data }), {
         status: 200,
