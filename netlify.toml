@@ -15,6 +15,10 @@ path = "/s/"
 function = "create-shortlink"
 
 [[edge_functions]]
+path = "/se*"
+function = "send"
+
+[[edge_functions]]
 path = "/hiya*"
 function = "hello-world"
 
