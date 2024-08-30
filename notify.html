@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Notify</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <style>
+        body {
+            font-size: 1em;
+            line-height: 1.5;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            margin: 0;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 1.5em;
+        }
+        p {
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .form-group label {
+            flex: 1;
+            min-width: 150px;
+            align-self: center;
+        }
+        .form-group input, .form-group textarea {
+            flex: 2;
+            min-width: 0;
+        }
+        textarea {
+            resize: none;
+        }
+        .form-row {
+            display: flex;
+            gap: 10px;
+        }
+        .form-row > div {
+            flex: 1;
+        }
+        .buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button {
+            background-color: #6200ea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 15px 30px;
+            font-size: 1em;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            flex: 1;
+        }
+        button:hover {
+            background-color: #3700b3;
+        }
+        .icon {
+            margin-right: 8px;
+        }
+        .event {
+            background-color: #ffffff;
+            border: 1px solid #dddddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 10px;
+            padding: 15px;
+            transition: transform 0.3s ease;
+        }
+        .event:hover {
+            transform: scale(1.02);
+        }
+        .event-title {
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+        .event-message {
+            margin-bottom: 10px;
+        }
+        .event-attachment img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .event-click a {
+            color: #2196F3;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .event-click a:hover {
+            text-decoration: underline;
+        }
+        .event-time {
+            font-size: 0.8em;
+            color: #777777;
+        }
+        @media (max-width: 600px) {
+            .form-group {
+                flex-direction: column;
+            }
+            .form-row {
+                flex-direction: column;
+            }
+            .buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+            button {
+                width: 100%;
+                box-sizing: border-box;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Notify</h1>
+        <p>
+            Use <a href="https://notify.pchat.xyz">notify.pchat.xyz.sh</a> with
+            <a href="https://marko-app.netlify.app">Marko</a>.<br/>
+            Send notifications to a topic and receive notifications from the same topic.
+        </p>
+
+        <h2>Create a Notification</h2>
+        <form id="notificationForm">
+            <div class="form-group">
+                <label for="topic">Topic:</label>
+                <input type="text" id="topic" placeholder="Enter the topic (e.g., mydoorbell)" required>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="title">Title:</label>
+                    <input type="text" id="title" placeholder="Enter a title (optional)">
+                </div>
+                <div class="form-group">
+                    <label for="message">Message:</label>
+                    <textarea id="message" rows="4" placeholder="Enter your notification message"></textarea>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="click">Click URL:</label>
+                    <input type="url" id="click" placeholder="Enter a URL to open on click (optional)">
+                </div>
+                <div class="form-group">
+                    <label for="attachment">Attachment URL:</label>
+                    <input type="url" id="attachment" placeholder="Enter an attachment URL (optional)">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="delay">Delay (e.g., 10m, 1h, 2023-08-30T10:00:00Z):</label>
+                <input type="text" id="delay" placeholder="Enter a delay duration or timestamp (optional)">
+            </div>
+
+            <div class="buttons">
+                <button type="button" id="publishButton">
+                    <span class="material-icons icon">send</span> Send Notification
+                </button>
+                <button type="button" id="shareButton">
+                    <span class="material-icons icon">share</span> Share Topic
+                </button>
+            </div>
+        </form>
+
+        <p><b>Log:</b></p>
+        <div id="events"></div>
+    </div>
+
+    <script type="text/javascript">
+        function handleSubscription() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const topic = urlParams.get('topic');
+            if (topic) {
+                document.getElementById('topic').value = topic;
+                subscribeToTopic(topic);
+            }
+        }
+
+        document.getElementById("publishButton").onclick = () => {
+            const topic = document.getElementById('topic').value;
+            const message = document.getElementById('message').value;
+            const title = document.getElementById('title').value;
+            const click = document.getElementById('click').value;
+            const attachment = document.getElementById('attachment').value;
+            const delay = document.getElementById('delay').value;
+
+            const headers = {};
+            if (message) headers['X-Message'] = message;
+            if (title) headers['X-Title'] = title;
+            if (click) headers['X-Click'] = click;
+            if (attachment) headers['X-Attach'] = attachment;
+            if (delay) headers['X-Delay'] = delay;
+
+            fetch(`https://notify.pchat.xyz/${topic}`, {
+                method: 'POST',
+                headers: headers
+            })
+            .then(response => response.text())
+            .then(data => {
+                console.log('Notification sent:', data);
+                subscribeToTopic(topic);  // Automatically subscribe to the topic
+            })
+            .catch(error => {
+                console.error('Error sending notification:', error);
+            });
+        };
+
+        function subscribeToTopic(topic) {
+            const events = document.getElementById('events');
+            const eventSource = new EventSource(`https://notify.pchat.xyz/${topic}/sse`);
+
+            let connectedMessageDisplayed = false;
+
+            eventSource.onopen = () => {
+                if (!connectedMessageDisplayed) {
+                    let event = document.createElement('div');
+                    event.className = 'event';
+                    event.innerHTML = `Connected to the topic: <b>${topic}</b>`;
+                    events.appendChild(event);
+                    connectedMessageDisplayed = true;
+                }
+            };
+
+            eventSource.onerror = (e) => {
+                console.error('EventSource error:', e);
+                let event = document.createElement('div');
+                event.className = 'event';
+                event.innerHTML = `Error: Could not connect to the topic`;
+                events.appendChild(event);
+            };
+
+            eventSource.onmessage = (e) => {
+                console.log("Raw data received:", e.data);
+                try {
+                    const eventData = JSON.parse(e.data);
+                    displayEvent(eventData);
+                } catch (error) {
+                    console.error("Failed to parse JSON:", error);
+                }
+            };
+        }
+
+        function displayEvent(eventData) {
+            const events = document.getElementById('events');
+            let event = document.createElement('div');
+            event.className = 'event';
+
+            // Create HTML structure for the event
+            event.innerHTML = `
+                <div class="event-title">${eventData.title || 'No Title'}</div>
+                <div class="event-message">${eventData.message || 'No Message'}</div>
+                ${eventData.attachment ? `<div class="event-attachment"><img src="${eventData.attachment.url}" alt="${eventData.attachment.name}" /></div>` : ''}
+                ${eventData.click ? `<div class="event-click"><a href="${eventData.click}" target="_blank">Click Here</a></div>` : ''}
+                <div class="event-time">${new Date(eventData.time * 1000).toLocaleString()}</div>
+            `;
+
+            events.appendChild(event);
+        }
+
+        document.getElementById("shareButton").onclick = () => {
+            const topic = document.getElementById('topic').value;
+            const shareUrl = `${window.location.origin}${window.location.pathname}?topic=${encodeURIComponent(topic)}`;
+
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Subscribe to Topic',
+                    text: `Click to subscribe to the topic: ${topic}`,
+                    url: shareUrl
+                }).catch(console.error);
+            } else {
+                navigator.clipboard.writeText(shareUrl)
+                .then(() => alert(`Link copied to clipboard: ${shareUrl}`))
+                .catch(console.error);
+            }
+        };
+
+        window.onload = handleSubscription;
+    </script>
+</body>
+</html>
