@@ -206,38 +206,41 @@
             </div>
         </form>
 
-        <p><b>Log:</b></p>
+        <p><b>History:</b></p>
         <div id="events"></div>
     </div>
 
-    <script type="text/javascript">
-        // Set to keep track of displayed notification IDs
-        const displayedIds = new Set();
+<script type="text/javascript">
+    const displayedIds = new Set();
+    const eventSources = {};  // Store EventSource instances by topic
 
-        function handleSubscription() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const topic = urlParams.get('topic');
-            if (topic) {
-                document.getElementById('topic').value = topic;
-                subscribeToTopic(topic);
-            }
+    function handleSubscription() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const topic = urlParams.get('topic');
+        if (topic) {
+            document.getElementById('topic').value = topic;
+            subscribeToTopic(topic);
         }
+    }
 
-        document.getElementById("publishButton").onclick = () => {
-            const topic = document.getElementById('topic').value;
-            const message = document.getElementById('message').value;
-            const title = document.getElementById('title').value;
-            const click = document.getElementById('click').value;
-            const attachment = document.getElementById('attachment').value;
-            const delay = document.getElementById('delay').value;
+    document.getElementById("publishButton").onclick = () => {
+        const topic = document.getElementById('topic').value;
+        const message = document.getElementById('message').value;
+        const title = document.getElementById('title').value;
+        const click = document.getElementById('click').value;
+        const attachment = document.getElementById('attachment').value;
+        const delay = document.getElementById('delay').value;
 
-            const headers = {};
-            if (message) headers['X-Message'] = message;
-            if (title) headers['X-Title'] = title;
-            if (click) headers['X-Click'] = click;
-            if (attachment) headers['X-Attach'] = attachment;
-            if (delay) headers['X-Delay'] = delay;
+        const headers = {};
+        if (message) headers['X-Message'] = message;
+        if (title) headers['X-Title'] = title;
+        if (click) headers['X-Click'] = click;
+        if (attachment) headers['X-Attach'] = attachment;
+        if (delay) headers['X-Delay'] = delay;
 
+        // Ensure the topic is subscribed before sending the notification
+        subscribeToTopic(topic); // Subscribe to the topic first
+        setTimeout(() => {
             fetch(`https://notify.pchat.xyz/${topic}`, {
                 method: 'POST',
                 headers: headers
@@ -245,86 +248,97 @@
             .then(response => response.text())
             .then(data => {
                 console.log('Notification sent:', data);
-                subscribeToTopic(topic);  // Automatically subscribe to the topic
             })
             .catch(error => {
                 console.error('Error sending notification:', error);
             });
-        };
+        }, 500);
+    };
 
-        function subscribeToTopic(topic) {
-            const events = document.getElementById('events');
-            const eventSource = new EventSource(`https://notify.pchat.xyz/${topic}/sse`);
-
-            let connectedMessageDisplayed = false;
-
-            eventSource.onopen = () => {
-                if (!connectedMessageDisplayed) {
-                    let event = document.createElement('div');
-                    event.className = 'event';
-                    event.innerHTML = `Connected to the topic: <b>${topic}</b>`;
-                    events.appendChild(event);
-                    connectedMessageDisplayed = true;
-                }
-            };
-
-            eventSource.onerror = (e) => {
-                console.error('EventSource error:', e);
-                let event = document.createElement('div');
-                event.className = 'event';
-                event.innerHTML = `Error: Could not connect to the topic`;
-                events.appendChild(event);
-            };
-
-            eventSource.onmessage = (e) => {
-                console.log("Raw data received:", e.data);
-                try {
-                    const eventData = JSON.parse(e.data);
-                    if (!displayedIds.has(eventData.id)) {
-                        displayedIds.add(eventData.id);
-                        displayEvent(eventData);
-                    }
-                } catch (error) {
-                    console.error("Failed to parse JSON:", error);
-                }
-            };
+    function subscribeToTopic(topic) {
+        // If an EventSource already exists for this topic, do nothing
+        if (eventSources[topic]) {
+            console.log(`Already subscribed to topic: ${topic}`);
+            return;
         }
 
-        function displayEvent(eventData) {
-            const events = document.getElementById('events');
+        // Create a new EventSource for the topic
+        const eventsContainer = document.createElement('div');
+        eventsContainer.className = 'topic-events';
+        eventsContainer.id = `topic-${topic}`;
+        eventsContainer.innerHTML = `<h3>Messages from room: ${topic}</h3>`;
+        document.getElementById('events').appendChild(eventsContainer);
+
+        const eventSource = new EventSource(`https://notify.pchat.xyz/${topic}/sse`);
+        eventSources[topic] = eventSource;
+
+        eventSource.onopen = () => {
+            console.log(`Connected to topic: ${topic}`);
+        };
+
+        eventSource.onerror = (e) => {
+            console.error('EventSource error:', e);
             let event = document.createElement('div');
             event.className = 'event';
-
-            // Create HTML structure for the event
-            event.innerHTML = `
-                <div class="event-title">${eventData.title || 'No Title'}</div>
-                <div class="event-message">${eventData.message || 'No Message'}</div>
-                ${eventData.attachment ? `<div class="event-attachment"><img src="${eventData.attachment.url}" alt="${eventData.attachment.name}" /></div>` : ''}
-                ${eventData.click ? `<div class="event-click"><a href="${eventData.click}" target="_blank">Click Here</a></div>` : ''}
-                <div class="event-time">${new Date(eventData.time * 1000).toLocaleString()}</div>
-            `;
-
-            events.appendChild(event);
-        }
-
-        document.getElementById("shareButton").onclick = () => {
-            const topic = document.getElementById('topic').value;
-            const shareUrl = `${window.location.origin}${window.location.pathname}?topic=${encodeURIComponent(topic)}`;
-
-            if (navigator.share) {
-                navigator.share({
-                    title: 'Subscribe to Topic',
-                    text: `Click to subscribe to the topic: ${topic}`,
-                    url: shareUrl
-                }).catch(console.error);
-            } else {
-                navigator.clipboard.writeText(shareUrl)
-                .then(() => alert(`Link copied to clipboard: ${shareUrl}`))
-                .catch(console.error);
-            }
+            event.innerHTML = `Error: Could not connect to the topic ${topic}`;
+            eventsContainer.appendChild(event);
         };
 
-        window.onload = handleSubscription;
-    </script>
+        eventSource.onmessage = (e) => {
+            console.log("Raw data received:", e.data);
+            try {
+                const eventData = JSON.parse(e.data);
+                if (!displayedIds.has(eventData.id)) {
+                    displayedIds.add(eventData.id);
+                    displayEvent(eventData, topic);
+                }
+            } catch (error) {
+                console.error("Failed to parse JSON:", error);
+            }
+        };
+    }
+
+    function displayEvent(eventData, topic) {
+        const eventsContainer = document.getElementById(`topic-${topic}`);
+        if (!eventsContainer) {
+            console.error(`No container found for topic: ${topic}`);
+            return;
+        }
+
+        let event = document.createElement('div');
+        event.className = 'event';
+
+        // Create HTML structure for the event
+        event.innerHTML = `
+            <div class="event-title">${eventData.title || 'No Title'}</div>
+            <div class="event-message">${eventData.message || 'No Message'}</div>
+            ${eventData.attachment ? `<div class="event-attachment"><img src="${eventData.attachment.url}" alt="${eventData.attachment.name}" /></div>` : ''}
+            ${eventData.click ? `<div class="event-click"><a href="${eventData.click}" target="_blank">Click Here</a></div>` : ''}
+            <div class="event-time">${new Date(eventData.time * 1000).toLocaleString()}</div>
+        `;
+
+        eventsContainer.appendChild(event);
+    }
+
+    document.getElementById("shareButton").onclick = () => {
+        const topic = document.getElementById('topic').value;
+        const shareUrl = `${window.location.origin}${window.location.pathname}?topic=${encodeURIComponent(topic)}`;
+
+        if (navigator.share) {
+            navigator.share({
+                title: 'Subscribe to Topic',
+                text: `Click to subscribe to the topic: ${topic}`,
+                url: shareUrl
+            }).catch(console.error);
+        } else {
+            navigator.clipboard.writeText(shareUrl)
+            .then(() => alert(`Link copied to clipboard: ${shareUrl}`))
+            .catch(console.error);
+        }
+    };
+
+    window.onload = handleSubscription;
+</script>
+
 </body>
 </html>
