@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login / Register Page</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -88,9 +89,6 @@
 
     <!-- Include the PocketBase SDK -->
     <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
-    <!-- Include Google Identity Services -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-
     <script>
         // Initialize PocketBase client
         const pb = new PocketBase('https://marko-bin.pockethost.io');
