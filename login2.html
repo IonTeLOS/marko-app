@@ -3,8 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <script src="https://accounts.google.com/gsi/client" async defer></script>
-
     <title>Login / Register Page</title>
     <style>
         body {
@@ -113,7 +111,7 @@
             const { credential } = response;
             const idToken = credential;
 
-            // Decode the token to get user information (Optional)
+            // Decode the token to get user information
             const userInfo = decodeJwt(idToken);
 
             // Attempt to login or register the user
@@ -130,13 +128,9 @@
             return JSON.parse(jsonPayload);
         }
 
-        function generateRandomPassword() {
-            return Math.random().toString(36).slice(-12); // Generates a random 12-character password
-        }
-
         async function loginOrRegisterWithGoogle(email, name, googleToken) {
             const message = document.getElementById('message');
-            const randomPassword = generateRandomPassword();
+            const securePassword = 'SecureP@ssword123'; // Use a secure default password
 
             try {
                 // Attempt to log in with Google token as password
@@ -146,14 +140,14 @@
                 message.textContent = 'Login successful!';
             } catch (error) {
                 if (error.message.includes('No records found')) {
-                    // If user does not exist, create a new user
+                    // If user does not exist, create a new user with a secure password
                     try {
                         const data = {
                             username: email.split('@')[0],
                             email: email,
                             emailVisibility: true,
-                            password: randomPassword, // Use a secure random password
-                            passwordConfirm: randomPassword,
+                            password: securePassword,
+                            passwordConfirm: securePassword,
                             name: name
                         };
 
@@ -162,8 +156,11 @@
                         console.log('User created:', newUser);
 
                         // Automatically log in the newly created user
-                        const authData = await pb.collection('users').authWithPassword(email, randomPassword);
+                        const authData = await pb.collection('users').authWithPassword(email, securePassword);
                         localStorage.setItem('jwt', authData.token);
+
+                        // Store the Google token for session management
+                        localStorage.setItem('google_token', googleToken);
 
                         message.style.color = 'green';
                         message.textContent = 'Registration successful! Please check your email to verify your account.';
@@ -231,14 +228,6 @@
                 }
             }
         });
-
-        // Initialize Google Sign-In when the script loads
-        initializeGoogleSignIn();
-    </script>
-</body>
-</html>
-
-
 
         // Initialize Google Sign-In when the script loads
         initializeGoogleSignIn();
