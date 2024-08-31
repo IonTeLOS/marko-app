@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login / Register Page</title>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+        <script src="https://accounts.google.com/gsi/client" async defer></script>
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -89,6 +90,8 @@
 
     <!-- Include the PocketBase SDK -->
     <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
+    <!-- Include Google Identity Services -->
+
     <script>
         // Initialize PocketBase client
         const pb = new PocketBase('https://marko-bin.pockethost.io');
@@ -128,17 +131,18 @@
 
         async function loginOrRegisterWithGoogle(email, name, googleToken) {
             const message = document.getElementById('message');
-            const securePassword = 'SecureP@ssword123'; // Use a secure default password
+            const securePassword = generateRandomPassword(); // Generate a secure password
 
             try {
-                // Attempt to log in with Google token as password
-                const authData = await pb.collection('users').authWithPassword(email, googleToken);
+                // Try to authenticate with email and the generated password
+                const authData = await pb.collection('users').authWithPassword(email, securePassword);
                 localStorage.setItem('jwt', authData.token);
+                localStorage.setItem('google_token', googleToken); // Store the Google token separately
                 message.style.color = 'green';
                 message.textContent = 'Login successful!';
             } catch (error) {
                 if (error.message.includes('No records found')) {
-                    // If user does not exist, create a new user with a secure password
+                    // If the user does not exist, create a new user
                     try {
                         const data = {
                             username: email.split('@')[0],
@@ -171,6 +175,10 @@
                     message.textContent = 'Login failed: ' + error.message;
                 }
             }
+        }
+
+        function generateRandomPassword() {
+            return Math.random().toString(36).slice(-12); // Generate a secure random password
         }
 
         // Handle form submission for manual login/register
@@ -232,3 +240,4 @@
     </script>
 </body>
 </html>
+
