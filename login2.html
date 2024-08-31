@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://accounts.google.com/gsi/client" async defer></script>
+
     <title>Login / Register Page</title>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -129,8 +130,13 @@
             return JSON.parse(jsonPayload);
         }
 
+        function generateRandomPassword() {
+            return Math.random().toString(36).slice(-12); // Generates a random 12-character password
+        }
+
         async function loginOrRegisterWithGoogle(email, name, googleToken) {
             const message = document.getElementById('message');
+            const randomPassword = generateRandomPassword();
 
             try {
                 // Attempt to log in with Google token as password
@@ -146,8 +152,8 @@
                             username: email.split('@')[0],
                             email: email,
                             emailVisibility: true,
-                            password: googleToken, // Use Google token as password
-                            passwordConfirm: googleToken,
+                            password: randomPassword, // Use a secure random password
+                            passwordConfirm: randomPassword,
                             name: name
                         };
 
@@ -156,7 +162,7 @@
                         console.log('User created:', newUser);
 
                         // Automatically log in the newly created user
-                        const authData = await pb.collection('users').authWithPassword(email, googleToken);
+                        const authData = await pb.collection('users').authWithPassword(email, randomPassword);
                         localStorage.setItem('jwt', authData.token);
 
                         message.style.color = 'green';
@@ -225,6 +231,14 @@
                 }
             }
         });
+
+        // Initialize Google Sign-In when the script loads
+        initializeGoogleSignIn();
+    </script>
+</body>
+</html>
+
+
 
         // Initialize Google Sign-In when the script loads
         initializeGoogleSignIn();
