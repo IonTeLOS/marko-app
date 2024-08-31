@@ -92,8 +92,9 @@
         // Initialize Google Identity Services
         function initializeGoogleSignIn() {
             google.accounts.id.initialize({
-            client_id: '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com',
-                callback: handleGoogleSignIn
+                client_id: '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com',
+                callback: handleGoogleSignIn,
+                scope: 'email profile'
             });
             google.accounts.id.renderButton(
                 document.getElementById('g-signin2'),
@@ -103,47 +104,56 @@
 
         async function handleGoogleSignIn(response) {
             const { credential } = response;
+            const message = document.getElementById('message');
 
             try {
                 const userInfo = decodeJwt(credential);
                 console.log('Google User Info:', userInfo);
 
-                // Check if the user is already registered in PocketBase
-                const existingUsers = await pb.collection('users').getList(1, 1, { filter: `email="${userInfo.email}"` });
-
-                if (existingUsers.items.length > 0) {
-                    // User exists, authenticate
+                // Try to authenticate with OAuth2
+                try {
                     const authData = await pb.collection('users').authWithOAuth2({
                         provider: 'google',
-                        token: credential
+                        code: credential,
                     });
-                    localStorage.setItem('jwt', authData.token);
-                    document.getElementById('message').style.color = 'green';
-                    document.getElementById('message').textContent = 'Login successful with Google!';
-                } else {
-                    // User does not exist, register them
-                    const newUser = await pb.collection('users').create({
-                        username: userInfo.email.split('@')[0],
+                    localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
+                    message.style.color = 'green';
+                    message.textContent = 'Login successful with Google!';
+                } catch (authError) {
+                    console.log('Authentication failed, attempting to create user:', authError);
+
+                    // If authentication fails, try to create a new user
+                    const userData = {
                         email: userInfo.email,
                         emailVisibility: true,
-                        password: 'TEMPORARY_PASSWORD', // Use a placeholder password for registration
-                        passwordConfirm: 'TEMPORARY_PASSWORD',
-                        name: userInfo.name
-                    });
-                    console.log('User created:', newUser);
+                        name: userInfo.name,
+                        username: userInfo.email.split('@')[0], // Generate a username from the email
+                        password: Math.random().toString(36).slice(-8), // Generate a random password
+                        passwordConfirm: Math.random().toString(36).slice(-8),
+                    };
 
-                    // Authenticate the newly created user
-                    const authData = await pb.collection('users').authWithOAuth2({
-                        provider: 'google',
-                        token: credential
-                    });
-                    localStorage.setItem('jwt', authData.token);
-                    document.getElementById('message').style.color = 'green';
-                    document.getElementById('message').textContent = 'Registration and login successful with Google!';
+                    try {
+                        const createdUser = await pb.collection('users').create(userData);
+                        console.log('User created:', createdUser);
+
+                        // Now try to authenticate again
+                        const authData = await pb.collection('users').authWithOAuth2({
+                            provider: 'google',
+                            code: credential,
+                        });
+                        localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
+                        message.style.color = 'green';
+                        message.textContent = 'Registration and login successful with Google!';
+                    } catch (createError) {
+                        console.error('Failed to create user:', createError);
+                        message.style.color = 'red';
+                        message.textContent = 'Failed to create user: ' + createError.message;
+                    }
                 }
             } catch (error) {
                 console.error('Google Sign-In failed:', error);
-                document.getElementById('message').textContent = 'Google Sign-In failed: ' + error.message;
+                message.style.color = 'red';
+                message.textContent = 'Google Sign-In failed: ' + error.message;
             }
         }
 
@@ -156,7 +166,6 @@
 
             return JSON.parse(jsonPayload);
         }
-
         async function loginOrRegisterWithEmail(email, name, password) {
             const message = document.getElementById('message');
 
