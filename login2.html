@@ -83,6 +83,7 @@
     <!-- Include the PocketBase SDK -->
     <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
     <!-- Include Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <script>
         // Initialize PocketBase client
@@ -104,19 +105,56 @@
             const { credential } = response;
 
             try {
-                // Authenticate with PocketBase using Google OAuth2
-                const authData = await pb.collection('users').authWithOAuth2({
-                    provider: 'google',
-                    token: credential
-                });
+                const userInfo = decodeJwt(credential);
+                console.log('Google User Info:', userInfo);
 
-                localStorage.setItem('jwt', authData.token);
-                document.getElementById('message').style.color = 'green';
-                document.getElementById('message').textContent = 'Login successful with Google!';
+                // Check if the user is already registered in PocketBase
+                const user = await pb.collection('users').getFirstListItem(`email="${userInfo.email}"`);
+                
+                if (user) {
+                    // User exists, authenticate
+                    const authData = await pb.collection('users').authWithOAuth2({
+                        provider: 'google',
+                        token: credential
+                    });
+                    localStorage.setItem('jwt', authData.token);
+                    document.getElementById('message').style.color = 'green';
+                    document.getElementById('message').textContent = 'Login successful with Google!';
+                } else {
+                    // User does not exist, register them
+                    const newUser = await pb.collection('users').create({
+                        username: userInfo.email.split('@')[0],
+                        email: userInfo.email,
+                        emailVisibility: true,
+                        password: credential, // Use Google token as password (not ideal, consider a better approach)
+                        passwordConfirm: credential,
+                        name: userInfo.name
+                    });
+                    console.log('User created:', newUser);
+
+                    // Authenticate the newly created user
+                    const authData = await pb.collection('users').authWithOAuth2({
+                        provider: 'google',
+                        token: credential
+                    });
+                    localStorage.setItem('jwt', authData.token);
+                    document.getElementById('message').style.color = 'green';
+                    document.getElementById('message').textContent = 'Registration and login successful with Google!';
+                }
             } catch (error) {
                 console.error('Google Sign-In failed:', error);
                 document.getElementById('message').textContent = 'Google Sign-In failed: ' + error.message;
             }
+        }
+
+        function decodeJwt(token) {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+                '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+            ).join(''));
+
+            return JSON.parse(jsonPayload);
         }
 
         async function loginOrRegisterWithEmail(email, name, password) {
