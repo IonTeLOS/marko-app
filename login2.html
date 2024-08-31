@@ -109,9 +109,9 @@
                 console.log('Google User Info:', userInfo);
 
                 // Check if the user is already registered in PocketBase
-                const user = await pb.collection('users').getFirstListItem(`email="${userInfo.email}"`);
-                
-                if (user) {
+                const existingUsers = await pb.collection('users').getList(1, 1, { filter: `email="${userInfo.email}"` });
+
+                if (existingUsers.items.length > 0) {
                     // User exists, authenticate
                     const authData = await pb.collection('users').authWithOAuth2({
                         provider: 'google',
@@ -126,8 +126,8 @@
                         username: userInfo.email.split('@')[0],
                         email: userInfo.email,
                         emailVisibility: true,
-                        password: credential, // Use Google token as password (not ideal, consider a better approach)
-                        passwordConfirm: credential,
+                        password: 'TEMPORARY_PASSWORD', // Use a placeholder password for registration
+                        passwordConfirm: 'TEMPORARY_PASSWORD',
                         name: userInfo.name
                     });
                     console.log('User created:', newUser);
@@ -222,3 +222,4 @@
     </script>
 </body>
 </html>
+
