@@ -115,40 +115,20 @@
                     const authData = await pb.collection('users').authWithOAuth2({
                         provider: 'google',
                         code: credential,
+                        createData: {
+                            email: userInfo.email,
+                            emailVisibility: true,
+                            name: userInfo.name,
+                            username: userInfo.email.split('@')[0], // Generate a username from the email
+                        }
                     });
                     localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
                     message.style.color = 'green';
                     message.textContent = 'Login successful with Google!';
                 } catch (authError) {
-                    console.log('Authentication failed, attempting to create user:', authError);
-
-                    // If authentication fails, try to create a new user
-                    const userData = {
-                        email: userInfo.email,
-                        emailVisibility: true,
-                        name: userInfo.name,
-                        username: userInfo.email.split('@')[0], // Generate a username from the email
-                        password: Math.random().toString(36).slice(-8), // Generate a random password
-                        passwordConfirm: Math.random().toString(36).slice(-8),
-                    };
-
-                    try {
-                        const createdUser = await pb.collection('users').create(userData);
-                        console.log('User created:', createdUser);
-
-                        // Now try to authenticate again
-                        const authData = await pb.collection('users').authWithOAuth2({
-                            provider: 'google',
-                            code: credential,
-                        });
-                        localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
-                        message.style.color = 'green';
-                        message.textContent = 'Registration and login successful with Google!';
-                    } catch (createError) {
-                        console.error('Failed to create user:', createError);
-                        message.style.color = 'red';
-                        message.textContent = 'Failed to create user: ' + createError.message;
-                    }
+                    console.error('Authentication failed:', authError);
+                    message.style.color = 'red';
+                    message.textContent = 'Authentication failed: ' + authError.message;
                 }
             } catch (error) {
                 console.error('Google Sign-In failed:', error);
