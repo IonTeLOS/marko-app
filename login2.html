@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login / Register Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .login-container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 300px;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input[type="email"],
+        input[type="password"],
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #message {
+            margin-top: 10px;
+            text-align: center;
+            color: red;
+        }
+    </style>
+    <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <div class="login-container">
+        <h2>Login / Register</h2>
+        <form id="loginForm">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required>
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+            <button type="submit">Login / Register</button>
+        </form>
+        <p id="message"></p>
+        <div id="g_id_onload"
+            data-client_id="7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com"
+            data-callback="handleCredentialResponse">
+        </div>
+        <div class="g_id_signin" data-type="standard"></div>
+    </div>
+
+    <script>
+        // Initialize PocketBase client
+        const pb = new PocketBase('https://marko-bin.pockethost.io');
+
+        // Handle the response from Google Identity Services
+        function handleCredentialResponse(response) {
+            const token = response.credential;
+
+            // Decode the token to get user info
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const email = payload.email;
+            const name = payload.name;
+
+            loginOrRegister(email, name, token);
+        }
+
+        async function loginOrRegister(email, name, googleIdToken) {
+            const message = document.getElementById('message');
+
+            try {
+                // Attempt to log in with the email and Google token
+                const authData = await pb.collection('users').authWithPassword(email, googleIdToken);
+                
+                // Store JWT in localStorage
+                localStorage.setItem('jwt', authData.token);
+                
+                message.style.color = 'green';
+                message.textContent = 'Login successful!';
+            } catch (error) {
+                // If login fails, try to create a new user
+                try {
+                    const data = {
+                        username: email.split('@')[0],
+                        email: email,
+                        emailVisibility: true,
+                        password: googleIdToken, // Use Google token as password for registration
+                        passwordConfirm: googleIdToken,
+                        name: name
+                    };
+
+                    // Create a new user in PocketBase
+                    await pb.collection('users').create(data);
+
+                    // Automatically log in the newly created user
+                    const authData = await pb.collection('users').authWithPassword(email, googleIdToken);
+                    
+                    // Store JWT in localStorage after successful registration and login
+                    localStorage.setItem('jwt', authData.token);
+
+                    message.style.color = 'green';
+                    message.textContent = 'Registration successful! Please check your email to verify your account.';
+                } catch (registrationError) {
+                    message.textContent = 'Registration failed: ' + registrationError.message;
+                }
+            }
+        }
+
+        // Handle form submission for manual login/register
+        document.getElementById('loginForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const message = document.getElementById('message');
+
+            try {
+                // Attempt to log in
+                const authData = await pb.collection('users').authWithPassword(email, password);
+                
+                // Store JWT in localStorage
+                localStorage.setItem('jwt', authData.token);
+                
+                message.style.color = 'green';
+                message.textContent = 'Login successful!';
+            } catch (error) {
+                // If login fails, try to create a new user
+                try {
+                    const data = {
+                        username: email.split('@')[0],
+                        email: email,
+                        emailVisibility: true,
+                        password: password,
+                        passwordConfirm: password,
+                        name: name
+                    };
+
+                    // Create a new user in PocketBase
+                    await pb.collection('users').create(data);
+
+                    // Automatically log in the newly created user
+                    const authData = await pb.collection('users').authWithPassword(email, password);
+                    
+                    // Store JWT in localStorage after successful registration and login
+                    localStorage.setItem('jwt', authData.token);
+
+                    message.style.color = 'green';
+                    message.textContent = 'Registration successful! Please check your email to verify your account.';
+                } catch (registrationError) {
+                    message.textContent = 'Registration failed: ' + registrationError.message;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
