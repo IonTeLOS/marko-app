@@ -63,9 +63,12 @@
             text-align: center;
             color: red;
         }
+
+        .g-signin2 {
+            margin-top: 20px;
+            text-align: center;
+        }
     </style>
-    <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <div class="login-container">
@@ -80,66 +83,87 @@
             <button type="submit">Login / Register</button>
         </form>
         <p id="message"></p>
-        <div id="g_id_onload"
-            data-client_id="7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com"
-            data-callback="handleCredentialResponse">
-        </div>
-        <div class="g_id_signin" data-type="standard"></div>
+        <div class="g-signin2" data-onsuccess="onSignIn"></div>
     </div>
+
+    <!-- Include the PocketBase SDK -->
+    <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
+    <!-- Include Google Sign-In API -->
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
 
     <script>
         // Initialize PocketBase client
         const pb = new PocketBase('https://marko-bin.pockethost.io');
 
-        // Handle the response from Google Identity Services
-        function handleCredentialResponse(response) {
-            const token = response.credential;
+        // Initialize Google Sign-In client with your Client ID
+        function initializeGoogleSignIn() {
+            gapi.load('auth2', function() {
+                gapi.auth2.init({
+                    client_id: 'YOUR_GOOGLE_CLIENT_ID'
+                }).then(() => {
+                    console.log('Google Sign-In initialized');
+                }).catch(err => {
+                    console.error('Google Sign-In initialization error:', err);
+                });
+            });
+        }
+        initializeGoogleSignIn();
 
-            // Decode the token to get user info
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            const email = payload.email;
-            const name = payload.name;
+        // Handle Google Sign-In
+        function onSignIn(googleUser) {
+            const profile = googleUser.getBasicProfile();
+            const accessToken = googleUser.getAuthResponse().access_token;
 
-            loginOrRegister(email, name, token);
+            // Extract user information from Google profile
+            const email = profile.getEmail();
+            const name = profile.getName();
+
+            // Attempt to login or register the user
+            loginOrRegisterWithGoogle(email, name, accessToken);
         }
 
-        async function loginOrRegister(email, name, googleIdToken) {
+        async function loginOrRegisterWithGoogle(email, name, googleToken) {
             const message = document.getElementById('message');
 
             try {
-                // Attempt to log in with the email and Google token
-                const authData = await pb.collection('users').authWithPassword(email, googleIdToken);
+                // Check if the user already exists
+                const existingUser = await pb.collection('users').getFirstListItem(`email="${email}"`);
                 
-                // Store JWT in localStorage
+                // Attempt to log in with Google token as password
+                const authData = await pb.collection('users').authWithPassword(email, googleToken);
                 localStorage.setItem('jwt', authData.token);
-                
                 message.style.color = 'green';
                 message.textContent = 'Login successful!';
             } catch (error) {
-                // If login fails, try to create a new user
-                try {
-                    const data = {
-                        username: email.split('@')[0],
-                        email: email,
-                        emailVisibility: true,
-                        password: googleIdToken, // Use Google token as password for registration
-                        passwordConfirm: googleIdToken,
-                        name: name
-                    };
+                if (error.message.includes('No records found')) {
+                    // If user does not exist, create a new user
+                    try {
+                        const data = {
+                            username: email.split('@')[0],
+                            email: email,
+                            emailVisibility: true,
+                            password: googleToken, // Use Google token as password
+                            passwordConfirm: googleToken,
+                            name: name
+                        };
 
-                    // Create a new user in PocketBase
-                    await pb.collection('users').create(data);
+                        // Create a new user
+                        const newUser = await pb.collection('users').create(data);
+                        console.log('User created:', newUser);
 
-                    // Automatically log in the newly created user
-                    const authData = await pb.collection('users').authWithPassword(email, googleIdToken);
-                    
-                    // Store JWT in localStorage after successful registration and login
-                    localStorage.setItem('jwt', authData.token);
+                        // Automatically log in the newly created user
+                        const authData = await pb.collection('users').authWithPassword(email, googleToken);
+                        localStorage.setItem('jwt', authData.token);
 
-                    message.style.color = 'green';
-                    message.textContent = 'Registration successful! Please check your email to verify your account.';
-                } catch (registrationError) {
-                    message.textContent = 'Registration failed: ' + registrationError.message;
+                        message.style.color = 'green';
+                        message.textContent = 'Registration successful! Please check your email to verify your account.';
+                    } catch (registrationError) {
+                        console.error('Registration failed:', registrationError);
+                        message.textContent = 'Registration failed: ' + registrationError.message;
+                    }
+                } else {
+                    console.error('Login failed:', error);
+                    message.textContent = 'Login failed: ' + error.message;
                 }
             }
         }
@@ -153,16 +177,22 @@
             const password = document.getElementById('password').value;
             const message = document.getElementById('message');
 
+            // Validate password length
+            if (password.length < 8 || password.length > 72) {
+                message.textContent = 'Password must be between 8 and 72 characters.';
+                return;
+            }
+
             try {
                 // Attempt to log in
                 const authData = await pb.collection('users').authWithPassword(email, password);
-                
                 // Store JWT in localStorage
                 localStorage.setItem('jwt', authData.token);
-                
                 message.style.color = 'green';
                 message.textContent = 'Login successful!';
             } catch (error) {
+                console.error('Login failed:', error);
+
                 // If login fails, try to create a new user
                 try {
                     const data = {
@@ -174,18 +204,19 @@
                         name: name
                     };
 
-                    // Create a new user in PocketBase
-                    await pb.collection('users').create(data);
+                    // Create a new user
+                    const newUser = await pb.collection('users').create(data);
+                    console.log('User created:', newUser);
 
                     // Automatically log in the newly created user
                     const authData = await pb.collection('users').authWithPassword(email, password);
-                    
                     // Store JWT in localStorage after successful registration and login
                     localStorage.setItem('jwt', authData.token);
 
                     message.style.color = 'green';
                     message.textContent = 'Registration successful! Please check your email to verify your account.';
                 } catch (registrationError) {
+                    console.error('Registration failed:', registrationError);
                     message.textContent = 'Registration failed: ' + registrationError.message;
                 }
             }
