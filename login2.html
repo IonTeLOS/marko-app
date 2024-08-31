@@ -102,6 +102,11 @@
             );
         }
 
+        // Initialize PocketBase client
+        const pb = new PocketBase('https://marko-bin.pockethost.io');
+
+        // ... (other functions remain the same) ...
+
         async function handleGoogleSignIn(response) {
             const { credential } = response;
             const message = document.getElementById('message');
@@ -110,21 +115,42 @@
                 const userInfo = decodeJwt(credential);
                 console.log('Google User Info:', userInfo);
 
-                // Try to authenticate with OAuth2
+                // Check if the user already exists
+                const existingUsers = await pb.collection('users').getList(1, 1, {
+                    filter: `email = "${userInfo.email}"`
+                });
+
+                if (existingUsers.totalItems === 0) {
+                    // User doesn't exist, so register them
+                    try {
+                        const newUser = await pb.collection('users').create({
+                            email: userInfo.email,
+                            emailVisibility: true,
+                            name: userInfo.name,
+                            username: userInfo.email.split('@')[0],
+                            password: Math.random().toString(36).slice(-8),
+                            passwordConfirm: Math.random().toString(36).slice(-8)
+                        });
+                        console.log('New user registered:', newUser);
+                    } catch (createError) {
+                        console.error('Failed to create user:', createError);
+                        message.style.color = 'red';
+                        message.textContent = 'Failed to create user: ' + createError.message;
+                        return;
+                    }
+                }
+
+                // Now authenticate the user
                 try {
                     const authData = await pb.collection('users').authWithOAuth2({
                         provider: 'google',
                         code: credential,
-                        createData: {
-                            email: userInfo.email,
-                            emailVisibility: true,
-                            name: userInfo.name,
-                            username: userInfo.email.split('@')[0], // Generate a username from the email
-                        }
                     });
                     localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
                     message.style.color = 'green';
-                    message.textContent = 'Login successful with Google!';
+                    message.textContent = existingUsers.totalItems === 0 ? 
+                        'Registration and login successful with Google!' : 
+                        'Login successful with Google!';
                 } catch (authError) {
                     console.error('Authentication failed:', authError);
                     message.style.color = 'red';
@@ -150,43 +176,62 @@
             const message = document.getElementById('message');
 
             try {
-                // Attempt to log in
-                const authData = await pb.collection('users').authWithPassword(email, password);
-                localStorage.setItem('jwt', authData.token);
-                message.style.color = 'green';
-                message.textContent = 'Login successful!';
-            } catch (error) {
-                console.error('Login failed:', error);
+                // Check if the user already exists
+                const existingUsers = await pb.collection('users').getList(1, 1, {
+                    filter: `email = "${email}"`
+                });
 
-                if (error.message.includes('Invalid credentials')) {
-                    // If login fails, try registering
+                if (existingUsers.totalItems === 0) {
+                    // User doesn't exist, so register them
                     try {
-                        const data = {
-                            username: email.split('@')[0],
+                        const newUser = await pb.collection('users').create({
                             email: email,
                             emailVisibility: true,
+                            name: name,
+                            username: email.split('@')[0],
                             password: password,
-                            passwordConfirm: password,
-                            name: name
-                        };
-
-                        const newUser = await pb.collection('users').create(data);
-                        console.log('User created:', newUser);
-
-                        const authData = await pb.collection('users').authWithPassword(email, password);
-                        localStorage.setItem('jwt', authData.token);
-
-                        message.style.color = 'green';
-                        message.textContent = 'Registration successful!';
-                    } catch (registrationError) {
-                        console.error('Registration failed:', registrationError);
-                        message.textContent = 'Registration failed: ' + registrationError.message;
+                            passwordConfirm: password
+                        });
+                        console.log('New user registered:', newUser);
+                    } catch (createError) {
+                        console.error('Failed to create user:', createError);
+                        message.style.color = 'red';
+                        message.textContent = 'Registration failed: ' + createError.message;
+                        return;
                     }
-                } else {
-                    message.textContent = 'Authentication failed: ' + error.message;
                 }
+
+                // Now authenticate the user
+                const authData = await pb.collection('users').authWithPassword(email, password);
+                localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
+                message.style.color = 'green';
+                message.textContent = existingUsers.totalItems === 0 ? 
+                    'Registration and login successful!' : 
+                    'Login successful!';
+            } catch (error) {
+                console.error('Authentication failed:', error);
+                message.style.color = 'red';
+                message.textContent = 'Authentication failed: ' + error.message;
             }
         }
+
+        // Handle form submission for manual login/register
+        document.getElementById('loginForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const message = document.getElementById('message');
+
+            // Validate password length
+            if (password.length < 8 || password.length > 72) {
+                message.textContent = 'Password must be between 8 and 72 characters.';
+                return;
+            }
+
+            await loginOrRegisterWithEmail(email, name, password);
+        });
 
         // Handle form submission for manual login/register
         document.getElementById('loginForm').addEventListener('submit', async function(event) {
