@@ -175,39 +175,38 @@
             return Math.random().toString(36).slice(-12); // Generate a secure random password
         }
 
-        // Handle form submission for manual login/register
-        document.getElementById('loginForm').addEventListener('submit', async function(event) {
-            event.preventDefault();
+       document.getElementById('loginForm').addEventListener('submit', async function(event) {
+        event.preventDefault();
 
-            const name = document.getElementById('name').value;
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const message = document.getElementById('message');
+        const name = document.getElementById('name').value;
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const message = document.getElementById('message');
 
-            // Validate password length
-            if (password.length < 8 || password.length > 72) {
-                message.textContent = 'Password must be between 8 and 72 characters.';
-                return;
-            }
+        // Validate password length
+        if (password.length < 8 || password.length > 72) {
+            message.textContent = 'Password must be between 8 and 72 characters.';
+            return;
+        }
 
-            try {
-                // Attempt to log in
-                const authData = await pb.collection('users').authWithPassword(email, password);
-                localStorage.setItem('jwt', authData.token);
-                message.style.color = 'green';
-                message.textContent = 'Login successful!';
-            } catch (error) {
-                console.error('Login failed:', error);
+        try {
+            // Attempt to log in
+            const authData = await pb.collection('users').authWithPassword(email, password);
+            localStorage.setItem('jwt', authData.token);
+            message.style.color = 'green';
+            message.textContent = 'Login successful!';
+        } catch (error) {
+            console.error('Login failed:', error);
 
+            if (error.status === 400) {
+                // If login fails, create a new user
                 try {
-                    // If login fails, create a new user
                     const data = {
-                        username: email.split('@')[0],
                         email: email,
-                        emailVisibility: true,
                         password: password,
                         passwordConfirm: password,
-                        name: name
+                        name: name,
+                        // Add any other required fields
                     };
 
                     const newUser = await pb.collection('users').create(data);
@@ -222,8 +221,11 @@
                     console.error('Registration failed:', registrationError);
                     message.textContent = 'Registration failed: ' + registrationError.message;
                 }
+            } else {
+                message.textContent = 'Login failed: ' + error.message;
             }
-        });
+        }
+    });
 
         // Initialize Google Sign-In when the script loads
         initializeGoogleSignIn();
