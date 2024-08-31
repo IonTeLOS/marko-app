@@ -102,7 +102,7 @@
             );
         }
 
-async function handleGoogleSignIn(response) {
+        async function handleGoogleSignIn(response) {
             const { credential } = response;
             const message = document.getElementById('message');
 
@@ -136,21 +136,15 @@ async function handleGoogleSignIn(response) {
                 }
 
                 // Now authenticate the user
-                try {
-                    const authData = await pb.collection('users').authWithOAuth2({
-                        provider: 'google',
-                        code: credential,
-                    });
-                    localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
-                    message.style.color = 'green';
-                    message.textContent = existingUsers.totalItems === 0 ? 
-                        'Registration and login successful with Google!' : 
-                        'Login successful with Google!';
-                } catch (authError) {
-                    console.error('Authentication failed:', authError);
-                    message.style.color = 'red';
-                    message.textContent = 'Authentication failed: ' + authError.message;
-                }
+                const authData = await pb.collection('users').authWithOAuth2({
+                    provider: 'google',
+                    code: credential,
+                });
+                localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
+                message.style.color = 'green';
+                message.textContent = existingUsers.totalItems === 0 ? 
+                    'Registration and login successful with Google!' : 
+                    'Login successful with Google!';
             } catch (error) {
                 console.error('Google Sign-In failed:', error);
                 message.style.color = 'red';
@@ -158,17 +152,7 @@ async function handleGoogleSignIn(response) {
             }
         }
 
-
-        function decodeJwt(token) {
-            const base64Url = token.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
-                '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-            ).join(''));
-
-            return JSON.parse(jsonPayload);
-        }
-       async function loginOrRegisterWithEmail(email, name, password) {
+        async function loginOrRegisterWithEmail(email, name, password) {
             const message = document.getElementById('message');
 
             try {
@@ -229,24 +213,17 @@ async function handleGoogleSignIn(response) {
             await loginOrRegisterWithEmail(email, name, password);
         });
 
-        // Handle form submission for manual login/register
-        document.getElementById('loginForm').addEventListener('submit', async function(event) {
-            event.preventDefault();
 
-            const name = document.getElementById('name').value;
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const message = document.getElementById('message');
+        function decodeJwt(token) {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+                '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+            ).join(''));
 
-            // Validate password length
-            if (password.length < 8 || password.length > 72) {
-                message.textContent = 'Password must be between 8 and 72 characters.';
-                return;
-            }
-
-            await loginOrRegisterWithEmail(email, name, password);
-        });
-
+            return JSON.parse(jsonPayload);
+        }
+      
         // Initialize Google Sign-In when the script loads
         initializeGoogleSignIn();
     </script>
