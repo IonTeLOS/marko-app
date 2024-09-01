@@ -3157,7 +3157,6 @@ async function checkLoginStatus() {
         const isTokenValid = await checkJWToken();
         if (isTokenValid) {
             console.log('Google Access Token and PocketBase JWT are valid.');
-            getUserInfo(accessToken);
             // Proceed to load the main page content
         } else {
             // PocketBase JWT is invalid, start OAuth2 flow
@@ -3202,10 +3201,10 @@ async function handleOAuth2Flow() {
                     authUrl: googleProvider.authUrl,
                 }));
 
-                sessionStorage.setItem('redirectTo', '/');
+                sessionStorage.setItem('redirectTo', '');
                 // Construct the authentication URL
-                const authUrl = googleProvider.authUrl;
-                
+                const authUrl = googleProvider.authUrl + encodeURIComponent(redirectUrl);
+
                 // Redirect to Google for authentication
                 window.location.href = authUrl;
             } else {
