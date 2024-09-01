@@ -720,7 +720,8 @@ async function handleCredentialResponse(response) {
                     try {
                         await pb.collection('users').create({
                             email: userInfo.email,
-                            password: 'password123', // Generate a secure password or use a different approach
+                            password: 'password123', // Replace with a secure password or handling logic
+                            passwordConfirm: true, // Send true for the boolean field
                             name: userInfo.name,
                         });
                         // Authenticate the newly created user
@@ -740,6 +741,7 @@ async function handleCredentialResponse(response) {
         }
     }
 }
+
 
         function initializeGSI() {
             const accessToken = localStorage.getItem('accessToken');
