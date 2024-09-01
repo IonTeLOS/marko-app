@@ -259,19 +259,28 @@
         // parse the query parameters from the redirected url
         const params = (new URL(window.location)).searchParams;
 
-        // load the previously stored provider's data
-        const provider = JSON.parse(localStorage.getItem('provider'))
+// Function to generate a random string for codeVerifier
+function generateRandomString(length) {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return result;
+}
+
+
 
         // compare the redirect's state param and the stored provider's one
-        if (provider.state !== params.get('state')) {
-            throw "State parameters don't match.";
-        }
+        if (params.get('state') {
+        const storedCodeVerifier = localStorage.getItem('codeVerifier');
+
 
         // authenticate
         pb.collection('users').authWithOAuth2Code(
-            provider.name,
+            'google',
             params.get('code'),
-            provider.codeVerifier,
+            storedCodeVerifier,
             redirectUrl,
             // pass optional user create data
             {
@@ -283,7 +292,11 @@
             console.log("Failed to exchange code.\n" + err);
         });
 
-
+        } else {
+            // Store codeVerifier
+            const codeVerifier = generateRandomString(128);
+            localStorage.setItem('codeVerifier', codeVerifier);
+        }
 
         
         function getRedirectUrl() {
