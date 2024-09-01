@@ -12,8 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;700&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
-
+   
     <style>
         
         body, html {
@@ -246,7 +245,7 @@
     </div>
 
     <script>
-        const pb = new PocketBase('https://marko-bin.pockethost.io');
+        
         let APP_URL = 'https://marko-app.netlify.app';
         const CLIENT_ID = '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid';
@@ -697,75 +696,26 @@ function handleEULA() {
 async function handleCredentialResponse(response) {
     if (response.credential) {
         document.getElementById('signInButtonContainer').style.display = 'none';
-        
         try {
-            // Example function to exchange OAuth2 credential for access token
             const { accessToken, userInfo } = await getAccessToken(response.credential);
             localStorage.setItem('accessToken', accessToken);
             localStorage.setItem('userInfo', JSON.stringify(userInfo));
 
             if (userInfo && userInfo.email) {
                 localStorage.setItem('userEmail', userInfo.email);
-
-                try {
-                    // Attempt to authenticate with PocketBase using OAuth2 access token
-                    const authData = await pb.collection('users').authWithOAuth2({
-                        provider: 'google',  // Replace with the actual provider name if different
-                        access_token: accessToken
-                    });
-
-                    console.log('Logged in successfully');
-                    console.log('Is valid:', pb.authStore.isValid);
-                    console.log('Token:', pb.authStore.token);
-                    console.log('User ID:', pb.authStore.model.id);
-
-                    // Store the PocketBase token in localStorage
-                    localStorage.setItem('pbToken', pb.authStore.token);
-
-                    // Introduce a delay before redirecting
-                    //setTimeout(() => {
-                        //window.location.href = getRedirectUrl();
-                    //}, 1000); // 1-second delay
-
-                } catch (authError) {
-                    console.error('Authentication failed:', authError);
-
-                    try {
-                        // Create a new user in PocketBase
-                        await pb.collection('users').create({
-                            email: userInfo.email,
-                            password: 'password1_23', // Use secure password handling in production
-                            passwordConfirm: 'password1_23',
-                            name: userInfo.name,
-                        });
-
-                        // Log in the newly created user
-                        const authData = await pb.collection('users').authWithPassword(userInfo.email, 'password1_23');
-                        console.log('User created and logged in successfully');
-                        console.log('Is valid:', pb.authStore.isValid);
-                        console.log('Token:', pb.authStore.token);
-                        console.log('User ID:', pb.authStore.model.id);
-
-                        // Store the token in localStorage
-                        localStorage.setItem('pbToken', pb.authStore.token);
-
-                        // Introduce a delay before redirecting
-                        //setTimeout(() => {
-                            //window.location.href = getRedirectUrl();
-                        //}, 1000); // 1-second delay
-
-                    } catch (createUserError) {
-                        console.error('Failed to create user:', createUserError);
-                    }
-                }
+                console.log('Logged in user email:', userInfo.email);
             }
+
+            localStorage.removeItem('explicitLogout');
+            console.log('Access Token:', accessToken);
+            console.log('User Info:', userInfo);
+
+            window.location.href = getRedirectUrl();  
         } catch (error) {
             console.error('Error during authentication process:', error);
         }
     }
 }
-
-
 
         function initializeGSI() {
             const accessToken = localStorage.getItem('accessToken');
