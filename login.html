@@ -251,6 +251,7 @@
         const CLIENT_ID = '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid';
 
+        /*
 const pb = new PocketBase("https://marko-bin.pockethost.io");
 const redirectUrl = 'https://marko-app.netlify.app/login';
 
@@ -286,6 +287,38 @@ if (storedProvider) {
     console.error("Provider data is not found in localStorage.");
     // Handle the error (e.g., redirect to the login page)
     window.location.href = `${redirectUrl}?error=no_provider_data_received`; // Adjust redirect URL as needed
+}
+*/
+        const pb = new PocketBase("https://marko-bin.pockethost.io");
+const redirectUrl = 'https://marko-app.netlify.app/login';
+
+// Load provider's data from localStorage
+const storedProvider = JSON.parse(localStorage.getItem('provider'));
+const url = new URL(window.location.href);
+const authCode = url.searchParams.get('code');
+const receivedState = url.searchParams.get('state');
+
+// Ensure state is checked if used
+if (storedProvider && authCode && receivedState === storedProvider.state) {
+    const { name, codeVerifier } = storedProvider;
+
+    // Authenticate using OAuth2 code
+    pb.collection('users').authWithOAuth2Code(name, authCode, codeVerifier, redirectUrl, { emailVisibility: false })
+        .then(authData => {
+            // Store JWT securely
+            localStorage.setItem('jwt', authData.token);
+            console.log('Authentication successful:', JSON.stringify(authData, null, 2));
+            // Redirect or update UI as needed
+            // window.location.href = `${redirectUrl}`;
+        })
+        .catch(err => {
+            console.error("Authentication failed:\n", err);
+            // Handle failure by continuing
+        });
+} else {
+    console.error("Provider data, auth code, or state is missing or invalid.");
+    // Handle missing or invalid data
+    window.location.href = `${redirectUrl}?error=missing_or_invalid_data`;
 }
 
 
