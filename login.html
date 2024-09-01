@@ -251,7 +251,7 @@
         const CLIENT_ID = '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid';
 
-        const pb = new PocketBase("https://marko-bin.pockethost.io");
+const pb = new PocketBase("https://marko-bin.pockethost.io");
 const redirectUrl = 'https://marko-app.netlify.app/login';
 
 // Load the previously stored provider's data from localStorage
@@ -269,29 +269,28 @@ if (storedProvider) {
             console.error("State parameters don't match.");
             // Redirect to an error page or login page
             window.location.href = `${redirectUrl}?error=state_mismatch`;
-            return;
+        } else {
+            // Authenticate using the OAuth2 code
+            pb.collection('users').authWithOAuth2Code(
+                name,            // 'google', as specified
+                authCode,        // The code from the URL
+                codeVerifier,    // The code verifier stored in localStorage
+                redirectUrl,     // Redirect URL after successful authentication
+                {
+                    emailVisibility: false,  // Optional: adjust as needed
+                }
+            ).then((authData) => {
+                // Store JWT in localStorage
+                localStorage.setItem('jwt', authData.token);
+                console.log('Authentication successful:', JSON.stringify(authData, null, 2));
+                // Optionally, redirect to another page or update the UI
+                window.location.href = `${redirectUrl}/profile`; // Adjust redirect URL as needed
+            }).catch((err) => {
+                console.error("Failed to exchange code:\n", err);
+                // Handle authentication failure (e.g., show an error message or redirect)
+                window.location.href = `${redirectUrl}?error=authentication_failed`; // Adjust redirect URL as needed
+            });
         }
-
-        // Authenticate using the OAuth2 code
-        pb.collection('users').authWithOAuth2Code(
-            name,            // 'google', as specified
-            authCode,        // The code from the URL
-            codeVerifier,    // The code verifier stored in localStorage
-            redirectUrl,     // Redirect URL after successful authentication
-            {
-                emailVisibility: false,  // Optional: adjust as needed
-            }
-        ).then((authData) => {
-            // Store JWT in localStorage
-            localStorage.setItem('jwt', authData.token);
-            console.log('Authentication successful:', JSON.stringify(authData, null, 2));
-            // Optionally, redirect to another page or update the UI
-            window.location.href = `${redirectUrl}/profile`; // Adjust redirect URL as needed
-        }).catch((err) => {
-            console.error("Failed to exchange code:\n", err);
-            // Handle authentication failure (e.g., show an error message or redirect)
-            window.location.href = `${redirectUrl}?error=authentication_failed`; // Adjust redirect URL as needed
-        });
     } else {
         console.error("Authorization code or state is missing.");
         // Handle the error (e.g., redirect to the login page)
@@ -302,6 +301,7 @@ if (storedProvider) {
     // Handle the error (e.g., redirect to the login page)
     window.location.href = `${redirectUrl}?error=no_provider_data`; // Adjust redirect URL as needed
 }
+
 
         function getRedirectUrl() {
             const urlParams = new URLSearchParams(window.location.search);
