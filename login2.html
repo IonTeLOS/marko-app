@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Authentication</title>
+    <title>PocketBase Authentication</title>
     <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
     <style>
         body {
@@ -21,117 +21,151 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 100%;
         }
-        #loginButton {
+        button, input[type="text"], input[type="password"], input[type="email"] {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
             background-color: #4285F4;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
             cursor: pointer;
             font-size: 16px;
         }
+        button:hover {
+            background-color: #357ae8;
+        }
         #message, #userInfo {
             margin-top: 20px;
+        }
+        #authForm {
+            display: none;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Google Authentication</h1>
-        <button id="loginButton">Login with Google</button>
+        <h1>PocketBase Authentication</h1>
+        <div id="authOptions"></div>
+        <form id="authForm">
+            <input type="text" id="username" placeholder="Username" style="display: none;">
+            <input type="email" id="email" placeholder="Email">
+            <input type="password" id="password" placeholder="Password">
+            <button type="submit">Login/Register</button>
+        </form>
         <div id="message"></div>
         <div id="userInfo"></div>
     </div>
 
     <script>
         const pb = new PocketBase('https://marko-bin.pockethost.io');
-        const loginButton = document.getElementById('loginButton');
+        const authOptions = document.getElementById('authOptions');
+        const authForm = document.getElementById('authForm');
         const message = document.getElementById('message');
         const userInfo = document.getElementById('userInfo');
 
-        loginButton.addEventListener('click', async () => {
+        async function loadAuthMethods() {
             try {
-                console.log('Initiating OAuth2 authentication...');
-                const authData = await pb.collection('users').authWithOAuth2({ provider: 'google' });
-                
-                console.log('Authentication response:', authData);
+                const authMethods = await pb.collection('users').listAuthMethods();
+                console.log('Auth methods:', authMethods);
 
-                // Store PocketBase JWT
-                localStorage.setItem('pocketbase_auth', JSON.stringify(pb.authStore.exportToCookie()));
-
-                // Store Google access token
-                if (authData.meta?.accessToken) {
-                    localStorage.setItem('google_access_token', authData.meta.accessToken);
+                if (authMethods.authProviders.length > 0) {
+                    authMethods.authProviders.forEach(provider => {
+                        const button = document.createElement('button');
+                        button.textContent = `Login with ${provider.name}`;
+                        button.onclick = () => authWithProvider(provider.name);
+                        authOptions.appendChild(button);
+                    });
                 }
 
-                const isNewUser = authData.meta?.isNew || false;
-
-                message.style.color = 'green';
-                message.textContent = isNewUser ? 'New user registered and authenticated successfully!' : 'Authentication successful!';
-
-                // Display user info
-                userInfo.innerHTML = `
-                    <h3>User Information:</h3>
-                    <p>ID: ${authData.record.id}</p>
-                    <p>Email: ${authData.record.email}</p>
-                    <p>Name: ${authData.record.name}</p>
-                    <p>Is New User: ${isNewUser}</p>
-                `;
-
-                console.log('Auth store is valid:', pb.authStore.isValid);
-                console.log('Auth token:', pb.authStore.token);
-                console.log('User ID:', pb.authStore.model.id);
-
-                // Update button state
-                loginButton.textContent = 'Logout';
-                loginButton.onclick = logout;
-
+                if (authMethods.usernamePassword || authMethods.emailPassword) {
+                    const button = document.createElement('button');
+                    button.textContent = 'Login with Email/Password';
+                    button.onclick = () => showAuthForm(authMethods);
+                    authOptions.appendChild(button);
+                }
             } catch (error) {
-                console.error('Authentication error:', error);
-                console.error('Error details:', {
-                    name: error.name,
-                    message: error.message,
-                    status: error.status,
-                    data: error.data,
-                    stack: error.stack
-                });
-                message.style.color = 'red';
-                message.textContent = `Authentication failed: ${error.message}`;
-                if (error.data) {
-                    message.textContent += ` (${JSON.stringify(error.data)})`;
-                }
+                console.error('Error loading auth methods:', error);
+                message.textContent = 'Error loading authentication methods.';
             }
-        });
+        }
+
+        function showAuthForm(authMethods) {
+            authOptions.style.display = 'none';
+            authForm.style.display = 'block';
+            document.getElementById('username').style.display = authMethods.usernamePassword ? 'block' : 'none';
+            document.getElementById('email').style.display = authMethods.emailPassword ? 'block' : 'none';
+        }
+
+        async function authWithProvider(provider) {
+            try {
+                const authData = await pb.collection('users').authWithOAuth2({ provider });
+                handleAuthSuccess(authData);
+            } catch (error) {
+                handleAuthError(error);
+            }
+        }
+
+        authForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            try {
+                const authData = await pb.collection('users').authWithPassword(email, password);
+                handleAuthSuccess(authData);
+            } catch (error) {
+                handleAuthError(error);
+            }
+        };
+
+        function handleAuthSuccess(authData) {
+            console.log('Authentication successful:', authData);
+            localStorage.setItem('pocketbase_auth', JSON.stringify(pb.authStore.exportToCookie()));
+            message.style.color = 'green';
+            message.textContent = 'Authentication successful!';
+            userInfo.innerHTML = `
+                <h3>User Information:</h3>
+                <p>ID: ${authData.record.id}</p>
+                <p>Email: ${authData.record.email}</p>
+                <p>Username: ${authData.record.username}</p>
+            `;
+            authForm.style.display = 'none';
+            authOptions.innerHTML = '<button onclick="logout()">Logout</button>';
+            authOptions.style.display = 'block';
+        }
+
+        function handleAuthError(error) {
+            console.error('Authentication error:', error);
+            message.style.color = 'red';
+            message.textContent = `Authentication failed: ${error.message}`;
+        }
 
         function logout() {
             pb.authStore.clear();
             localStorage.removeItem('pocketbase_auth');
-            localStorage.removeItem('google_access_token');
             message.textContent = 'Logged out successfully.';
             userInfo.innerHTML = '';
-            loginButton.textContent = 'Login with Google';
-            loginButton.onclick = null;
+            loadAuthMethods();
         }
 
-        // Check if user is already authenticated
-        window.addEventListener('load', () => {
+        window.onload = () => {
             const storedAuth = localStorage.getItem('pocketbase_auth');
             if (storedAuth) {
-                try {
-                    pb.authStore.loadFromCookie(storedAuth);
-                    if (pb.authStore.isValid) {
-                        loginButton.textContent = 'Logout';
-                        loginButton.onclick = logout;
-                        message.style.color = 'green';
-                        message.textContent = 'Already authenticated.';
-                        // You can add code here to display user info if needed
-                    }
-                } catch (error) {
-                    console.error('Error loading stored auth:', error);
+                pb.authStore.loadFromCookie(storedAuth);
+                if (pb.authStore.isValid) {
+                    handleAuthSuccess({ record: pb.authStore.model });
+                    return;
                 }
             }
-        });
+            loadAuthMethods();
+        };
     </script>
 </body>
 </html>
