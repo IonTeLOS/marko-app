@@ -258,18 +258,13 @@ const redirectUrl = 'https://marko-app.netlify.app/login';
 const storedProvider = JSON.parse(localStorage.getItem('provider'));
 
 if (storedProvider) {
-    const { name, state: storedState, codeVerifier } = storedProvider;
+    const { name, codeVerifier } = storedProvider;
     const url = new URL(window.location.href);
     const authCode = url.searchParams.get('code');
-    const receivedState = url.searchParams.get('state');
 
-    if (authCode && receivedState) {
+    if (authCode) {
         // Compare the state from the URL with the stored state
-        if (storedState !== receivedState) {
-            console.error("State parameters don't match.");
-            // Redirect to an error page or login page
-            window.location.href = `${redirectUrl}?error=state_mismatch`;
-        } else {
+        
             // Authenticate using the OAuth2 code
             pb.collection('users').authWithOAuth2Code(
                 name,            // 'google', as specified
@@ -290,16 +285,15 @@ if (storedProvider) {
                 // Handle authentication failure (e.g., show an error message or redirect)
                 window.location.href = `${redirectUrl}?error=authentication_failed`; // Adjust redirect URL as needed
             });
-        }
     } else {
-        console.error("Authorization code or state is missing.");
+        console.error("Authorization code is missing.");
         // Handle the error (e.g., redirect to the login page)
-       // window.location.href = `${redirectUrl}?error=missing_parameters`; // Adjust redirect URL as needed
+       window.location.href = `${redirectUrl}?error=missing_parameter`; // Adjust redirect URL as needed
     }
 } else {
     console.error("Provider data is not found in localStorage.");
     // Handle the error (e.g., redirect to the login page)
-    window.location.href = `${redirectUrl}?error=no_provider_data`; // Adjust redirect URL as needed
+    window.location.href = `${redirectUrl}?error=no_provider_data_received`; // Adjust redirect URL as needed
 }
 
 
