@@ -698,7 +698,6 @@ async function handleCredentialResponse(response) {
     if (response.credential) {
         document.getElementById('signInButtonContainer').style.display = 'none';
         try {
-            // Retrieve user information from Google
             const { accessToken, userInfo } = await getAccessToken(response.credential);
             localStorage.setItem('accessToken', accessToken);
             localStorage.setItem('userInfo', JSON.stringify(userInfo));
@@ -706,44 +705,58 @@ async function handleCredentialResponse(response) {
             if (userInfo && userInfo.email) {
                 localStorage.setItem('userEmail', userInfo.email);
 
-                // Try to authenticate with PocketBase using the email
                 try {
-                    const authResponse = await pb.collection('users').authWithPassword(userInfo.email, 'password123'); // Replace with a valid password or handling logic
-                    console.log(pb.authStore.isValid);
-                    console.log(pb.authStore.token);
-                    console.log(pb.authStore.model.id);
+                    // Attempt to log in with PocketBase
+                    await pb.collection('users').authWithPassword(userInfo.email, 'password123'); // Use correct password
+                    console.log('Logged in successfully');
+                    console.log('Is valid:', pb.authStore.isValid);
+                    console.log('Token:', pb.authStore.token);
+                    console.log('User ID:', pb.authStore.model.id);
+
+                    // Store the token in localStorage
                     localStorage.setItem('pbToken', pb.authStore.token);
 
+                    // Introduce a delay before redirecting
+                    setTimeout(() => {
+                        window.location.href = getRedirectUrl();
+                    }, 1000); // 1-second delay
                 } catch (authError) {
-                    // If authentication fails, create a new user
                     console.error('Authentication failed, creating new user:', authError);
 
-                    // Create user logic
                     try {
+                        // Create a new user
                         await pb.collection('users').create({
                             email: userInfo.email,
-                            password: 'password1_723', // Replace with a secure password or handling logic
-                            passwordConfirm: 'password1_723', // Send true for the boolean field
+                            password: 'password123', // Use secure password handling
+                            passwordConfirm: true,
                             name: userInfo.name,
                         });
-                        // Authenticate the newly created user
-                        await pb.collection('users').authWithPassword(userInfo.email, 'password1_723');
-                        console.log(pb.authStore.isValid);
-                        console.log(pb.authStore.token);
-                        console.log(pb.authStore.model.id);
+
+                        // Log in the newly created user
+                        await pb.collection('users').authWithPassword(userInfo.email, 'password123');
+                        console.log('User created and logged in successfully');
+                        console.log('Is valid:', pb.authStore.isValid);
+                        console.log('Token:', pb.authStore.token);
+                        console.log('User ID:', pb.authStore.model.id);
+
+                        // Store the token in localStorage
                         localStorage.setItem('pbToken', pb.authStore.token);
+
+                        // Introduce a delay before redirecting
+                        setTimeout(() => {
+                            window.location.href = getRedirectUrl();
+                        }, 1000); // 1-second delay
                     } catch (createUserError) {
                         console.error('Failed to create user:', createUserError);
                     }
                 }
-
-                window.location.href = getRedirectUrl();
             }
         } catch (error) {
             console.error('Error during authentication process:', error);
         }
     }
 }
+
 
 
         function initializeGSI() {
