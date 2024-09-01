@@ -619,7 +619,7 @@ async function handleOAuth2Flow() {
                 }));
                 
                 // Construct the authentication URL
-                const authUrl = googleProvider.authUrl + encodeURIComponent(redirectUrl);
+                const authUrl = googleProvider.authUrl + encodeURIComponent(redirectUrl) + '&redirect=profile';
                 
                 // Redirect to Google for authentication
                 window.location.href = authUrl;
