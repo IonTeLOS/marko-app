@@ -294,7 +294,7 @@ if (storedProvider) {
     } else {
         console.error("Authorization code or state is missing.");
         // Handle the error (e.g., redirect to the login page)
-        window.location.href = `${redirectUrl}?error=missing_parameters`; // Adjust redirect URL as needed
+       // window.location.href = `${redirectUrl}?error=missing_parameters`; // Adjust redirect URL as needed
     }
 } else {
     console.error("Provider data is not found in localStorage.");
