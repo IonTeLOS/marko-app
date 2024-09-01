@@ -1,230 +1,43 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PocketBase Authentication</title>
-    <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f0f0;
-        }
-        .container {
-            text-align: center;
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            max-width: 400px;
-            width: 100%;
-        }
-        button, input[type="text"], input[type="password"], input[type="email"] {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        button {
-            background-color: #4285F4;
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:hover {
-            background-color: #357ae8;
-        }
-        #message, #userInfo {
-            margin-top: 20px;
-        }
-        #authForm {
-            display: none;
-        }
-    </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OAuth2 links page</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.slim.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>PocketBase Authentication</h1>
-        <div id="authOptions"></div>
-        <form id="authForm">
-            <input type="text" id="username" placeholder="Username" style="display: none;">
-            <input type="email" id="email" placeholder="Email">
-            <input type="password" id="password" placeholder="Password">
-            <button type="submit">Sign In / Sign Up</button>
-        </form>
-        <div id="message"></div>
-        <div id="userInfo"></div>
-    </div>
+    <ul id="list">
+        <li>Loading OAuth2 providers...</li>
+    </ul>
 
-    <script>
+    <script src="https://cdn.jsdelivr.net/gh/pocketbase/js-sdk@master/dist/pocketbase.umd.js"></script>
+    <script type="text/javascript">
         const pb = new PocketBase('https://marko-bin.pockethost.io');
-        const authOptions = document.getElementById('authOptions');
-        const authForm = document.getElementById('authForm');
-        const message = document.getElementById('message');
-        const userInfo = document.getElementById('userInfo');
+        const redirectUrl = 'https://marko-app.netlify.app/login';
 
-        async function loadAuthMethods() {
-            try {
-                const authMethods = await pb.collection('users').listAuthMethods();
-                console.log('Auth methods:', authMethods);
+        async function loadLinks() {
+            const authMethods = await pb.collection('users').listAuthMethods();
+            const listItems = [];
 
-                if (authMethods.authProviders.length > 0) {
-                    authMethods.authProviders.forEach(provider => {
-                        const button = document.createElement('button');
-                        button.textContent = `Sign in with ${provider.name}`;
-                        button.onclick = () => authWithProvider(provider);
-                        authOptions.appendChild(button);
+            for (const provider of authMethods.authProviders) {
+                const $li = $(`<li><a>Login with ${provider.name}</a></li>`);
+
+                $li.find('a')
+                    .attr('href', provider.authUrl + redirectUrl)
+                    .data('provider', provider)
+                    .click(function () {
+                        // store provider's data on click for verification in the redirect page
+                        localStorage.setItem('provider', JSON.stringify($(this).data('provider')));
                     });
-                }
 
-                if (authMethods.usernamePassword || authMethods.emailPassword) {
-                    const button = document.createElement('button');
-                    button.textContent = 'Sign in with Email/Password';
-                    button.onclick = () => showAuthForm(authMethods);
-                    authOptions.appendChild(button);
-                }
-            } catch (error) {
-                console.error('Error loading auth methods:', error);
-                message.textContent = 'Error loading authentication methods.';
-            }
-        }
-
-        function showAuthForm(authMethods) {
-            authOptions.style.display = 'none';
-            authForm.style.display = 'block';
-            document.getElementById('username').style.display = authMethods.usernamePassword ? 'block' : 'none';
-            document.getElementById('email').style.display = authMethods.emailPassword ? 'block' : 'none';
-        }
-
-        async function authWithProvider(provider) {
-            try {
-                const redirectUrl = encodeURIComponent('https://marko-app.netlify.app/login');
-                const state = Math.random().toString(36).substring(2); // Generate random state
-                localStorage.setItem('oauth_state', state);
-                localStorage.setItem('oauth_provider', JSON.stringify(provider));
-
-                // Redirect to the OAuth provider's authorization URL
-                const authUrl = `${provider.authUrl}?redirect_uri=${redirectUrl}&state=${state}`;
-                window.location.href = authUrl;
-            } catch (error) {
-                handleAuthError(error);
-            }
-        }
-
-        async function handleRedirect() {
-            const params = new URLSearchParams(window.location.search);
-            const code = params.get('code');
-            const state = params.get('state');
-
-            // Load provider and state from localStorage
-            const storedState = localStorage.getItem('oauth_state');
-            const provider = JSON.parse(localStorage.getItem('oauth_provider'));
-
-            if (state !== storedState) {
-                message.textContent = 'State mismatch error. Authentication failed.';
-                return;
+                listItems.push($li);
             }
 
-            if (code && provider) {
-                try {
-                    const authData = await pb.collection('users').authWithOAuth2Code(
-                        provider.name,
-                        code,
-                        provider.codeVerifier,
-                        window.location.origin // Use the origin of the page as the redirect URL
-                    );
-
-                    handleAuthSuccess(authData);
-                } catch (error) {
-                    handleAuthError(error);
-                }
-            }
+            $('#list').html(listItems.length ? listItems : '<li>No OAuth2 providers.</li>');
         }
 
-        authForm.onsubmit = async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const username = document.getElementById('username').value || email.split('@')[0];
-
-            try {
-                const authData = await pb.collection('users').authWithPassword(email, password);
-                handleAuthSuccess(authData);
-            } catch (error) {
-                if (error.status === 400) {
-                    try {
-                        const newUser = await pb.collection('users').create({
-                            email: email,
-                            password: password,
-                            passwordConfirm: password,
-                            username: username,
-                        });
-                        console.log('New user created:', newUser);
-
-                        const authData = await pb.collection('users').authWithPassword(email, password);
-                        handleAuthSuccess(authData);
-                    } catch (createError) {
-                        handleAuthError(createError);
-                    }
-                } else {
-                    handleAuthError(error);
-                }
-            }
-        };
-
-        function handleAuthSuccess(authData) {
-            console.log('Authentication successful:', authData);
-            localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
-            message.style.color = 'green';
-            message.textContent = 'Authentication successful!';
-            userInfo.innerHTML = `
-                <h3>User Information:</h3>
-                <p>ID: ${authData.record.id}</p>
-                <p>Email: ${authData.record.email}</p>
-                <p>Username: ${authData.record.username}</p>
-            `;
-            authForm.style.display = 'none';
-            authOptions.innerHTML = '<button onclick="logout()">Logout</button>';
-            authOptions.style.display = 'block';
-        }
-
-        function handleAuthError(error) {
-            console.error('Authentication error:', error);
-            message.style.color = 'red';
-            message.textContent = `Authentication failed: ${error.message}`;
-        }
-
-        function logout() {
-            pb.authStore.clear();
-            localStorage.removeItem('pocketbase_auth');
-            message.textContent = 'Logged out successfully.';
-            userInfo.innerHTML = '';
-            loadAuthMethods();
-        }
-
-        window.onload = () => {
-            if (window.location.search.includes('code=')) {
-                handleRedirect();
-            } else {
-                const storedAuth = localStorage.getItem('pocketbase_auth');
-                if (storedAuth) {
-                    const authData = JSON.parse(storedAuth);
-                    if (authData) {
-                        handleAuthSuccess(authData);
-                        return;
-                    }
-                }
-                loadAuthMethods();
-            }
-        };
+        loadLinks();
     </script>
 </body>
 </html>
