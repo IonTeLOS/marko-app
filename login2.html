@@ -31,13 +31,8 @@
             cursor: pointer;
             font-size: 16px;
         }
-        #message {
+        #message, #userInfo {
             margin-top: 20px;
-            font-weight: bold;
-        }
-        #userInfo {
-            margin-top: 20px;
-            text-align: left;
         }
     </style>
 </head>
@@ -58,16 +53,39 @@
         loginButton.addEventListener('click', async () => {
             try {
                 console.log('Initiating OAuth2 authentication...');
-                const authData = await pb.collection('users').authWithOAuth2({ 
-                    provider: 'google',
-                    createData: {
-                        emailVisibility: true,
-                    },
-                });
-
+                const authData = await pb.collection('users').authWithOAuth2({ provider: 'google' });
+                
                 console.log('Authentication response:', authData);
 
-                // ... (rest of the authentication success logic remains the same) ...
+                // Store PocketBase JWT
+                localStorage.setItem('pocketbase_auth', JSON.stringify(pb.authStore.exportToCookie()));
+
+                // Store Google access token
+                if (authData.meta?.accessToken) {
+                    localStorage.setItem('google_access_token', authData.meta.accessToken);
+                }
+
+                const isNewUser = authData.meta?.isNew || false;
+
+                message.style.color = 'green';
+                message.textContent = isNewUser ? 'New user registered and authenticated successfully!' : 'Authentication successful!';
+
+                // Display user info
+                userInfo.innerHTML = `
+                    <h3>User Information:</h3>
+                    <p>ID: ${authData.record.id}</p>
+                    <p>Email: ${authData.record.email}</p>
+                    <p>Name: ${authData.record.name}</p>
+                    <p>Is New User: ${isNewUser}</p>
+                `;
+
+                console.log('Auth store is valid:', pb.authStore.isValid);
+                console.log('Auth token:', pb.authStore.token);
+                console.log('User ID:', pb.authStore.model.id);
+
+                // Update button state
+                loginButton.textContent = 'Logout';
+                loginButton.onclick = logout;
 
             } catch (error) {
                 console.error('Authentication error:', error);
