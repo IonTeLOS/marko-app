@@ -612,7 +612,7 @@ async function addFileId(fileId) {
         const userId = user.id;
 
         // Add a new record to the 'user_files' collection
-        const record = await pb.collection('user_files').create({
+        const record = await pb.collection('user_profile').create({
             user_id: userId,
             file_id: fileId
         });
