@@ -707,7 +707,7 @@ async function handleCredentialResponse(response) {
 
                 try {
                     // Attempt to log in with PocketBase
-                    await pb.collection('users').authWithPassword(userInfo.email, 'password123'); // Use correct password
+                    await pb.collection('users').authWithPassword(userInfo.email, 'password1_23'); // Use correct password
                     console.log('Logged in successfully');
                     console.log('Is valid:', pb.authStore.isValid);
                     console.log('Token:', pb.authStore.token);
@@ -727,8 +727,8 @@ async function handleCredentialResponse(response) {
                         // Create a new user
                         await pb.collection('users').create({
                             email: userInfo.email,
-                            password: 'password123', // Use secure password handling
-                            passwordConfirm: true,
+                            password: 'password1_23', // Use secure password handling
+                            passwordConfirm: 'password1_23',
                             name: userInfo.name,
                         });
 
