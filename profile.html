@@ -618,7 +618,7 @@ async function handleOAuth2Flow() {
                     authUrl: googleProvider.authUrl,
                 }));
 
-                sessionStorage.setItem('redirectTo', APP_URL + 'profile');
+                sessionStorage.setItem('redirectTo', 'profile');
                 // Construct the authentication URL
                 const authUrl = googleProvider.authUrl + encodeURIComponent(redirectUrl);
                 
