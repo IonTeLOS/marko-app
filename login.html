@@ -723,9 +723,9 @@ async function handleCredentialResponse(response) {
                     localStorage.setItem('pbToken', pb.authStore.token);
 
                     // Introduce a delay before redirecting
-                    setTimeout(() => {
-                        window.location.href = getRedirectUrl();
-                    }, 1000); // 1-second delay
+                    //setTimeout(() => {
+                        //window.location.href = getRedirectUrl();
+                    //}, 1000); // 1-second delay
 
                 } catch (authError) {
                     console.error('Authentication failed:', authError);
@@ -750,9 +750,9 @@ async function handleCredentialResponse(response) {
                         localStorage.setItem('pbToken', pb.authStore.token);
 
                         // Introduce a delay before redirecting
-                        setTimeout(() => {
-                            window.location.href = getRedirectUrl();
-                        }, 1000); // 1-second delay
+                        //setTimeout(() => {
+                            //window.location.href = getRedirectUrl();
+                        //}, 1000); // 1-second delay
 
                     } catch (createUserError) {
                         console.error('Failed to create user:', createUserError);
