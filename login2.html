@@ -80,7 +80,7 @@
                     authMethods.authProviders.forEach(provider => {
                         const button = document.createElement('button');
                         button.textContent = `Sign in with ${provider.name}`;
-                        button.onclick = () => authWithProvider(provider.name);
+                        button.onclick = () => authWithProvider(provider);
                         authOptions.appendChild(button);
                     });
                 }
@@ -106,10 +106,46 @@
 
         async function authWithProvider(provider) {
             try {
-                const authData = await pb.collection('users').authWithOAuth2({ provider });
-                handleAuthSuccess(authData);
+                const redirectUrl = encodeURIComponent(window.location.href);
+                const state = Math.random().toString(36).substring(2); // Generate random state
+                localStorage.setItem('oauth_state', state);
+                localStorage.setItem('oauth_provider', JSON.stringify(provider));
+
+                // Redirect to the OAuth provider's authorization URL
+                const authUrl = `${provider.authUrl}?redirect_uri=${redirectUrl}&state=${state}`;
+                window.location.href = authUrl;
             } catch (error) {
                 handleAuthError(error);
+            }
+        }
+
+        async function handleRedirect() {
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            const state = params.get('state');
+
+            // Load provider and state from localStorage
+            const storedState = localStorage.getItem('oauth_state');
+            const provider = JSON.parse(localStorage.getItem('oauth_provider'));
+
+            if (state !== storedState) {
+                message.textContent = 'State mismatch error. Authentication failed.';
+                return;
+            }
+
+            if (code && provider) {
+                try {
+                    const authData = await pb.collection('users').authWithOAuth2Code(
+                        provider.name,
+                        code,
+                        provider.codeVerifier,
+                        window.location.origin // Use the origin of the page as the redirect URL
+                    );
+
+                    handleAuthSuccess(authData);
+                } catch (error) {
+                    handleAuthError(error);
+                }
             }
         }
 
@@ -120,12 +156,10 @@
             const username = document.getElementById('username').value || email.split('@')[0];
 
             try {
-                // Attempt to authenticate
                 const authData = await pb.collection('users').authWithPassword(email, password);
                 handleAuthSuccess(authData);
             } catch (error) {
                 if (error.status === 400) {
-                    // If authentication fails, attempt to create a new user
                     try {
                         const newUser = await pb.collection('users').create({
                             email: email,
@@ -135,7 +169,6 @@
                         });
                         console.log('New user created:', newUser);
 
-                        // Now authenticate with the newly created account
                         const authData = await pb.collection('users').authWithPassword(email, password);
                         handleAuthSuccess(authData);
                     } catch (createError) {
@@ -149,7 +182,7 @@
 
         function handleAuthSuccess(authData) {
             console.log('Authentication successful:', authData);
-            localStorage.setItem('pocketbase_auth', JSON.stringify(pb.authStore.exportToCookie()));
+            localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
             message.style.color = 'green';
             message.textContent = 'Authentication successful!';
             userInfo.innerHTML = `
@@ -172,21 +205,31 @@
         function logout() {
             pb.authStore.clear();
             localStorage.removeItem('pocketbase_auth');
+            localStorage.removeItem('oauth_state');
+            localStorage.removeItem('oauth_provider');
             message.textContent = 'Logged out successfully.';
             userInfo.innerHTML = '';
             loadAuthMethods();
         }
 
         window.onload = () => {
-            const storedAuth = localStorage.getItem('pocketbase_auth');
-            if (storedAuth) {
-                pb.authStore.loadFromCookie(storedAuth);
-                if (pb.authStore.isValid) {
-                    handleAuthSuccess({ record: pb.authStore.model });
-                    return;
+            const urlParams = new URLSearchParams(window.location.search);
+
+            // Check if the URL contains OAuth parameters
+            if (urlParams.has('code') && urlParams.has('state')) {
+                handleRedirect();
+            } else {
+                // Regular page load
+                const storedAuth = localStorage.getItem('pocketbase_auth');
+                if (storedAuth) {
+                    const authData = JSON.parse(storedAuth);
+                    if (authData) {
+                        handleAuthSuccess(authData);
+                        return;
+                    }
                 }
+                loadAuthMethods();
             }
-            loadAuthMethods();
         };
     </script>
 </body>
