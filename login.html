@@ -256,11 +256,11 @@ const redirectUrl = 'https://marko-app.netlify.app/login';
 
 // Load the previously stored provider's data from localStorage
 const storedProvider = JSON.parse(localStorage.getItem('provider'));
-
-if (storedProvider) {
-    const { name, codeVerifier } = storedProvider;
     const url = new URL(window.location.href);
     const authCode = url.searchParams.get('code');
+if (storedProvider) {
+    const { name, codeVerifier } = storedProvider;
+
 
     if (authCode) {
         // Compare the state from the URL with the stored state
