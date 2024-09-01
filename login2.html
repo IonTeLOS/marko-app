@@ -107,7 +107,7 @@
         async function authWithProvider(provider) {
             try {
                 const redirectUrl = encodeURIComponent(window.location.href);
-                const state = Math.random().toString(36).substring(2); // Generate random state
+                const state = generateState(); // Ensure state is a single value
                 localStorage.setItem('oauth_state', state);
                 localStorage.setItem('oauth_provider', JSON.stringify(provider));
 
@@ -117,6 +117,11 @@
             } catch (error) {
                 handleAuthError(error);
             }
+        }
+
+        function generateState() {
+            // Generate a random state parameter
+            return Math.random().toString(36).substring(2);
         }
 
         async function handleRedirect() {
