@@ -262,7 +262,6 @@ if (storedProvider) {
     const { name, codeVerifier } = storedProvider;
 
 
-    if (authCode) {
         // Compare the state from the URL with the stored state
         
             // Authenticate using the OAuth2 code
@@ -285,11 +284,7 @@ if (storedProvider) {
                 // Handle authentication failure (e.g., show an error message or redirect)
                 window.location.href = `${redirectUrl}?error=authentication_failed`; // Adjust redirect URL as needed
             });
-    } else {
-        console.error("Authorization code is missing.");
-        // Handle the error (e.g., redirect to the login page)
-       window.location.href = `${redirectUrl}?error=missing_parameter`; // Adjust redirect URL as needed
-    }
+    
 } else {
     console.error("Provider data is not found in localStorage.");
     // Handle the error (e.g., redirect to the login page)
