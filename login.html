@@ -276,7 +276,7 @@ if (storedProvider) {
                 localStorage.setItem('jwt', authData.token);
                 console.log('Authentication successful:', JSON.stringify(authData, null, 2));
                 // Optionally, redirect to another page or update the UI
-                window.location.href = `${redirectUrl}`; // Adjust redirect URL as needed
+                // window.location.href = `${redirectUrl}`; // Adjust redirect URL as needed
             }).catch((err) => {
                 console.error("Failed to exchange code:\n", err);
                 // Handle authentication failure (e.g., show an error message or redirect)
