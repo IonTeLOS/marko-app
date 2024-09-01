@@ -58,7 +58,7 @@
             <input type="text" id="username" placeholder="Username" style="display: none;">
             <input type="email" id="email" placeholder="Email">
             <input type="password" id="password" placeholder="Password">
-            <button type="submit">Login/Register</button>
+            <button type="submit">Sign In / Sign Up</button>
         </form>
         <div id="message"></div>
         <div id="userInfo"></div>
@@ -79,7 +79,7 @@
                 if (authMethods.authProviders.length > 0) {
                     authMethods.authProviders.forEach(provider => {
                         const button = document.createElement('button');
-                        button.textContent = `Login with ${provider.name}`;
+                        button.textContent = `Sign in with ${provider.name}`;
                         button.onclick = () => authWithProvider(provider.name);
                         authOptions.appendChild(button);
                     });
@@ -87,7 +87,7 @@
 
                 if (authMethods.usernamePassword || authMethods.emailPassword) {
                     const button = document.createElement('button');
-                    button.textContent = 'Login with Email/Password';
+                    button.textContent = 'Sign in with Email/Password';
                     button.onclick = () => showAuthForm(authMethods);
                     authOptions.appendChild(button);
                 }
@@ -117,11 +117,33 @@
             e.preventDefault();
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
+            const username = document.getElementById('username').value || email.split('@')[0];
+
             try {
+                // Attempt to authenticate
                 const authData = await pb.collection('users').authWithPassword(email, password);
                 handleAuthSuccess(authData);
             } catch (error) {
-                handleAuthError(error);
+                if (error.status === 400) {
+                    // If authentication fails, attempt to create a new user
+                    try {
+                        const newUser = await pb.collection('users').create({
+                            email: email,
+                            password: password,
+                            passwordConfirm: password,
+                            username: username,
+                        });
+                        console.log('New user created:', newUser);
+
+                        // Now authenticate with the newly created account
+                        const authData = await pb.collection('users').authWithPassword(email, password);
+                        handleAuthSuccess(authData);
+                    } catch (createError) {
+                        handleAuthError(createError);
+                    }
+                } else {
+                    handleAuthError(error);
+                }
             }
         };
 
