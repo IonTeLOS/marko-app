@@ -12,7 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;700&display=swap" rel="stylesheet">
-   
+    <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
+
     <style>
         
         body, html {
@@ -245,7 +246,7 @@
     </div>
 
     <script>
-        
+        const pb = new PocketBase('https://marko-bin.pockethost.io');
         let APP_URL = 'https://marko-app.netlify.app';
         const CLIENT_ID = '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid';
@@ -697,20 +698,43 @@ async function handleCredentialResponse(response) {
     if (response.credential) {
         document.getElementById('signInButtonContainer').style.display = 'none';
         try {
+            // Retrieve user information from Google
             const { accessToken, userInfo } = await getAccessToken(response.credential);
             localStorage.setItem('accessToken', accessToken);
             localStorage.setItem('userInfo', JSON.stringify(userInfo));
 
             if (userInfo && userInfo.email) {
                 localStorage.setItem('userEmail', userInfo.email);
-                console.log('Logged in user email:', userInfo.email);
+
+                // Try to authenticate with PocketBase using the email
+                try {
+                    const authResponse = await pb.collection('users').authWithPassword(userInfo.email, 'password123'); // Replace with a valid password or handling logic
+                    console.log(pb.authStore.isValid);
+                    console.log(pb.authStore.token);
+                    console.log(pb.authStore.model.id);
+                } catch (authError) {
+                    // If authentication fails, create a new user
+                    console.error('Authentication failed, creating new user:', authError);
+
+                    // Create user logic
+                    try {
+                        await pb.collection('users').create({
+                            email: userInfo.email,
+                            password: 'password123', // Generate a secure password or use a different approach
+                            name: userInfo.name,
+                        });
+                        // Authenticate the newly created user
+                        await pb.collection('users').authWithPassword(userInfo.email, 'password123');
+                        console.log(pb.authStore.isValid);
+                        console.log(pb.authStore.token);
+                        console.log(pb.authStore.model.id);
+                    } catch (createUserError) {
+                        console.error('Failed to create user:', createUserError);
+                    }
+                }
+
+                window.location.href = getRedirectUrl();
             }
-
-            localStorage.removeItem('explicitLogout');
-            console.log('Access Token:', accessToken);
-            console.log('User Info:', userInfo);
-
-            window.location.href = getRedirectUrl();  
         } catch (error) {
             console.error('Error during authentication process:', error);
         }
