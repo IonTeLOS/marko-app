@@ -251,54 +251,6 @@
         const CLIENT_ID = '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile openid';
 
-
-        
-        const pb = new PocketBase("https://marko-bin.pockethost.io");
-        const redirectUrl = 'https://marko-app.netlify.app/login';
-
-        // parse the query parameters from the redirected url
-        const params = (new URL(window.location)).searchParams;
-
-// Function to generate a random string for codeVerifier
-function generateRandomString(length) {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < length; i++) {
-        result += characters.charAt(Math.floor(Math.random() * characters.length));
-    }
-    return result;
-}
-
-
-
-        // compare the redirect's state param and the stored provider's one
-        if (params.get('code')) {
-        const storedCodeVerifier = localStorage.getItem('codeVerifier');
-
-
-        // authenticate
-        pb.collection('users').authWithOAuth2Code(
-            'google',
-            params.get('code'),
-            storedCodeVerifier,
-            redirectUrl,
-            // pass optional user create data
-            {
-                emailVisibility: false,
-            }
-        ).then((authData) => {
-            console.log(JSON.stringify(authData, null, 2));
-        }).catch((err) => {
-            console.log("Failed to exchange code.\n" + err);
-        });
-
-        } else {
-            // Store codeVerifier
-            const codeVerifier = generateRandomString(128);
-            localStorage.setItem('codeVerifier', codeVerifier);
-        }
-
-        
         function getRedirectUrl() {
             const urlParams = new URLSearchParams(window.location.search);
             const redirectPath = urlParams.get('redirect');
