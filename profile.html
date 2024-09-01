@@ -600,7 +600,7 @@ const redirectUrl = `${APP_URL}/login`; // URL to redirect after authentication
 
 
 
-async function addFileId(fileId) {
+async function createUpdateProfile(fileId) {
     try {
         // Check if the user is authenticated
         if (!pb.authStore.isValid) {
@@ -611,23 +611,33 @@ async function addFileId(fileId) {
         const user = pb.authStore.model;
         const userId = user.id;
 
-        // Add a new record to the 'user_files' collection
-        const createRecord = await pb.collection('user_profile').create({
-            user_id: userId,
-            file_id: fileId
+        // Check if the user already has an entry
+        const existingRecords = await pb.collection('user_profile').getList(1, 1, {
+            filter: `user_id="${userId}"`
         });
-        console.log('Record created:', record);
+
+        if (existingRecords.items.length > 0) {
+            // Update the existing record
+            const recordId = existingRecords.items[0].id;
+            const updatedRecord = await pb.collection('user_profile').update(recordId, {
+                file_id: fileId
+            });
+            console.log('Record updated:', updatedRecord);
+        } else {
+            // Create a new record
+            const createdRecord = await pb.collection('user_profile').create({
+                user_id: userId,
+                file_id: fileId
+            });
+            console.log('Record created:', createdRecord);
+        }
     } catch (error) {
         console.error('Error:', error);
-        const updateRecord = await pb.collection('user_profile').update({
-            user_id: userId,
-            file_id: fileId
-        });
     }
 }
 
 // Usage
-addFileId('hfdrtyghjkre4rdfc11111');
+createUpdateProfile('hfdrtyghjkre4rdfc11111');
 
 
         
