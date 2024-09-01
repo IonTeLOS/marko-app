@@ -697,7 +697,9 @@ function handleEULA() {
 async function handleCredentialResponse(response) {
     if (response.credential) {
         document.getElementById('signInButtonContainer').style.display = 'none';
+        
         try {
+            // Example function to exchange OAuth2 credential for access token
             const { accessToken, userInfo } = await getAccessToken(response.credential);
             localStorage.setItem('accessToken', accessToken);
             localStorage.setItem('userInfo', JSON.stringify(userInfo));
@@ -706,34 +708,39 @@ async function handleCredentialResponse(response) {
                 localStorage.setItem('userEmail', userInfo.email);
 
                 try {
-                    // Attempt to log in with PocketBase
-                    await pb.collection('users').authWithPassword(userInfo.email, 'password1_23'); // Use correct password
+                    // Attempt to authenticate with PocketBase using OAuth2 access token
+                    const authData = await pb.collection('users').authWithOAuth2({
+                        provider: 'google',  // Replace with the actual provider name if different
+                        access_token: accessToken
+                    });
+
                     console.log('Logged in successfully');
                     console.log('Is valid:', pb.authStore.isValid);
                     console.log('Token:', pb.authStore.token);
                     console.log('User ID:', pb.authStore.model.id);
 
-                    // Store the token in localStorage
+                    // Store the PocketBase token in localStorage
                     localStorage.setItem('pbToken', pb.authStore.token);
 
                     // Introduce a delay before redirecting
                     setTimeout(() => {
                         window.location.href = getRedirectUrl();
                     }, 1000); // 1-second delay
+
                 } catch (authError) {
-                    console.error('Authentication failed, creating new user:', authError);
+                    console.error('Authentication failed:', authError);
 
                     try {
-                        // Create a new user
+                        // Create a new user in PocketBase
                         await pb.collection('users').create({
                             email: userInfo.email,
-                            password: 'password1_23', // Use secure password handling
+                            password: 'password1_23', // Use secure password handling in production
                             passwordConfirm: 'password1_23',
                             name: userInfo.name,
                         });
 
                         // Log in the newly created user
-                        await pb.collection('users').authWithPassword(userInfo.email, 'password123');
+                        const authData = await pb.collection('users').authWithPassword(userInfo.email, 'password1_23');
                         console.log('User created and logged in successfully');
                         console.log('Is valid:', pb.authStore.isValid);
                         console.log('Token:', pb.authStore.token);
@@ -746,6 +753,7 @@ async function handleCredentialResponse(response) {
                         setTimeout(() => {
                             window.location.href = getRedirectUrl();
                         }, 1000); // 1-second delay
+
                     } catch (createUserError) {
                         console.error('Failed to create user:', createUserError);
                     }
