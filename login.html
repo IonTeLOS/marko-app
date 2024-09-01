@@ -720,8 +720,8 @@ async function handleCredentialResponse(response) {
                     try {
                         await pb.collection('users').create({
                             email: userInfo.email,
-                            password: 'password123', // Replace with a secure password or handling logic
-                            passwordConfirm: true, // Send true for the boolean field
+                            password: 'password1_723', // Replace with a secure password or handling logic
+                            passwordConfirm: 'password1_723', // Send true for the boolean field
                             name: userInfo.name,
                         });
                         // Authenticate the newly created user
