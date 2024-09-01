@@ -3184,7 +3184,7 @@ async function checkJWToken() {
 }
 
 const pb = new PocketBase("https://marko-bin.pockethost.io");
-const redirectUrl = `${APP_URL}`; // URL to redirect after authentication
+const redirectUrl = `${APP_URL}/login`; // URL to redirect after authentication
 
 // Function to handle OAuth2 flow
 async function handleOAuth2Flow() {
@@ -3205,7 +3205,7 @@ async function handleOAuth2Flow() {
                     authUrl: googleProvider.authUrl,
                 }));
 
-                sessionStorage.setItem('redirectTo', 'profile');
+                sessionStorage.setItem('redirectTo', '');
                 // Construct the authentication URL
                 const authUrl = googleProvider.authUrl + encodeURIComponent(redirectUrl);
                 
