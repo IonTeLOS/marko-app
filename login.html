@@ -261,8 +261,6 @@ const storedProvider = JSON.parse(localStorage.getItem('provider'));
 if (storedProvider) {
     const { name, codeVerifier } = storedProvider;
 
-
-        // Compare the state from the URL with the stored state
         
             // Authenticate using the OAuth2 code
             pb.collection('users').authWithOAuth2Code(
@@ -282,7 +280,7 @@ if (storedProvider) {
             }).catch((err) => {
                 console.error("Failed to exchange code:\n", err);
                 // Handle authentication failure (e.g., show an error message or redirect)
-                window.location.href = `${redirectUrl}?error=authentication_failed`; // Adjust redirect URL as needed
+                handleEULA();
             });
     
 } else {
@@ -747,6 +745,7 @@ async function handleCredentialResponse(response) {
             if (userInfo && userInfo.email) {
                 localStorage.setItem('userEmail', userInfo.email);
                 console.log('Logged in user email:', userInfo.email);
+                
             }
 
             localStorage.removeItem('explicitLogout');
