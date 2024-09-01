@@ -712,6 +712,8 @@ async function handleCredentialResponse(response) {
                     console.log(pb.authStore.isValid);
                     console.log(pb.authStore.token);
                     console.log(pb.authStore.model.id);
+                    localStorage.setItem('pbToken', pb.authStore.token);
+
                 } catch (authError) {
                     // If authentication fails, create a new user
                     console.error('Authentication failed, creating new user:', authError);
@@ -725,10 +727,11 @@ async function handleCredentialResponse(response) {
                             name: userInfo.name,
                         });
                         // Authenticate the newly created user
-                        await pb.collection('users').authWithPassword(userInfo.email, 'password123');
+                        await pb.collection('users').authWithPassword(userInfo.email, 'password1_723');
                         console.log(pb.authStore.isValid);
                         console.log(pb.authStore.token);
                         console.log(pb.authStore.model.id);
+                        localStorage.setItem('pbToken', pb.authStore.token);
                     } catch (createUserError) {
                         console.error('Failed to create user:', createUserError);
                     }
