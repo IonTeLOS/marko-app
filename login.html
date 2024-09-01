@@ -272,7 +272,7 @@ function generateRandomString(length) {
 
 
         // compare the redirect's state param and the stored provider's one
-        if (params.get('state')) {
+        if (params.get('code')) {
         const storedCodeVerifier = localStorage.getItem('codeVerifier');
 
 
