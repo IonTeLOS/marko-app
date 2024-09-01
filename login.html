@@ -324,8 +324,8 @@ if (storedProvider && authCode && receivedState === storedProvider.state) {
 
 
         function getRedirectUrl() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const redirectPath = urlParams.get('redirect');
+            const redirectPath = sessionStorage.getItem('redirectTo');
+            sessionStorage.removeItem('redirectTo');
             return redirectPath ? `${APP_URL}/${redirectPath}` : APP_URL;
         }
         
