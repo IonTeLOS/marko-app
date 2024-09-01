@@ -106,7 +106,7 @@
 
         async function authWithProvider(provider) {
             try {
-                const redirectUrl = encodeURIComponent(window.location.href);
+                const redirectUrl = encodeURIComponent('https://marko-app.netlify.app/login');
                 const state = Math.random().toString(36).substring(2); // Generate random state
                 localStorage.setItem('oauth_state', state);
                 localStorage.setItem('oauth_provider', JSON.stringify(provider));
