@@ -110,41 +110,46 @@
                 const userInfo = decodeJwt(credential);
                 console.log('Google User Info:', userInfo);
 
-                // Check if the user already exists
-                const existingUsers = await pb.collection('users').getList(1, 1, {
-                    filter: `email = "${userInfo.email}"`
-                });
+                // Try to authenticate with OAuth2
+                try {
+                    const authData = await pb.collection('users').authWithOAuth2({
+                        provider: 'google',
+                        code: credential,
+                    });
+                    localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
+                    message.style.color = 'green';
+                    message.textContent = 'Login successful with Google!';
+                } catch (authError) {
+                    console.log('Authentication failed, attempting to create user:', authError);
 
-                if (existingUsers.totalItems === 0) {
-                    // User doesn't exist, so register them
+                    // If authentication fails, try to create a new user
+                    const userData = {
+                        email: userInfo.email,
+                        emailVisibility: true,
+                        name: userInfo.name,
+                        username: userInfo.email.split('@')[0], // Generate a username from the email
+                        password: Math.random().toString(36).slice(-8), // Generate a random password
+                        passwordConfirm: Math.random().toString(36).slice(-8),
+                    };
+
                     try {
-                        const newUser = await pb.collection('users').create({
-                            email: userInfo.email,
-                            emailVisibility: true,
-                            name: userInfo.name,
-                            username: userInfo.email.split('@')[0],
-                            password: Math.random().toString(36).slice(-8),
-                            passwordConfirm: Math.random().toString(36).slice(-8)
+                        const createdUser = await pb.collection('users').create(userData);
+                        console.log('User created:', createdUser);
+
+                        // Now try to authenticate again
+                        const authData = await pb.collection('users').authWithOAuth2({
+                            provider: 'google',
+                            code: credential,
                         });
-                        console.log('New user registered:', newUser);
+                        localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
+                        message.style.color = 'green';
+                        message.textContent = 'Registration and login successful with Google!';
                     } catch (createError) {
                         console.error('Failed to create user:', createError);
                         message.style.color = 'red';
                         message.textContent = 'Failed to create user: ' + createError.message;
-                        return;
                     }
                 }
-
-                // Now authenticate the user
-                const authData = await pb.collection('users').authWithOAuth2({
-                    provider: 'google',
-                    code: credential,
-                });
-                localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
-                message.style.color = 'green';
-                message.textContent = existingUsers.totalItems === 0 ? 
-                    'Registration and login successful with Google!' : 
-                    'Login successful with Google!';
             } catch (error) {
                 console.error('Google Sign-In failed:', error);
                 message.style.color = 'red';
@@ -152,46 +157,54 @@
             }
         }
 
+        function decodeJwt(token) {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+                '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+            ).join(''));
+
+            return JSON.parse(jsonPayload);
+        }
         async function loginOrRegisterWithEmail(email, name, password) {
             const message = document.getElementById('message');
 
             try {
-                // Check if the user already exists
-                const existingUsers = await pb.collection('users').getList(1, 1, {
-                    filter: `email = "${email}"`
-                });
+                // Attempt to log in
+                const authData = await pb.collection('users').authWithPassword(email, password);
+                localStorage.setItem('jwt', authData.token);
+                message.style.color = 'green';
+                message.textContent = 'Login successful!';
+            } catch (error) {
+                console.error('Login failed:', error);
 
-                if (existingUsers.totalItems === 0) {
-                    // User doesn't exist, so register them
+                if (error.message.includes('Invalid credentials')) {
+                    // If login fails, try registering
                     try {
-                        const newUser = await pb.collection('users').create({
+                        const data = {
+                            username: email.split('@')[0],
                             email: email,
                             emailVisibility: true,
-                            name: name,
-                            username: email.split('@')[0],
                             password: password,
-                            passwordConfirm: password
-                        });
-                        console.log('New user registered:', newUser);
-                    } catch (createError) {
-                        console.error('Failed to create user:', createError);
-                        message.style.color = 'red';
-                        message.textContent = 'Registration failed: ' + createError.message;
-                        return;
-                    }
-                }
+                            passwordConfirm: password,
+                            name: name
+                        };
 
-                // Now authenticate the user
-                const authData = await pb.collection('users').authWithPassword(email, password);
-                localStorage.setItem('pocketbase_auth', JSON.stringify(authData));
-                message.style.color = 'green';
-                message.textContent = existingUsers.totalItems === 0 ? 
-                    'Registration and login successful!' : 
-                    'Login successful!';
-            } catch (error) {
-                console.error('Authentication failed:', error);
-                message.style.color = 'red';
-                message.textContent = 'Authentication failed: ' + error.message;
+                        const newUser = await pb.collection('users').create(data);
+                        console.log('User created:', newUser);
+
+                        const authData = await pb.collection('users').authWithPassword(email, password);
+                        localStorage.setItem('jwt', authData.token);
+
+                        message.style.color = 'green';
+                        message.textContent = 'Registration successful!';
+                    } catch (registrationError) {
+                        console.error('Registration failed:', registrationError);
+                        message.textContent = 'Registration failed: ' + registrationError.message;
+                    }
+                } else {
+                    message.textContent = 'Authentication failed: ' + error.message;
+                }
             }
         }
 
@@ -213,17 +226,6 @@
             await loginOrRegisterWithEmail(email, name, password);
         });
 
-
-        function decodeJwt(token) {
-            const base64Url = token.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
-                '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-            ).join(''));
-
-            return JSON.parse(jsonPayload);
-        }
-      
         // Initialize Google Sign-In when the script loads
         initializeGoogleSignIn();
     </script>
