@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "marko.app.org",
+      "sha256_cert_fingerprints": [
+        "3F:AD:0C:BB:09:DC:03:65:2B:26:26:E2:32:3B:FF:A6:95:53:E0:D3:7B:2A:64:2B:71:CA:8E:68:54:F3:59:D6"
+      ]
+    }
+  }
+]
