@@ -330,12 +330,27 @@ background: linear-gradient(to left, #00FF00, rgba(0,255,0,0.1));
 }
   
 .context-menu {
-    position: fixed;
-    transform: translate(-50%, -50%);
-    display: none;
-    z-index: 1000;
+    position: fixed; /* Fixed position to stay in view */
+    left: 50%; /* Center horizontally */
+    top: 50%; /* Center vertically */
+    transform: translate(-50%, -50%); /* Offset by half its width and height */
+    display: none; /* Hidden by default */
+    z-index: 1000; /* Ensure it appears above other content */
     animation: zoomIn 0.4s ease-out; /* Apply zoom-in animation */
 }
+
+/* Keyframes for zoom-in effect */
+@keyframes zoomIn {
+    from {
+        transform: scale(0.5); /* Start scaled down */
+        opacity: 0; /* Start invisible */
+    }
+    to {
+        transform: scale(1); /* End at normal size */
+        opacity: 1; /* End fully visible */
+    }
+}
+
 
 #current-link .ml-3 {
     overflow: hidden;
@@ -352,20 +367,7 @@ background: linear-gradient(to left, #00FF00, rgba(0,255,0,0.1));
         color: #0D47A1; /* Set background color for light mode */
     }
 }  
-/* Animation for the context menu */
-@keyframes zoomIn {
-    0% {
-        transform: scale(0.8); /* Start scaled down */
-        opacity: 0;
-    }
-    50% {
-        transform: scale(1.05); /* Slightly zoom in beyond final scale */
-    }
-    100% {
-        transform: scale(1); /* Final scale */
-        opacity: 1;
-    }
-}
+
 
 
   
