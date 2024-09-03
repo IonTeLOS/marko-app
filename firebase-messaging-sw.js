@@ -2,10 +2,7 @@ importScripts('https://www.gstatic.com/firebasejs/8.6.2/firebase-app.js');
 importScripts('https://www.gstatic.com/firebasejs/8.6.2/firebase-messaging.js');
 importScripts('https://cdnjs.cloudflare.com/ajax/libs/localforage/1.9.0/localforage.min.js');
 
-self.addEventListener('fetch', (event) => {
-  // The default fetch handling is sufficient for share target
-});
-
+// Initialize Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyD96IBVqGKVEdmXIVCYL_7kvlBhJNSD1Ww",
   authDomain: "marko-be9a9.firebaseapp.com",
@@ -18,52 +15,15 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
-/*
+
+// Handle FCM background messages
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
-
-  const notificationTitle = payload.notification.title;
-  const notificationOptions = {
-    body: payload.notification.body,
-    icon: payload.notification.icon,
-    data: payload.data 
-  };
-
-    // Store a value for the redirect to the Marko link to happen when page is opened or focused  
-  if (payload.data && payload.data.goto) {  
-    localforage.setItem('new-nav-request', String(payload.data.goto)).then(function() {
-      console.log('Navigation request stored successfully in localForage from Service Worker.');
-    }).catch(function(err) {
-      console.error('Error storing value in Service Worker:', err);
-    });
-  }
-
-  if (payload.data && payload.data.uuid) {  
-    localforage.setItem('newUnopenedReminder', String(payload.data.path)).then(function() {
-      console.log('Pending reminder stored successfully in localForage from Service Worker.');
-    }).catch(function(err) {
-      console.error('Error storing value in Service Worker:', err);
-    });
-  }
-
-  // Check if it's a mobile device
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    // This is likely a mobile device, don't show the notification but store a value for effective redirect
-    return;
-  }
-
-  self.registration.showNotification(notificationTitle, notificationOptions);
-});
-  */
-
-messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
+  console.log('[firebase-messaging-sw.js] Received background message from FCM:', payload);
 
   const { title, body } = payload.notification;
   const theIcon = payload.data.icon || 'https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg'; // Default icon if not provided
   const clickAction = payload.data.url || 'https://marko-app.netlify.app'; // Default URL if not provided
 
-  // Use default icon if none is provided
   const notificationOptions = {
     body: body,
     icon: theIcon,
@@ -72,55 +32,57 @@ messaging.onBackgroundMessage((payload) => {
     }
   };
   
-      // Store a value for the redirect to the Marko link to happen when page is opened or focused  
+  // Store navigation request in localForage
   if (payload.data && payload.data.url) {  
-      localforage.setItem('new-nav-request', String(payload.data.url)).then(function() {
-      console.log('Navigation request stored successfully in localForage from Service Worker.');
-    }).catch(function(err) {
-      console.error('Error storing value in Service Worker:', err);
-    });
+    localforage.setItem('new-nav-request', String(payload.data.url))
+      .then(() => console.log('Navigation request stored successfully.'))
+      .catch(err => console.error('Error storing navigation request:', err));
   }
 
   if (payload.data && payload.data.uuid) {  
-      localforage.setItem('newUnopenedReminder', String(payload.data.path)).then(function() {
-      console.log('Pending reminder stored successfully in localForage from Service Worker.');
-    }).catch(function(err) {
-      console.error('Error storing value in Service Worker:', err);
-    });
+    localforage.setItem('newUnopenedReminder', String(payload.data.path))
+      .then(() => console.log('Pending reminder stored successfully.'))
+      .catch(err => console.error('Error storing reminder:', err));
   }
 
-      // Check if it's a mobile device
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    // This is likely a mobile device, don't show the notification but store a value for effective redirect
-    return;
-  }
-
+  // Show notification
   self.registration.showNotification(title, notificationOptions);
 });
 
+// Handle generic push events (e.g., from ntfy)
+self.addEventListener('push', (event) => {
+  console.log('Received push event:', event);
 
-self.addEventListener('notificationclick', function(event) {
+  if (event.data) {
+    const data = event.data.json();
+    const title = data.title || 'Default Title';
+    const options = {
+      body: data.body || 'Default Body',
+      icon: data.icon || 'https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg',
+      data: {
+        url: data.url || 'https://marko-app.netlify.app' // Default URL if not provided
+      }
+    };
+
+    // Show notification for ntfy or other services
+    event.waitUntil(self.registration.showNotification(title, options));
+  }
+});
+
+// Handle notification click events
+self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   
-  let newUrl = 'https://marko-app.netlify.app';
+  const notificationData = event.notification.data;
+  let newUrl = notificationData.url || 'https://marko-app.netlify.app';
 
-  if (event.notification && event.notification.data.path) {
-    const path = event.notification.data.path;
-    const goUuid = path;
-    newUrl = `https://marko-app.netlify.app?uuid=${goUuid}`;
-  } else if (localForage.getItem('new-nav-request')) {
-    const navUrl = localForage.getItem('new-nav-request');
-    newUrl = `https://marko-app.netlify.app?nav=${navUrl}`;
-    //localForage.removeItem('new-nav-request');
-  }
-
+  // Open or focus the existing window
   event.waitUntil(
     clients.matchAll({
       type: 'window',
       includeUncontrolled: true
     }).then(clientList => {
       if (clientList.length > 0) {
-        // Focus on the first client that is already open
         return clientList[0].focus().then(client => {
           client.postMessage({
             action: 'open_url',
@@ -128,7 +90,6 @@ self.addEventListener('notificationclick', function(event) {
           });
         });
       } else {
-        // If no clients are open, open a new window
         return clients.openWindow(newUrl);
       }
     })
