@@ -6916,9 +6916,11 @@ var allIndex = null;
 let currentLink = null; // Global variable to store current link
   
 document.addEventListener("DOMContentLoaded", function () {
-    var menu = document.querySelector(".context-menu");
+   // var menu = document.querySelector(".context-menu");
     var menuState = 0;
     var contextMenuActive = "block";
+    const menu = document.getElementById('contextMenu');
+    const linkPlace = document.getElementById('current-link');
 
     const linkContainer = document.querySelector('.bookmarks-container');
     const mainBookmark = document.getElementById('main-bookmark');
@@ -6989,8 +6991,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 function positionMenu(e) {
-      let menu = document.getElementById('contextMenu');
-      let linkPlace = document.getElementById('current-link');
 
     if (!menu) {
         console.error('Menu element not found');
