@@ -1472,6 +1472,14 @@ input:focus {
         width: 200px; /* Increased size for desktop */
     }
 }
+/* Ensure this is in your CSS */
+.hidden {
+  display: none;
+}
+
+.fixed {
+  position: fixed;
+}
 
 
   </style>   
@@ -6995,56 +7003,48 @@ document.addEventListener("DOMContentLoaded", function () {
         return { x: posx, y: posy };
     }
 
-    function positionMenu(e) {
-        const menu = document.getElementById('contextMenu');
-        const linkPlace = document.getElementById('current-link');
+function positionMenu(e) {
+    const menu = document.getElementById('contextMenu');
+    const linkPlace = document.getElementById('current-link');
 
-        // Ensure the menu element exists
-        if (!menu) {
-            console.error('Menu element not found');
-            return;
-        }
-
-        // Update the menu element with the currentLink text
-        if (linkPlace) {
-            linkPlace.querySelector('.ml-3').textContent = currentLink.substring(0, 30);
-
-            // Apply initial color
-            linkPlace.querySelector('.ml-3').style.color = 'orange';
-
-            // After 1 second, change text color to white
-            setTimeout(function () {
-                linkPlace.querySelector('.ml-3').style.color = 'white';
-            }, 1200);
-        }
-
-        // Get viewport dimensions
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-
-        // Ensure the menu is visible to get its dimensions
-        menu.classList.remove('hidden');
-
-        // Get menu dimensions
-        const menuWidth = menu.offsetWidth;
-        const menuHeight = menu.offsetHeight;
-
-        // Calculate centered position
-        const left = (viewportWidth - menuWidth) / 2;
-        const top = (viewportHeight - menuHeight) / 2;
-
-        // Apply Tailwind classes for centering
-        menu.classList.add('fixed', 'transform', '-translate-x-1/2', '-translate-y-1/2');
-        menu.style.left = '50%';
-        menu.style.top = '50%';
-
-        // Remove any inline width/height styles
-        menu.style.width = '';
-        menu.style.height = '';
-
-        // Ensure the menu is visible
-        menu.classList.remove('hidden');
+    if (!menu) {
+        console.error('Menu element not found');
+        return;
     }
+
+    if (linkPlace) {
+        linkPlace.querySelector('.ml-3').textContent = currentLink.substring(0, 30);
+        linkPlace.querySelector('.ml-3').style.color = 'orange';
+
+        setTimeout(function () {
+            linkPlace.querySelector('.ml-3').style.color = 'blue';
+        }, 1200);
+    }
+
+    // Ensure menu is visible and get its dimensions
+    menu.classList.remove('hidden');
+    menu.style.display = 'block';
+    const menuWidth = menu.offsetWidth;
+    const menuHeight = menu.offsetHeight;
+
+    // Get viewport dimensions
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Calculate centered position
+    const left = (viewportWidth - menuWidth) / 2;
+    const top = (viewportHeight - menuHeight) / 2;
+
+    // Apply styles
+    menu.style.position = 'fixed';
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+    menu.style.transform = 'none'; // Disable any transforms that might affect positioning
+
+    // Ensure visibility
+    menu.classList.remove('hidden');
+}
+
 
     document.addEventListener("click", (e) => {
         var button = e.which || e.button;
