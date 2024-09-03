@@ -7046,8 +7046,7 @@ function positionMenu(e) {
 
     // Ensure visibility
     menu.classList.remove('hidden');
-}
-  // Attach click event to `current-link` to close the context menu
+    // Attach click event to `current-link` to close the context menu
     if (linkPlace) {
         linkPlace.addEventListener('click', function(event) {
             event.stopPropagation(); // Prevent the click from bubbling up to the document
@@ -7061,14 +7060,14 @@ function positionMenu(e) {
             toggleMenuOff();
         }
     });
-
-    document.addEventListener("click", (e) => {
+      document.addEventListener("click", (e) => {
         var button = e.which || e.button;
         if (button === 1) {
             toggleMenuOff();
             initSwipeDetection(event); // Reinitialize swipe detection after the menu is closed
         }
     });
+}
 });
 
   
