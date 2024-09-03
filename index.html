@@ -7017,7 +7017,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const touchTimeout = setTimeout(() => {
             event.preventDefault();
             showContextMenu(event);
-        }, 500); // Adjust this value as necessary for the long-press duration
+        }, 400); // Adjust this value as necessary for the long-press duration
 
         document.addEventListener("touchend", function () {
             clearTimeout(touchTimeout);
