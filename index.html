@@ -6911,17 +6911,11 @@ function fetchSearchResults(query) {
 </div>
 
 <script>
-var currentIndex = null;
-var allIndex = null;
-let currentLink = null; // Global variable to store current link
-  
 document.addEventListener("DOMContentLoaded", function () {
-   // var menu = document.querySelector(".context-menu");
-    var menuState = 0;
-    var contextMenuActive = "block";
+    let menuState = 0;
+    const contextMenuActive = "block";
     const menu = document.getElementById('contextMenu');
     const linkPlace = document.getElementById('current-link');
-
     const linkContainer = document.querySelector('.bookmarks-container');
     const mainBookmark = document.getElementById('main-bookmark');
 
@@ -6936,7 +6930,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         event.preventDefault();
 
-        var targetElement = event.target;
+        let targetElement = event.target;
         while (targetElement) {
             if (targetElement.id && (targetElement.id.startsWith('bookmark-') || targetElement.id.startsWith('delete-'))) {
                 currentIndex = targetElement.id.split('-')[1];
@@ -6951,22 +6945,21 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // Event listener for context menu (Right-click)
-    document.addEventListener("contextmenu", function (event) {
-        showContextMenu(event);
-    });
+    document.addEventListener("contextmenu", showContextMenu);
 
     // Event listener for touchstart (Long press on iOS)
     document.addEventListener("touchstart", function (event) {
-        let touchTimeout;
         if (!linkContainer.contains(event.target)) {
             return;
         }
 
-        touchTimeout = setTimeout(() => {
+        // Use a timeout to handle long press
+        const touchTimeout = setTimeout(() => {
             event.preventDefault();
             showContextMenu(event);
         }, 500); // Adjust this value as necessary for the long-press duration
 
+        // Clear the timeout if touch ends or moves
         document.addEventListener("touchend", function () {
             clearTimeout(touchTimeout);
         }, { once: true });
@@ -6980,7 +6973,6 @@ document.addEventListener("DOMContentLoaded", function () {
         if (menuState !== 1) {
             menuState = 1;
             menu.classList.add(contextMenuActive);
-            event.stopPropagation();
         }
     }
 
@@ -6990,67 +6982,71 @@ document.addEventListener("DOMContentLoaded", function () {
             menu.classList.remove(contextMenuActive);
         }
     }
-function positionMenu(e) {
 
-    if (!menu) {
-        console.error('Menu element not found');
-        return;
+    function positionMenu(e) {
+        if (!menu) {
+            console.error('Menu element not found');
+            return;
+        }
+
+        if (linkPlace) {
+            linkPlace.querySelector('.ml-3').textContent = currentLink ? currentLink.substring(0, 30) : '';
+            linkPlace.querySelector('.ml-3').style.color = 'orange';
+
+            setTimeout(function () {
+                linkPlace.querySelector('.ml-3').style.color = 'blue';
+            }, 1200);
+        }
+
+        // Ensure menu is visible and get its dimensions
+        menu.classList.remove('hidden');
+        menu.style.display = 'block';
+        const menuWidth = menu.offsetWidth;
+        const menuHeight = menu.offsetHeight;
+
+        // Get viewport dimensions
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Calculate centered position
+        const left = (viewportWidth - menuWidth) / 2;
+        const top = (viewportHeight - menuHeight) / 2;
+
+        // Apply styles
+        menu.style.position = 'fixed';
+        menu.style.left = `${left}px`;
+        menu.style.top = `${top}px`;
+        menu.style.transform = 'none'; // Disable any transforms that might affect positioning
+
+        // Ensure visibility
+        menu.classList.remove('hidden');
     }
 
-    if (linkPlace) {
-        linkPlace.querySelector('.ml-3').textContent = currentLink.substring(0, 30);
-        linkPlace.querySelector('.ml-3').style.color = 'orange';
-
-        setTimeout(function () {
-            linkPlace.querySelector('.ml-3').style.color = 'blue';
-        }, 1200);
-    }
-  // Attach click event to `current-link` to close the context menu
+    // Attach click event to `current-link` to close the context menu
     if (linkPlace) {
         linkPlace.addEventListener('click', function(event) {
             event.stopPropagation(); // Prevent the click from bubbling up to the document
             toggleMenuOff();
         });
     }
-    // Ensure menu is visible and get its dimensions
-    menu.classList.remove('hidden');
-    menu.style.display = 'block';
-    const menuWidth = menu.offsetWidth;
-    const menuHeight = menu.offsetHeight;
 
-    // Get viewport dimensions
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-
-    // Calculate centered position
-    const left = (viewportWidth - menuWidth) / 2;
-    const top = (viewportHeight - menuHeight) / 2;
-
-    // Apply styles
-    menu.style.position = 'fixed';
-    menu.style.left = `${left}px`;
-    menu.style.top = `${top}px`;
-    menu.style.transform = 'none'; // Disable any transforms that might affect positioning
-
-    // Ensure visibility
-    menu.classList.remove('hidden');
-        // Hide the menu when clicking outside of it
+    // Hide the menu when clicking outside of it
     document.addEventListener('click', function(event) {
         if (menu && !menu.contains(event.target) && !linkPlace.contains(event.target)) {
             toggleMenuOff();
         }
     });
-}
 
-
-      document.addEventListener("click", (e) => {
+    // Optional: Handle clicks for other purposes
+    document.addEventListener("click", (e) => {
         var button = e.which || e.button;
         if (button === 1) {
             toggleMenuOff();
-            initSwipeDetection(event); // Reinitialize swipe detection after the menu is closed
+            // Reinitialize swipe detection if needed
         }
     });
 });
+
 
   
 function updateSwipeClasses(wrapper, deltaX) {
