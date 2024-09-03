@@ -1573,7 +1573,8 @@ onMessage(messaging, (payload) => {
       if (permission === 'granted') {
         console.log('Notification permission granted.');
         // Get the token using the VAPID key
-        getToken(messaging, { vapidKey: 'BNbpZ8MoJQ0OvODtVFtqBmiH81lNdGMSU87ISkIMoRGCVN2gHdxnemVqfW1MlAzO5qQqTi_I_QdKo7qpdyFq3tw' }).then((fcmToken) => {
+        //getToken(messaging, { vapidKey: 'BNbpZ8MoJQ0OvODtVFtqBmiH81lNdGMSU87ISkIMoRGCVN2gHdxnemVqfW1MlAzO5qQqTi_I_QdKo7qpdyFq3tw' }).then((fcmToken) => {
+        getToken(messaging, { vapidKey: 'BDOTx2Mh_mTI5DL0hrTMVEj0xaUI_no1CNPZk2V1P2Hq8rQeImMOkqek5JQH5CPjZp62ELAy2ArDG5A-Y9oquxw' }).then((fcmToken) => {
           if (fcmToken) {
             console.log('FCM Token:', fcmToken);
             // Send the token to your server and save it in localStorage
