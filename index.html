@@ -6988,9 +6988,10 @@ document.addEventListener("DOMContentLoaded", function () {
             menu.classList.remove(contextMenuActive);
         }
     }
-    const menu = document.getElementById('contextMenu');
-    const linkPlace = document.getElementById('current-link');
 function positionMenu(e) {
+      let menu = document.getElementById('contextMenu');
+      let linkPlace = document.getElementById('current-link');
+
     if (!menu) {
         console.error('Menu element not found');
         return;
