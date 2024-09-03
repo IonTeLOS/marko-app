@@ -3948,7 +3948,7 @@ function openReminder(uuid) {
 // detect if run on mobile or on desktop based on screen width. TODO use this function to make it more mobile friendly
     
 function showTooltip(link) {
-    let currentLink = link;
+    currentLink = link;
     const isGoodForStatus = () => {
         return 'maxTouchPoints' in navigator && navigator.maxTouchPoints > 0 ||
                window.matchMedia('(max-width: 768px)').matches;
