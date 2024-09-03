@@ -6913,7 +6913,8 @@ function fetchSearchResults(query) {
 <script>
 var currentIndex = null;
 var allIndex = null;
-    
+let currentLink = null; // Global variable to store current link
+  
 document.addEventListener("DOMContentLoaded", function () {
     var menu = document.querySelector(".context-menu");
     var menuState = 0;
