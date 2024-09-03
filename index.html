@@ -7047,7 +7047,20 @@ function positionMenu(e) {
     // Ensure visibility
     menu.classList.remove('hidden');
 }
+  // Attach click event to `current-link` to close the context menu
+    if (linkPlace) {
+        linkPlace.addEventListener('click', function(event) {
+            event.stopPropagation(); // Prevent the click from bubbling up to the document
+            toggleMenuOff();
+        });
+    }
 
+    // Hide the menu when clicking outside of it
+    document.addEventListener('click', function(event) {
+        if (menu && !menu.contains(event.target) && !linkPlace.contains(event.target)) {
+            toggleMenuOff();
+        }
+    });
 
     document.addEventListener("click", (e) => {
         var button = e.which || e.button;
@@ -7056,18 +7069,6 @@ function positionMenu(e) {
             initSwipeDetection(event); // Reinitialize swipe detection after the menu is closed
         }
     });
-
-    document.addEventListener('click', function (event) {
-        if (menu && !menu.contains(event.target)) {
-            toggleMenuOff();
-        }
-    });
-
-    window.onkeyup = function (e) {
-        if (e.keyCode === 27) {
-            toggleMenuOff();
-        }
-    }
 });
 
   
