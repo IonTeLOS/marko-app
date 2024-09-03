@@ -1636,7 +1636,13 @@ function requestNotificationPermission() {
             })
             .then(function(subscription) {
               console.log('User is subscribed to Web Push:', subscription);
-              // Send subscription object to your server to store it
+              // Send subscription object to your server to store 
+              return fetch('https://notify.pchat.xyz/testzm', {
+                method: 'POST', //
+                body: 'Welcome to Marko!'
+              }); 
+              
+              /*
               return fetch('/api/subscribe', {
                 method: 'POST',
                 headers: {
@@ -1644,6 +1650,7 @@ function requestNotificationPermission() {
                 },
                 body: JSON.stringify(subscription)
               });
+              */
             })
             .catch(function(error) {
               console.error('Failed to subscribe the user to Web Push:', error);
