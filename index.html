@@ -7005,7 +7005,13 @@ function positionMenu(e) {
             linkPlace.querySelector('.ml-3').style.color = 'blue';
         }, 1200);
     }
-
+  // Attach click event to `current-link` to close the context menu
+    if (linkPlace) {
+        linkPlace.addEventListener('click', function(event) {
+            event.stopPropagation(); // Prevent the click from bubbling up to the document
+            toggleMenuOff();
+        });
+    }
     // Ensure menu is visible and get its dimensions
     menu.classList.remove('hidden');
     menu.style.display = 'block';
@@ -7028,22 +7034,15 @@ function positionMenu(e) {
 
     // Ensure visibility
     menu.classList.remove('hidden');
-    
-}
-  // Attach click event to `current-link` to close the context menu
-    if (linkPlace) {
-        linkPlace.addEventListener('click', function(event) {
-            event.stopPropagation(); // Prevent the click from bubbling up to the document
-            toggleMenuOff();
-        });
-    }
-
-    // Hide the menu when clicking outside of it
+        // Hide the menu when clicking outside of it
     document.addEventListener('click', function(event) {
         if (menu && !menu.contains(event.target) && !linkPlace.contains(event.target)) {
             toggleMenuOff();
         }
     });
+}
+
+
       document.addEventListener("click", (e) => {
         var button = e.which || e.button;
         if (button === 1) {
