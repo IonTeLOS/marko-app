@@ -6988,28 +6988,9 @@ document.addEventListener("DOMContentLoaded", function () {
             menu.classList.remove(contextMenuActive);
         }
     }
-
-    function getPosition(e) {
-        let posx = 0;
-        let posy = 0;
-
-        if (!e) e = window.event;
-
-        if (e.pageX || e.pageY) {
-            posx = e.pageX;
-            posy = e.pageY;
-        } else if (e.clientX || e.clientY) {
-            posx = e.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
-            posy = e.clientY + document.body.scrollTop + document.documentElement.scrollTop;
-        }
-
-        return { x: posx, y: posy };
-    }
-
-function positionMenu(e) {
     const menu = document.getElementById('contextMenu');
     const linkPlace = document.getElementById('current-link');
-
+function positionMenu(e) {
     if (!menu) {
         console.error('Menu element not found');
         return;
@@ -7046,7 +7027,9 @@ function positionMenu(e) {
 
     // Ensure visibility
     menu.classList.remove('hidden');
-    // Attach click event to `current-link` to close the context menu
+    
+}
+  // Attach click event to `current-link` to close the context menu
     if (linkPlace) {
         linkPlace.addEventListener('click', function(event) {
             event.stopPropagation(); // Prevent the click from bubbling up to the document
@@ -7067,7 +7050,6 @@ function positionMenu(e) {
             initSwipeDetection(event); // Reinitialize swipe detection after the menu is closed
         }
     });
-}
 });
 
   
