@@ -6917,7 +6917,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const menu = document.getElementById('contextMenu');
     const linkPlace = document.getElementById('current-link');
     const linkContainer = document.querySelector('.bookmarks-container');
-    const mainBookmark = document.getElementById('main-bookmark');
 
     // Function to handle showing the context menu
     function showContextMenu(event) {
@@ -6944,45 +6943,25 @@ document.addEventListener("DOMContentLoaded", function () {
         positionMenu(event);
     }
 
-    // Event listener for context menu (Right-click)
-    document.addEventListener("contextmenu", showContextMenu);
-
-    // Event listener for touchstart (Long press on iOS)
-    document.addEventListener("touchstart", function (event) {
-        if (!linkContainer.contains(event.target)) {
-            return;
-        }
-
-        // Use a timeout to handle long press
-        const touchTimeout = setTimeout(() => {
-            event.preventDefault();
-            showContextMenu(event);
-        }, 500); // Adjust this value as necessary for the long-press duration
-
-        // Clear the timeout if touch ends or moves
-        document.addEventListener("touchend", function () {
-            clearTimeout(touchTimeout);
-        }, { once: true });
-
-        document.addEventListener("touchmove", function () {
-            clearTimeout(touchTimeout); // Cancel the menu if the user starts moving
-        }, { once: true });
-    });
-
+    // Function to toggle the menu on
     function toggleMenuOn() {
         if (menuState !== 1) {
             menuState = 1;
             menu.classList.add(contextMenuActive);
+            menu.style.display = 'block';
         }
     }
 
+    // Function to toggle the menu off
     function toggleMenuOff() {
         if (menuState !== 0) {
             menuState = 0;
             menu.classList.remove(contextMenuActive);
+            menu.style.display = 'none';
         }
     }
 
+    // Function to position the menu
     function positionMenu(e) {
         if (!menu) {
             console.error('Menu element not found');
@@ -7000,7 +6979,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Ensure menu is visible and get its dimensions
         menu.classList.remove('hidden');
-        menu.style.display = 'block';
         const menuWidth = menu.offsetWidth;
         const menuHeight = menu.offsetHeight;
 
@@ -7017,9 +6995,6 @@ document.addEventListener("DOMContentLoaded", function () {
         menu.style.left = `${left}px`;
         menu.style.top = `${top}px`;
         menu.style.transform = 'none'; // Disable any transforms that might affect positioning
-
-        // Ensure visibility
-        menu.classList.remove('hidden');
     }
 
     // Attach click event to `current-link` to close the context menu
@@ -7030,20 +7005,43 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    // Event listener for context menu (Right-click)
+    document.addEventListener("contextmenu", showContextMenu);
+
+    // Event listener for touchstart (Long press on iOS)
+    document.addEventListener("touchstart", function (event) {
+        if (!linkContainer.contains(event.target)) {
+            return;
+        }
+
+        const touchTimeout = setTimeout(() => {
+            event.preventDefault();
+            showContextMenu(event);
+        }, 500); // Adjust this value as necessary for the long-press duration
+
+        document.addEventListener("touchend", function () {
+            clearTimeout(touchTimeout);
+        }, { once: true });
+
+        document.addEventListener("touchmove", function () {
+            clearTimeout(touchTimeout); // Cancel the menu if the user starts moving
+        }, { once: true });
+    });
+
     // Hide the menu when clicking outside of it
-    document.addEventListener('click', function(event) {
+    function handleClickOutside(event) {
         if (menu && !menu.contains(event.target) && !linkPlace.contains(event.target)) {
             toggleMenuOff();
         }
-    });
+    }
 
-    // Optional: Handle clicks for other purposes
-    document.addEventListener("click", (e) => {
-        var button = e.which || e.button;
-        if (button === 1) {
-            toggleMenuOff();
-            // Reinitialize swipe detection if needed
-        }
+    // Add event listener to document for handling clicks outside of menu
+    document.addEventListener('click', handleClickOutside);
+
+    // Cleanup event listeners when not needed (e.g., for SPA or single-page applications)
+    // Ensure that no duplicate event listeners are added
+    document.addEventListener('DOMContentLoaded', () => {
+        document.removeEventListener('click', handleClickOutside);
     });
 });
 
