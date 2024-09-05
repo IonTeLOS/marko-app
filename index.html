@@ -1483,6 +1483,9 @@ input:focus {
   position: fixed;
 }
 
+body {
+    -webkit-touch-callout: none; /* Disable the callout */
+}
 
   </style>   
 
@@ -1546,7 +1549,7 @@ onMessage(messaging, (payload) => {
   window.open(url, '_blank'); // Opens URL in a new tab or window
   }
 });  
-  /*
+  
   // Request permission for notifications and get the token
   function requestNotificationPermission() {
     console.log('Requesting notification permission...');
@@ -1596,119 +1599,9 @@ if ('serviceWorker' in navigator) {
     console.error('Service Worker registration failed:', error);
   });
 }
-*/
-// Request permission for notifications and subscribe to both FCM and Web Push
-function requestNotificationPermission() {
-  console.log('Requesting notification permission...');
-  Notification.requestPermission().then((permission) => {
-    if (permission === 'granted') {
-      console.log('Notification permission granted.');
-
-      // Step 1: Get the FCM Token using the VAPID key for FCM
-      const fcmVapidKey = 'BKavZlYkOUk1vg3Hg7DGsmjMh17kDpqZ2NoQ-L7vXdaUkYfbdvb1Ue3ix3t12FL5VivhtekrRVjBRGLXPqvdVgA';
-      getToken(messaging, { vapidKey: fcmVapidKey }).then((fcmToken) => {
-        if (fcmToken) {
-          console.log('FCM Token:', fcmToken);
-          // Send the token to your server and save it in localStorage
-          localStorage.setItem('fcmt', fcmToken);
-          set(ref(db, 'tokens/' + fcmToken), {
-            token: fcmToken,
-            lastSeen: serverTimestamp()
-          });
-        } else {
-          console.log('No FCM registration token available. Request permission to generate one.');
-        }
-      }).catch((error) => {
-        console.error('An error occurred while retrieving the FCM token.', error);
-      });
-
-      // Step 2: Register the service worker and subscribe using the Web Push API
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' })
-          .then(function(registration) {
-            console.log('Service Worker registered with scope:', registration.scope);
-
-            // Web Push API subscription
-            const vapidPublicKey = 'BDOTx2Mh_mTI5DL0hrTMVEj0xaUI_no1CNPZk2V1P2Hq8rQeImMOkqek5JQH5CPjZp62ELAy2ArDG5A-Y9oquxw';
-            registration.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
-            })
-            .then(function(subscription) {
-              console.log('User is subscribed to Web Push:', subscription);
-              // Send subscription object to your server to store 
-              fetch('https://notify.pchat.xyz/testzm/json', {
-  method: 'GET',
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
-.then(response => {
-  if (!response.ok) {
-    throw new Error('Network response was not ok ' + response.statusText);
-  }
-  return response.json(); // Parse the JSON from the response
-})
-.then(data => {
-  console.log('Data received:', data);
-  // Handle the JSON data received from the server here
-})
-.catch(error => {
-  console.error('There was a problem with the fetch operation:', error);
-});
- 
-              
-              /*
-              return fetch('/api/subscribe', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(subscription)
-              });
-              */
-            })
-            .catch(function(error) {
-              console.error('Failed to subscribe the user to Web Push:', error);
-            });
-
-            // Handle incoming messages from service worker
-            navigator.serviceWorker.addEventListener('message', (event) => {
-              if (event.data && event.data.action === 'open_url') {
-                const url = event.data.url;
-                console.log('Received URL to open:', url);
-                window.location.href = url; // Navigate to the URL
-              }
-            });
-          })
-          .catch(function(error) {
-            console.error('Service Worker registration failed:', error);
-          });
-      }
-
-    } else {
-      console.log('Notification permission denied.');
-    }
-  });
-}
-
-// Helper function to convert the VAPID key to a Uint8Array
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding)
-    .replace(/\-/g, '+')
-    .replace(/_/g, '/');
-
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
 
 
+// TODO: check when to request 
 // Request notification permission on page load
 // requestNotificationPermission();
   // Expose db and necessary functions for other scripts
@@ -7107,6 +7000,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const touchTimeout = setTimeout(() => {
             event.preventDefault();
+            event.stopPropagation();
             showContextMenu(event);
         }, 400); // Adjust this value as necessary for the long-press duration
 
