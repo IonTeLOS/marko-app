@@ -117,6 +117,7 @@ background-color: #1f1b24;
       display: flex;
       flex-direction: column;
       display: 'block';
+      -webkit-touch-callout: none; /* Disable the callout */
     }      
 
 
@@ -337,6 +338,7 @@ background: linear-gradient(to left, #00FF00, rgba(0,255,0,0.1));
     display: none; /* Hidden by default */
     z-index: 1000; /* Ensure it appears above other content */
     animation: zoomIn 0.4s ease-out; /* Apply zoom-in animation */
+    -webkit-touch-callout: none; /* Disable the callout */
 }
 
 /* Keyframes for zoom-in effect */
@@ -1481,10 +1483,6 @@ input:focus {
 
 .fixed {
   position: fixed;
-}
-
-body {
-    -webkit-touch-callout: none; /* Disable the callout */
 }
 
   </style>   
