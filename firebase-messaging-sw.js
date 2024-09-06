@@ -133,6 +133,8 @@ self.addEventListener('notificationclick', function(event) {
     const navUrl = localForage.getItem('new-nav-request');
     newUrl = `https://marko-app.netlify.app?nav=${navUrl}`;
     //localForage.removeItem('new-nav-request');
+  } else {
+    newUrl = event.notification.data.url || 'https://marko-app.netlify.app';
   }
 
   event.waitUntil(
