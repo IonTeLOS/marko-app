@@ -59,11 +59,16 @@
             
             // Display the content in the iframe
             const iframe = document.getElementById('contentFrame');
-            iframe.srcdoc = fileContent;
+            // Create a blob from the HTML content
+            const blob = new Blob([fileContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
             
-            // Adjust iframe height to content
+            // Set the iframe src to the blob URL
+            iframe.src = url;
+            
+            // Clean up the object URL when the iframe loads
             iframe.onload = function() {
-              this.style.height = this.contentWindow.document.body.scrollHeight + 'px';
+              URL.revokeObjectURL(url);
             };
           })
           .catch(function(err) {
