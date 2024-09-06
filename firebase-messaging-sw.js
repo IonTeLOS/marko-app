@@ -109,8 +109,8 @@ self.addEventListener('notificationclick', function(event) {
     );
   }
 
-  event.waitUntil(
-    clients.matchAll({
+  function openOrFocusClient(url) {
+    return clients.matchAll({
       type: 'window',
       includeUncontrolled: true
     }).then(clientList => {
@@ -119,13 +119,13 @@ self.addEventListener('notificationclick', function(event) {
         return clientList[0].focus().then(client => {
           client.postMessage({
             action: 'open_url',
-            url: newUrl
+            url: url
           });
         });
       } else {
         // If no clients are open, open a new window
-        return clients.openWindow(newUrl);
+        return clients.openWindow(url);
       }
-    })
-  );
+    });
+  }
 });
