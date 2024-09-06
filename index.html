@@ -1707,8 +1707,13 @@ function showNotification({ topic, title, message, attachmentUrl, clickActionUrl
   }
 
   if (otherAction && otherAction === 'msg') {
+    //const replyButton = createButton('Reply', 'reply', `https://notify.pchat.xyz/${topic}`);
     const replyButton = createButton('Reply', 'reply', `https://notify.pchat.xyz/${topic}`);
     notification.appendChild(replyButton);
+     // Add the custom function on click (for example, showReplyForm)
+    replyButton.addEventListener('click', () => {
+      showReplyForm(topic);  // Call your custom form function
+    });
   }
 
   if (otherAction && otherAction === 'conf') {
@@ -1743,34 +1748,140 @@ function showNotification({ topic, title, message, attachmentUrl, clickActionUrl
     setTimeout(() => {
       notification.remove();
     }, 300);
-  }, 15000); 
+  }, 20000); 
+}
+  
+function showReplyForm(topic) {
+  // Create a form container
+  const formContainer = document.createElement('div');
+  formContainer.style.position = 'fixed';
+  formContainer.style.top = '10px';
+  formContainer.style.left = '50%';
+  formContainer.style.transform = 'translateX(-50%)';
+  formContainer.style.backgroundColor = '#fff';
+  formContainer.style.color = '#333';
+  formContainer.style.borderRadius = '8px';
+  formContainer.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.2)';
+  formContainer.style.padding = '16px';
+  formContainer.style.width = '70vw';
+  formContainer.style.maxWidth = '400px';
+  formContainer.style.height = 'auto';
+  formContainer.style.zIndex = '10003';
+  formContainer.style.display = 'flex';
+  formContainer.style.flexDirection = 'column';
+  formContainer.style.alignItems = 'center';
+  formContainer.style.fontFamily = '"Roboto", sans-serif';
+  formContainer.style.boxSizing = 'border-box';
 
-  // Ripple effect CSS
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes ripple {
-      to {
-        transform: scale(4);
-        opacity: 0;
-      }
-    }
-    .material-icons {
-      font-family: 'Material Icons';
-      font-weight: normal;
-      font-style: normal;
-      font-size: 24px;  /* Set the icon size */
-      display: inline-block;
-      line-height: 1;
-      text-transform: none;
-      letter-spacing: normal;
-      word-wrap: normal;
-      white-space: nowrap;
-      direction: ltr;
-      -webkit-font-feature-settings: 'liga';
-      -webkit-font-smoothing: antialiased;
-    }
-  `;
-  document.head.appendChild(style);
+  // Create form title
+  const title = document.createElement('h4');
+  title.textContent = `Reply in ${topic}`;
+  title.style.margin = '0 0 10px';
+  title.style.fontSize = '18px';
+  title.style.color = '#6200ea';
+  formContainer.appendChild(title);
+
+  // Create text input for message
+  const messageInput = document.createElement('input');
+  messageInput.type = 'text';
+  messageInput.placeholder = 'Message';
+  messageInput.style.width = '100%';
+  messageInput.style.marginBottom = '8px';
+  messageInput.style.padding = '10px';
+  messageInput.style.borderRadius = '4px';
+  messageInput.style.border = '1px solid #ccc';
+  formContainer.appendChild(messageInput);
+
+  // Create text input for attachment_url
+  const attachmentUrlInput = document.createElement('input');
+  attachmentUrlInput.type = 'text';
+  attachmentUrlInput.placeholder = 'Attachment URL';
+  attachmentUrlInput.style.width = '100%';
+  attachmentUrlInput.style.marginBottom = '8px';
+  attachmentUrlInput.style.padding = '10px';
+  attachmentUrlInput.style.borderRadius = '4px';
+  attachmentUrlInput.style.border = '1px solid #ccc';
+  formContainer.appendChild(attachmentUrlInput);
+
+  // Create text input for click (url)
+  const clickUrlInput = document.createElement('input');
+  clickUrlInput.type = 'text';
+  clickUrlInput.placeholder = 'Click URL';
+  clickUrlInput.style.width = '100%';
+  clickUrlInput.style.marginBottom = '8px';
+  clickUrlInput.style.padding = '10px';
+  clickUrlInput.style.borderRadius = '4px';
+  clickUrlInput.style.border = '1px solid #ccc';
+  formContainer.appendChild(clickUrlInput);
+
+  // Create checkbox for 'conf' tag
+  const confCheckbox = document.createElement('input');
+  confCheckbox.type = 'checkbox';
+  confCheckbox.id = 'confCheckbox';
+  confCheckbox.style.marginRight = '8px';
+
+  const checkboxLabel = document.createElement('label');
+  checkboxLabel.textContent = 'Add "conf" tag';
+  checkboxLabel.setAttribute('for', 'confCheckbox');
+  checkboxLabel.style.fontSize = '14px';
+  checkboxLabel.style.color = '#333';
+  checkboxLabel.style.display = 'inline-flex';
+  checkboxLabel.style.alignItems = 'center';
+  formContainer.appendChild(confCheckbox);
+  formContainer.appendChild(checkboxLabel);
+
+  // Create submit button with Material Icon
+  const submitButton = document.createElement('button');
+  submitButton.textContent = 'Submit';
+  submitButton.style.backgroundColor = '#6200ea';
+  submitButton.style.color = '#fff';
+  submitButton.style.border = 'none';
+  submitButton.style.borderRadius = '4px';
+  submitButton.style.padding = '10px 16px';
+  submitButton.style.fontSize = '14px';
+  submitButton.style.cursor = 'pointer';
+  submitButton.style.marginTop = '16px';
+  submitButton.style.display = 'flex';
+  submitButton.style.alignItems = 'center';
+
+  const iconSpan = document.createElement('span');
+  iconSpan.className = 'material-icons';
+  iconSpan.textContent = 'send';
+  iconSpan.style.marginRight = '8px';
+  submitButton.appendChild(iconSpan);
+
+  // Add event listener to the submit button
+  submitButton.addEventListener('click', () => {
+    const message = messageInput.value;
+    const attachment_url = attachmentUrlInput.value;
+    const click = clickUrlInput.value;
+    const confTag = confCheckbox.checked ? 'conf' : '';
+
+    // Perform the fetch request
+    fetch('https://ntfy.sh/mydoorbell', {
+      method: 'POST',
+      headers: {
+        'Click': click,
+        'Attach': attachment_url,
+        ...(confTag && { 'Tags': confTag }),
+      },
+      body: message,
+    })
+      .then(response => response.text())
+      .then(result => {
+        console.log('Message sent:', result);
+        // Remove the form on successful submission
+        formContainer.remove();
+      })
+      .catch(error => {
+        console.error('Error:', error);
+      });
+  });
+
+  formContainer.appendChild(submitButton);
+
+  // Append form to body
+  document.body.appendChild(formContainer);
 }
 
 
