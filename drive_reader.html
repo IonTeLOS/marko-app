@@ -1,11 +1,43 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Google Drive File Reader</title>
   <script src="https://apis.google.com/js/api.js"></script>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    #iframeContainer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    #contentFrame {
+      width: 100%;
+      height: 100%;
+      border: none;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+  </style>
 </head>
 <body>
-  <iframe id="contentFrame" style="width: 100%; height: 500px; border: none;"></iframe>
+  <div id="iframeContainer">
+    <iframe id="contentFrame" 
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
+            allow="accelerometer; camera; encrypted-media; display-capture; geolocation; gyroscope; microphone; midi; payment; vr; usb"
+            allowfullscreen>
+    </iframe>
+  </div>
   
   <script>
     gapi.load('client:auth2', function() {
@@ -28,6 +60,11 @@
             // Display the content in the iframe
             const iframe = document.getElementById('contentFrame');
             iframe.srcdoc = fileContent;
+            
+            // Adjust iframe height to content
+            iframe.onload = function() {
+              this.style.height = this.contentWindow.document.body.scrollHeight + 'px';
+            };
           })
           .catch(function(err) {
             console.error('Error:', err);
