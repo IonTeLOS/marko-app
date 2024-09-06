@@ -1528,9 +1528,9 @@ onMessage(messaging, (payload) => {
   }
   if (payload.data.topic) {
     showNotification({
-    title: payload.data.title || 'Notification Title',
-    message: payload.data.message || 'This is a message with an attachment.',
-    attachmentUrl: String(payload.data.attachment_url) || 'https://https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg', // Replace with actual URL
+    title: payload.data.title || 'message from ' + payload.data.topic,
+    message: payload.data.message || '🔔',
+    attachmentUrl: String(payload.data.attachment_url) || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg', // Replace with actual URL
     clickActionUrl: payload.data.click || '/' // Replace with actual click action URL
   });
     //const navUrl = String(payload.data.click);
