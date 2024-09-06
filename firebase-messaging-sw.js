@@ -75,18 +75,11 @@ messaging.onBackgroundMessage((payload) => {
         url: clickAction  // Store URL for click handling
       }
     };
-  // Store the clickAction in localforage if it's not provided reliably
-  if (!payload.data.click) {
-    localforage.setItem('new-nav-request', clickAction).then(() => {
-      console.log('Stored fallback clickAction in localforage');
-    }).catch((err) => {
-      console.error('Error storing fallback clickAction:', err);
-    });
-  }
     // Show the notification
     self.registration.showNotification(notificationTitle, notificationOptions);
   }
-  
+
+  if (payload.notification) {
   const { title, body } = payload.notification;
   const theIcon = payload.data.icon || 'https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg'; // Default icon if not provided
   const clickAction = payload.data.url || 'https://marko-app.netlify.app'; // Default URL if not provided
@@ -125,8 +118,8 @@ messaging.onBackgroundMessage((payload) => {
 
   self.registration.showNotification(title, notificationOptions);
 });
-
-
+}
+                              
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
   
