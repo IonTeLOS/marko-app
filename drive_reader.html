@@ -5,6 +5,8 @@
   <script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
+  <iframe id="contentFrame" style="width: 100%; height: 500px; border: none;"></iframe>
+  
   <script>
     gapi.load('client:auth2', function() {
       gapi.client.load('drive', 'v3', function() {
@@ -12,29 +14,23 @@
         gapi.auth.setToken({
           access_token: accessToken
         });
-
         const fileId = '1tQQm4A6ilXq5PdnHrcId8P_788Fj4wT7';
         gapi.client.drive.files.get({ fileId })
           .then(function(response) {
             const fileMetadata = response.result;
             console.log('File metadata:', fileMetadata);
-
-            gapi.client.drive.files.get({ fileId, alt: 'media' })
-              .then(function(response) {
-                const fileBlob = response.result;
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                  const fileContent = event.target.result;
-                  console.log('File content:', fileContent);
-                };
-                reader.readAsText(fileBlob);
-              })
-              .catch(function(err) {
-                console.error('Error downloading file:', err);
-              });
+            return gapi.client.drive.files.get({ fileId, alt: 'media' });
+          })
+          .then(function(response) {
+            const fileContent = response.body;
+            console.log('File content:', fileContent);
+            
+            // Display the content in the iframe
+            const iframe = document.getElementById('contentFrame');
+            iframe.srcdoc = fileContent;
           })
           .catch(function(err) {
-            console.error('Error fetching file metadata:', err);
+            console.error('Error:', err);
           });
       });
     });
