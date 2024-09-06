@@ -1531,7 +1531,7 @@ onMessage(messaging, (payload) => {
     title: payload.data.title || 'Notification Title',
     message: payload.data.message || 'This is a message with an attachment.',
     attachmentUrl: String(payload.data.attachment_url) || 'https://https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg', // Replace with actual URL
-    clickAction: String(payload.data.click) || '/' // Replace with actual click action URL
+    clickAction: payload.data.click || '/' // Replace with actual click action URL
   });
     //const navUrl = String(payload.data.click);
     //window.open(navUrl, '_blank');
