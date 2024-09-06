@@ -7084,7 +7084,7 @@ window.onfocus = checkVisibilityAndReload;
 
             // Only override the back button if 'fromApp' parameter is present
             if (hasFromAppParam()) {
-                console.log("fromApp parameter detected, setting up popstate listener.");
+                console.log("page was loaded from main app");
                 // Push a state to the history to detect the back navigation
                 history.pushState(null, null, window.location.href);
                 window.addEventListener('popstate', function (event) {
@@ -7092,7 +7092,7 @@ window.onfocus = checkVisibilityAndReload;
                     redirectToUrl();
                 });
             } else {
-                console.log("fromApp parameter not found, no changes to back button behavior.");
+                console.log("page was loaded independently");
             }
         });
 </script>
