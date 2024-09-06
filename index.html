@@ -1858,7 +1858,7 @@ function showReplyForm(topic) {
     const confTag = confCheckbox.checked ? 'conf' : '';
 
     // Perform the fetch request
-    fetch('https://ntfy.sh/mydoorbell', {
+    fetch(`https://notify.pchat.xyz/${topic}`, {
       method: 'POST',
       headers: {
         'Click': click,
