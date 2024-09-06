@@ -3791,8 +3791,7 @@ function scheduleNotification(title, body, delay, icon, uuid) {
 }
 
   const subscribeToTopic = async (token, topic) => {
-  const url = 'https://us-central1-marko-be9a9.cloudfunctions.net/handleTopic';  // Replace with your actual Cloud Function URL
-  
+  const url = 'https://us-central1-marko-be9a9.cloudfunctions.net/handleTopic';
   const data = {
     action: 'subscribe',
     token: token,
@@ -3839,8 +3838,6 @@ const token = localStorage.getItem('fcmt');
   }
 };
 
-// Expose the function globally if needed
-window.subscribeTopic = subscribeTopic;
       /*
 function scheduleNotification(title, body, delay, icon, uuid) {
     // sendEmailNotification(title, body, uuid); // using it as part of the cloud function to schedule one instead
