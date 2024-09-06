@@ -92,7 +92,7 @@
     max-width: 600px; /* Max width to prevent overflow */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Subtle shadow for depth */
     font-family: "Roboto", sans-serif; /* Clean, modern font */
-    font-size: 20px; /* Readable font size */
+    font-size: 18px; /* Readable font size */
     z-index: 1000; /* Ensure it appears above other content */
     text-align: center; /* Center the text */
     margin-bottom: 15px; /* Add margin from bottom of the viewport */
@@ -232,7 +232,7 @@ async function handleOAuth2Flow() {
         const fileId = getFileIdFromUrl();
         
         if (!fileId) {
-          displayError('No file ID provided. /\nPlease use https://marko-app.netlify.app?file={fileId}');
+          displayError('No file ID provided. Please use: \nhttps://marko-app.netlify.app?file={fileId}');
           document.getElementById('uploadContainer').style.display = 'block';
           document.getElementById('errorMessage').style.display = 'block';
           return;
