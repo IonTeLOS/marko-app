@@ -41,6 +41,96 @@
   <div id="errorMessage"></div>
   
   <script>
+let accessToken = localStorage.getItem('accessToken') || '';
+const LOGIN_PAGE_URL = 'https://marko-app.netlify.app/login';
+
+const pb = new PocketBase("https://marko-bin.pockethost.io");
+const redirectUrl = `${APP_URL}/login`; // URL to redirect after authentication
+// Function to check if the user is logged in
+async function checkLoginStatus() {
+
+    if (!accessToken) {
+        // No access token found, start OAuth2 flow
+        await handleOAuth2Flow();
+        return;
+    }
+
+    try {
+        // Validate the Google access token
+        const response = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + accessToken);
+
+        if (!response.ok) {
+            // Invalid Google access token, start OAuth2 flow
+            console.warn('Invalid Access Token:', response.status);
+            await handleOAuth2Flow();
+            return;
+        }
+
+        // Access Token is valid, now check PocketBase JWT
+        const isTokenValid = await checkJWToken();
+        if (isTokenValid) {
+            console.log('Google Access Token and PocketBase JWT are valid.');
+            // Proceed to load the main page content
+        } else {
+            // PocketBase JWT is invalid, start OAuth2 flow
+            console.warn('PocketBase JWT is invalid.');
+            await handleOAuth2Flow();
+        }
+    } catch (error) {
+        console.error('Error validating Access Token or PocketBase JWT:', error);
+        // Start OAuth2 flow on any error
+        await handleOAuth2Flow();
+    }
+}
+
+async function checkJWToken() {
+    let isValid = false;
+    try {
+        await pb.collection('users').authRefresh();
+        isValid = true;
+    } catch (error) {
+        console.error("Token is invalid or expired:", error);
+    }
+    //console.log(isValid);
+    return isValid;
+}
+
+// Function to handle OAuth2 flow
+async function handleOAuth2Flow() {
+    try {
+        // Fetch the available authentication methods
+        const authMethods = await pb.collection('users').listAuthMethods();
+        
+        if (authMethods && authMethods.authProviders) {
+            // Find the Google provider from the list of auth providers
+            const googleProvider = authMethods.authProviders.find(provider => provider.name === 'google');
+            
+            if (googleProvider) {
+                // Store provider's data in localStorage for later verification
+                localStorage.setItem('provider', JSON.stringify({
+                    name: googleProvider.name,
+                    state: googleProvider.state,
+                    codeVerifier: googleProvider.codeVerifier,
+                    authUrl: googleProvider.authUrl,
+                }));
+
+                sessionStorage.setItem('redirectTo', 'drive_reader');
+                // Construct the authentication URL
+                const authUrl = googleProvider.authUrl + encodeURIComponent(redirectUrl);
+
+                // Redirect to Google for authentication
+                window.location.href = authUrl;
+            } else {
+                console.error('Google provider information is missing.');
+            }
+        } else {
+            console.error('No authentication methods found.');
+        }
+    } catch (error) {
+        console.error('Error fetching authentication methods:', error);
+    }
+}
+    
     function getFileIdFromUrl() {
       const urlParams = new URLSearchParams(window.location.search);
       return urlParams.get('file');
@@ -91,6 +181,10 @@
           });
       });
     });
+
+    window.onload = function() {
+      checkLoginStatus();
+    };
   </script>
 </body>
 </html>
