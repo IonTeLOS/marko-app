@@ -43,6 +43,7 @@
       background: white;
       padding: 20px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      display: none;
     }
     #instructionText {
       font-size: 1.2em;
@@ -77,6 +78,25 @@
         font-size: 1.3em;
       }
     }
+    #errorMessage {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #f8d7da; /* Light red background for error */
+    color: #721c24; /* Dark red text */
+    border: 2px solid #f5c6cb; /* Border matching the background color */
+    border-radius: 8px;
+    padding: 20px; /* Padding all around */
+    width: 90%;
+    max-width: 600px; /* Max width to prevent overflow */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Subtle shadow for depth */
+    font-family: "Roboto", sans-serif; /* Clean, modern font */
+    font-size: 20px; /* Readable font size */
+    z-index: 1000; /* Ensure it appears above other content */
+    text-align: center; /* Center the text */
+    margin-bottom: 15px; /* Add margin from bottom of the viewport */
+}
   </style>
 </head>
 <body>
@@ -213,6 +233,7 @@ async function handleOAuth2Flow() {
         
         if (!fileId) {
           displayError('No file ID provided. Please use ?file={fileId} in the URL.');
+          document.getElementById('uploadContainer').style.display = 'block';
           return;
         }        
         gapi.client.drive.files.get({ fileId })
