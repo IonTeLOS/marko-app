@@ -1588,8 +1588,8 @@ onMessage(messaging, (payload) => {
     });
   }
   
-function showNotification({ topic, title, message, attachmentUrl, clickActionUrl, otherAction}) {
-    // Create a custom HTML for the notification
+function showNotification({ topic, title, message, attachmentUrl, clickActionUrl, otherAction }) {
+  // Create a custom HTML for the notification
   const notification = document.createElement('div');
   notification.style.position = 'fixed';
   notification.style.top = '10px';
@@ -1609,6 +1609,22 @@ function showNotification({ topic, title, message, attachmentUrl, clickActionUrl
   notification.style.alignItems = 'center';
   notification.style.fontFamily = '"Roboto", sans-serif';
   notification.style.cursor = 'pointer';
+  notification.style.transition = 'opacity 0.3s';
+
+  // Hover effect to prevent auto-hide
+  let autoHideTimeout;
+  notification.addEventListener('mouseenter', () => {
+    clearTimeout(autoHideTimeout);
+  });
+
+  notification.addEventListener('mouseleave', () => {
+    autoHideTimeout = setTimeout(() => {
+      notification.style.opacity = '0';
+      setTimeout(() => {
+        notification.remove();
+      }, 300);
+    }, 5000);
+  });
 
   // Create and style the title
   const notificationTitle = document.createElement('h4');
@@ -1632,61 +1648,131 @@ function showNotification({ topic, title, message, attachmentUrl, clickActionUrl
     notificationImage.style.marginBottom = '8px';
     notification.appendChild(notificationImage);
   }
-  
+
   notification.appendChild(notificationTitle);
   notification.appendChild(notificationMessage);
-    // Create and style the button
-if (clickActionUrl) {
-  const button = document.createElement('button');
-  button.textContent = 'Go to Link';
-  button.style.backgroundColor = '#6200ea';
-  button.style.color = '#fff';
-  button.style.border = 'none';
-  button.style.borderRadius = '4px';
-  button.style.padding = '8px 16px';
-  button.style.fontSize = '14px';
-  button.style.cursor = 'pointer';
-  button.style.marginTop = '8px';
 
-  // Add event listener for the button
-  button.addEventListener('click', () => {
-    window.open(clickActionUrl, '_blank');
+  // Create and style the button with ripple effect
+  function createButton(text, icon, url) {
+    const button = document.createElement('button');
+    button.textContent = text;
+    button.style.backgroundColor = '#6200ea';
+    button.style.color = '#fff';
+    button.style.border = 'none';
+    button.style.borderRadius = '4px';
+    button.style.padding = '8px 16px';
+    button.style.fontSize = '14px';
+    button.style.cursor = 'pointer';
+    button.style.marginTop = '8px';
+    button.style.position = 'relative';
+    button.style.overflow = 'hidden';
+    button.style.display = 'flex';
+    button.style.alignItems = 'center';
+
+    // Add ripple effect
+    button.addEventListener('click', (e) => {
+      const ripple = document.createElement('span');
+      ripple.style.position = 'absolute';
+      ripple.style.width = '100px';
+      ripple.style.height = '100px';
+      ripple.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
+      ripple.style.borderRadius = '50%';
+      ripple.style.transform = 'scale(0)';
+      ripple.style.animation = 'ripple 0.6s linear';
+      ripple.style.left = `${e.clientX - button.getBoundingClientRect().left}px`;
+      ripple.style.top = `${e.clientY - button.getBoundingClientRect().top}px`;
+      button.appendChild(ripple);
+
+      setTimeout(() => {
+        ripple.remove();
+      }, 600);
+
+      if (url) window.open(url, '_blank');
+    });
+
+    // Add icon to button
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'material-icons';
+    iconSpan.style.marginRight = '8px';
+    iconSpan.textContent = icon;
+    button.insertBefore(iconSpan, button.firstChild);
+
+    return button;
+  }
+
+  // Create action buttons
+  if (clickActionUrl) {
+    const linkButton = createButton('Go to Link', 'link', clickActionUrl);
+    notification.appendChild(linkButton);
+  }
+
+  if (otherAction && otherAction === 'msg') {
+    const replyButton = createButton('Reply', 'reply', `https://notify.pchat.xyz/${topic}`);
+    notification.appendChild(replyButton);
+  }
+
+  if (otherAction && otherAction === 'conf') {
+    const joinButton = createButton('Join', 'videocam', `https://pchat.xyz/${topic}`);
+    notification.appendChild(joinButton);
+  }
+
+  // Add close button
+  const closeButton = document.createElement('span');
+  closeButton.className = 'material-icons';
+  closeButton.textContent = 'close';
+  closeButton.style.position = 'absolute';
+  closeButton.style.top = '8px';
+  closeButton.style.right = '8px';
+  closeButton.style.cursor = 'pointer';
+  closeButton.style.color = '#fff';
+  closeButton.style.fontSize = '20px';
+  closeButton.addEventListener('click', () => {
+    notification.style.opacity = '0';
+    setTimeout(() => {
+      notification.remove();
+    }, 300);
   });
+  notification.appendChild(closeButton);
 
-  // Append elements to the notification container
-  notification.appendChild(button);
-}
-if (otherAction && otherAction === 'msg') {
-  const button = document.createElement('button');
-  button.textContent = 'Reply';
-  button.style.backgroundColor = '#6200ea';
-  button.style.color = '#fff';
-  button.style.border = 'none';
-  button.style.borderRadius = '4px';
-  button.style.padding = '8px 16px';
-  button.style.fontSize = '14px';
-  button.style.cursor = 'pointer';
-  button.style.marginTop = '8px';
-
-  // Add event listener for the button
-  button.addEventListener('click', () => {
-        window.open(`https://notify.pchat.xyz/${topic}`, '_blank');
-  });
-
-  // Append elements to the notification container
-  notification.appendChild(button);
-}  
   // Append notification to the body
   document.body.appendChild(notification);
 
-  // Automatically hide the notification after a delay
-  setTimeout(() => {
+  // Automatically hide the notification after a delay if not hovered over
+  autoHideTimeout = setTimeout(() => {
     notification.style.opacity = '0';
     setTimeout(() => {
       notification.remove();
     }, 300);
   }, 15000); 
+
+  // Ripple effect CSS
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes ripple {
+      to {
+        transform: scale(4);
+        opacity: 0;
+      }
+    }
+    .material-icons {
+      font-family: 'Material Icons';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 24px;  /* Set the icon size */
+      display: inline-block;
+      line-height: 1;
+      text-transform: none;
+      letter-spacing: normal;
+      word-wrap: normal;
+      white-space: nowrap;
+      direction: ltr;
+      -webkit-font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+    }
+  `;
+  document.head.appendChild(style);
 }
+
 
       // Register the service worker
 if ('serviceWorker' in navigator) {
