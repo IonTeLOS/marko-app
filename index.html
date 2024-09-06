@@ -1526,8 +1526,8 @@ onMessage(messaging, (payload) => {
     const navUrl = String(payload.data.goto);
     window.open(navUrl, '_blank');
   }
-  if (payload.data.url) {
-    const navUrl = String(payload.data.url);
+  if (payload.data.url || payload.data,click) {
+    const navUrl = String(payload.data.url) || String(payload.data.url);
     window.open(navUrl, '_blank');
   }
   if (payload.data.uuid) {
@@ -3837,7 +3837,6 @@ const token = localStorage.getItem('fcmt');
     console.error('Failed to get FCM token');
   }
 };
-subscribeTopic('newtest');
       /*
 function scheduleNotification(title, body, delay, icon, uuid) {
     // sendEmailNotification(title, body, uuid); // using it as part of the cloud function to schedule one instead
