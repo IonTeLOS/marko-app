@@ -129,8 +129,8 @@ self.addEventListener('notificationclick', function(event) {
     const path = event.notification.data.path;
     const goUuid = path;
     newUrl = `https://marko-app.netlify.app?uuid=${goUuid}`;
-  } else if (localForage.getItem('new-nav-request')) {
-    const navUrl = localForage.getItem('new-nav-request');
+  } else if (localforage.getItem('new-nav-request')) {
+    const navUrl = localforage.getItem('new-nav-request');
     newUrl = `https://marko-app.netlify.app?nav=${navUrl}`;
     //localForage.removeItem('new-nav-request');
   } else {
