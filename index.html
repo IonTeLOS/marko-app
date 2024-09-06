@@ -1707,7 +1707,7 @@ function showNotification({ topic, title, message, attachmentUrl, clickActionUrl
   }
 
   if (otherAction && otherAction === 'msg') {
-    const replyButton = createButton('Reply', 'reply', `https://notify.pchat.xyz/${topic}`);
+    //const replyButton = createButton('Reply', 'reply', `https://notify.pchat.xyz/${topic}`);
     const replyButton = createButton('Reply', 'reply', '/');
     notification.appendChild(replyButton);
      // Add the custom function on click (for example, showReplyForm)
