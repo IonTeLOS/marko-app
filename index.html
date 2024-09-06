@@ -2039,7 +2039,7 @@ window.cancelScheduledNotification = cancelScheduledNotification;
     zindex: 4000, 
 });
 function onWindowFocus() {
-    console.log("Window is focused!");
+    //console.log("Window is focused!");
     // Your function code here
 
       // Retrieve a value using localForage
@@ -2051,7 +2051,7 @@ localforage.getItem('newUnopenedReminder').then(function(value) {
         loadArrayFromURL();
         return localforage.removeItem('newUnopenedReminder');
   } else {
-    console.log('Value not found in localForage.');
+    //console.log('Value not found in localForage.');
     const url = new URL(window.location.href); // Create a URL object
 
     if (url.searchParams.has('uuid')) {
@@ -2070,7 +2070,7 @@ localforage.getItem('new-nav-request').then(function(value) {
     window.open(value, '_blank');
         return localforage.removeItem('new-nav-request');
   } else {
-    console.log('Url Value not found in localForage.');
+    //console.log('Url Value not found in localForage.');
   }
 }).catch(function(err) {
   console.error('Error retrieving value from localForage:', err);
