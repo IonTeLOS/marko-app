@@ -59,6 +59,27 @@ messaging.onBackgroundMessage((payload) => {
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
 
+    // Check if the message is from a topic
+  if (payload.data && payload.data.topic) {
+    // Extract necessary fields from the data payload
+    const notificationTitle = payload.data.title || payload.data.topic;
+    const notificationBody = payload.data.message || 'buzzed..';
+    const notificationIcon = payload.data.attachment_url || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';  // Show attachment as icon if provided
+    const clickAction = payload.data.click || 'https://marko-app.netlify.app';  // Default click action if not provided
+
+    // Build notification options
+    const notificationOptions = {
+      body: notificationBody,
+      icon: notificationIcon,  // Use attachment_url for icon if available
+      data: {
+        url: clickAction  // Store URL for click handling
+      }
+    };
+
+    // Show the notification
+    self.registration.showNotification(notificationTitle, notificationOptions);
+  }
+  
   const { title, body } = payload.notification;
   const theIcon = payload.data.icon || 'https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg'; // Default icon if not provided
   const clickAction = payload.data.url || 'https://marko-app.netlify.app'; // Default URL if not provided
