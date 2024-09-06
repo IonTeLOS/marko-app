@@ -75,7 +75,14 @@ messaging.onBackgroundMessage((payload) => {
         url: clickAction  // Store URL for click handling
       }
     };
-
+  // Store the clickAction in localforage if it's not provided reliably
+  if (!payload.data.click) {
+    localforage.setItem('new-nav-request', clickAction).then(() => {
+      console.log('Stored fallback clickAction in localforage');
+    }).catch((err) => {
+      console.error('Error storing fallback clickAction:', err);
+    });
+  }
     // Show the notification
     self.registration.showNotification(notificationTitle, notificationOptions);
   }
@@ -133,8 +140,6 @@ self.addEventListener('notificationclick', function(event) {
     const navUrl = localforage.getItem('new-nav-request');
     newUrl = `https://marko-app.netlify.app?nav=${navUrl}`;
     //localForage.removeItem('new-nav-request');
-  } else {
-    newUrl = event.notification.data.url || 'https://marko-app.netlify.app';
   }
 
   event.waitUntil(
