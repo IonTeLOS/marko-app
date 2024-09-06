@@ -3191,7 +3191,8 @@ function handleSharedLink(url, title, text) {
             console.log("User does not want to add a Marko.");
         }
     } else {
-        console.log("Not all required parameters for Marko creation are present or createMarko is not true.");
+        return;
+        // console.log("Not all required parameters for Marko creation are present or createMarko is not true.");
     }
     
 // Case 4: Handling multiple shared parameters
@@ -3315,7 +3316,7 @@ if (sharedText && sharedText.startsWith("http")) {
     return;
 }
 
-console.log("No valid sharing data found.");
+//console.log("No valid sharing data found.");
 
     if (reminder) {
         openReminder(reminder);
