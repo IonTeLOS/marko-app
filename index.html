@@ -1708,7 +1708,6 @@ function showNotification({ topic, title, message, attachmentUrl, clickActionUrl
 
   if (otherAction && otherAction === 'msg') {
     //const replyButton = createButton('Reply', 'reply', `https://notify.pchat.xyz/${topic}`);
-    const replyButton = createButton('Reply', 'reply', `https://notify.pchat.xyz/${topic}`);
     notification.appendChild(replyButton);
      // Add the custom function on click (for example, showReplyForm)
     replyButton.addEventListener('click', () => {
@@ -1821,12 +1820,12 @@ function showReplyForm(topic) {
   confCheckbox.style.marginRight = '8px';
 
   const checkboxLabel = document.createElement('label');
-  checkboxLabel.textContent = 'Add "conf" tag';
+  checkboxLabel.textContent = 'Request Call';
   checkboxLabel.setAttribute('for', 'confCheckbox');
   checkboxLabel.style.fontSize = '14px';
   checkboxLabel.style.color = '#333';
   checkboxLabel.style.display = 'inline-flex';
-  checkboxLabel.style.alignItems = 'center';
+  checkboxLabel.style.alignItems = 'left';
   formContainer.appendChild(confCheckbox);
   formContainer.appendChild(checkboxLabel);
 
@@ -1856,7 +1855,7 @@ function showReplyForm(topic) {
     const attachment_url = attachmentUrlInput.value;
     const click = clickUrlInput.value;
     const confTag = confCheckbox.checked ? 'conf' : '';
-
+    
     // Perform the fetch request
     fetch(`https://notify.pchat.xyz/${topic}`, {
       method: 'POST',
@@ -1877,9 +1876,11 @@ function showReplyForm(topic) {
         console.error('Error:', error);
       });
   });
-
+  
   formContainer.appendChild(submitButton);
-
+  if (confTag) {
+    window.open(`https://notify.pchat.xyz/${topic}`, _blank);
+  }
   // Append form to body
   document.body.appendChild(formContainer);
 }
