@@ -35,7 +35,7 @@
   <div id="iframeContainer">
     <iframe id="contentFrame" 
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
-            allow="accelerometer; camera; encrypted-media; display-capture; geolocation; gyroscope; microphone; midi; payment; vr; usb"
+            allow="accelerometer; camera; encrypted-media; display-capture; geolocation; gyroscope; microphone; midi; payment; xr-spatial-tracking; usb"
             allowfullscreen>
     </iframe>
   </div>
@@ -115,8 +115,8 @@ async function handleOAuth2Flow() {
                     codeVerifier: googleProvider.codeVerifier,
                     authUrl: googleProvider.authUrl,
                 }));
-
-                sessionStorage.setItem('redirectTo', 'drive_reader');
+                const param = getFileIdFromUrl();
+                sessionStorage.setItem('redirectTo', `drive_reader?file=${param}`);
                 // Construct the authentication URL
                 const authUrl = googleProvider.authUrl + encodeURIComponent(redirectUrl);
 
@@ -144,7 +144,7 @@ async function handleOAuth2Flow() {
     
     gapi.load('client:auth2', function() {
       gapi.client.load('drive', 'v3', function() {
-        const accessToken = 'ya29.a0AcM612wgpJwTsutSxdKg7UvLhdY5Mo2gi9mQgTdtkC1yjebldCHMdoHG2cv1MF6HytIXpxS9Xq4EkSAh-i-3WwmoBhEIdQNHuuQRRM_Z16RQ1CcUqWo94G8WNUS8QU1ZS8zbouSLbcK9-taQ0MwiUccOGvvWDRA5DBcaCgYKAS0SARASFQHGX2Mi8RU8DLl-jSGLfeg6W7-ZGw0170';
+        accessToken = localStorage.getItem('accessToken');
         gapi.auth.setToken({
           access_token: accessToken
         });
