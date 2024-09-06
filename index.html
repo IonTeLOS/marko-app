@@ -1586,7 +1586,7 @@ onMessage(messaging, (payload) => {
     });
   }
   
-function showNotification({ title, message, attachmentUrl = '', clickActionUrl = ''}) {
+function showNotification({ title, message, attachmentUrl, clickActionUrl}) {
     // Create a custom HTML for the notification
   const notification = document.createElement('div');
   notification.style.position = 'fixed';
@@ -1598,8 +1598,10 @@ function showNotification({ title, message, attachmentUrl = '', clickActionUrl =
   notification.style.borderRadius = '8px';
   notification.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.2)';
   notification.style.padding = '16px';
+  notification.style.width = '70vw';
   notification.style.maxWidth = '400px';
-  notification.style.zIndex = '1000';
+  notification.style.height = 'auto';
+  notification.style.zIndex = '10003';
   notification.style.display = 'flex';
   notification.style.flexDirection = 'column';
   notification.style.alignItems = 'center';
