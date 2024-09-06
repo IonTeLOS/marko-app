@@ -1697,11 +1697,24 @@ export async function cancelScheduledNotification(uuid) {
     });
 }
 
+export async function subscribeToTopic(registrationTokens, topic) { 
+  getMessaging().subscribeToTopic(registrationTokens, topic)
+  .then((response) => {
+    // See the MessagingTopicManagementResponse reference documentation
+    // for the contents of response.
+    console.log('Successfully subscribed to topic:', response);
+  })
+  .catch((error) => {
+    console.log('Error subscribing to topic:', error);
+  }); 
+}
 
           // Function to retrieve the showTime for a given uuid
 
 // Expose the function globally
 window.cancelScheduledNotification = cancelScheduledNotification;
+window.subscribeToTopic = subscribeToTopic;
+
 </script>
 <script>  
 
