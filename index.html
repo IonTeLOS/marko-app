@@ -1698,7 +1698,7 @@ export async function cancelScheduledNotification(uuid) {
 }
 
 export async function subscribeToTopic(registrationTokens, topic) { 
-  getMessaging().subscribeToTopic(registrationTokens, topic)
+  messaging.subscribeToTopic(registrationTokens, topic)
   .then((response) => {
     // See the MessagingTopicManagementResponse reference documentation
     // for the contents of response.
