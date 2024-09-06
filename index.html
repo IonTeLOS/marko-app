@@ -1528,9 +1528,9 @@ onMessage(messaging, (payload) => {
   }
   if (payload.data.topic) {
     showNotification({
-    title: payload.data.title || '🔔 - ' + payload.data.topic,
+    title: payload.data.title || `🔔 -  ${payload.data.topic}`,
     message: payload.data.message,
-    attachmentUrl: String(payload.data.attachment_url) || '/apple-touch-icon-76x76.png', 
+    attachmentUrl: String(payload.data.attachment_url), 
     clickActionUrl: payload.data.click // Replace with actual click action URL
   });
     //const navUrl = String(payload.data.click);
