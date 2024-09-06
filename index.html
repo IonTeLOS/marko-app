@@ -1697,23 +1697,10 @@ export async function cancelScheduledNotification(uuid) {
     });
 }
 
-export async function subscribeToTopic(registrationTokens, topic) { 
-  messaging.subscribeToTopic(registrationTokens, topic)
-  .then((response) => {
-    // See the MessagingTopicManagementResponse reference documentation
-    // for the contents of response.
-    console.log('Successfully subscribed to topic:', response);
-  })
-  .catch((error) => {
-    console.log('Error subscribing to topic:', error);
-  }); 
-}
-
           // Function to retrieve the showTime for a given uuid
 
 // Expose the function globally
 window.cancelScheduledNotification = cancelScheduledNotification;
-window.subscribeToTopic = subscribeToTopic;
 
 </script>
 <script>  
@@ -3802,6 +3789,58 @@ function scheduleNotification(title, body, delay, icon, uuid) {
         }
     });
 }
+
+  const subscribeToTopic = async (token, topic) => {
+  const url = 'https://https://us-central1-marko-be9a9.cloudfunctions.net/handleTopic';  // Replace with your actual Cloud Function URL
+  
+  const data = {
+    action: 'subscribe',
+    token: token,
+    topic: topic
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.text();
+    console.log(result);
+    return result;
+  } catch (error) {
+    console.error('Error subscribing to topic:', error);
+    throw error;
+  }
+};
+
+// Usage example:
+
+
+// Then, use the token to subscribe
+const subscribeTopic = async (topic) => {
+const token = localStorage.getItem('fcmt');
+  if (token) {
+    try {
+      const result = await subscribeToTopic(token, topic);
+      console.log('Successfully subscribed to topic:', result);
+    } catch (error) {
+      console.error('Failed to subscribe to topic:', error);
+    }
+  } else {
+    console.error('Failed to get FCM token');
+  }
+};
+
+// Expose the function globally if needed
+window.subscribeTopic = subscribeTopic;
       /*
 function scheduleNotification(title, body, delay, icon, uuid) {
     // sendEmailNotification(title, body, uuid); // using it as part of the cloud function to schedule one instead
