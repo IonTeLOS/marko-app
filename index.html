@@ -1531,7 +1531,7 @@ onMessage(messaging, (payload) => {
     title: payload.data.title || `🔔 -  ${payload.data.topic}`,
     message: payload.data.message,
     attachmentUrl: String(payload.data.attachment_url), 
-    clickActionUrl: payload.data.click // Replace with actual click action URL
+    clickActionUrl: payload.data.click 
   });
     //const navUrl = String(payload.data.click);
     //window.open(navUrl, '_blank');
@@ -1650,10 +1650,10 @@ if (clickActionUrl) {
   });
 
   // Append elements to the notification container
-  notification.appendChild(notificationTitle);
-  notification.appendChild(notificationMessage);
   notification.appendChild(button);
 }
+  notification.appendChild(notificationTitle);
+  notification.appendChild(notificationMessage);
   // Append notification to the body
   document.body.appendChild(notification);
 
@@ -1663,7 +1663,7 @@ if (clickActionUrl) {
     setTimeout(() => {
       notification.remove();
     }, 300);
-  }, 15000); // Adjust delay as needed
+  }, 15000); 
 }
 
       // Register the service worker
