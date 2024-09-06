@@ -1530,7 +1530,7 @@ onMessage(messaging, (payload) => {
     showNotification({
     title: payload.data.title || `🔔 -  ${payload.data.topic}`,
     message: payload.data.message,
-    attachmentUrl: String(payload.data.attachment_url), 
+    attachmentUrl: payload.data.attachment_url, 
     clickActionUrl: payload.data.click 
   });
     //const navUrl = String(payload.data.click);
