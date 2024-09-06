@@ -1879,7 +1879,7 @@ function showReplyForm(topic) {
   });
   
   formContainer.appendChild(submitButton);
-  if (confTag) {
+  if (confCheckbox.checked) {
     window.open(`https://notify.pchat.xyz/${topic}`, _blank);
   }
   // Append form to body
