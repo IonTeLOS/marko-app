@@ -234,6 +234,7 @@ async function handleOAuth2Flow() {
         if (!fileId) {
           displayError('No file ID provided. /\nPlease use https://marko-app.netlify.app?file={fileId}');
           document.getElementById('uploadContainer').style.display = 'block';
+          document.getElementById('errorMessage').style.display = 'block';
           return;
         }        
         gapi.client.drive.files.get({ fileId })
@@ -288,6 +289,7 @@ async function handleOAuth2Flow() {
           try {
             const urlFriendlyName = localStorage.getItem('url-friendly-name');
             await uploadFile(file, urlFriendlyName, accessToken);
+            document.getElementById('errorMessage').style.display = 'none';
             alert('File uploaded successfully!');
           } catch (error) {
             alert(`Error uploading file: ${error.message}`);
@@ -298,57 +300,68 @@ async function handleOAuth2Flow() {
       });
     });
 
-    async function uploadFile(file, useAs, accessToken = localStorage.getItem('accessToken')) {
-      try {
-        // Prepare file metadata
-        const metadata = {
-          name: useAs,
-          mimeType: file.type
-        };
-        const formData = new FormData();
-        formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'text/html' }));
-        formData.append('file', file);
-        // Upload file
-        const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          },
-          body: formData
-        });
-        if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          console.error('Error uploading file:', errorText);
-          throw new Error(`Error uploading file: ${errorText}`);
-        }
-        const uploadResult = await uploadResponse.json();
-        console.log('File uploaded:', uploadResult);
-        // Set file permissions to public
-        await fetch(`https://www.googleapis.com/drive/v3/files/${uploadResult.id}/permissions`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'text/html'
-          },
-          body: JSON.stringify({
-            type: 'anyone',
-            role: 'reader'
-          })
-        });
-        
-        // Construct the file URL
-        const fileUrl = `https://drive.google.com/thumbnail?id=${uploadResult.id}`;
-        console.log('fileId is ' + uploadResult.id);
-        console.log('src is: ' + fileUrl);        
-        // Save the URL to localStorage
-        localStorage.setItem(useAs, uploadResult.id);
-        return uploadResult.id;
-      } catch (error) {
-        console.error('Error uploading file:', error);
-        throw error;
-      }
+    async function uploadFile(file, useAs, accessToken) {
+  try {
+    // Prepare file metadata
+    const metadata = {
+      name: useAs,
+      mimeType: file.type,
+    };
+
+    const formData = new FormData();
+    formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    formData.append('file', file);
+
+    // Upload file
+    const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: formData
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      console.error('Error uploading file:', errorText);
+      throw new Error(`Error uploading file: ${errorText}`);
     }
 
+    const uploadResult = await uploadResponse.json();
+    console.log('File uploaded:', uploadResult);
+
+    // Set file permissions to public
+    const permissionResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${uploadResult.id}/permissions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        type: 'anyone',
+        role: 'reader'
+      })
+    });
+
+    if (!permissionResponse.ok) {
+      const permissionErrorText = await permissionResponse.text();
+      console.error('Error setting file permissions:', permissionErrorText);
+      throw new Error(`Error setting file permissions: ${permissionErrorText}`);
+    }
+
+    // Construct the file URL
+    const fileUrl = `https://drive.google.com/thumbnail?id=${uploadResult.id}`;
+    console.log('File ID is ' + uploadResult.id);
+    console.log('File URL is: ' + fileUrl);
+
+    // Save the URL to localStorage
+    localStorage.setItem(useAs, uploadResult.id);
+    return uploadResult.id;
+  } catch (error) {
+    console.error('Error during file upload process:', error);
+    throw error;
+  }
+}
     window.onload = function() {
       checkLoginStatus();
       document.querySelectorAll('.mdc-button').forEach(function(button) {
