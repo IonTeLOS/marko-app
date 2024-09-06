@@ -90,10 +90,23 @@ self.addEventListener('notificationclick', function(event) {
     const path = event.notification.data.path;
     const goUuid = path;
     newUrl = `https://marko-app.netlify.app?uuid=${goUuid}`;
-  } else if (localforage.getItem('new-nav-request')) {
-    const navUrl = localforage.getItem('new-nav-request');
-    newUrl = `https://marko-app.netlify.app?nav=${navUrl}`;
-    //localForage.removeItem('new-nav-request');
+  } else {
+    event.waitUntil(
+      localforage.getItem('new-nav-request').then((navUrl) => {
+        if (navUrl) {
+          newUrl = `https://marko-app.netlify.app?nav=${navUrl}`;
+          // Optionally remove the item from localForage after using it
+          return localforage.removeItem('new-nav-request').then(() => {
+            return openOrFocusClient(newUrl);
+          });
+        } else {
+          return openOrFocusClient(newUrl);
+        }
+      }).catch((err) => {
+        console.error('Error retrieving navigation URL from localForage:', err);
+        return openOrFocusClient(newUrl);
+      })
+    );
   }
 
   event.waitUntil(
