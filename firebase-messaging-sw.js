@@ -18,107 +18,68 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
-/*
-messaging.onBackgroundMessage((payload) => {
+
+messaging.onBackgroundMessage(async (payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
 
-  const notificationTitle = payload.notification.title;
-  const notificationOptions = {
-    body: payload.notification.body,
-    icon: payload.notification.icon,
-    data: payload.data 
-  };
-
-    // Store a value for the redirect to the Marko link to happen when page is opened or focused  
-  if (payload.data && payload.data.goto) {  
-    localforage.setItem('new-nav-request', String(payload.data.goto)).then(function() {
-      console.log('Navigation request stored successfully in localForage from Service Worker.');
-    }).catch(function(err) {
-      console.error('Error storing value in Service Worker:', err);
-    });
-  }
-
-  if (payload.data && payload.data.uuid) {  
-    localforage.setItem('newUnopenedReminder', String(payload.data.path)).then(function() {
-      console.log('Pending reminder stored successfully in localForage from Service Worker.');
-    }).catch(function(err) {
-      console.error('Error storing value in Service Worker:', err);
-    });
-  }
-
-  // Check if it's a mobile device
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    // This is likely a mobile device, don't show the notification but store a value for effective redirect
-    return;
-  }
-
-  self.registration.showNotification(notificationTitle, notificationOptions);
-});
-  */
-
-messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
-
-    // Check if the message is from a topic
+  // Check if the message is from a topic
   if (payload.data && payload.data.topic) {
     // Extract necessary fields from the data payload
     const notificationTitle = payload.data.title || payload.data.topic;
     const notificationBody = payload.data.message || 'buzzed..';
-    const notificationIcon = payload.data.attachment_url || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';  // Show attachment as icon if provided
-    const clickAction = payload.data.click || 'https://marko-app.netlify.app';  // Default click action if not provided
+    const notificationIcon = payload.data.attachment_url || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg'; // Default icon if not provided
+    const clickAction = payload.data.click || 'https://marko-app.netlify.app'; // Default click action if not provided
 
     // Build notification options
     const notificationOptions = {
       body: notificationBody,
-      icon: notificationIcon,  // Use attachment_url for icon if available
+      icon: notificationIcon,
       data: {
-        url: clickAction  // Store URL for click handling
+        url: clickAction // Store URL for click handling
       }
     };
+
     // Show the notification
     self.registration.showNotification(notificationTitle, notificationOptions);
   }
 
+  // Handle other cases where notification is provided in payload.notification
   if (payload.notification) {
-  const { title, body } = payload.notification;
-  const theIcon = payload.data.icon || 'https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg'; // Default icon if not provided
-  const clickAction = payload.data.url || 'https://marko-app.netlify.app'; // Default URL if not provided
+    const { title, body } = payload.notification;
+    const theIcon = payload.data.icon || 'https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg'; // Default icon if not provided
+    const clickAction = payload.data.url || 'https://marko-app.netlify.app'; // Default URL if not provided
 
-  // Use default icon if none is provided
-  const notificationOptions = {
-    body: body,
-    icon: theIcon,
-    data: {
-      url: clickAction // Include url in data for use in notification click event
+    // Build notification options
+    const notificationOptions = {
+      body: body,
+      icon: theIcon,
+      data: {
+        url: clickAction // Include url in data for use in notification click event
+      }
+    };
+
+    // Store a value for the redirect to the Marko link to happen when page is opened or focused
+    if (payload.data && payload.data.url) {
+      localforage.setItem('new-nav-request', String(payload.data.url)).then(() => {
+        console.log('Navigation request stored successfully in localForage from Service Worker.');
+      }).catch((err) => {
+        console.error('Error storing value in Service Worker:', err);
+      });
     }
-  };
-  
-      // Store a value for the redirect to the Marko link to happen when page is opened or focused  
-  if (payload.data && payload.data.url) {  
-      localforage.setItem('new-nav-request', String(payload.data.url)).then(function() {
-      console.log('Navigation request stored successfully in localForage from Service Worker.');
-    }).catch(function(err) {
-      console.error('Error storing value in Service Worker:', err);
-    });
-  }
 
-  if (payload.data && payload.data.uuid) {  
-      localforage.setItem('newUnopenedReminder', String(payload.data.path)).then(function() {
-      console.log('Pending reminder stored successfully in localForage from Service Worker.');
-    }).catch(function(err) {
-      console.error('Error storing value in Service Worker:', err);
-    });
-  }
+    if (payload.data && payload.data.uuid) {
+      localforage.setItem('newUnopenedReminder', String(payload.data.path)).then(() => {
+        console.log('Pending reminder stored successfully in localForage from Service Worker.');
+      }).catch((err) => {
+        console.error('Error storing value in Service Worker:', err);
+      });
+    }
 
-      // Check if it's a mobile device
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    // This is likely a mobile device, don't show the notification but store a value for effective redirect
-    return;
+    // Show the notification
+    self.registration.showNotification(title, notificationOptions);
   }
-
-  self.registration.showNotification(title, notificationOptions);
 });
-}
+
                               
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
