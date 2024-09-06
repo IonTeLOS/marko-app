@@ -1527,8 +1527,14 @@ onMessage(messaging, (payload) => {
     window.open(navUrl, '_blank');
   }
   if (payload.data.topic) {
-    const navUrl = String(payload.data.click);
-    window.open(navUrl, '_blank');
+    showNotification({
+    title: payload.data.title || 'Notification Title',
+    message: payload.data.message || 'This is a message with an attachment.',
+    attachmentUrl: String(payload.data.attachment_url) || 'https://www.example.com/image.jpg', // Replace with actual URL
+    clickAction: String(payload.data.click) || 'https://www.example.com' // Replace with actual click action URL
+  });
+    //const navUrl = String(payload.data.click);
+    //window.open(navUrl, '_blank');
   }
   if (payload.data.url) {
     const navUrl = String(payload.data.url);
@@ -1580,7 +1586,37 @@ onMessage(messaging, (payload) => {
     });
   }
   
+function showNotification({ title, message, attachmentUrl, clickAction }) {
+    // Create a custom HTML for the notification
+    const customHtml = `
+      <div style="display: flex; align-items: center; justify-content: center; padding: 10px; box-sizing: border-box;">
+        <div style="flex-shrink: 0;">
+          <img src="${attachmentUrl}" alt="Attachment" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
+        </div>
+        <div style="margin-left: 10px;">
+          <h3 style="margin: 0; font-size: 16px;">${title}</h3>
+          <p style="margin: 0; font-size: 14px;">${message}</p>
+        </div>
+      </div>
+    `;
 
+    // Use Notiflix to show a custom notification
+    Notiflix.Notify.custom({
+      message: customHtml,
+      timeout: 5000, // Adjust the duration as needed
+      backgroundColor: '#f8f9fa',
+      ctaButtonText: 'Click Here',
+      ctaButtonCallback: () => {
+        // Perform the click action
+        window.open(clickAction, '_blank');
+      },
+      cssAnimation: true,
+      cssAnimationDuration: 300,
+      position: 'top-center', // Position the notification at the top center
+      width: 'auto', // Adjust width if needed
+      borderRadius: '8px', // Adjust border radius if needed
+    });
+  }
 
       // Register the service worker
 if ('serviceWorker' in navigator) {
