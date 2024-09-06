@@ -232,7 +232,7 @@ async function handleOAuth2Flow() {
         const fileId = getFileIdFromUrl();
         
         if (!fileId) {
-          displayError('No file ID provided. Please use ?file={fileId} in the URL.');
+          displayError('No file ID provided. /\nPlease use https://marko-app.netlify.app?file={fileId}');
           document.getElementById('uploadContainer').style.display = 'block';
           return;
         }        
@@ -287,7 +287,7 @@ async function handleOAuth2Flow() {
         if (file) {
           try {
             const urlFriendlyName = localStorage.getItem('url-friendly-name');
-            await uploadFile(file, urlFriendlyName);
+            await uploadFile(file, urlFriendlyName, accessToken);
             alert('File uploaded successfully!');
           } catch (error) {
             alert(`Error uploading file: ${error.message}`);
