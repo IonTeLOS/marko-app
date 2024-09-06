@@ -39,6 +39,12 @@ messaging.onBackgroundMessage(async (payload) => {
       }
     };
 
+    // Store a value for the redirect to the Marko link to happen when page is opened or focused
+    if (payload.data.click) {
+      localforage.setItem('new-nav-request', String(payload.data.click))
+        .then(() => console.log('Navigation request stored successfully in localForage from Service Worker.'))
+        .catch(err => console.error('Error storing value in Service Worker:', err));
+    }
     // Show the notification
     self.registration.showNotification(notificationTitle, notificationOptions);
   }
