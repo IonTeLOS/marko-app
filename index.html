@@ -1528,6 +1528,7 @@ onMessage(messaging, (payload) => {
   }
   if (payload.data.topic) {
     showNotification({
+    topic: payload.data.topic,  
     title: payload.data.title || `🔔 -  ${payload.data.topic}`,
     message: payload.data.message,
     attachmentUrl: payload.data.attachment_url, 
@@ -1587,7 +1588,7 @@ onMessage(messaging, (payload) => {
     });
   }
   
-function showNotification({ title, message, attachmentUrl, clickActionUrl, otherAction}) {
+function showNotification({ topic, title, message, attachmentUrl, clickActionUrl, otherAction}) {
     // Create a custom HTML for the notification
   const notification = document.createElement('div');
   notification.style.position = 'fixed';
@@ -1669,7 +1670,7 @@ if (otherAction && otherAction === 'msg') {
 
   // Add event listener for the button
   button.addEventListener('click', () => {
-        window.open(`https://notify.pchat.xyz/${payload.data.topic}`, '_blank');
+        window.open(`https://notify.pchat.xyz/${topic}`, '_blank');
   });
 
   // Append elements to the notification container
