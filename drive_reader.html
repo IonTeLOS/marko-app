@@ -6,12 +6,17 @@
   <title>Google Drive File Reader</title>
   <script src="https://apis.google.com/js/api.js"></script>
   <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
   <style>
     html, body {
       height: 100%;
       margin: 0;
       padding: 0;
       overflow: hidden;
+      font-family: Roboto, sans-serif;
+      font-size: 16px;
     }
     #iframeContainer {
       position: fixed;
@@ -29,9 +34,65 @@
       padding: 0;
       overflow: hidden;
     }
+    #uploadContainer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      background: white;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    #instructionText {
+      font-size: 1.2em;
+      margin-bottom: 15px;
+    }
+    #fileNameDisplay {
+      margin-top: 15px;
+      font-weight: bold;
+      font-size: 1.1em;
+      word-break: break-all;
+    }
+    .mdc-button {
+      height: 50px;
+      font-size: 1.2em;
+      margin: 10px 0;
+      width: 100%;
+    }
+    #submitButton {
+      display: none;
+      margin-top: 15px;
+    }
+    .mdc-button .mdc-button__icon {
+      font-size: 1.5em;
+      margin-right: 8px;
+    }
+    @media (max-width: 600px) {
+      #uploadContainer {
+        padding: 15px;
+      }
+      .mdc-button {
+        height: 60px;
+        font-size: 1.3em;
+      }
+    }
   </style>
 </head>
 <body>
+  <div id="uploadContainer">
+    <p id="instructionText">Select file</p>
+    <input type="file" id="fileInput" accept=".html" style="display: none;">
+    <label for="fileInput" class="mdc-button mdc-button--raised">
+      <i class="material-icons mdc-button__icon">file_upload</i>
+      <span class="mdc-button__label">Choose File</span>
+    </label>
+    <div id="fileNameDisplay"></div>
+    <button id="submitButton" class="mdc-button mdc-button--raised">
+      <i class="material-icons mdc-button__icon">send</i>
+      <span class="mdc-button__label">Submit</span>
+    </button>
+  </div>
   <div id="iframeContainer">
     <iframe id="contentFrame" 
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
@@ -184,8 +245,94 @@ async function handleOAuth2Flow() {
       });
     });
 
+ document.addEventListener('DOMContentLoaded', function() {
+      const fileInput = document.getElementById('fileInput');
+      const fileNameDisplay = document.getElementById('fileNameDisplay');
+      const submitButton = document.getElementById('submitButton');
+
+      fileInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+          fileNameDisplay.textContent = `Selected file: ${file.name}`;
+          const urlFriendlyName = file.name.replace(/\.html$/, '').replace(/[^a-z0-9]/gi, '-').toLowerCase();
+          localStorage.setItem('url-friendly-name', urlFriendlyName);
+          submitButton.style.display = 'inline-flex';
+        }
+      });
+
+      submitButton.addEventListener('click', async function() {
+        console.log('clicked');
+        const file = fileInput.files[0];
+        if (file) {
+          try {
+            const urlFriendlyName = localStorage.getItem('url-friendly-name');
+            await uploadFile(file, urlFriendlyName);
+            alert('File uploaded successfully!');
+          } catch (error) {
+            alert(`Error uploading file: ${error.message}`);
+          }
+        } else {
+          alert('Please select a file first.');
+        }
+      });
+    });
+
+    async function uploadFile(file, useAs, accessToken = localStorage.getItem('accessToken')) {
+      try {
+        // Prepare file metadata
+        const metadata = {
+          name: useAs,
+          mimeType: file.type
+        };
+        const formData = new FormData();
+        formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'text/html' }));
+        formData.append('file', file);
+        // Upload file
+        const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: formData
+        });
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          console.error('Error uploading file:', errorText);
+          throw new Error(`Error uploading file: ${errorText}`);
+        }
+        const uploadResult = await uploadResponse.json();
+        console.log('File uploaded:', uploadResult);
+        // Set file permissions to public
+        await fetch(`https://www.googleapis.com/drive/v3/files/${uploadResult.id}/permissions`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'text/html'
+          },
+          body: JSON.stringify({
+            type: 'anyone',
+            role: 'reader'
+          })
+        });
+        
+        // Construct the file URL
+        const fileUrl = `https://drive.google.com/thumbnail?id=${uploadResult.id}`;
+        console.log('fileId is ' + uploadResult.id);
+        console.log('src is: ' + fileUrl);        
+        // Save the URL to localStorage
+        localStorage.setItem(useAs, uploadResult.id);
+        return uploadResult.id;
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        throw error;
+      }
+    }
+
     window.onload = function() {
       checkLoginStatus();
+      document.querySelectorAll('.mdc-button').forEach(function(button) {
+        mdc.ripple.MDCRipple.attachTo(button);
+      });
     };
   </script>
 </body>
