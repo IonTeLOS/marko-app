@@ -1528,10 +1528,10 @@ onMessage(messaging, (payload) => {
   }
   if (payload.data.topic) {
     showNotification({
-    title: payload.data.title || 'message from ' + payload.data.topic,
-    message: payload.data.message || '🔔',
-    attachmentUrl: String(payload.data.attachment_url) || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg', // Replace with actual URL
-    clickActionUrl: payload.data.click || '/' // Replace with actual click action URL
+    title: payload.data.title || '🔔 - ' + payload.data.topic,
+    message: payload.data.message,
+    attachmentUrl: String(payload.data.attachment_url) || '/apple-touch-icon-76x76.png', 
+    clickActionUrl: payload.data.click // Replace with actual click action URL
   });
     //const navUrl = String(payload.data.click);
     //window.open(navUrl, '_blank');
@@ -1586,7 +1586,7 @@ onMessage(messaging, (payload) => {
     });
   }
   
-function showNotification({ title, message, attachmentUrl, clickActionUrl }) {
+function showNotification({ title, message, attachmentUrl = '', clickActionUrl = ''}) {
     // Create a custom HTML for the notification
   const notification = document.createElement('div');
   notification.style.position = 'fixed';
@@ -1630,6 +1630,7 @@ function showNotification({ title, message, attachmentUrl, clickActionUrl }) {
   }
 
   // Create and style the button
+if (clickActionUrl) {
   const button = document.createElement('button');
   button.textContent = 'Go to Link';
   button.style.backgroundColor = '#6200ea';
@@ -1650,7 +1651,7 @@ function showNotification({ title, message, attachmentUrl, clickActionUrl }) {
   notification.appendChild(notificationTitle);
   notification.appendChild(notificationMessage);
   notification.appendChild(button);
-
+}
   // Append notification to the body
   document.body.appendChild(notification);
 
