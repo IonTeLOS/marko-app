@@ -1531,7 +1531,8 @@ onMessage(messaging, (payload) => {
     title: payload.data.title || `🔔 -  ${payload.data.topic}`,
     message: payload.data.message,
     attachmentUrl: payload.data.attachment_url, 
-    clickActionUrl: payload.data.click 
+    clickActionUrl: payload.data.click,
+    otherAction: payload.data.tags  
   });
     //const navUrl = String(payload.data.click);
     //window.open(navUrl, '_blank');
@@ -1586,7 +1587,7 @@ onMessage(messaging, (payload) => {
     });
   }
   
-function showNotification({ title, message, attachmentUrl, clickActionUrl}) {
+function showNotification({ title, message, attachmentUrl, clickActionUrl, otherAction}) {
     // Create a custom HTML for the notification
   const notification = document.createElement('div');
   notification.style.position = 'fixed';
@@ -1630,8 +1631,10 @@ function showNotification({ title, message, attachmentUrl, clickActionUrl}) {
     notificationImage.style.marginBottom = '8px';
     notification.appendChild(notificationImage);
   }
-
-  // Create and style the button
+  
+  notification.appendChild(notificationTitle);
+  notification.appendChild(notificationMessage);
+    // Create and style the button
 if (clickActionUrl) {
   const button = document.createElement('button');
   button.textContent = 'Go to Link';
@@ -1646,14 +1649,32 @@ if (clickActionUrl) {
 
   // Add event listener for the button
   button.addEventListener('click', () => {
-    window.location.href = clickActionUrl;
+    window.open(clickActionUrl, '_blank');
   });
 
   // Append elements to the notification container
   notification.appendChild(button);
 }
-  notification.appendChild(notificationTitle);
-  notification.appendChild(notificationMessage);
+if (otherAction && otherAction === 'msg') {
+  const button = document.createElement('button');
+  button.textContent = 'Reply';
+  button.style.backgroundColor = '#6200ea';
+  button.style.color = '#fff';
+  button.style.border = 'none';
+  button.style.borderRadius = '4px';
+  button.style.padding = '8px 16px';
+  button.style.fontSize = '14px';
+  button.style.cursor = 'pointer';
+  button.style.marginTop = '8px';
+
+  // Add event listener for the button
+  button.addEventListener('click', () => {
+        window.open(`https://notify.pchat.xyz/${payload.data.topic}`, '_blank');
+  });
+
+  // Append elements to the notification container
+  notification.appendChild(button);
+}  
   // Append notification to the body
   document.body.appendChild(notification);
 
