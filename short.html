@@ -216,7 +216,48 @@ input[type="text"] {
 .password.visible {
     display: inline;
 }
+/* Basic toast styling */
+    .toast {
+      visibility: hidden;
+      min-width: 250px;
+      margin-left: -125px;
+      background-color: #333;
+      color: #fff;
+      text-align: center;
+      border-radius: 5px;
+      padding: 16px;
+      position: fixed;
+      z-index: 1;
+      left: 50%;
+      bottom: 30px;
+      font-size: 17px;
+    }
 
+    .toast.show {
+      visibility: visible;
+      -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
+      animation: fadein 0.5s, fadeout 0.5s 2.5s;
+    }
+
+    @-webkit-keyframes fadein {
+      from {bottom: 0; opacity: 0;}
+      to {bottom: 30px; opacity: 1;}
+    }
+
+    @keyframes fadein {
+      from {bottom: 0; opacity: 0;}
+      to {bottom: 30px; opacity: 1;}
+    }
+
+    @-webkit-keyframes fadeout {
+      from {bottom: 30px; opacity: 1;}
+      to {bottom: 0; opacity: 0;}
+    }
+
+    @keyframes fadeout {
+      from {bottom: 30px; opacity: 1;}
+      to {bottom: 0; opacity: 0;}
+    }
     </style>
 </head>
 <body>
@@ -407,6 +448,7 @@ document.addEventListener('DOMContentLoaded', function() {
         data.password
     ]);
     localStorage.setItem('shortlinks', JSON.stringify(shortlinks));
+    checkRedirectAndLoad(data.shortlink);    
 }
 
 
@@ -605,6 +647,35 @@ function handleMobileDisplay() {
         inputFieldDiv.style.display = 'none'; 
     }
 }
+
+    function showToast(message, callback) {
+      const toast = document.getElementById('toast');
+      toast.innerText = message; 
+      toast.className = 'toast show'; 
+
+      // Hide the toast after 5 seconds, then call the callback
+      setTimeout(() => {
+        toast.className = toast.className.replace('show', '');
+        if (callback) {
+          callback(); // Call the callback function after toast hides
+        }
+      }, 5000);
+    }
+
+    function checkRedirectAndLoad(shortlinkValue) {
+      const urlParams = new URLSearchParams(window.location.search);
+
+      if (urlParams.has('redirect')) {
+        const redirectUrl = urlParams.get('redirect');
+        const newUrl = `${redirectUrl}?shortlink=${encodeURIComponent(shortlinkValue)}`;
+
+        // Show toast with the redirect message
+        showToast(`All done! Going back to ${redirectUrl}`, () => {
+          // Redirect after the toast is shown
+          window.location.href = newUrl;
+        });
+      }
+    }
 
 document.addEventListener('DOMContentLoaded', () => {
     const clearButton = document.getElementById('clearButton');
