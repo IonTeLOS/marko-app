@@ -337,6 +337,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const requestedTarget = usePathParam();
     if (requestedTarget) {
         urlInput.value = requestedTarget;
+        urlInput.readOnly = true; 
+        const urlParams = new URLSearchParams(window.location.search);
+
+      if (urlParams.has('title')) {
+        const requestedAlias = urlParams.get('title');
+        aliasInput.value = requestedAlias;
+      }
     }
     
     moreOptionsBtn.addEventListener('click', () => {
