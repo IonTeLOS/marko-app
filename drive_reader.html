@@ -197,9 +197,13 @@ async function handleOAuth2Flow() {
                     codeVerifier: googleProvider.codeVerifier,
                     authUrl: googleProvider.authUrl,
                 }));
-                const param = getFileIdFromUrl();
-                if (param) {
-                  sessionStorage.setItem('redirectTo', `drive_reader?file=${param}`);
+                const paramFile = getFileIdFromUrl();
+                const paramShortlink = getShortlinkFromUrl();
+
+                if (paramFile) {
+                  sessionStorage.setItem('redirectTo', `drive_reader?file=${paramFile}`);
+                } else if (paramShortlink) {
+                  sessionStorage.setItem('redirectTo', `drive_reader?file=${paramShortlink}`);
                 } else {
                   sessionStorage.setItem('redirectTo', 'drive_reader');
                 }
@@ -224,6 +228,11 @@ async function handleOAuth2Flow() {
       return urlParams.get('file');
     }
 
+    function getShortlinkFromUrl() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('shortlink');
+    }
+
     function displayError(message) {
       document.getElementById('errorMessage').textContent = message;
     }
@@ -235,13 +244,18 @@ async function handleOAuth2Flow() {
           access_token: accessToken
         });
         const fileId = getFileIdFromUrl();
+        const shortlink = getShortlinkFromUrl();
         
-        if (!fileId) {
-          displayError('No file ID provided. Please use: \nhttps://marko-app.netlify.app?file={fileId}');
+        if (!fileId && !shortlink) {
+          displayError('No link provided. Create one, and then use: \nhttps://marko-app.netlify.app?file={fileId}');
           document.getElementById('uploadContainer').style.display = 'block';
           document.getElementById('errorMessage').style.display = 'block';
           return;
         }        
+
+        if (shortlink) {
+          window.location.href = `${APP_URL)/o/${shortlink}`
+        }
         gapi.client.drive.files.get({ fileId })
           .then(function(response) {
             const fileMetadata = response.result;
@@ -306,7 +320,7 @@ async function handleOAuth2Flow() {
       });
     });
 
-    async function uploadFile(file, useAs, accessToken) {
+async function uploadFile(file, useAs, accessToken) {
   try {
     // Prepare file metadata
     const metadata = {
