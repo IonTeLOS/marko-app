@@ -138,7 +138,7 @@ async function handleMarkoButtonClick(event) {
 
         // Log the details to the console
 	console.log(`Adding a Marko for the website ${decodeURIComponent(url)} with title ${decodeURIComponent(title)} and color ${decodeURIComponent(encodedColor)}`);
-          if (!url.includes(MARKO_URL) {
+          if (!url.includes(MARKO_URL)) {
 	    localStorage.setItem('Marko-clicked', 'true');
             window.open(finalUrl, '_blank');
 	  }	
