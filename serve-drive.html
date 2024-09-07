@@ -3,356 +3,445 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create HTML</title>
-  <!-- Quill and external stylesheets -->
-  
-  <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
-  <!-- Material Design styles -->
+  <title>Serve Drive</title>
+  <script src="https://apis.google.com/js/api.js"></script>
+  <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/quill@2.0.0-dev.3/dist/quill.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/quill-formula@0.1.0/dist/quill-formula.min.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-    }
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+  }
 
-    #toolbar-container {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      padding: 8px;
-      background: #f5f5f5;
-    }
+  #iframeContainer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
 
-    .ql-formats {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
+  #contentFrame {
+    width: 100%;
+    height: 100%;
+    border: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
 
-    .ql-formats button,
-    .ql-formats select {
-      min-width: 42px; /* Increased size for better touch targets */
-      height: 42px; /* Increased size for better touch targets */
-      font-size: 18px; /* Larger font for readability */
-    }
+  #uploadContainer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: white;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+  }
 
-    #editor {
-      height: 400px;
-      padding: 8px;
-    }
+  #instructionText {
+    font-size: 1.2em;
+    margin-bottom: 15px;
+    border: 2px solid #000;
+    padding: 15px; /* Space between text and border */
+    border-radius: 5px;
+    width: 95vw;
+    max-width: 90vw; /* Set max-width */
+    text-align: center;
+  }
 
-    .ql-clean {
-      background: #f0f0f0;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      cursor: pointer;
-      padding: 0 10px;
-      font-size: 14px;
-    }
+  #fileNameDisplay {
+    margin-top: 15px;
+    font-weight: bold;
+    font-size: 1.1em;
+    width: 95vw;
+    max-width: 90vw; /* Set max-width */
+    text-align: center;
+  }
 
-    .mdc-button {
-  margin-top: 16px;
-  margin-bottom: 20px;
-  width: 90vw;
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-}
-h1 {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  text-align: center; 
-}
+  .custom-button {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Center content horizontally */
+    height: 50px;
+    font-size: 1.2em;
+    margin: 10px 0;
+    width: 95vw;
+    max-width: 90vw; /* Set max-width */
+    padding: 0 16px;
+    box-sizing: border-box;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    text-align: center; /* Center text within button */
+    white-space: nowrap; /* Prevent text from wrapping */
+  }
 
-    .resizable-image {
-      max-width: 100%;
-      height: auto;
-      resize: both;
-      overflow: hidden;
-    }
-    
-    .custom-color-picker {
-      position: relative;
-      display: inline-block;
-    }
+  .custom-button:hover {
+    background-color: #0056b3;
+  }
 
-    .color-picker-button {
-      width: 42px;
-      height: 42px;
-      background-color: #ffffff;
-      border: 1px solid #ccc;
-      cursor: pointer;
-      position: relative;
-    }
+  .custom-button .custom-button__icon {
+    font-size: 1.5em;
+    margin-right: 8px;
+    display: flex;
+    align-items: center; /* Center icon vertically */
+  }
 
-    .color-picker-button::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      border: 2px solid #000;
-      opacity: 0.75;
-    }
+  .custom-button .custom-button__label {
+    display: flex;
+    align-items: center; /* Center text vertically */
+    justify-content: center; /* Center text horizontally */
+  }
 
-    .color-picker-dropdown {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      z-index: 1000;
-      display: none;
-      padding: 5px;
-      background-color: #ffffff;
-      border: 1px solid #ccc;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  @media (max-width: 600px) {
+    #uploadContainer {
+      padding: 15px;
     }
+    .custom-button {
+      height: 60px;
+      font-size: 1.3em;
+      padding: 0 12px; /* Adjust padding for better fit on mobile */
+    }
+  }
 
-    .color-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 2px;
+  @media (min-width: 601px) {
+    #uploadContainer {
+      padding: 20px;
     }
+    .custom-button {
+      padding: 0 16px; /* Restore padding for larger screens */
+    }
+  }
 
-    .color-option {
-      width: 24px;
-      height: 24px;
-      cursor: pointer;
-    }
-    /* Ensure images are responsive */
-img {
-  max-width: 100%;
-  height: auto;
-}
-    iframe {
-        	width: 100vw;
-        	height: 100vh;
-        	border: none;
-        }
-           /* Style for inputs */
-    .input-container {
-      display: flex;
-      flex-direction: column;
-      width: 100%; 
-      margin-top: 16px; 
-    }
-
-    input {
-      padding: 8px;
-      margin-bottom: 8px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 16px;
-      width: 90vw; 
-      display: block;
-        margin-left: auto;
-  margin-right: auto;
-    }
-  </style>
+  #errorMessage {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 2px solid #f5c6cb;
+    border-radius: 8px;
+    padding: 15px; /* Space between text and border */
+    width: 95vw;
+    max-width: 90vw; /* Set max-width */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    font-size: 18px;
+    z-index: 1000;
+    text-align: center;
+    margin-bottom: 15px;
+    display: none;
+  }
+</style>
 </head>
 <body>
-
-  <h1>Create your Marko Page</h1>
-
-  <!-- Create the toolbar container -->
-  <div id="toolbar-container">
-    <!-- Font and Size options -->
-    <span class="ql-formats">
-      <select class="ql-font"></select>
-      <select class="ql-size"></select>
-    </span>
-    <!-- Formatting buttons -->
-    <span class="ql-formats">
-      <button class="ql-bold"></button>
-      <button class="ql-italic"></button>
-      <button class="ql-underline"></button>
-      <button class="ql-strike"></button>
-    </span>
-    <!-- Color pickers -->
-    <span class="ql-formats">
-      <select class="ql-color"></select>
-      <select class="ql-background"></select>
-    <span class="custom-color-picker">
-      <button class="color-picker-button" aria-label="Body Background Color"></button>
-      <div class="color-picker-dropdown">
-        <div class="color-grid"></div>
-      </div>
-    </span>
-  </span>
-
-    </span>
-    <!-- Script buttons -->
-    <span class="ql-formats">
-      <button class="ql-script" value="sub"></button>
-      <button class="ql-script" value="super"></button>
-    </span>
-    <!-- Header, Blockquote, Code -->
-    <span class="ql-formats">
-      <button class="ql-header" value="1"></button>
-      <button class="ql-header" value="2"></button>
-      <button class="ql-blockquote"></button>
-      <button class="ql-code-block"></button>
-    </span>
-    <!-- Lists and Indentation -->
-    <span class="ql-formats">
-      <button class="ql-list" value="ordered"></button>
-      <button class="ql-list" value="bullet"></button>
-      <button class="ql-indent" value="-1"></button>
-      <button class="ql-indent" value="+1"></button>
-    </span>
-    <!-- Text Direction and Alignment -->
-    <span class="ql-formats">
-      <button class="ql-direction" value="rtl"></button>
-      <select class="ql-align"></select>
-    </span>
-    <!-- Link, Image, Video, Formula -->
-    <span class="ql-formats">
-      <button class="ql-link"></button>
-      <button class="ql-image"></button>
-      <button class="ql-video"></button>
-      <button class="ql-formula"></button>
-    </span>
-    <!-- Clear Formatting -->
-    <span class="ql-formats">
-      <button class="ql-clean">Clear</button>
-    </span>
+  <div id="uploadContainer">
+    <p id="instructionText">Select a local HTML file to upload to <b>your Google Drive</b> and use as source for <b>your website</b>.<br>You will have an option to create <b>your own unique shortlink</b>.</p>
+    <input type="file" id="fileInput" accept=".html" style="display: none;">
+    <label for="fileInput" class="custom-button custom-button--raised">
+      <i class="material-icons custom-button__icon">file_upload</i>
+      <span class="custom-button__label">SELECT</span>
+    </label>
+    <div id="fileNameDisplay"></div>
+    <button id="submitButton" class="custom-button custom-button--raised" style="display: none;">
+      <i class="material-icons custom-button__icon">send</i>
+      <span class="custom-button__label">CREATE</span>
+    </button>
   </div>
-
-  <!-- Create the editor container -->
-  <div id="editor"></div>
-  <!-- Input container for title and icon -->
-  <div class="input-container">
-    <input type="text" id="title-input" placeholder="Page Title (optional)" />
-    <input type="text" id="icon-input" placeholder="Favicon URL (optional)" />
+  <div id="iframeContainer">
+    <iframe id="contentFrame" 
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
+            allow="accelerometer; camera; encrypted-media; display-capture; geolocation; gyroscope; microphone; midi; payment; xr-spatial-tracking; usb"
+            allowfullscreen>
+    </iframe>
   </div>
-  <!-- Download button -->
-  <button class="mdc-button mdc-button--raised" id="download-button">
-    <i class="material-icons mdc-button__icon" aria-hidden="true">download</i>
-    <b>Download</b>
-  </button>
-
-  <!-- Quill and external scripts -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-  <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+  <div id="errorMessage"></div>
+  
   <script>
-    // Initialize Quill editor
-const quill = new Quill('#editor', {
-  modules: {
-    formula: false,
-    syntax: true,
-    toolbar: '#toolbar-container'
-  },
-  placeholder: 'Start here..',
-  theme: 'snow'
-});
+let APP_URL = 'https://marko-app.netlify.app';    
+let accessToken = localStorage.getItem('accessToken') || '';
+const LOGIN_PAGE_URL = 'https://marko-app.netlify.app/login';
 
-    // Custom handler for the clear button
-    const toolbar = quill.getModule('toolbar');
-    toolbar.addHandler('clean', function() {
-      const range = quill.getSelection();
-      if (range) {
-        quill.removeFormat(range.index, range.length); // Clear formatting
-      }
-    });
+const pb = new PocketBase("https://marko-bin.pockethost.io");
+const redirectUrl = `${APP_URL}/login`; // URL to redirect after authentication
+// Function to check if the user is logged in
+async function checkLoginStatus() {
 
-    // Custom handler for the image button to only accept URLs
-    quill.getModule('toolbar').addHandler('image', function() {
-      const url = prompt('Enter image URL:');
-      if (url) {
-        const range = quill.getSelection();
-        quill.insertEmbed(range.index, 'image', url);
-      }
-    });
-const colors = [
-      '#000000', '#e60000', '#ff9900', '#ffff00', '#008a00', '#0066cc', '#9933ff',
-      '#ffffff', '#facccc', '#ffebcc', '#ffffcc', '#cce8cc', '#cce0f5', '#ebd6ff',
-      '#bbbbbb', '#f06666', '#ffc266', '#ffff66', '#66b966', '#66a3e0', '#c285ff',
-      '#888888', '#a10000', '#b26b00', '#b2b200', '#006100', '#0047b2', '#6b24b2',
-      '#444444', '#5c0000', '#663d00', '#666600', '#003700', '#002966', '#3d1466'
-    ];
+    if (!accessToken) {
+        // No access token found, start OAuth2 flow
+        await handleOAuth2Flow();
+        return;
+    }
 
-    // Create color grid
-    const colorGrid = document.querySelector('.color-grid');
-    colors.forEach(color => {
-      const colorOption = document.createElement('div');
-      colorOption.className = 'color-option';
-      colorOption.style.backgroundColor = color;
-      colorOption.dataset.color = color;
-      colorGrid.appendChild(colorOption);
-    });
+    try {
+        // Validate the Google access token
+        const response = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + accessToken);
 
-    // Toggle color picker dropdown
-    const colorPickerButton = document.querySelector('.color-picker-button');
-    const colorPickerDropdown = document.querySelector('.color-picker-dropdown');
-    colorPickerButton.addEventListener('click', () => {
-      colorPickerDropdown.style.display = colorPickerDropdown.style.display === 'none' ? 'block' : 'none';
-    });
+        if (!response.ok) {
+            // Invalid Google access token, start OAuth2 flow
+            console.warn('Invalid Access Token:', response.status);
+            await handleOAuth2Flow();
+            return;
+        }
 
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (event) => {
-      if (!event.target.closest('.custom-color-picker')) {
-        colorPickerDropdown.style.display = 'none';
-      }
-    });
+        // Access Token is valid, now check PocketBase JWT
+        const isTokenValid = await checkJWToken();
+        if (isTokenValid) {
+            console.log('Google Access Token and PocketBase JWT are valid.');
+            // Proceed to load the main page content
+        } else {
+            // PocketBase JWT is invalid, start OAuth2 flow
+            console.warn('PocketBase JWT is invalid.');
+            await handleOAuth2Flow();
+        }
+    } catch (error) {
+        console.error('Error validating Access Token or PocketBase JWT:', error);
+        // Start OAuth2 flow on any error
+        await handleOAuth2Flow();
+    }
+}
 
-    // Handle color selection
-    colorGrid.addEventListener('click', (event) => {
-      if (event.target.classList.contains('color-option')) {
-        const selectedColor = event.target.dataset.color;
-        document.querySelector('#editor').style.backgroundColor = selectedColor;
-        colorPickerButton.style.backgroundColor = selectedColor;
-        colorPickerDropdown.style.display = 'none';
-      }
-    });
+async function checkJWToken() {
+    let isValid = false;
+    try {
+        await pb.collection('users').authRefresh();
+        isValid = true;
+    } catch (error) {
+        console.error("Token is invalid or expired:", error);
+    }
+    //console.log(isValid);
+    return isValid;
+}
 
+// Function to handle OAuth2 flow
+async function handleOAuth2Flow() {
+    try {
+        // Fetch the available authentication methods
+        const authMethods = await pb.collection('users').listAuthMethods();
+        
+        if (authMethods && authMethods.authProviders) {
+            // Find the Google provider from the list of auth providers
+            const googleProvider = authMethods.authProviders.find(provider => provider.name === 'google');
+            
+            if (googleProvider) {
+                // Store provider's data in localStorage for later verification
+                localStorage.setItem('provider', JSON.stringify({
+                    name: googleProvider.name,
+                    state: googleProvider.state,
+                    codeVerifier: googleProvider.codeVerifier,
+                    authUrl: googleProvider.authUrl,
+                }));
+                const paramFile = getFileIdFromUrl();
+                const paramShortlink = getShortlinkFromUrl();
 
-// Handler for downloading the content as HTML
-    document.getElementById('download-button').addEventListener('click', function() {
-      const content = quill.root.innerHTML;
-      const bodyColor = document.querySelector('#editor').style.backgroundColor || '#ffffff'; // Default background color
-      const title = document.getElementById('title-input').value.trim() || 'My Marko Page';
-      const iconUrl = document.getElementById('icon-input').value.trim() || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';
-      const styles = `
-        <style>
-          body { background-color: ${bodyColor}; font-size: 16px; line-height: 1.6; }
-          .ql-align-center { text-align: center; }
-          .ql-align-right { text-align: right; }
-          .ql-align-justify { text-align: justify; }
-          iframe { width: 100vw; height: 100vh; border: none; }
-        </style>
-      `;
-      const html = `<!DOCTYPE html><html><head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${title}</title>
-        <link rel="icon" href="${iconUrl}">
-        ${styles}
-      </head><body>${content}</body></html>`;
-      const blob = new Blob([html], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${title}.html`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      const urlParams = new URLSearchParams(window.location.search);
+                if (paramFile) {
+                  sessionStorage.setItem('redirectTo', `serve-drive?file=${paramFile}`);
+                } else if (paramShortlink) {
+                  sessionStorage.setItem('redirectTo', `serve-drive?file=${paramShortlink}`);
+                } else {
+                  sessionStorage.setItem('redirectTo', 'serve-drive');
+                }
+                // Construct the authentication URL
+                const authUrl = googleProvider.authUrl + encodeURIComponent(redirectUrl);
+
+                // Redirect to Google for authentication
+                window.location.href = authUrl;
+            } else {
+                console.error('Google provider information is missing.');
+            }
+        } else {
+            console.error('No authentication methods found.');
+        }
+    } catch (error) {
+        console.error('Error fetching authentication methods:', error);
+    }
+}
     
-      if (urlParams.has('fromApp')) {
-      	window.location.href = "https://marko-app.netlify.app/serve-drive";
-      }
+    function getFileIdFromUrl() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('file');
+    }
+
+    function getShortlinkFromUrl() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('shortlink');
+    }
+
+    function displayError(message) {
+      document.getElementById('errorMessage').textContent = message;
+      const errorDiv = document.getElementById('errorMessage');
+      errorDiv.innerHTML = message.replace(/\n/g, '<br>');
+    }
+    
+    gapi.load('client:auth2', function() {
+      gapi.client.load('drive', 'v3', function() {
+        accessToken = localStorage.getItem('accessToken');
+        gapi.auth.setToken({
+          access_token: accessToken
+        });
+        const fileId = getFileIdFromUrl();
+        const shortlink = getShortlinkFromUrl();
+        
+        if (!fileId && !shortlink) {
+          displayError('No link to load provided. Create one !');
+          document.getElementById('uploadContainer').style.display = 'flex';
+          document.getElementById('errorMessage').style.display = 'block';
+          return;
+        }        
+
+        if (shortlink) {
+          window.location.href = `${APP_URL}/o/${shortlink}`
+        }
+        gapi.client.drive.files.get({ fileId })
+          .then(function(response) {
+            const fileMetadata = response.result;
+            console.log('File metadata:', fileMetadata);
+            return gapi.client.drive.files.get({ fileId, alt: 'media' });
+          })
+          .then(function(response) {
+            const fileContent = response.body;
+            console.log('File content:', fileContent);
+            
+            // Display the content in the iframe
+            const iframe = document.getElementById('contentFrame');
+            // Create a blob from the HTML content
+            const blob = new Blob([fileContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            
+            // Set the iframe src to the blob URL
+            iframe.src = url;
+            
+            // Clean up the object URL when the iframe loads
+            iframe.onload = function() {
+              URL.revokeObjectURL(url);
+            };
+          })
+          .catch(function(err) {
+            console.error('Error:', err);
+          });
+      });
     });
 
-    // Initialize Material Design components
-    mdc.autoInit();
+ document.addEventListener('DOMContentLoaded', function() {
+      const fileInput = document.getElementById('fileInput');
+      const fileNameDisplay = document.getElementById('fileNameDisplay');
+      const submitButton = document.getElementById('submitButton');
+
+      fileInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file && file.type === 'text/html') {
+          fileNameDisplay.textContent = `Selected file: ${file.name}`;
+          const urlFriendlyName = file.name.replace(/\.html$/, '').replace(/[^a-z0-9]/gi, '-').toLowerCase();
+          localStorage.setItem('url-friendly-name', urlFriendlyName);
+          submitButton.style.display = 'flex';
+        } else {
+            alert('Please select a valid HTML file.');
+            event.target.value = ''; 
+        }
+      });
+
+      submitButton.addEventListener('click', async function() {
+        console.log('clicked');
+        const file = fileInput.files[0];
+        if (file) {
+          try {
+            const urlFriendlyName = localStorage.getItem('url-friendly-name');
+            const id = await uploadFile(file, urlFriendlyName, accessToken);
+            document.getElementById('errorMessage').style.display = 'none';
+            confirm('File uploaded successfully! Create a shortlink for your site?');
+            if (confirm) {
+            window.location.href = `${APP_URL}/short?redirect=${APP_URL}/serve-drive&title=${urlFriendlyName}&path=${id}`;
+            } 
+            // TODO: else { show share element }
+          } catch (error) {
+            alert(`Error uploading file: ${error.message}`);
+          }
+        } else {
+          alert('Please select a file first.');
+        }
+      });
+    });
+
+async function uploadFile(file, useAs, accessToken) {
+  try {
+    // Prepare file metadata
+    const metadata = {
+      name: useAs,
+      mimeType: file.type,
+    };
+
+    const formData = new FormData();
+    formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    formData.append('file', file);
+
+    // Upload file
+    const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: formData
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      console.error('Error uploading file:', errorText);
+      throw new Error(`Error uploading file: ${errorText}`);
+    }
+
+    const uploadResult = await uploadResponse.json();
+    console.log('File uploaded:', uploadResult);
+
+    // Set file permissions to public
+    const permissionResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${uploadResult.id}/permissions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        type: 'anyone',
+        role: 'reader'
+      })
+    });
+
+    if (!permissionResponse.ok) {
+      const permissionErrorText = await permissionResponse.text();
+      console.error('Error setting file permissions:', permissionErrorText);
+      throw new Error(`Error setting file permissions: ${permissionErrorText}`);
+    }
+
+    // Construct the file URL
+    const fileUrl = `https://drive.google.com/thumbnail?id=${uploadResult.id}`;
+    console.log('File ID is ' + uploadResult.id);
+    console.log('File URL is: ' + fileUrl);
+
+    // Save the URL to localStorage
+    localStorage.setItem(useAs, uploadResult.id);
+    return uploadResult.id;
+  } catch (error) {
+    console.error('Error during file upload process:', error);
+    throw error;
+  }
+}
+    window.onload = function() {
+      checkLoginStatus();
+    };
   </script>
+</body>
+</html>
