@@ -336,6 +336,7 @@ const colors = [
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>${title}</title>
         <link rel="icon" href="${iconUrl}">
+        <script src="https://marko-app.netlify.app/marko-dynamic-link.js" defer data-alt-url='' data-alt-icon=''><\/script>
         ${styles}
       </head><body>${content}</body></html>`;
       const blob = new Blob([html], { type: 'text/html' });
