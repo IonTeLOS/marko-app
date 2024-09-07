@@ -144,7 +144,7 @@ async function handleMarkoButtonClick(event) {
 	  }	
     } else {
         const hideMarkoText = getHideMarkoText();
-      if (!url.includes(MARKO_URL) {	    
+      if (!url.includes(MARKO_URL)) {	    
         if (confirm(hideMarkoText)) {
             localStorage.setItem('Marko-hide', 'true');
         }
