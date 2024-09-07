@@ -94,7 +94,7 @@ async function handleMarkoButtonClick(event) {
        return;
     }
     
-    const hasClickedBefore = localStorage.getItem('Marko-clicked');z
+    const hasClickedBefore = localStorage.getItem('Marko-clicked');
     if (hasClickedBefore === 'true') {
         if (confirm(getTranslatedTrueText())) {
             localStorage.setItem('Marko-app-direct', 'true');
