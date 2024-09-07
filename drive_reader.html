@@ -44,6 +44,7 @@
       padding: 20px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
       display: none;
+      align-items: center;
     }
     #instructionText {
       font-size: 1.2em;
@@ -60,14 +61,14 @@
       word-break: break-all;
     }
 .mdc-button {
-  display: flex; /* Use flexbox for alignment */
-  align-items: center; /* Vertically center items */
+  display: flex; 
+  align-items: center; 
   height: 50px;
   font-size: 1.2em;
   margin: 10px 0;
   width: 100%;
-  padding: 0 16px; /* Add horizontal padding */
-  box-sizing: border-box; /* Ensure padding is included in width/height */
+  padding: 0 16px; 
+  box-sizing: border-box; 
 }
 
 #submitButton {
@@ -265,7 +266,7 @@ async function handleOAuth2Flow() {
         
         if (!fileId && !shortlink) {
           displayError('No link provided. Create one, then use: \nhttps://marko-app.netlify.app?file=${fileId} \nor https://marko-app.netlify.app?shortlink=${shortlink}');
-          document.getElementById('uploadContainer').style.display = 'block';
+          document.getElementById('uploadContainer').style.display = 'flex';
           document.getElementById('errorMessage').style.display = 'block';
           return;
         }        
