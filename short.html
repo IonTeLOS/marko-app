@@ -461,7 +461,7 @@ function usePathParam() {
       const urlParams = new URLSearchParams(window.location.search);
 
       if (urlParams.has('path')) {
-        const pathUrl = urlParams.get('redirect');
+        const pathUrl = urlParams.get('path');
         const target = `https://marko-app.netlify.app/drive_reader?file=${encodeURIComponent(pathUrl)}`;
         return target;
       }
