@@ -247,7 +247,7 @@ async function handleOAuth2Flow() {
         const shortlink = getShortlinkFromUrl();
         
         if (!fileId && !shortlink) {
-          displayError('No link provided. Create one, and then use: \nhttps://marko-app.netlify.app?file={fileId}');
+          displayError('No link provided. Create one, then use: \nhttps://marko-app.netlify.app?file=${fileId} \nor https://marko-app.netlify.app?shortlink=${shortlink}');
           document.getElementById('uploadContainer').style.display = 'block';
           document.getElementById('errorMessage').style.display = 'block';
           return;
@@ -310,7 +310,7 @@ async function handleOAuth2Flow() {
             const id = await uploadFile(file, urlFriendlyName, accessToken);
             document.getElementById('errorMessage').style.display = 'none';
             alert('File uploaded successfully!');
-            window.location.href = `${APP_URL}/short?redirect=${APP_URL}/drive_reader&title=${urlFriendlyName}&path=${APP_URL}/drive_reader?file=${id}`;
+            window.location.href = `${APP_URL}/short?redirect=${APP_URL}/drive_reader&title=${urlFriendlyName}&path=${id}`;
           } catch (error) {
             alert(`Error uploading file: ${error.message}`);
           }
