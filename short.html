@@ -334,8 +334,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const linkList = document.getElementById('linkList');
     const shareMessageInput = document.getElementById('shareMessageInput');
     
-    const requestedTarget = addPathParam();
-    urlInput.value = requestedTarget;
+    const requestedTarget = usePathParam();
+    if (requestedTarget) {
+        urlInput.value = requestedTarget;
+    }
     
     moreOptionsBtn.addEventListener('click', () => {
         if (!moreOptions.classList.contains('hidden')) {
