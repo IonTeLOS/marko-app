@@ -336,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const requestedTarget = usePathParam();
     if (requestedTarget) {
-        urlInput.value = requestedTarget;
+        urlInput.value = decodeURIComponent(requestedTarget);
         urlInput.readOnly = true; 
         const urlParams = new URLSearchParams(window.location.search);
 
