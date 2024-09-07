@@ -106,7 +106,7 @@
     border-radius: 8px;
     padding: 20px; 
     width: 90%;
-    max-width: 600px; 
+    max-width: 95vw; 
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); 
     font-family: "Roboto", sans-serif; 
     font-size: 18px;
@@ -266,7 +266,7 @@ async function handleOAuth2Flow() {
         const shortlink = getShortlinkFromUrl();
         
         if (!fileId && !shortlink) {
-          displayError('No link provided. Create one, then use: \nhttps://marko-app.netlify.app?file=${fileId} \nor https://marko-app.netlify.app?shortlink=${shortlink}');
+          displayError('No link to load provided. Create one !');
           document.getElementById('uploadContainer').style.display = 'flex';
           document.getElementById('errorMessage').style.display = 'block';
           return;
