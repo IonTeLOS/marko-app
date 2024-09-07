@@ -46,18 +46,18 @@
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     display: flex;
     flex-direction: column;
-    align-items: center; /* Center children horizontally */
+    align-items: center;
   }
 
   #instructionText {
     font-size: 1.2em;
     margin-bottom: 15px;
     border: 2px solid #000;
-    padding: 15px; /* Added padding for space between text and border */
+    padding: 15px; /* Space between text and border */
     border-radius: 5px;
     width: 100%;
-    max-width: 400px; /* Same max-width as buttons */
-    text-align: center; /* Center text */
+    max-width: 500px; /* Set max-width */
+    text-align: center;
   }
 
   #fileNameDisplay {
@@ -65,8 +65,8 @@
     font-weight: bold;
     font-size: 1.1em;
     width: 100%;
-    max-width: 400px; /* Same max-width as buttons */
-    text-align: center; /* Center text */
+    max-width: 500px; /* Match max-width with buttons */
+    text-align: center;
   }
 
   .custom-button {
@@ -77,7 +77,7 @@
     font-size: 1.2em;
     margin: 10px 0;
     width: 100%;
-    max-width: 400px; /* Match max-width with instruction text */
+    max-width: 500px; /* Match max-width with instruction text */
     padding: 0 16px;
     box-sizing: border-box;
     background-color: #007bff;
@@ -97,14 +97,16 @@
   .custom-button .custom-button__icon {
     font-size: 1.5em;
     margin-right: 8px;
-    line-height: 1; /* Ensure proper alignment with text */
+    display: flex;
+    align-items: center; /* Center icon vertically */
   }
 
   .custom-button .custom-button__label {
     display: flex;
     align-items: center; /* Center text vertically */
+    justify-content: center; /* Center text horizontally */
   }
-  
+
   @media (max-width: 600px) {
     #uploadContainer {
       padding: 15px;
@@ -112,6 +114,20 @@
     .custom-button {
       height: 60px;
       font-size: 1.3em;
+      max-width: none; /* Remove max-width restriction for mobile */
+      padding: 0 12px; /* Adjust padding for better fit on mobile */
+    }
+    #instructionText, #fileNameDisplay {
+      max-width: 100%; /* Ensure full width on mobile */
+    }
+  }
+
+  @media (min-width: 601px) {
+    #uploadContainer {
+      padding: 20px;
+    }
+    .custom-button {
+      padding: 0 16px; /* Restore padding for larger screens */
     }
   }
 
@@ -124,9 +140,9 @@
     color: #721c24;
     border: 2px solid #f5c6cb;
     border-radius: 8px;
-    padding: 15px; /* Added padding for space between text and border */
+    padding: 15px; /* Space between text and border */
     width: 100%;
-    max-width: 400px; /* Same max-width as buttons and instruction text */
+    max-width: 500px; /* Match max-width with buttons and instruction text */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     font-family: "Roboto", sans-serif;
     font-size: 18px;
