@@ -198,7 +198,11 @@ async function handleOAuth2Flow() {
                     authUrl: googleProvider.authUrl,
                 }));
                 const param = getFileIdFromUrl();
-                sessionStorage.setItem('redirectTo', `drive_reader?file=${param}`);
+                if (param) {
+                  sessionStorage.setItem('redirectTo', `drive_reader?file=${param}`);
+                } else {
+                  sessionStorage.setItem('redirectTo', 'drive_reader');
+                }
                 // Construct the authentication URL
                 const authUrl = googleProvider.authUrl + encodeURIComponent(redirectUrl);
 
