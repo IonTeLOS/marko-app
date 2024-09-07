@@ -312,11 +312,14 @@ async function handleOAuth2Flow() {
 
       fileInput.addEventListener('change', function(event) {
         const file = event.target.files[0];
-        if (file) {
+        if (file && file.type === 'text/html') {
           fileNameDisplay.textContent = `Selected file: ${file.name}`;
           const urlFriendlyName = file.name.replace(/\.html$/, '').replace(/[^a-z0-9]/gi, '-').toLowerCase();
           localStorage.setItem('url-friendly-name', urlFriendlyName);
           submitButton.style.display = 'inline-flex';
+        } else {
+            alert('Please select a valid HTML file.');
+            event.target.value = ''; 
         }
       });
 
