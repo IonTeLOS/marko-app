@@ -343,7 +343,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (urlParams.has('title')) {
         const requestedAlias = urlParams.get('title');
         aliasInput.value = requestedAlias;
-        moreOptionsBtn.click();
+        moreOptions.classList.remove('hidden');
       }
     }
     
