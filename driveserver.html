@@ -250,11 +250,11 @@ async function handleOAuth2Flow() {
                 const paramShortlink = getShortlinkFromUrl();
 
                 if (paramFile) {
-                  sessionStorage.setItem('redirectTo', `serve-drive?file=${paramFile}`);
+                  sessionStorage.setItem('redirectTo', `driveserver?file=${paramFile}`);
                 } else if (paramShortlink) {
-                  sessionStorage.setItem('redirectTo', `serve-drive?file=${paramShortlink}`);
+                  sessionStorage.setItem('redirectTo', `driveserver?file=${paramShortlink}`);
                 } else {
-                  sessionStorage.setItem('redirectTo', 'serve-drive');
+                  sessionStorage.setItem('redirectTo', 'driveserver');
                 }
                 // Construct the authentication URL
                 const authUrl = googleProvider.authUrl + encodeURIComponent(redirectUrl);
@@ -365,7 +365,7 @@ async function handleOAuth2Flow() {
             document.getElementById('errorMessage').style.display = 'none';
             confirm('File uploaded successfully! Create a shortlink for your site?');
             if (confirm) {
-            window.location.href = `${APP_URL}/short?redirect=${APP_URL}/serve-drive&title=${urlFriendlyName}&path=${id}`;
+            window.location.href = `${APP_URL}/short?redirect=${APP_URL}/driveserver&title=${urlFriendlyName}&path=${id}`;
             } 
             // TODO: else { show share element }
           } catch (error) {
