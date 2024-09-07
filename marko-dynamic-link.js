@@ -128,7 +128,7 @@ async function handleMarkoButtonClick(event) {
     const favicon = await getFavicon();
 
     if (confirm(translatedText)) {
-        const url = encodeURIComponent(window.location.href);
+        const url = encodeURIComponent(window.parent.location.href);
         const title = encodeURIComponent(document.title);
         //const favicon = encodeURIComponent(await getFavicon());
         const finalColor = getPrimaryColor();
