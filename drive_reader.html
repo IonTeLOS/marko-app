@@ -55,6 +55,9 @@
       border: 2px solid #000;
       padding: 15px;
       border-radius: 5px;
+      width: 100%; 
+      margin: 10px 0;
+      text-align: justify;
     }
 
     #fileNameDisplay {
@@ -64,10 +67,10 @@
       word-break: break-all;
     }
 
-    /* Custom Button Styling */
     .custom-button {
       display: flex;
       align-items: center;
+      justify-content: center; /* Center content horizontally */
       height: 50px;
       font-size: 1.2em;
       margin: 10px 0;
@@ -80,6 +83,8 @@
       border-radius: 5px;
       cursor: pointer;
       transition: background-color 0.3s ease;
+      text-align: center; /* Center text within button */
+      white-space: nowrap; /* Prevent text from wrapping */
     }
 
     .custom-button:hover {
@@ -89,13 +94,14 @@
     .custom-button .custom-button__icon {
       font-size: 1.5em;
       margin-right: 8px;
+      line-height: 1; /* Ensure proper alignment with text */
     }
 
     .custom-button .custom-button__label {
-      flex: 1;
-      text-align: left;
+      display: flex;
+      align-items: center; /* Center text vertically */
     }
-
+    
     @media (max-width: 600px) {
       #uploadContainer {
         padding: 15px;
@@ -134,12 +140,12 @@
     <input type="file" id="fileInput" accept=".html" style="display: none;">
     <label for="fileInput" class="custom-button custom-button--raised">
       <i class="material-icons custom-button__icon">file_upload</i>
-      <span class="custom-button__label">Choose File</span>
+      <span class="custom-button__label">CHOOSE FILE</span>
     </label>
     <div id="fileNameDisplay"></div>
     <button id="submitButton" class="custom-button custom-button--raised" style="display: none;">
-      <i class="material-icons custom-button__icon">send</i>
-      <span class="custom-button__label">Submit</span>
+      <i class="material-icons custom-button__icon">deployed_code</i>
+      <span class="custom-button__label">CREATE</span>
     </button>
   </div>
   <div id="iframeContainer">
