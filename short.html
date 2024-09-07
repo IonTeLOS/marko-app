@@ -333,7 +333,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const restartBtn = document.getElementById('restartBtn');
     const linkList = document.getElementById('linkList');
     const shareMessageInput = document.getElementById('shareMessageInput');
-
+    
+    const requestedTarget = addPathParam();
+    urlInput.value = requestedTarget;
+    
     moreOptionsBtn.addEventListener('click', () => {
         if (!moreOptions.classList.contains('hidden')) {
             // More options are already visible, hide them
@@ -452,7 +455,16 @@ document.addEventListener('DOMContentLoaded', function() {
     checkRedirectAndLoad(data.shortlink);    
 }
 
+function usePathParam() {
+      const urlParams = new URLSearchParams(window.location.search);
 
+      if (urlParams.has('path')) {
+        const pathUrl = urlParams.get('redirect');
+        const target = `https://marko-app.netlify.app/drive_reader?file=${encodeURIComponent(pathUrl)}`;
+        return target;
+      }
+    }
+    
 function updateLinkList() {
     linkList.innerHTML = '';
     const shortlinks = JSON.parse(localStorage.getItem('shortlinks') || '[]');
