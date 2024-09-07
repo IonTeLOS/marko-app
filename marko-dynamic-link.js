@@ -138,13 +138,17 @@ async function handleMarkoButtonClick(event) {
 
         // Log the details to the console
 	console.log(`Adding a Marko for the website ${decodeURIComponent(url)} with title ${decodeURIComponent(title)} and color ${decodeURIComponent(encodedColor)}`);
-        localStorage.setItem('Marko-clicked', 'true');
-        window.open(finalUrl, '_blank');
+          if (!url.includes(MARKO_URL) {
+	    localStorage.setItem('Marko-clicked', 'true');
+            window.open(finalUrl, '_blank');
+	  }	
     } else {
         const hideMarkoText = getHideMarkoText();
+      if (!url.includes(MARKO_URL) {	    
         if (confirm(hideMarkoText)) {
             localStorage.setItem('Marko-hide', 'true');
         }
+      }
     }
      const userHidden = localStorage.getItem('Marko-hide');
      if (userHidden === 'true') {
