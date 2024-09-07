@@ -235,6 +235,8 @@ async function handleOAuth2Flow() {
 
     function displayError(message) {
       document.getElementById('errorMessage').textContent = message;
+      const errorDiv = document.getElementById('errorMessage');
+      errorDiv.innerHTML = message.replace(/\n/g, '<br>');
     }
     
     gapi.load('client:auth2', function() {
