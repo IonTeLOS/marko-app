@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create HTML</title>
+  <!-- Quill and external stylesheets -->
+  
+  <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <!-- Material Design styles -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.0-dev.3/dist/quill.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quill-formula@0.1.0/dist/quill-formula.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    #toolbar-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px;
+      background: #f5f5f5;
+    }
+
+    .ql-formats {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .ql-formats button,
+    .ql-formats select {
+      min-width: 42px; /* Increased size for better touch targets */
+      height: 42px; /* Increased size for better touch targets */
+      font-size: 18px; /* Larger font for readability */
+    }
+
+    #editor {
+      height: 400px;
+      padding: 8px;
+    }
+
+    .ql-clean {
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 0 10px;
+      font-size: 14px;
+    }
+
+    .mdc-button {
+  margin-top: 16px;
+  margin-bottom: 20px;
+  width: 90vw;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+h1 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center; 
+}
+
+    .resizable-image {
+      max-width: 100%;
+      height: auto;
+      resize: both;
+      overflow: hidden;
+    }
+    
+    .custom-color-picker {
+      position: relative;
+      display: inline-block;
+    }
+
+    .color-picker-button {
+      width: 42px;
+      height: 42px;
+      background-color: #ffffff;
+      border: 1px solid #ccc;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .color-picker-button::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: 2px solid #000;
+      opacity: 0.75;
+    }
+
+    .color-picker-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      z-index: 1000;
+      display: none;
+      padding: 5px;
+      background-color: #ffffff;
+      border: 1px solid #ccc;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+
+    .color-option {
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+    }
+    /* Ensure images are responsive */
+img {
+  max-width: 100%;
+  height: auto;
+}
+    iframe {
+        	width: 100vw;
+        	height: 100vh;
+        	border: none;
+        }
+           /* Style for inputs */
+    .input-container {
+      display: flex;
+      flex-direction: column;
+      width: 100%; 
+      margin-top: 16px; 
+    }
+
+    input {
+      padding: 8px;
+      margin-bottom: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 16px;
+      width: 90vw; 
+      display: block;
+        margin-left: auto;
+  margin-right: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Create your Marko Page</h1>
+
+  <!-- Create the toolbar container -->
+  <div id="toolbar-container">
+    <!-- Font and Size options -->
+    <span class="ql-formats">
+      <select class="ql-font"></select>
+      <select class="ql-size"></select>
+    </span>
+    <!-- Formatting buttons -->
+    <span class="ql-formats">
+      <button class="ql-bold"></button>
+      <button class="ql-italic"></button>
+      <button class="ql-underline"></button>
+      <button class="ql-strike"></button>
+    </span>
+    <!-- Color pickers -->
+    <span class="ql-formats">
+      <select class="ql-color"></select>
+      <select class="ql-background"></select>
+    <span class="custom-color-picker">
+      <button class="color-picker-button" aria-label="Body Background Color"></button>
+      <div class="color-picker-dropdown">
+        <div class="color-grid"></div>
+      </div>
+    </span>
+  </span>
+
+    </span>
+    <!-- Script buttons -->
+    <span class="ql-formats">
+      <button class="ql-script" value="sub"></button>
+      <button class="ql-script" value="super"></button>
+    </span>
+    <!-- Header, Blockquote, Code -->
+    <span class="ql-formats">
+      <button class="ql-header" value="1"></button>
+      <button class="ql-header" value="2"></button>
+      <button class="ql-blockquote"></button>
+      <button class="ql-code-block"></button>
+    </span>
+    <!-- Lists and Indentation -->
+    <span class="ql-formats">
+      <button class="ql-list" value="ordered"></button>
+      <button class="ql-list" value="bullet"></button>
+      <button class="ql-indent" value="-1"></button>
+      <button class="ql-indent" value="+1"></button>
+    </span>
+    <!-- Text Direction and Alignment -->
+    <span class="ql-formats">
+      <button class="ql-direction" value="rtl"></button>
+      <select class="ql-align"></select>
+    </span>
+    <!-- Link, Image, Video, Formula -->
+    <span class="ql-formats">
+      <button class="ql-link"></button>
+      <button class="ql-image"></button>
+      <button class="ql-video"></button>
+      <button class="ql-formula"></button>
+    </span>
+    <!-- Clear Formatting -->
+    <span class="ql-formats">
+      <button class="ql-clean">Clear</button>
+    </span>
+  </div>
+
+  <!-- Create the editor container -->
+  <div id="editor"></div>
+  <!-- Input container for title and icon -->
+  <div class="input-container">
+    <input type="text" id="title-input" placeholder="Page Title (optional)" />
+    <input type="text" id="icon-input" placeholder="Favicon URL (optional)" />
+  </div>
+  <!-- Download button -->
+  <button class="mdc-button mdc-button--raised" id="download-button">
+    <i class="material-icons mdc-button__icon" aria-hidden="true">download</i>
+    <b>Download</b>
+  </button>
+
+  <!-- Quill and external scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+  <script>
+    // Initialize Quill editor
+const quill = new Quill('#editor', {
+  modules: {
+    formula: false,
+    syntax: true,
+    toolbar: '#toolbar-container'
+  },
+  placeholder: 'Start here..',
+  theme: 'snow'
+});
+
+    // Custom handler for the clear button
+    const toolbar = quill.getModule('toolbar');
+    toolbar.addHandler('clean', function() {
+      const range = quill.getSelection();
+      if (range) {
+        quill.removeFormat(range.index, range.length); // Clear formatting
+      }
+    });
+
+    // Custom handler for the image button to only accept URLs
+    quill.getModule('toolbar').addHandler('image', function() {
+      const url = prompt('Enter image URL:');
+      if (url) {
+        const range = quill.getSelection();
+        quill.insertEmbed(range.index, 'image', url);
+      }
+    });
+const colors = [
+      '#000000', '#e60000', '#ff9900', '#ffff00', '#008a00', '#0066cc', '#9933ff',
+      '#ffffff', '#facccc', '#ffebcc', '#ffffcc', '#cce8cc', '#cce0f5', '#ebd6ff',
+      '#bbbbbb', '#f06666', '#ffc266', '#ffff66', '#66b966', '#66a3e0', '#c285ff',
+      '#888888', '#a10000', '#b26b00', '#b2b200', '#006100', '#0047b2', '#6b24b2',
+      '#444444', '#5c0000', '#663d00', '#666600', '#003700', '#002966', '#3d1466'
+    ];
+
+    // Create color grid
+    const colorGrid = document.querySelector('.color-grid');
+    colors.forEach(color => {
+      const colorOption = document.createElement('div');
+      colorOption.className = 'color-option';
+      colorOption.style.backgroundColor = color;
+      colorOption.dataset.color = color;
+      colorGrid.appendChild(colorOption);
+    });
+
+    // Toggle color picker dropdown
+    const colorPickerButton = document.querySelector('.color-picker-button');
+    const colorPickerDropdown = document.querySelector('.color-picker-dropdown');
+    colorPickerButton.addEventListener('click', () => {
+      colorPickerDropdown.style.display = colorPickerDropdown.style.display === 'none' ? 'block' : 'none';
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.custom-color-picker')) {
+        colorPickerDropdown.style.display = 'none';
+      }
+    });
+
+    // Handle color selection
+    colorGrid.addEventListener('click', (event) => {
+      if (event.target.classList.contains('color-option')) {
+        const selectedColor = event.target.dataset.color;
+        document.querySelector('#editor').style.backgroundColor = selectedColor;
+        colorPickerButton.style.backgroundColor = selectedColor;
+        colorPickerDropdown.style.display = 'none';
+      }
+    });
+
+
+// Handler for downloading the content as HTML
+    document.getElementById('download-button').addEventListener('click', function() {
+      const content = quill.root.innerHTML;
+      const bodyColor = document.querySelector('#editor').style.backgroundColor || '#ffffff'; // Default background color
+      const title = document.getElementById('title-input').value.trim() || 'My Marko Page';
+      const iconUrl = document.getElementById('icon-input').value.trim() || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';
+      const styles = `
+        <style>
+          body { background-color: ${bodyColor}; font-size: 16px; line-height: 1.6; }
+          .ql-align-center { text-align: center; }
+          .ql-align-right { text-align: right; }
+          .ql-align-justify { text-align: justify; }
+          iframe { width: 100vw; height: 100vh; border: none; }
+        </style>
+      `;
+      const html = `<!DOCTYPE html><html><head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${title}</title>
+        <link rel="icon" href="${iconUrl}">
+        ${styles}
+      </head><body>${content}</body></html>`;
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      const urlParams = new URLSearchParams(window.location.search);
+    
+      if (urlParams.has('fromApp')) {
+      	window.location.href = "https://marko-app.netlify.app/serve-drive";
+      }
+    });
+
+    // Initialize Material Design components
+    mdc.autoInit();
+  </script>
