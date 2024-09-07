@@ -311,8 +311,11 @@ async function handleOAuth2Flow() {
             const urlFriendlyName = localStorage.getItem('url-friendly-name');
             const id = await uploadFile(file, urlFriendlyName, accessToken);
             document.getElementById('errorMessage').style.display = 'none';
-            alert('File uploaded successfully!');
+            confirm('File uploaded successfully! Create a shortlink for your site?');
+            if (confirm) {
             window.location.href = `${APP_URL}/short?redirect=${APP_URL}/drive_reader&title=${urlFriendlyName}&path=${id}`;
+            } 
+            // TODO: else { show share element }
           } catch (error) {
             alert(`Error uploading file: ${error.message}`);
           }
