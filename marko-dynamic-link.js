@@ -138,10 +138,11 @@ async function handleMarkoButtonClick(event) {
 
         // Log the details to the console
 	console.log(`Adding a Marko for the website ${decodeURIComponent(url)} with title ${decodeURIComponent(title)} and color ${decodeURIComponent(encodedColor)}`);
-          if (!window.parent.location.href.includes(MARKO_URL)) {
+	
+	if (!window.parent.location.href.includes(MARKO_URL)) {
 	    localStorage.setItem('Marko-clicked', 'true');
-            window.open(finalUrl, '_blank');
-	  }	
+	  }
+        window.open(finalUrl, '_blank');    
     } else {
         const hideMarkoText = getHideMarkoText();
       if (!window.parent.location.href.includes(MARKO_URL)) {	    
