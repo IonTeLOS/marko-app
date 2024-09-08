@@ -317,7 +317,7 @@ async function handleOAuth2Flow() {
         const shortlink = getShortlinkFromUrl();
         const firstCreated = getSuccess();
 
-        if (shortlink && firstCreated) {
+        if (firstCreated) {
           const websiteAddress = `https://marko-app.netlify.app/o/${id}`;
           const resultText = document.getElementById('resultText');
           resultText.innerHTML = `Your website address is: <a href="${websiteAddress}" target="_blank">${websiteAddress}</a>. 
