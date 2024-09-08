@@ -399,7 +399,7 @@ submitButton.addEventListener('click', async function() {
         const resultText = document.getElementById('resultText');
         resultText.innerHTML = `Your website address is: <a href="${websiteAddress}" target="_blank">${websiteAddress}</a>. 
                                 <br> I want to <a href="${createShortlinkUrl}" target="_blank">create a shortlink</a>`;
-        resultText.style.display = 'flex';
+        resultText.style.display = 'block';
       }
     } catch (error) {
       alert(`Error uploading file: ${error.message}`);
