@@ -377,29 +377,29 @@ async function handleOAuth2Flow() {
         console.log('share clicked');
       });
 
-      submitButton.addEventListener('click', async function() {
-        console.log('clicked');
-        const file = fileInput.files[0];
-        if (file) {
-          try {
-            const urlFriendlyName = localStorage.getItem('url-friendly-name');
-            const id = await uploadFile(file, urlFriendlyName, accessToken);
-            document.getElementById('errorMessage').style.display = 'none';
-            confirm('File uploaded successfully! Create a shortlink for your site?');
-            if (confirm) {
-              window.location.href = `${APP_URL}/short?redirect=${APP_URL}/driveserver&title=${urlFriendlyName}&path=${id}`;
-            } else {
-                const shareButton = document.getElementById('shareButton');
-                shareButton.style.display = 'flex';
-            }
-          } catch (error) {
-            alert(`Error uploading file: ${error.message}`);
-          }
-        } else {
-          alert('Please select a file first.');
-        }
-      });
-    });
+submitButton.addEventListener('click', async function() {
+  console.log('clicked');
+  const file = fileInput.files[0];
+  if (file) {
+    try {
+      const urlFriendlyName = localStorage.getItem('url-friendly-name');
+      const id = await uploadFile(file, urlFriendlyName, accessToken);
+      document.getElementById('errorMessage').style.display = 'none';
+      
+      const userConfirmed = confirm('File uploaded successfully! Create a shortlink for your site?');
+      if (userConfirmed) {
+        window.location.href = `${APP_URL}/short?redirect=${APP_URL}/driveserver&title=${urlFriendlyName}&path=${id}`;
+      } else {
+        const shareButton = document.getElementById('shareButton');
+        shareButton.style.display = 'flex';
+      }
+    } catch (error) {
+      alert(`Error uploading file: ${error.message}`);
+    }
+  } else {
+    alert('Please select a file first.');
+  }
+});
 
 async function uploadFile(file, useAs, accessToken) {
   const submitButton = document.getElementById('submitButton');
