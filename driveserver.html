@@ -537,7 +537,7 @@ async function handleOAuth2Flow() {
 
       fileInput.addEventListener('change', function(event) {
         const file = event.target.files[0];
-        if (file && file.type === 'text/html') {
+        if (file && file.type === 'text/html' || file && file.type === 'application/pdf') {
           fileNameDisplay.textContent = `Selected file: ${file.name}`;
           const urlFriendlyName = file.name.replace(/\.html$/, '').replace(/[^a-z0-9]/gi, '-').toLowerCase();
           localStorage.setItem('url-friendly-name', urlFriendlyName);
