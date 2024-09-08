@@ -484,7 +484,6 @@ async function handleOAuth2Flow() {
       displayError('No link to load provided. Create one !');
       document.getElementById('uploadContainer').style.display = 'flex';
       document.getElementById('errorMessage').style.display = 'block';
-      return;
     } else {
     fetchFile(fileId);
 
