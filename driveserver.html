@@ -497,9 +497,9 @@ async function handleOAuth2Flow() {
         const API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
 
         // Fetch file content
-       const contentResponse = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`)}`, {
+       const contentResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`), {
           method: 'GET'
-      });    
+       });    
 
         // Handle content based on MIME type
         const contentType = contentResponse.headers.get('Content-Type');
