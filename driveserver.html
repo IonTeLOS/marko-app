@@ -51,7 +51,8 @@
     align-items: center;
   }
 
-  #instructionText {
+  #instructionText,
+  #resultText {
     font-size: 1.1em;
     margin-bottom: 15px;
     border: 2px solid #000;
@@ -171,6 +172,7 @@
       <i class="material-icons custom-button__icon">share</i>
       <span class="custom-button__label">SHARE</span>
     </button>
+    <p id="resultText"></p>
   </div>
   <div id="iframeContainer">
     <iframe id="contentFrame" 
@@ -392,6 +394,10 @@ submitButton.addEventListener('click', async function() {
       } else {
         const shareButton = document.getElementById('shareButton');
         shareButton.style.display = 'flex';
+        const websiteAddress = `https://marko-app.netlify.app/driveserver?file=${id}`;
+        const resultText = document.getElementById('resultText');
+        resultText.textContent = `Your website address is: ${websiteAddress}`;
+        resultText.style.display = 'flex';
       }
     } catch (error) {
       alert(`Error uploading file: ${error.message}`);
