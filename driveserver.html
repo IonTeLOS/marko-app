@@ -259,14 +259,11 @@ async function handleOAuth2Flow() {
                 }));
                 const paramFile = getFileIdFromUrl();
                 const paramShortlink = getShortlinkFromUrl();
-                const firstCreated = getSuccess();
 
-                if (firstCreated) {
-                  sessionStorage.setItem('redirectTo', 'driveserver');
-                } else if (paramFile) {
+                if (paramFile) {
                   sessionStorage.setItem('redirectTo', `driveserver?site=${paramFile}`);
                 } else if (paramShortlink) {
-                  sessionStorage.setItem('redirectTo', `driveserver?site=${paramShortlink}`);
+                  sessionStorage.setItem('redirectTo', `driveserver?shortlink=${paramShortlink}`);
                 } else {
                   sessionStorage.setItem('redirectTo', 'driveserver');
                 }
@@ -291,11 +288,6 @@ async function handleOAuth2Flow() {
       return urlParams.get('site');
     }
 
-    function getSuccess() {
-      const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get('success');
-    }
-
     function getShortlinkFromUrl() {
       const urlParams = new URLSearchParams(window.location.search);
       return urlParams.get('shortlink');
@@ -315,9 +307,8 @@ async function handleOAuth2Flow() {
         });
         const fileId = getFileIdFromUrl();
         const shortlink = getShortlinkFromUrl();
-        const firstCreated = getSuccess();
 
-        if (firstCreated) {
+        if (shortlink) {
           const websiteAddress = `https://marko-app.netlify.app/o/${shortlink}`;
           const resultText = document.getElementById('resultText');
           resultText.innerHTML = `Your website address is: <a href="${websiteAddress}" target="_blank">${websiteAddress}</a>. 
