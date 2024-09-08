@@ -467,6 +467,12 @@ async function handleOAuth2Flow() {
       document.getElementById('errorMessage').style.display = 'none';
       document.getElementById('uploadContainer').style.display = 'none';
       const websiteAddress = `https://marko-app.netlify.app/o/${shortlink}`;
+      // save as Marko bookmark
+      const linkData = ['website', websiteAddress, 'My website', 'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/language/default/48px.svg', '#000000'];
+       // Save the bookmark to local storage
+      let bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
+      bookmarks.push(linkData);
+      localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
       const resultText = document.getElementById('resultText');
       resultText.innerHTML = `Your website address is: <a href="${websiteAddress}" target="_blank">${websiteAddress}</a>. 
                               <br> You can share it with the World now !`;
