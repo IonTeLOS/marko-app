@@ -488,35 +488,44 @@ async function handleOAuth2Flow() {
           return;
         }        
         
-        gapi.client.drive.files.get({ fileId })
-          .then(function(response) {
-            const fileMetadata = response.result;
-            console.log('File metadata:', fileMetadata);
-            return gapi.client.drive.files.get({ fileId, alt: 'media' });
-          })
-          .then(function(response) {
-            const fileContent = response.body;
-            console.log('File content:', fileContent);
-            
-            // Display the content in the iframe
-            const iframe = document.getElementById('contentFrame');
-            // Create a blob from the HTML content
-            const blob = new Blob([fileContent], { type: 'text/html' });
-            const url = URL.createObjectURL(blob);
-            
-            // Set the iframe src to the blob URL
-            iframe.src = url;
-            
-            // Clean up the object URL when the iframe loads
-            iframe.onload = function() {
-              URL.revokeObjectURL(url);
-            };
-          })
-          .catch(function(err) {
-            console.error('Error:', err);
-          });
-      });
-    });
+gapi.client.drive.files.get({ fileId })
+  .then(function(response) {
+    const fileMetadata = response.result;
+    console.log('File metadata:', fileMetadata);
+
+    // Fetch the file content
+    return gapi.client.drive.files.get({ fileId, alt: 'media' });
+  })
+  .then(function(response) {
+    const fileContent = response.body;
+    const contentType = response.headers['Content-Type'];
+
+    console.log('File content:', fileContent);
+
+    const iframe = document.getElementById('contentFrame');
+
+    if (contentType.includes('application/pdf')) {
+      // If the file is a PDF, use Google Drive's preview URL
+      const pdfUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+      iframe.src = pdfUrl;
+    } else if (contentType.includes('text/html')) {
+      // If the file is HTML, create a Blob and display it
+      const blob = new Blob([fileContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      iframe.src = url;
+
+      // Clean up the object URL when the iframe loads
+      iframe.onload = function() {
+        URL.revokeObjectURL(url);
+      };
+    } else {
+      console.error('Unsupported file type:', contentType);
+    }
+  })
+  .catch(function(err) {
+    console.error('Error:', err);
+  });
+
 
  document.addEventListener('DOMContentLoaded', function() {
       const fileInput = document.getElementById('fileInput');
