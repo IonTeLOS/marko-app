@@ -160,7 +160,11 @@
     <div id="fileNameDisplay"></div>
     <button id="submitButton" class="custom-button custom-button--raised" style="display: none;">
       <i class="material-icons custom-button__icon">send</i>
-      <span class="custom-button__label">CREATE</span>
+      <span class="custom-button__label">SUBMIT</span>
+    </button>
+    <button id="createButton" class="custom-button custom-button--raised" style="display: none;">
+      <i class="material-icons custom-button__icon">construction</i>
+      <span class="custom-button__label">BUILD</span>
     </button>
   </div>
   <div id="iframeContainer">
@@ -341,6 +345,8 @@ async function handleOAuth2Flow() {
       const fileInput = document.getElementById('fileInput');
       const fileNameDisplay = document.getElementById('fileNameDisplay');
       const submitButton = document.getElementById('submitButton');
+      const buildButton = document.getElementById('createButton');
+
 
       fileInput.addEventListener('change', function(event) {
         const file = event.target.files[0];
@@ -353,6 +359,10 @@ async function handleOAuth2Flow() {
             alert('Please select a valid HTML file.');
             event.target.value = ''; 
         }
+      });
+
+      buildButton.addEventListener('click', function() {
+        window.open('/create', _blank);
       });
 
       submitButton.addEventListener('click', async function() {
