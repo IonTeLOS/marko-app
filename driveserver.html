@@ -459,11 +459,6 @@ async function handleOAuth2Flow() {
       errorDiv.innerHTML = message.replace(/\n/g, '<br>');
     }
 
-    
-
-
-
-  
     accessToken = localStorage.getItem('accessToken');
     const fileId = getFileIdFromUrl();
     const shortlink = getShortlinkFromUrl();
@@ -485,23 +480,17 @@ async function handleOAuth2Flow() {
       document.getElementById('uploadContainer').style.display = 'flex';
       document.getElementById('errorMessage').style.display = 'block';
     } else {
-    fetchFile(fileId);
-
+        fetchFile(fileId);
     }
-    const CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
     
-    const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email';
     // Function to fetch file metadata and content
     async function fetchFile(fileId) {
       try {
         const API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
-
         // Fetch file content
        const contentResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`, {
          method: 'GET'
        });
-
-
         // Handle content based on MIME type
         const contentType = contentResponse.headers.get('Content-Type');
         if (contentType.includes('application/pdf')) {
@@ -526,7 +515,6 @@ async function handleOAuth2Flow() {
       }
     }
 
-    
  document.addEventListener('DOMContentLoaded', function() {
       const fileInput = document.getElementById('fileInput');
       const fileNameDisplay = document.getElementById('fileNameDisplay');
@@ -569,7 +557,6 @@ async function handleOAuth2Flow() {
     });
 
 submitButton.addEventListener('click', async function() {
-  console.log('clicked');
   const file = fileInput.files[0];
   if (file) {
     try {
@@ -595,9 +582,9 @@ submitButton.addEventListener('click', async function() {
       alert(`Error uploading file: ${error.message}`);
     }
   } else {
-    alert('Please select a file first.');
-  }
-});
+      alert('Please select a file first.');
+    }
+  });
  });
 
 async function uploadFile(file, useAs, accessToken) {
@@ -662,8 +649,8 @@ async function uploadFile(file, useAs, accessToken) {
     submitButton.style.display = 'none';
     return uploadResult.id;
   } catch (error) {
-    console.error('Error during file upload process:', error);
-    throw error;
+      console.error('Error during file upload process:', error);
+      throw error;
   }
 }
     const shareContainer = document.getElementById('shareContainer');
@@ -717,10 +704,10 @@ async function uploadFile(file, useAs, accessToken) {
       }
     });
 
-    window.Sharer.init();
     
     window.onload = function() {
       checkLoginStatus();
+      window.Sharer.init();
     };
   </script>
 </body>
