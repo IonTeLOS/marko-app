@@ -20,7 +20,6 @@
     <script src="https://cdn.jsdelivr.net/npm/trumbowyg/dist/plugins/colors/trumbowyg.colors.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/trumbowyg/dist/plugins/fontsize/trumbowyg.fontsize.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/trumbowyg/dist/plugins/fontfamily/trumbowyg.fontfamily.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/trumbowyg/dist/plugins/giphy/trumbowyg.giphy.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/trumbowyg/dist/plugins/indent/trumbowyg.indent.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/trumbowyg/dist/plugins/lineheight/trumbowyg.lineheight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/trumbowyg/dist/plugins/pasteimage/trumbowyg.pasteimage.min.js"></script>
@@ -28,13 +27,11 @@
     <script src="https://cdn.jsdelivr.net/npm/trumbowyg/dist/plugins/resizimg/trumbowyg.resizimg.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/trumbowyg/dist/plugins/pasteembed/trumbowyg.pasteembed.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/trumbowyg/dist/plugins/insertaudio/trumbowyg.insertaudio.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/trumbowyg/dist/plugins/emoji/ui/trumbowyg.emoji.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/trumbowyg/dist/plugins/emoji/trumbowyg.emoji.min.js"></script>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
     <style>
-               .material-btn {
+        .material-btn {
             display: inline-flex;
             align-items: center;
             width: 100%;
@@ -75,7 +72,6 @@
 </button>
 <div id="viewer" style="border: 1px solid #ccc; padding: 10px; margin-top: 10px;"></div>
 
-<!-- Material-style download button -->
 <button id="downloadHtml" class="material-btn">
     <span class="material-icons">download</span> Download
 </button>
@@ -91,7 +87,6 @@ $(document).ready(function() {
         init: function(trumbowyg) {
             trumbowyg.o.plugins.changeBgColor = {};
             
-            // Add a button to the toolbar with an icon
             trumbowyg.addBtnDef('changeBgColor', {
                 fn: function() {
                     let color = prompt('Enter a background color (name, hex, rgb, etc.):', selectedBgColor);
@@ -113,17 +108,16 @@ $(document).ready(function() {
         init: function(trumbowyg) {
             trumbowyg.o.plugins.convertLinkToButton = {};
             
-            // Add a custom button to the toolbar
             trumbowyg.addBtnDef('convertLinkToButton', {
                 fn: function() {
                     let selectedLink = getSelectedLink();
                     if (selectedLink) {
-                        let href = selectedLink.attr('href'); // Get the href of the selected link
-                        let buttonText = selectedLink.text(); // Get the text of the selected link
+                        let href = selectedLink.attr('href'); 
+                        let buttonText = selectedLink.text();
                         let newButtonHtml = `<a href="${href}" target="_blank">
                                                 <button class="custom-button">${buttonText}</button>
                                              </a>`;
-                        selectedLink.replaceWith(newButtonHtml); // Replace the link with the button inside an <a> tag
+                        selectedLink.replaceWith(newButtonHtml); 
                     } else {
                         alert('No link selected!');
                     }
@@ -152,7 +146,6 @@ $(document).ready(function() {
             ['indent'],
             ['justifyLeft', 'justifyCenter', 'justifyRight', 'justifyFull'],
             ['link', 'convertLinkToButton', 'insertImage', 'base64', 'noembed', 'insertAudio'],
-            ['giphy', 'emoji'], 
             ['horizontalRule', ],
             ['removeformat'],
             ['fullscreen'],
@@ -171,15 +164,11 @@ $(document).ready(function() {
             colors: {
             colorList: [
                 '000000', 'FFFFFF', 'A9A9A9', '0000FF', 'FF0000', '008000', '00FFFF', 'FF00FF', 'D3D3D3', 'ADD8E6', 'FFFFE0', '90EE90', 'F08080', 'F5F5DC', 'E6E6FA', 'C0C0C0', '808080', '800000', 'FFFF00', '008080', '000080'
-            ]
-        },
-            emoji: {},
+              ]
+            },
             fontsize: {},
             fontfamily: {
             fontlist: ['Roboto']},
-            giphy: {
-            	apikey: 'hH89VEeAt3XHhj9xz8SEWisYCHcStDTC'
-            },
             indent: {},
             lineheight: {},
             pasteimage: {}
@@ -196,7 +185,8 @@ $(document).ready(function() {
         <html>
             <head>
                 <title>Your Page</title>
-                <style> body { background-color: ${selectedBgColor}; }                    .custom-button {
+                <style> body { background-color: ${selectedBgColor}; }                    
+        .custom-button {
             background-color: #6200ea;
             color: white;
             padding: 10px 20px;
@@ -222,7 +212,7 @@ $(document).ready(function() {
             <head>
                 <title>Your Page</title>
                 <style> body { background-color: ${selectedBgColor}; } 
-           .custom-button {
+        .custom-button {
             background-color: #6200ea;
             color: white;
             padding: 10px 20px;
@@ -245,6 +235,7 @@ $(document).ready(function() {
         link.download = 'your_page.html';
         link.click();
     });
+    
     // Function to get the selected link
     function getSelectedLink() {
         var selection = window.getSelection();
@@ -260,23 +251,15 @@ $(document).ready(function() {
         }
         return null;
     }
-         var changeBgColorButton = $('.trumbowyg-changeBgColor-button');
-
-    // Create a span with the Material Icons class and the desired icon
-    var materialIcon = $('<span>').addClass('material-icons').text('format_color_fill');
-
-    // Clear the existing content (optional, if there's any existing SVG icon) and append the Material Icon
-    changeBgColorButton.empty().append(materialIcon);
-         var convertLinkToButton = $('.trumbowyg-convertLinkToButton-button');
-
-    // Create a span with the Material Icons class and the desired icon
-    var materialIconC = $('<span>').addClass('material-icons').text('transform');
-
-    // Clear the existing content (optional, if there's any existing SVG icon) and append the Material Icon
-    convertLinkToButton.empty().append(materialIconC);
+    var changeBgColorButton = $('.trumbowyg-changeBgColor-button');
+    var materialIconC = $('<span>').addClass('material-icons').text('format_color_fill');
+    changeBgColorButton.empty().append(materialIconC);
+    
+    var convertLinkToButton = $('.trumbowyg-convertLinkToButton-button');
+    var materialIconB = $('<span>').addClass('material-icons').text('transform');
+    convertLinkToButton.empty().append(materialIconB);
 
 });    
 </script>
-
 </body>
 </html>
