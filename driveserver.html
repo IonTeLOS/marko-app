@@ -458,7 +458,20 @@ async function handleOAuth2Flow() {
       const errorDiv = document.getElementById('errorMessage');
       errorDiv.innerHTML = message.replace(/\n/g, '<br>');
     }
+
+    gapi.client.init({
+      apiKey: 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E',
+      clientId: '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com', 
+      scope: 'https://www.googleapis.com/auth/drive.readonly',
+    }).then(function () {
+      // API initialization complete
+      console.log('GAPI client initialized.');
+    }).catch(function (error) {
+      console.error('Error initializing GAPI client:', error);
+    });
     
+  
+
     gapi.load('client:auth2', function() {
       gapi.client.load('drive', 'v3', function() {
         accessToken = localStorage.getItem('accessToken');
