@@ -430,6 +430,7 @@ submitButton.addEventListener('click', async function() {
   }
 });
  });
+
 async function uploadFile(file, useAs, accessToken) {
   const submitButton = document.getElementById('submitButton');
   try {
@@ -487,6 +488,8 @@ async function uploadFile(file, useAs, accessToken) {
 
     // Save the URL to localStorage
     localStorage.setItem(useAs, uploadResult.id);
+    const fileInput = document.getElementById('fileInput');
+    fileInput.style.display = 'none';
     submitButton.style.display = 'none';
     return uploadResult.id;
   } catch (error) {
