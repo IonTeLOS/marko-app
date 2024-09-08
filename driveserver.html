@@ -34,6 +34,7 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
+    z-index: 15000;
   }
 
   #uploadContainer {
@@ -162,7 +163,7 @@
       <i class="material-icons custom-button__icon">send</i>
       <span class="custom-button__label">SUBMIT</span>
     </button>
-    <button id="createButton" class="custom-button custom-button--raised" style="display: none;">
+    <button id="createButton" class="custom-button custom-button--raised" style="display: flex;">
       <i class="material-icons custom-button__icon">construction</i>
       <span class="custom-button__label">BUILD</span>
     </button>
@@ -310,6 +311,7 @@ async function handleOAuth2Flow() {
 
         if (shortlink) {
           window.location.href = `${APP_URL}/o/${shortlink}`
+          return;
         }
         gapi.client.drive.files.get({ fileId })
           .then(function(response) {
@@ -355,6 +357,7 @@ async function handleOAuth2Flow() {
           const urlFriendlyName = file.name.replace(/\.html$/, '').replace(/[^a-z0-9]/gi, '-').toLowerCase();
           localStorage.setItem('url-friendly-name', urlFriendlyName);
           submitButton.style.display = 'flex';
+          buildButton.style.display = 'none';
         } else {
             alert('Please select a valid HTML file.');
             event.target.value = ''; 
