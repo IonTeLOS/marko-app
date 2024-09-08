@@ -470,7 +470,7 @@ function usePathParam() {
 
       if (urlParams.has('path')) {
         const pathUrl = urlParams.get('path');
-        const target = `https://marko-app.netlify.app/driveserver?file=${encodeURIComponent(pathUrl)}`;
+        const target = `https://marko-app.netlify.app/driveserver?site=${encodeURIComponent(pathUrl)}`;
         return target;
       }
     }
