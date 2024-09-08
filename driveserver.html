@@ -365,7 +365,7 @@ async function handleOAuth2Flow() {
       });
 
       buildButton.addEventListener('click', function() {
-        window.open('/create', _blank);
+        window.location.href = 'https://marko-app.netlify.app/create';
       });
 
       submitButton.addEventListener('click', async function() {
