@@ -4713,8 +4713,9 @@ iframe.srcdoc = `
             document.getElementById('lightbox').style.display = 'flex';
         }
 
-   async function openLink(url) {
+async function openLink(url) {
     const prefix = 'https://marko-app.netlify.app?marko:common-';
+
     if (url.startsWith(prefix)) {
         let restOfString = url.substring(prefix.length);
         let firstDashIndex = restOfString.indexOf('-');
@@ -4730,25 +4731,25 @@ iframe.srcdoc = `
         renderLinks(url);
     } else if (url.startsWith("file://")) {
         try {
-            // Extract filename from URL
+            // Extract file path and filename from URL
             const urlObject = new URL(url);
-            const filePath = urlObject.pathname;
+            const filePath = decodeURIComponent(urlObject.pathname);
             const fileName = filePath.split('/').pop();
-            const suggestedName = fileName;
+            const fileDirectory = filePath.substring(0, filePath.lastIndexOf('/'));
 
-            // Show the file picker dialog with suggested name
-            const fileHandle = await window.showOpenFilePicker({
-                suggestedName: suggestedName,
+            // Use the file picker to suggest the filename and directory
+            const [fileHandle] = await window.showOpenFilePicker({
+                suggestedName: fileName,
+                startIn: fileDirectory, // Suggest start directory
                 types: [{
                     description: 'HTML files',
                     accept: { 'text/html': ['.html'] }
                 }],
             });
 
-            // Assuming only one file is selected
-            const file = fileHandle[0];
-            const fileData = await file.getFile();
-            const fileContent = await fileData.text();
+            // Read the file content and display it as a blob
+            const file = await fileHandle.getFile();
+            const fileContent = await file.text();
 
             // Display file content as a blob
             const iframe = document.createElement('iframe');
@@ -4762,7 +4763,6 @@ iframe.srcdoc = `
         window.open(url, '_blank');
     }
 }
-
 
         // function to open bookmark links in new tab. separate behavior for friends' links
         function openMarko(action, data, extras) {    
