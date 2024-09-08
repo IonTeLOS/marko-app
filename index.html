@@ -4715,7 +4715,7 @@ iframe.srcdoc = `
 
 async function openLink(url) {
     const prefix = 'https://marko-app.netlify.app?marko:common-';
-    
+
     // Handle common Marko and friends URLs
     if (url.startsWith(prefix)) {
         let restOfString = url.substring(prefix.length);
@@ -4754,16 +4754,16 @@ async function openLink(url) {
             else startIn = 'documents'; // Fallback to documents
 
             // Open file picker with suggested filename and directory
-            const fileHandle = await window.showOpenFilePicker({
+            const [fileHandle] = await window.showOpenFilePicker({
                 suggestedName: filename,
                 startIn: startIn
             });
 
             // Read and display the file
-            const file = await fileHandle[0].getFile();
+            const file = await fileHandle.getFile();
             const blob = new Blob([await file.text()], { type: file.type });
-            const url = URL.createObjectURL(blob);
-            window.open(url, '_blank');
+            const objectURL = URL.createObjectURL(blob);
+            window.open(objectURL, '_blank');
 
         } catch (error) {
             console.error('Error handling local file:', error);
@@ -4772,6 +4772,7 @@ async function openLink(url) {
         window.open(url, '_blank');
     }
 }
+
 
         // function to open bookmark links in new tab. separate behavior for friends' links
         function openMarko(action, data, extras) {    
