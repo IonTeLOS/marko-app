@@ -572,7 +572,7 @@ submitButton.addEventListener('click', async function() {
         const websiteAddress = `https://marko-app.netlify.app/driveserver?site=${id}`;
         currentUrl = websiteAddress;
         // save this site as a Marko bookmark
-        const linkData = ['website', websiteAddress, 'Site-'urlFriendlyName, '#000000'];
+        const linkData = ['website', websiteAddress, 'My website', 'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/language/default/48px.svg', '#000000'];
          // Save the bookmark to local storage
         let bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
         bookmarks.push(linkData);
