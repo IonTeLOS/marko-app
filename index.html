@@ -4745,18 +4745,10 @@ async function openLink(url) {
             const filename = parts.pop();
             const directory = parts.join('/');
 
-            // Determine the start directory
-            let startIn;
-            if (directory.includes('Downloads')) startIn = 'downloads';
-            else if (directory.includes('Pictures')) startIn = 'pictures';
-            else if (directory.includes('Documents')) startIn = 'documents';
-            else if (directory.includes('Videos')) startIn = 'videos';
-            else startIn = 'documents'; // Fallback to documents
-
-            // Open file picker with suggested filename and directory
+            // Attempt to suggest directory and file name
             const [fileHandle] = await window.showOpenFilePicker({
                 suggestedName: filename,
-                startIn: startIn
+                startIn: getSuggestedDirectory(directory)
             });
 
             // Read and display the file
@@ -4771,6 +4763,14 @@ async function openLink(url) {
     } else {
         window.open(url, '_blank');
     }
+}
+
+function getSuggestedDirectory(path) {
+    if (path.includes('Downloads')) return 'downloads';
+    if (path.includes('Pictures')) return 'pictures';
+    if (path.includes('Documents')) return 'documents';
+    if (path.includes('Videos')) return 'videos';
+    return 'documents'; // Default fallback
 }
 
 
