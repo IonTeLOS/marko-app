@@ -315,6 +315,18 @@ async function handleOAuth2Flow() {
         });
         const fileId = getFileIdFromUrl();
         const shortlink = getShortlinkFromUrl();
+        const firstCreated = getSuccess();
+
+        if (shortlink && firstCreated) {
+          const websiteAddress = `https://marko-app.netlify.app/o/${id}`;
+          const resultText = document.getElementById('resultText');
+          resultText.innerHTML = `Your website address is: <a href="${websiteAddress}" target="_blank">${websiteAddress}</a>. 
+                                  <br> You can share it with the World now !`;
+          resultText.style.display = 'block';
+          const shareButton = document.getElementById('shareButton');
+          shareButton.style.display = 'flex';
+          return;
+        } 
         
         if (!fileId && !shortlink) {
           displayError('No link to load provided. Create one !');
@@ -327,6 +339,7 @@ async function handleOAuth2Flow() {
           window.location.href = `${APP_URL}/o/${shortlink}`
           return;
         }
+        
         gapi.client.drive.files.get({ fileId })
           .then(function(response) {
             const fileMetadata = response.result;
