@@ -167,6 +167,10 @@
       <i class="material-icons custom-button__icon">construction</i>
       <span class="custom-button__label">BUILD</span>
     </button>
+     <button id="shareButton" class="custom-button custom-button--raised" style="display: none;">
+      <i class="material-icons custom-button__icon">share</i>
+      <span class="custom-button__label">SHARE</span>
+    </button>
   </div>
   <div id="iframeContainer">
     <iframe id="contentFrame" 
@@ -348,6 +352,7 @@ async function handleOAuth2Flow() {
       const fileNameDisplay = document.getElementById('fileNameDisplay');
       const submitButton = document.getElementById('submitButton');
       const buildButton = document.getElementById('createButton');
+      const shareButton = document.getElementById('shareButton');
 
 
       fileInput.addEventListener('change', function(event) {
@@ -365,7 +370,11 @@ async function handleOAuth2Flow() {
       });
 
       buildButton.addEventListener('click', function() {
-        window.location.href = 'https://marko-app.netlify.app/create';
+        window.location.href = 'https://marko-app.netlify.app/create?fromApp';
+      });
+
+      shareButton.addEventListener('click', function() {
+        console.log('share clicked');
       });
 
       submitButton.addEventListener('click', async function() {
@@ -391,6 +400,8 @@ async function handleOAuth2Flow() {
     });
 
 async function uploadFile(file, useAs, accessToken) {
+  const submitButton = document.getElementById('submitButton');
+  const shareButton = document.getElementById('shareButton');
   try {
     // Prepare file metadata
     const metadata = {
@@ -446,6 +457,8 @@ async function uploadFile(file, useAs, accessToken) {
 
     // Save the URL to localStorage
     localStorage.setItem(useAs, uploadResult.id);
+    submitButton.style.display = 'none';
+    shareButton.style.display = 'flex';
     return uploadResult.id;
   } catch (error) {
     console.error('Error during file upload process:', error);
