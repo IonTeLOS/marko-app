@@ -387,9 +387,11 @@ async function handleOAuth2Flow() {
             document.getElementById('errorMessage').style.display = 'none';
             confirm('File uploaded successfully! Create a shortlink for your site?');
             if (confirm) {
-            window.location.href = `${APP_URL}/short?redirect=${APP_URL}/driveserver&title=${urlFriendlyName}&path=${id}`;
-            } 
-            // TODO: else { show share element }
+              window.location.href = `${APP_URL}/short?redirect=${APP_URL}/driveserver&title=${urlFriendlyName}&path=${id}`;
+            } else {
+                const shareButton = document.getElementById('shareButton');
+                shareButton.style.display = 'flex';
+            }
           } catch (error) {
             alert(`Error uploading file: ${error.message}`);
           }
@@ -401,7 +403,6 @@ async function handleOAuth2Flow() {
 
 async function uploadFile(file, useAs, accessToken) {
   const submitButton = document.getElementById('submitButton');
-  const shareButton = document.getElementById('shareButton');
   try {
     // Prepare file metadata
     const metadata = {
@@ -458,7 +459,6 @@ async function uploadFile(file, useAs, accessToken) {
     // Save the URL to localStorage
     localStorage.setItem(useAs, uploadResult.id);
     submitButton.style.display = 'none';
-    shareButton.style.display = 'flex';
     return uploadResult.id;
   } catch (error) {
     console.error('Error during file upload process:', error);
