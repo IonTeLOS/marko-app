@@ -464,7 +464,7 @@ async function handleOAuth2Flow() {
 
 
   
-    const accessToken = localStorage.getItem('accessToken');
+    accessToken = localStorage.getItem('accessToken');
     const fileId = getFileIdFromUrl();
     const shortlink = getShortlinkFromUrl();
 
