@@ -690,7 +690,7 @@ function handleMobileDisplay() {
 
       if (urlParams.has('redirect')) {
         const redirectUrl = urlParams.get('redirect');
-        const newUrl = `${redirectUrl}?shortlink=${encodeURIComponent(shortlinkValue)}&success=true`;
+        const newUrl = `${redirectUrl}?shortlink=${encodeURIComponent(shortlinkValue)}`;
 
         // Show toast with the redirect message
         showToast(`All done! Going back to ${redirectUrl}`, () => {
