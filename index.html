@@ -2616,7 +2616,7 @@ function updateUI(fileId, name) {
     };
     const mainBookmark = document.getElementById('main-bookmark');
     mainBookmark.onclick = function() {
-        openLink(`https://ntfy.sh/${fileId}`);
+        openLink(`https://notify.pchat.xyz/${fileId}`);
     };
   myCommons = JSON.parse(localStorage.getItem('myCommons')) || [];
   const fileIdIsMine = myCommons.includes(fileId);
@@ -3987,7 +3987,7 @@ function sendEmailNotification(title, body, uuid) {
             const body = "This is my Marko reminder, click.." + `https://marko-app.netlify.app?uuid=${uuid}`;
             const topic = uuid;
           
-            fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
+            fetch(`https://notify.pchat.xyz/${encodeURIComponent(topic)}`, {
                 method: 'POST',
                 body: body,
                 headers: {
@@ -4713,30 +4713,51 @@ iframe.srcdoc = `
             document.getElementById('lightbox').style.display = 'flex';
         }
 
-     // function to open bookmark links in new tab. separate behavior for friends' links
-        function openLink(url) {
-          const prefix = 'https://marko-app.netlify.app?marko:common-';
-          if (url.startsWith(prefix)) {
-              let restOfString = url.substring(prefix.length);
+     async function openLink(url) {
+    const prefix = 'https://marko-app.netlify.app?marko:common-';
+    
+    if (url.startsWith(prefix)) {
+        let restOfString = url.substring(prefix.length);
         
-               // Find the index of the first '-' character
-               let firstDashIndex = restOfString.indexOf('-');
+        // Find the index of the first '-' character
+        let firstDashIndex = restOfString.indexOf('-');
         
-               // If there is a '-' character, extract name and link
-         if (firstDashIndex !== -1) {
+        // If there is a '-' character, extract name and link
+        if (firstDashIndex !== -1) {
             let commonName = restOfString.substring(0, firstDashIndex);
             let commonId = restOfString.substring(firstDashIndex + 1);
             syncAndShowCommonMarko(commonId, commonName);
             console.log(`Title of common Marko: ${commonName}, its FileId: ${commonId}`);
-    }
-          }
-            if (url.startsWith("friends/")) {
-               console.log("friend!!");
-               changeURL(url);
-               renderLinks(url);
-            } else {
-                window.open(url, '_blank');
+        }
+    } else if (url.startsWith('friends/')) {
+        console.log('friend!!');
+        changeURL(url);
+        renderLinks(url);
+    } else if (url.startsWith('file://')) {
+        // Handle local file
+        try {
+            // Fetch the local file content
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
             }
+            const text = await response.text();
+            
+            // Create a blob from the file content
+            const blob = new Blob([text], { type: 'text/html' });
+            
+            // Create an object URL for the blob and open it in a new tab
+            const objectURL = URL.createObjectURL(blob);
+            window.open(objectURL, '_blank');
+            
+            // Revoke the object URL after a short delay to free up resources
+            setTimeout(() => URL.revokeObjectURL(objectURL), 10000);
+        } catch (error) {
+            console.error('Failed to fetch local file:', error);
+        }
+    } else {
+        window.open(url, '_blank');
+    }
 }
         // function to open bookmark links in new tab. separate behavior for friends' links
         function openMarko(action, data, extras) {    
