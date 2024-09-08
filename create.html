@@ -31,6 +31,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/trumbowyg/dist/plugins/emoji/ui/trumbowyg.emoji.min.css">
     <script src="https://cdn.jsdelivr.net/npm/trumbowyg/dist/plugins/emoji/trumbowyg.emoji.min.js"></script>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
     <style>
                .material-btn {
@@ -90,7 +91,7 @@ $(document).ready(function() {
         init: function(trumbowyg) {
             trumbowyg.o.plugins.changeBgColor = {};
             
-            // Add a button to the toolbar
+            // Add a button to the toolbar with an icon
             trumbowyg.addBtnDef('changeBgColor', {
                 fn: function() {
                     let color = prompt('Enter a background color (name, hex, rgb, etc.):', selectedBgColor);
@@ -101,9 +102,9 @@ $(document).ready(function() {
                     }
                 },
                 tag: 'button',
-                text: 'BG Color',
                 title: 'Change Background Color',
-                hasIcon: false
+                hasIcon: true
+ 
             });
         }
     };
@@ -130,11 +131,11 @@ $(document).ready(function() {
                 tag: 'button',
                 text: 'Convert to Button',
                 title: 'Convert Selected Link to Button',
-                hasIcon: false
+                hasIcon: true
             });
         }
     };
-    
+
     $('#editor').trumbowyg({
         btns: [
             ['viewHTML'],
@@ -142,7 +143,7 @@ $(document).ready(function() {
             ['formatting'],
             ['fontfamily'], 
             ['fontsize'], 
-            ['foreColor', 'backColor'],
+            ['foreColor', 'backColor', 'changeBgColor'],
             ['highlight'], 
             ['strong', 'em'],
             ['superscript'],
@@ -150,13 +151,9 @@ $(document).ready(function() {
             ['unorderedList', 'orderedList'],
             ['indent'],
             ['justifyLeft', 'justifyCenter', 'justifyRight', 'justifyFull'],
-            ['link', 'insertImage', 'base64', 'noembed', 'insertAudio'],
-            ['giphy', 'emoji'],
-                        ['convertLinkToButton'], // Add the link-to-button converter
-
+            ['link', 'convertLinkToButton', 'insertImage', 'base64', 'noembed', 'insertAudio'],
+            ['giphy', 'emoji'], 
             ['horizontalRule', ],
-                        ['changeBgColor'], // Add the background color change button here
-
             ['removeformat'],
             ['fullscreen'],
             ['pasteembed']
@@ -180,7 +177,9 @@ $(document).ready(function() {
             fontsize: {},
             fontfamily: {
             fontlist: ['Roboto']},
-            giphy: {},
+            giphy: {
+            	apikey: 'hH89VEeAt3XHhj9xz8SEWisYCHcStDTC'
+            },
             indent: {},
             lineheight: {},
             pasteimage: {}
@@ -197,7 +196,16 @@ $(document).ready(function() {
         <html>
             <head>
                 <title>Your Page</title>
-                <style> body { background-color: ${selectedBgColor}; } </style>
+                <style> body { background-color: ${selectedBgColor}; }                    .custom-button {
+            background-color: #6200ea;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            text-align: center;
+            cursor: pointer;
+        }
+        </style>
             </head>
             <body>
                 ${htmlContent}
@@ -213,7 +221,17 @@ $(document).ready(function() {
         <html>
             <head>
                 <title>Your Page</title>
-                <style> body { background-color: ${selectedBgColor}; } </style>
+                <style> body { background-color: ${selectedBgColor}; } 
+           .custom-button {
+            background-color: #6200ea;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            text-align: center;
+            cursor: pointer;
+        }
+        </style>
             </head>
             <body>
                 ${htmlContent}
@@ -242,6 +260,21 @@ $(document).ready(function() {
         }
         return null;
     }
+         var changeBgColorButton = $('.trumbowyg-changeBgColor-button');
+
+    // Create a span with the Material Icons class and the desired icon
+    var materialIcon = $('<span>').addClass('material-icons').text('format_color_fill');
+
+    // Clear the existing content (optional, if there's any existing SVG icon) and append the Material Icon
+    changeBgColorButton.empty().append(materialIcon);
+         var convertLinkToButton = $('.trumbowyg-convertLinkToButton-button');
+
+    // Create a span with the Material Icons class and the desired icon
+    var materialIconC = $('<span>').addClass('material-icons').text('transform');
+
+    // Clear the existing content (optional, if there's any existing SVG icon) and append the Material Icon
+    convertLinkToButton.empty().append(materialIconC);
+
 });    
 </script>
 
