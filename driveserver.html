@@ -464,7 +464,8 @@ async function handleOAuth2Flow() {
     const shortlink = getShortlinkFromUrl();
 
     if (shortlink) {
-      document.getElementById('uploadContainer').style.display = 'flex';
+      document.getElementById('errorMessage').style.display = 'none';
+      document.getElementById('uploadContainer').style.display = 'none';
       const websiteAddress = `https://marko-app.netlify.app/o/${shortlink}`;
       const resultText = document.getElementById('resultText');
       resultText.innerHTML = `Your website address is: <a href="${websiteAddress}" target="_blank">${websiteAddress}</a>. 
@@ -480,7 +481,7 @@ async function handleOAuth2Flow() {
       document.getElementById('uploadContainer').style.display = 'flex';
       document.getElementById('errorMessage').style.display = 'block';
     } else {
-        fetchFile(fileId);
+      fetchFile(fileId);
     }
     
     // Function to fetch file metadata and content
@@ -570,6 +571,12 @@ submitButton.addEventListener('click', async function() {
       } else {
         const websiteAddress = `https://marko-app.netlify.app/driveserver?site=${id}`;
         currentUrl = websiteAddress;
+        // save this site as a Marko bookmark
+        const linkData = ['website', websiteAddress, 'Site-'urlFriendlyName, '#000000'];
+         // Save the bookmark to local storage
+        let bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
+        bookmarks.push(linkData);
+        localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
         const shareButton = document.getElementById('shareButton');
         shareButton.style.display = 'flex';
         const createShortlinkUrl = `${APP_URL}/short?redirect=driveserver&title=${urlFriendlyName}&path=${id}`;
