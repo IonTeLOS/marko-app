@@ -488,24 +488,27 @@ async function handleOAuth2Flow() {
     fetchFile(fileId);
 
     }
-
+    const CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
+    const API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
+    const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email';
     // Function to fetch file metadata and content
     async function fetchFile(fileId) {
       try {
-        // Fetch file metadata
-        const metadataResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=mimeType`, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
+        const metadataResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`, {
+            method: 'GET',
+            headers: new Headers({
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
+            })
         });
         const metadata = await metadataResponse.json();
         console.log('File metadata:', metadata);
 
         // Fetch file content
-        const contentResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
+        const contentResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`, {
+          method: 'GET',
+            headers: new Headers({
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
+            })
         });
 
         // Handle content based on MIME type
