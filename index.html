@@ -4715,7 +4715,8 @@ iframe.srcdoc = `
 
 async function openLink(url) {
     const prefix = 'https://marko-app.netlify.app?marko:common-';
-
+    
+    // Handle common Marko and friends URLs
     if (url.startsWith(prefix)) {
         let restOfString = url.substring(prefix.length);
         let firstDashIndex = restOfString.indexOf('-');
@@ -4725,36 +4726,44 @@ async function openLink(url) {
             syncAndShowCommonMarko(commonId, commonName);
             console.log(`Title of common Marko: ${commonName}, its FileId: ${commonId}`);
         }
-    } else if (url.startsWith("friends/")) {
+        return;
+    }
+
+    // Handle friends' links
+    if (url.startsWith("friends/")) {
         console.log("friend!!");
         changeURL(url);
         renderLinks(url);
-    } else if (url.startsWith("file://")) {
-        try {
-            // Extract file path and filename from URL
-            const urlObject = new URL(url);
-            const filePath = decodeURIComponent(urlObject.pathname);
-            const fileName = filePath.split('/').pop();
-            const fileDirectory = filePath.substring(0, filePath.lastIndexOf('/'));
+        return;
+    }
 
-            // Use the file picker to suggest the filename and directory
-            const [fileHandle] = await window.showOpenFilePicker({
-                suggestedName: fileName,
-                startIn: fileDirectory, // Suggest start directory
-                types: [{
-                    description: 'HTML files',
-                    accept: { 'text/html': ['.html'] }
-                }],
+    // Handle local file URLs
+    if (url.startsWith('file://')) {
+        try {
+            const urlPath = new URL(url).pathname;
+            const parts = urlPath.split('/');
+            const filename = parts.pop();
+            const directory = parts.join('/');
+
+            // Determine the start directory
+            let startIn;
+            if (directory.includes('Downloads')) startIn = 'downloads';
+            else if (directory.includes('Pictures')) startIn = 'pictures';
+            else if (directory.includes('Documents')) startIn = 'documents';
+            else if (directory.includes('Videos')) startIn = 'videos';
+            else startIn = 'documents'; // Fallback to documents
+
+            // Open file picker with suggested filename and directory
+            const fileHandle = await window.showOpenFilePicker({
+                suggestedName: filename,
+                startIn: startIn
             });
 
-            // Read the file content and display it as a blob
-            const file = await fileHandle.getFile();
-            const fileContent = await file.text();
-
-            // Display file content as a blob
-            const iframe = document.createElement('iframe');
-            iframe.src = URL.createObjectURL(new Blob([fileContent], { type: 'text/html' }));
-            document.body.appendChild(iframe);
+            // Read and display the file
+            const file = await fileHandle[0].getFile();
+            const blob = new Blob([await file.text()], { type: file.type });
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
 
         } catch (error) {
             console.error('Error handling local file:', error);
