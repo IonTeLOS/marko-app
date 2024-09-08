@@ -259,8 +259,11 @@ async function handleOAuth2Flow() {
                 }));
                 const paramFile = getFileIdFromUrl();
                 const paramShortlink = getShortlinkFromUrl();
+                const firstCreated = getSuccess();
 
-                if (paramFile) {
+                if (firstCreated) {
+                  sessionStorage.setItem('redirectTo', 'driveserver');
+                } else if (paramFile) {
                   sessionStorage.setItem('redirectTo', `driveserver?site=${paramFile}`);
                 } else if (paramShortlink) {
                   sessionStorage.setItem('redirectTo', `driveserver?site=${paramShortlink}`);
@@ -286,6 +289,11 @@ async function handleOAuth2Flow() {
     function getFileIdFromUrl() {
       const urlParams = new URLSearchParams(window.location.search);
       return urlParams.get('site');
+    }
+
+    function getSuccess() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('success');
     }
 
     function getShortlinkFromUrl() {
