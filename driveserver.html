@@ -458,94 +458,83 @@ async function handleOAuth2Flow() {
       const errorDiv = document.getElementById('errorMessage');
       errorDiv.innerHTML = message.replace(/\n/g, '<br>');
     }
-    function initClient() {
 
     
 
-    gapi.client.init({
-      apiKey: 'AIzaSyBc75KlBm10rP8vB0u3yDsM4vdMqSNfdzo',
-      clientId: '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com', 
-      scope: 'https://www.googleapis.com/auth/drive.readonly',
-    }).then(function () {
-      // API initialization complete
-      console.log('GAPI client initialized.');
-    }).catch(function (error) {
-      console.error('Error initializing GAPI client:', error);
-    });
-    }
-      gapi.load('client:auth2', initClient);
+
 
   
+    const accessToken = localStorage.getItem('accessToken');
+    const fileId = getFileIdFromUrl();
+    const shortlink = getShortlinkFromUrl();
 
-    gapi.load('client:auth2', function() {
-      gapi.client.load('drive', 'v3', function() {
-        accessToken = localStorage.getItem('accessToken');
-        gapi.auth.setToken({
-          access_token: accessToken
-        });
-        const fileId = getFileIdFromUrl();
-        const shortlink = getShortlinkFromUrl();
-
-        if (shortlink) {
-          document.getElementById('uploadContainer').style.display = 'flex';
-          const websiteAddress = `https://marko-app.netlify.app/o/${shortlink}`;
-          const resultText = document.getElementById('resultText');
-          resultText.innerHTML = `Your website address is: <a href="${websiteAddress}" target="_blank">${websiteAddress}</a>. 
-                                  <br> You can share it with the World now !`;
-          resultText.style.display = 'block';
-          const shareButton = document.getElementById('shareButton');
-          currentUrl = websiteAddress;
-          shareButton.style.display = 'flex';
-          return;
-        } 
-        
-        if (!fileId) {
-          displayError('No link to load provided. Create one !');
-          document.getElementById('uploadContainer').style.display = 'flex';
-          document.getElementById('errorMessage').style.display = 'block';
-          return;
-        }        
-        
-gapi.client.drive.files.get({ fileId })
-  .then(function(response) {
-    const fileMetadata = response.result;
-    console.log('File metadata:', fileMetadata);
-
-    // Fetch the file content
-    return gapi.client.drive.files.get({ fileId, alt: 'media' });
-  })
-  .then(function(response) {
-    const fileContent = response.body;
-    const contentType = response.headers['Content-Type'];
-
-    console.log('File content:', fileContent);
-
-    const iframe = document.getElementById('contentFrame');
-
-    if (contentType.includes('application/pdf')) {
-      // If the file is a PDF, use Google Drive's preview URL
-      const pdfUrl = `https://drive.google.com/file/d/${fileId}/preview`;
-      iframe.src = pdfUrl;
-    } else if (contentType.includes('text/html')) {
-      // If the file is HTML, create a Blob and display it
-      const blob = new Blob([fileContent], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      iframe.src = url;
-
-      // Clean up the object URL when the iframe loads
-      iframe.onload = function() {
-        URL.revokeObjectURL(url);
-      };
+    if (shortlink) {
+      document.getElementById('uploadContainer').style.display = 'flex';
+      const websiteAddress = `https://marko-app.netlify.app/o/${shortlink}`;
+      const resultText = document.getElementById('resultText');
+      resultText.innerHTML = `Your website address is: <a href="${websiteAddress}" target="_blank">${websiteAddress}</a>. 
+                              <br> You can share it with the World now !`;
+      resultText.style.display = 'block';
+      const shareButton = document.getElementById('shareButton');
+      currentUrl = websiteAddress;
+      shareButton.style.display = 'flex';
+      return;
+    } 
+    
+    if (!fileId) {
+      displayError('No link to load provided. Create one !');
+      document.getElementById('uploadContainer').style.display = 'flex';
+      document.getElementById('errorMessage').style.display = 'block';
+      return;
     } else {
-      console.error('Unsupported file type:', contentType);
-    }
-  })
-  .catch(function(err) {
-    console.error('Error:', err);
-  });
- });
-    });
+    fetchFile(fileId);
 
+    }
+
+    // Function to fetch file metadata and content
+    async function fetchFile(fileId) {
+      try {
+        // Fetch file metadata
+        const metadataResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=mimeType`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        const metadata = await metadataResponse.json();
+        console.log('File metadata:', metadata);
+
+        // Fetch file content
+        const contentResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+
+        // Handle content based on MIME type
+        const contentType = contentResponse.headers.get('Content-Type');
+        if (contentType.includes('application/pdf')) {
+          const pdfUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+          document.getElementById('contentFrame').src = pdfUrl;
+        } else if (contentType.includes('text/html')) {
+          const fileContent = await contentResponse.text();
+          const blob = new Blob([fileContent], { type: 'text/html' });
+          const url = URL.createObjectURL(blob);
+          const iframe = document.getElementById('contentFrame');
+          iframe.src = url;
+
+          // Clean up the object URL when the iframe loads
+          iframe.onload = function() {
+            URL.revokeObjectURL(url);
+          };
+        } else {
+          console.error('Unsupported file type:', contentType);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+
+    
  document.addEventListener('DOMContentLoaded', function() {
       const fileInput = document.getElementById('fileInput');
       const fileNameDisplay = document.getElementById('fileNameDisplay');
