@@ -4734,10 +4734,11 @@ iframe.srcdoc = `
             const urlObject = new URL(url);
             const filePath = urlObject.pathname;
             const fileName = filePath.split('/').pop();
+            const suggestedName = fileName;
 
-            // Open the file picker with a suggested filename
+            // Show the file picker dialog with suggested name
             const fileHandle = await window.showOpenFilePicker({
-                suggestedName: fileName,
+                suggestedName: suggestedName,
                 types: [{
                     description: 'HTML files',
                     accept: { 'text/html': ['.html'] }
@@ -4761,6 +4762,7 @@ iframe.srcdoc = `
         window.open(url, '_blank');
     }
 }
+
 
         // function to open bookmark links in new tab. separate behavior for friends' links
         function openMarko(action, data, extras) {    
