@@ -4713,7 +4713,7 @@ iframe.srcdoc = `
             document.getElementById('lightbox').style.display = 'flex';
         }
 
-    async function openLink(url) {
+   async function openLink(url) {
     const prefix = 'https://marko-app.netlify.app?marko:common-';
     if (url.startsWith(prefix)) {
         let restOfString = url.substring(prefix.length);
@@ -4724,53 +4724,40 @@ iframe.srcdoc = `
             syncAndShowCommonMarko(commonId, commonName);
             console.log(`Title of common Marko: ${commonName}, its FileId: ${commonId}`);
         }
-        return;
-    }
-    
-    if (url.startsWith("friends/")) {
+    } else if (url.startsWith("friends/")) {
         console.log("friend!!");
         changeURL(url);
         renderLinks(url);
-        return;
-    }
-
-    // Handle local file URLs
-    if (url.startsWith('file://')) {
+    } else if (url.startsWith("file://")) {
         try {
-            // Check for File System Access API support
-            if ('showOpenFilePicker' in window) {
-                // Request permission to access the file
-                const permission = await navigator.permissions.query({ name: 'file-system' });
-                
-                if (permission.state === 'granted') {
-                    // Read and display the file content
-                    const file = await fetch(url).then(response => response.blob());
-                    const reader = new FileReader();
-                    reader.onload = function() {
-                        const blobUrl = URL.createObjectURL(new Blob([reader.result]));
-                        window.open(blobUrl, '_blank');
-                    };
-                    reader.readAsArrayBuffer(file);
-                } else {
-                    // Request permission to access the file
-                    const fileHandle = await window.showOpenFilePicker();
-                    const file = await fileHandle[0].getFile();
-                    const reader = new FileReader();
-                    reader.onload = function() {
-                        const blobUrl = URL.createObjectURL(new Blob([reader.result]));
-                        window.open(blobUrl, '_blank');
-                    };
-                    reader.readAsArrayBuffer(file);
-                }
-            } else {
-                // Fallback for browsers that don't support File System Access API
-                console.warn('File System Access API not supported.');
-            }
+            // Extract filename from URL
+            const urlObject = new URL(url);
+            const filePath = urlObject.pathname;
+            const fileName = filePath.split('/').pop();
+
+            // Open the file picker with a suggested filename
+            const fileHandle = await window.showOpenFilePicker({
+                suggestedName: fileName,
+                types: [{
+                    description: 'HTML files',
+                    accept: { 'text/html': ['.html'] }
+                }],
+            });
+
+            // Assuming only one file is selected
+            const file = fileHandle[0];
+            const fileData = await file.getFile();
+            const fileContent = await fileData.text();
+
+            // Display file content as a blob
+            const iframe = document.createElement('iframe');
+            iframe.src = URL.createObjectURL(new Blob([fileContent], { type: 'text/html' }));
+            document.body.appendChild(iframe);
+
         } catch (error) {
             console.error('Error handling local file:', error);
         }
     } else {
-        // Handle other URLs
         window.open(url, '_blank');
     }
 }
