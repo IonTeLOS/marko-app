@@ -528,7 +528,7 @@ async function handleOAuth2Flow() {
                 URL.revokeObjectURL(url);
             };
         } else {
-            console.error('This is not a site. Detected file type:', contentType);
+            console.log('This is not a site. Detected file type: ', contentType);
 
             // Check if the content type can be displayed in an iframe
             const displayableTypes = ['image/', 'audio/', 'video/', 'text/'];
@@ -542,7 +542,7 @@ async function handleOAuth2Flow() {
                 iframe.src = fileUrl;
             } else {
                 // Notify the user that the file cannot be displayed and prompt for download
-                const userConfirmed = confirm(`The file '${fileName}' cannot be displayed in the browser. Do you want to download the file?`);
+                const userConfirmed = confirm(`The file '${fileName}' cannot be displayed in the browser. Download it?`);
 
                 if (userConfirmed) {
                     // Trigger download
