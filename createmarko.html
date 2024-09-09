@@ -1978,14 +1978,9 @@ async function chooseMarkoType() {
                 try {
                     if (selectedType === 'file') {
                         alert('You have to login to use this feature - You will upload to your own Google Drive to create the Marko');
+                        // TODO: check access token, refresh if needed
                         const file = await chooseMarkoFile(selectedType);
                         console.log('File chosen: ', file);
-                        randomColor = getRandomColor();
-                        sessionStorage.setItem('temp-marko-icon', 'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/file/default/48px.svg');
-                        randomColor = getRandomColor();
-                        sessionStorage.setItem('temp-marko-color', randomColor);
-                        
-                        
                     }
                     else if (selectedType !== 'note' && selectedType !== 'post' &&  selectedType !== 'videocall' && selectedType !== 'window') {
                     // Delay before calling chooseMarkoLink
@@ -2669,13 +2664,26 @@ async function askForFileUpload() {
                 : 'Drag & Drop your files or <span class="filepond--label-action">Browse</span>' // Default label for desktop
         });
 
-        // Confirm button action
-        document.getElementById('confirmButton').addEventListener('click', function() {
-            const file = pond.getFile();
-            const fileName = document.getElementById('fileNameInput').value || (file ? file.file.name : '');
-            resolve(file ? { file: file.file, name: fileName } : null); // Resolve with the file and name if uploaded
-            closeModal();
-        });
+// Confirm button action
+document.getElementById('confirmButton').addEventListener('click', function() {
+    const file = pond.getFile();
+    if (file) {
+        const originalFileName = file.file.name;
+        const fileExtension = originalFileName.substring(originalFileName.lastIndexOf('.'));
+        const userProvidedName = document.getElementById('fileNameInput').value.trim();
+
+        // If the user-provided name is empty or lacks an extension, use the original file's extension
+        const fileName = userProvidedName && userProvidedName.includes('.') 
+            ? userProvidedName 
+            : userProvidedName + fileExtension;
+
+        resolve({ file: file.file, name: fileName });
+    } else {
+        resolve(null);
+    }
+    closeModal();
+});
+
 
         // Cancel button action
         document.getElementById('cancelButton').addEventListener('click', function() {
