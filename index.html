@@ -3144,7 +3144,7 @@ function handleSharedLink(url, title, text) {
     const isNewMarko = params.get('createMarko');
     const noConfirmation = params.get('noConfirm');
     
-    alert("URL parameters loaded: " + window.location.search); // Alert with full query string
+    //alert("URL parameters loaded: " + window.location.search); // Alert with full query string
 
     // Decode the action parameter
     const link = decodeURIComponent(theLink || '').replace(/\n/g, '<br>');
@@ -3158,24 +3158,24 @@ function handleSharedLink(url, title, text) {
     };
 
     if (func && functionsMap[func]) {
-        alert("Executing function: " + func); // Alert the function being executed
+        //alert("Executing function: " + func); // Alert the function being executed
         functionsMap[func](); // Execute the corresponding function
         window.history.replaceState({}, document.title, window.location.origin);
     }
     
     if (navUrl) {
-        alert("Navigating to: " + navUrl); // Alert for navigation
+        //alert("Navigating to: " + navUrl); // Alert for navigation
         window.open(navUrl, '_blank');
     }
             
     // Check if the scroll parameter is present
     if (scrollRequest === 'down') {
-        alert("Scroll to bottom requested");
+        //alert("Scroll to bottom requested");
         scrollDown();
     }
     
     if (isNewMarko === 'true' && type && link && title && icon && color) {
-        alert("Creating new Marko: " + title); // Alert when creating a Marko
+        //alert("Creating new Marko: " + title); // Alert when creating a Marko
         if (noConfirmation === 'true') {
             createMarko(type, link, title, icon, color);
             return;
@@ -3183,13 +3183,13 @@ function handleSharedLink(url, title, text) {
         if (confirm(`Do you want to add a Marko for ${title}?`)) {
             createMarko(type, link, title, icon, color);
         } else {
-            alert("User canceled Marko creation.");
+            //alert("User canceled Marko creation.");
         }
     }
 
     const seemsLikeShared = (sharedTitle ? 1 : 0) + (sharedUrl ? 1 : 0) + (sharedText ? 1 : 0);
     if (seemsLikeShared >= 2) {
-        alert("Shared content detected: " + sharedTitle); // Alert shared content
+        //alert("Shared content detected: " + sharedTitle); // Alert shared content
         let sharedLink = null;
         let remaining1 = null;
         let remaining2 = null;
@@ -3210,11 +3210,11 @@ function handleSharedLink(url, title, text) {
 
         if (sharedLink) {
             handleSharedLink(sharedLink, remaining1 || remaining2 || "Shared with Marko", "*");
-            alert("Shared link handled: " + sharedLink); // Alert after handling shared link
+            //alert("Shared link handled: " + sharedLink); // Alert after handling shared link
             window.history.replaceState({}, document.title, "/");
             return;
         } else {
-            alert("No valid link found in shared parameters.");
+            //alert("No valid link found in shared parameters.");
         }
     }
 
@@ -3232,7 +3232,7 @@ function handleSharedLink(url, title, text) {
 }
 
     if (reminder) {
-        alert("Reminder detected: " + reminder); // Alert for reminder
+        //alert("Reminder detected: " + reminder); // Alert for reminder
         openReminder(reminder);
         removeBellAfterNotification(reminder);
         window.close();
@@ -3246,7 +3246,7 @@ function handleSharedLink(url, title, text) {
 
             markos.push(linkData);
             localStorage.setItem('bookmarks', JSON.stringify(markos));
-            alert("Friend added: " + params.get('friendname')); // Alert after adding a friend
+            //alert("Friend added: " + params.get('friendname')); // Alert after adding a friend
             history.pushState({}, '', '/');
             passCheck();
         }
@@ -3261,7 +3261,7 @@ function handleSharedLink(url, title, text) {
                 localStorage.setItem('commonMarkos', JSON.stringify(allCommonMarkos));
                 syncAndShowCommonMarko(commonMarkoId, commonName);
             } else {
-                alert("User rejected friend request.");
+                //alert("User rejected friend request.");
             }
         }
     }  
@@ -3270,7 +3270,7 @@ function handleSharedLink(url, title, text) {
         try {
             if (confirm("Do you want to add " + `${sharedTitle}` + " as a friend?")) {
                 const decompressed = LZString.decompressFromEncodedURIComponent(compressed);
-                alert("Decompressed data: " + decompressed); // Alert with decompressed data
+                //alert("Decompressed data: " + decompressed); // Alert with decompressed data
                 const array = JSON.parse(decompressed);
                 const friendString = JSON.stringify(array);
                 const uuid = generateUUID();
@@ -3285,11 +3285,11 @@ function handleSharedLink(url, title, text) {
                 history.pushState({}, '', '/');
                 passCheck();
             } else {
-                alert("User canceled friend addition.");
+                //alert("User canceled friend addition.");
                 history.pushState({}, '', '/');
             }
         } catch (error) {
-            alert('Failed to load array from URL.');
+            //alert('Failed to load array from URL.');
         }
     }
     
