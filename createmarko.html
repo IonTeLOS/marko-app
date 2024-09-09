@@ -2641,7 +2641,7 @@ async function uploadFile(file, accessToken, fileName) {
         }
 
         console.log('File ID is ' + uploadResult.id);
-        const fileUrl = `https://drive.google.com/thumbnail?id=${uploadResult.id}`;
+        const fileUrl = `https://marko-app.netlify.app?file=${uploadResult.id}`;
 
         // Save the URL to sessionStorage
         sessionStorage.setItem('temp-marko-link', fileUrl);
