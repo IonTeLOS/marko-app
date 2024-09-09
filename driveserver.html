@@ -494,7 +494,17 @@ async function handleOAuth2Flow() {
     async function fetchFile(fileId) {
     try {
         const API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
-        
+        // Fetch file metadata
+        const metadataResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?key=${API_KEY}`, {
+            method: 'GET'
+        });
+
+        if (!metadataResponse.ok) {
+            throw new Error('Failed to fetch file metadata');
+        }
+
+        const metadata = await metadataResponse.json();
+        const fileName = metadata.name || 'unknown_filename.ext'; // Default filename if not available
         // Fetch file content
         const contentResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`, {
             method: 'GET'
@@ -502,9 +512,6 @@ async function handleOAuth2Flow() {
       
         // Handle content based on MIME type
         const contentType = contentResponse.headers.get('Content-Type');
-        console.log(contentType);
-        console.log(contentResponse);
-        const fileName = 'filename.ext'; // This should be fetched from metadata if available
 
         if (contentType.includes('application/pdf')) {
             const pdfUrl = `https://drive.google.com/file/d/${fileId}/preview`;
