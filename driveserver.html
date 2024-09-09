@@ -515,12 +515,47 @@ async function handleOAuth2Flow() {
             URL.revokeObjectURL(url);
           };
         } else {
-          console.error('Unsupported file type:', contentType);
+          console.error('This is not a site. Detected file type:', contentType);
+
+        const fileName = 'filename.ext'; // This should be fetched from metadata if available
+
+        // Check if the content type can be displayed in an iframe
+        const displayableTypes = ['image/', 'audio/', 'video/', 'text/'];
+        const isDisplayable = displayableTypes.some(type => contentType.startsWith(type));
+
+        const iframe = document.getElementById('contentFrame');
+
+        if (isDisplayable) {
+            // Set iframe source to the file URL
+            const fileBlob = await contentResponse.blob();
+            const fileUrl = URL.createObjectURL(fileBlob);
+            iframe.src = fileUrl;
+        } else {
+            // Notify the user that the file cannot be displayed and prompt for download
+            alert(`The file '${fileName}' cannot be displayed in the browser.`);
+            const userConfirmed = confirm('Do you want to download the file?');
+
+            if (userConfirmed) {
+                // Trigger download
+                const fileBlob = await contentResponse.blob();
+                const downloadUrl = URL.createObjectURL(fileBlob);
+                
+                // Create a temporary link element
+                const downloadLink = document.createElement('a');
+                downloadLink.href = downloadUrl;
+                downloadLink.download = fileName; // Set the filename for download
+                downloadLink.click();
+                
+                // Clean up
+                URL.revokeObjectURL(downloadUrl);
+            }
         }
-      } catch (error) {
-        console.error('Error:', error);
-      }
+    } catch (error) {
+        console.error('Error fetching or displaying file:', error);
+        alert('An error occurred while fetching the file.');
     }
+        }
+    
 
  document.addEventListener('DOMContentLoaded', function() {
       const fileInput = document.getElementById('fileInput');
