@@ -3143,6 +3143,9 @@ function handleSharedLink(url, title, text) {
     const color = params.get('color');
     const isNewMarko = params.get('createMarko');
     const noConfirmation = params.get('noConfirm');
+    
+    alert("URL parameters loaded: " + window.location.search); // Alert with full query string
+
     // Decode the action parameter
     const link = decodeURIComponent(theLink || '').replace(/\n/g, '<br>');
     const scrollRequest = params.get('scroll');
@@ -3155,161 +3158,68 @@ function handleSharedLink(url, title, text) {
     };
 
     if (func && functionsMap[func]) {
+        alert("Executing function: " + func); // Alert the function being executed
         functionsMap[func](); // Execute the corresponding function
         window.history.replaceState({}, document.title, window.location.origin);
     }
     
     if (navUrl) {
+        alert("Navigating to: " + navUrl); // Alert for navigation
         window.open(navUrl, '_blank');
     }
             
-            // Check if the scroll parameter is present
-            if (scrollRequest === 'down') {
-                console.log('Scroll to bottom requested');
-                scrollDown();
-            }
-    // Check if createMarko=true is present in the URL parameters
+    // Check if the scroll parameter is present
+    if (scrollRequest === 'down') {
+        alert("Scroll to bottom requested");
+        scrollDown();
+    }
+    
     if (isNewMarko === 'true' && type && link && title && icon && color) {
-      if (noConfirmation === 'true') {
-            console.log("User is adding a Marko.");
+        alert("Creating new Marko: " + title); // Alert when creating a Marko
+        if (noConfirmation === 'true') {
             createMarko(type, link, title, icon, color);
             return;
-      }
+        }
         if (confirm(`Do you want to add a Marko for ${title}?`)) {
-            console.log("User is adding a Marko.");
             createMarko(type, link, title, icon, color);
         } else {
-            console.log("User does not want to add a Marko.");
+            alert("User canceled Marko creation.");
         }
-    } else {
-        return;
-        // console.log("Not all required parameters for Marko creation are present or createMarko is not true.");
     }
-    
-// Case 4: Handling multiple shared parameters
-const seemsLikeShared = (sharedTitle ? 1 : 0) + (sharedUrl ? 1 : 0) + (sharedText ? 1 : 0);
-if (seemsLikeShared >= 2) {
-    console.log('Shared Title:', sharedTitle);
-    console.log('Shared Text:', sharedText);
-    console.log('Shared URL:', sharedUrl);
-    
-    let sharedLink = null;
-    let remaining1 = null;
-    let remaining2 = null;
 
-    if (sharedText && sharedText.startsWith("https://")) {
-        sharedLink = decodeURIComponent(sharedText);
-        remaining1 = sharedTitle;
-        remaining2 = sharedUrl;
-    } else if (sharedTitle && sharedTitle.startsWith("https://")) {
-        sharedLink = decodeURIComponent(sharedTitle);
-        remaining1 = sharedText;
-        remaining2 = sharedUrl;
-    } else if (sharedUrl && sharedUrl.startsWith("https://")) {
-        sharedLink = decodeURIComponent(sharedUrl);
-        remaining1 = sharedText;
-        remaining2 = sharedTitle;
-    }  
+    const seemsLikeShared = (sharedTitle ? 1 : 0) + (sharedUrl ? 1 : 0) + (sharedText ? 1 : 0);
+    if (seemsLikeShared >= 2) {
+        alert("Shared content detected: " + sharedTitle); // Alert shared content
+        let sharedLink = null;
+        let remaining1 = null;
+        let remaining2 = null;
 
-    if (sharedLink) {
-        let title, text;
-        
-        // Determine title and text based on conditions
-        if (remaining1 && remaining2) {
-            if (!remaining1.startsWith("https://") && !remaining2.startsWith("https://")) {
-                // If neither remaining1 nor remaining2 starts with https://, use the shorter as title
-                title = remaining1.length <= remaining2.length ? remaining1 : remaining2;
-                text = "*";
-            } else {
-                title = remaining1.startsWith("https://") ? remaining1 : remaining2;
-                text = remaining1.startsWith("https://") ? remaining2 : remaining1;
-            }
-        } else if (remaining1) {
-            title = remaining1;
-            text = "*";
-        } else if (remaining2) {
-            title = remaining2;
-            text = "*";
+        if (sharedText && sharedText.startsWith("https://")) {
+            sharedLink = decodeURIComponent(sharedText);
+            remaining1 = sharedTitle;
+            remaining2 = sharedUrl;
+        } else if (sharedTitle && sharedTitle.startsWith("https://")) {
+            sharedLink = decodeURIComponent(sharedTitle);
+            remaining1 = sharedText;
+            remaining2 = sharedUrl;
+        } else if (sharedUrl && sharedUrl.startsWith("https://")) {
+            sharedLink = decodeURIComponent(sharedUrl);
+            remaining1 = sharedText;
+            remaining2 = sharedTitle;
+        }  
+
+        if (sharedLink) {
+            handleSharedLink(sharedLink, remaining1 || remaining2 || "Shared with Marko", "*");
+            alert("Shared link handled: " + sharedLink); // Alert after handling shared link
+            window.history.replaceState({}, document.title, "/");
+            return;
         } else {
-            title = "Shared with Marko";
-            text = "*";
+            alert("No valid link found in shared parameters.");
         }
-
-        handleSharedLink(sharedLink, title, text);
-        window.history.replaceState({}, document.title, "/");
-        return;
-    } else {
-        console.log("No valid link found in shared parameters.");
     }
-}
-
-// Case 1: Plain text sharing as a potential link or note
-if (sharedText) {
-    // Split sharedText by newline characters to handle multiline scenarios
-    const lines = sharedText.split(/\r?\n/);
-
-    // Initialize variables to hold potential title and URL
-    let title = sharedTitle || 'Quick Note'; // Default title
-    let url = null;
-
-    // Iterate through each line to identify URL and adjust title
-    lines.forEach(line => {
-        if (!url && line.startsWith("http")) {
-            url = line.trim(); // Assume first line with http as URL
-            title = lines.length > 1 ? lines.find(l => l !== url) : url; // Use remaining line as title if more than one line
-        }
-    });
-
-    if (url) {
-        const baseUrl = getBaseUrl(sharedText);
-        const baseLink = baseUrl || "Link shared with Marko"; // Use base URL as title or default if not available
-        handleSharedLink(url, baseLink, "*");
-        window.history.replaceState({}, document.title, "/");
-        return;
-    } else {
-                // Case 3: Plain text sharing (including selected text from mobile)
-        let noteTitle, noteContent;
-
-        if (sharedText) {
-            const lines = sharedText.trim().split('\n');
-            if (lines.length > 1) {
-                // Use the first line as title if there are multiple lines
-                noteTitle = lines[0].trim();
-                noteContent = lines.slice(1).join('\n').trim();
-            } else {
-                // If it's a single line, use a default title
-                noteTitle = title || 'Quick Note';
-                noteContent = sharedText.trim();
-            }
-        } else if (title) {
-            // If only title is provided, treat it as the content
-            noteTitle = 'Quick Note';
-            noteContent = title.trim();
-        } else {
-            // Fallback case if somehow we don't have any text
-            noteTitle = 'Empty Note';
-            noteContent = '';
-        }
-
-        console.log('Creating note:', { title: noteTitle, content: noteContent });
-         handleSharedLink(noteContent, noteTitle, '');
-        window.history.replaceState({}, document.title, "/");
-        return;
-    }
-}
-
-// Case 2: Simple link sharing
-if (sharedText && sharedText.startsWith("http")) {
-    const baseUrl = getBaseUrl(sharedText);
-    const title = baseUrl || "Shared with Marko"; // Use base URL as title or default if not available
-    handleSharedLink(sharedText, title, "*");
-    window.history.replaceState({}, document.title, "/");
-    return;
-}
-
-//console.log("No valid sharing data found.");
 
     if (reminder) {
+        alert("Reminder detected: " + reminder); // Alert for reminder
         openReminder(reminder);
         removeBellAfterNotification(reminder);
         window.close();
@@ -3317,74 +3227,60 @@ if (sharedText && sharedText.startsWith("http")) {
     }
 
     if (purelink) {
-        if (confirm("Do you want to add " + params.get('friendname') + " as friend?")) {
+        if (confirm("Do you want to add " + params.get('friendname') + " as a friend?")) {
             linkData = ['friend', params.get('friendlink'), params.get('friendname'), 'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/person/default/48px.svg', randomColor];
             let markos = JSON.parse(localStorage.getItem('bookmarks')) || [];
 
             markos.push(linkData);
             localStorage.setItem('bookmarks', JSON.stringify(markos));
-            console.log('Markos saved:', markos);
+            alert("Friend added: " + params.get('friendname')); // Alert after adding a friend
             history.pushState({}, '', '/');
             passCheck();
         }
     }
 
-if (commonMarkoId && isCommon) {
-    //allCommonMarkos = JSON.parse(localStorage.getItem('commonMarkos')) || [];
-    
-    // Check if commonMarko already exists in localStorage
-    if (allCommonMarkos.includes(commonMarkoId)) {
-        console.log(`A Marko for ${commonName} has already been added.`);
-        alert(`You already have ${commonName} as contact!`);
-        // TODO: add logic to show with updateUI etc
-    } else {
-        // Prompt user to confirm adding as a friend
-        if (confirm(`Do you want to add ${params.get('common-name')} as a friend?`)) {
-            allCommonMarkos.push(commonMarkoId);
-            // Store updated allCommonMarkos array back into localStorage
-            localStorage.setItem('commonMarkos', JSON.stringify(allCommonMarkos));
-            // Call function to sync and show commonMarko
-            syncAndShowCommonMarko(commonMarkoId, commonName);
+    if (commonMarkoId && isCommon) {
+        if (allCommonMarkos.includes(commonMarkoId)) {
+            alert(`You already have ${commonName} as a contact!`);
         } else {
-            console.log('User rejected friend request.');
+            if (confirm(`Do you want to add ${params.get('common-name')} as a friend?`)) {
+                allCommonMarkos.push(commonMarkoId);
+                localStorage.setItem('commonMarkos', JSON.stringify(allCommonMarkos));
+                syncAndShowCommonMarko(commonMarkoId, commonName);
+            } else {
+                alert("User rejected friend request.");
+            }
         }
-    }
-}  
-    
-    
+    }  
+
     if (compressed && isGlobal) {
         try {
             if (confirm("Do you want to add " + `${sharedTitle}` + " as a friend?")) {
                 const decompressed = LZString.decompressFromEncodedURIComponent(compressed);
-                console.log('decompressed data: ' + decompressed);
+                alert("Decompressed data: " + decompressed); // Alert with decompressed data
                 const array = JSON.parse(decompressed);
                 const friendString = JSON.stringify(array);
-                
-                // Generate a UUID
                 const uuid = generateUUID();
-                
-                // Create the local storage key with the UUID
                 const storageKey = "friends/" + `${sharedTitle}` + "+" + uuid;
                 localStorage.setItem(storageKey, friendString);
-                console.log("Friend " + `${sharedTitle}` + " saved:", friendString);
-                
                 const friendUrl = `${storageKey}`;
                 const linkData = ["friend", friendUrl, `${sharedTitle}`, "https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/person/default/48px.svg", getColor()];
                 bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
-
                 bookmarks.push(linkData);
                 localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
-                console.log('Markos saved:', bookmarks);
+                alert("Friend saved: " + sharedTitle); // Alert after saving the friend
                 history.pushState({}, '', '/');
                 passCheck();
             } else {
+                alert("User canceled friend addition.");
                 history.pushState({}, '', '/');
             }
         } catch (error) {
-            console.log('Failed to load array from URL.');
+            alert('Failed to load array from URL.');
         }
     }
-            function getColor() {
+    
+    function getColor() {
         const letters = '0123456789ABCDEF';
         let color = '#';
         for (let i = 0; i < 6; i++) {
@@ -3393,6 +3289,7 @@ if (commonMarkoId && isCommon) {
         return color;
     }
 }
+
       
 // Function to extract base URL from a full URL
 function getBaseUrl(url) {
