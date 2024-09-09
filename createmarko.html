@@ -13,6 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/notiflix@3/dist/notiflix-aio-3.2.7.min.js"></script>
       <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">  
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest/dist/editor.css">
+        <link href="https://unpkg.com/filepond@4.30.4/dist/filepond.css" rel="stylesheet" />
         <script src="https://cdn.jsdelivr.net/npm/editorjs-html@latest/build/edjsHTML.js"></script>
 <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
 <script src="https://unpkg.com/showdown/dist/showdown.min.js"></script>
@@ -776,12 +777,151 @@ body.dark-mode {
         .color-square:hover {
             transform: scale(1.1);
         }
+        /* Custom modal styles */
+        .custom-modal {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            z-index: 9999;
+            padding: 20px;
+            background: #f8f8f8;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            animation-duration: 300ms;
+            max-width: 400px;
+            margin: 0 auto;
+            display: none;
+        }
+        .custom-modal-header {
+            font-size: 20px;
+            font-weight: bold;
+            color: #000;
+            margin-bottom: 15px;
+        }
+        .custom-modal-body {
+            margin-bottom: 15px;
+        }
+        .custom-modal-body input[type="text"] {
+            width: calc(100% - 20px);
+            height: 40px; /* Reduced height */
+            font-size: 18px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+/* Ensuring the FilePond element matches the fileInput width */
+.custom-modal-body .filepond--root {
+    width: 100%; /* Make it as wide as the container */
+    height: auto; /* Adjust height to fit the contents */
+    margin: 0 auto; /* Center align */
+    max-width: 100%; /* Ensure responsiveness */
+}
 
+/* Align the label correctly within the FilePond component */
+.filepond--drop-label {
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+}
+
+/* For smaller screens, change the label to 'Select a file' */
+@media (max-width: 767px) {
+    .filepond--drop-label label {
+        font-size: 14px;
+    }
+}
+
+/* Adjust the file input to match the height and width of the FilePond element */
+.custom-modal-body input[type="text"] {
+    width: 100%; /* Make the file input the same width */
+    margin-bottom: 15px;
+    padding: 10px;
+    box-sizing: border-box;
+    border-radius: 8px;
+    height: 50px; /* Adjust height for consistency */
+    font-size: 16px;
+}
+
+        .custom-modal-buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .custom-button {
+            color: #f8f8f8;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 15px;
+            text-align: center;
+            width: calc(50% - 10px); /* Evenly distributing the button width */
+        }
+        .custom-button.next {
+            background-color: #0D47A1;
+        }
+        .custom-button.cancel {
+            background-color: #a9a9a9;
+        }
+        .custom-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9998;
+        }
+
+        /* Custom filepond label alignment */
+        .filepond--drop-label {
+            font-size: 16px;
+            padding: 10px;
+            line-height: 1.5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Mobile-specific adjustments */
+        @media (max-width: 767px) {
+            /* Use correct method for FilePond label */
+            .filepond--drop-label {
+                font-size: 14px;
+            }
+        }
+
+        /* Responsive adjustments for desktop */
+        @media (min-width: 768px) {
+            .custom-modal {
+                top: 20px; /* Closer to the top for desktop */
+                left: 0;
+                right: 0;
+                margin: 0 auto; /* Center the modal horizontally */
+            }
+        }
     </style>
 </head>
 <body>
+<script src="https://unpkg.com/filepond@4.30.4/dist/filepond.min.js"></script>
 
-
+    <!-- Custom Modal Markup -->
+    <div id="customModal" class="custom-modal" style="display: none;">
+        <div class="custom-modal-header" id="modalTitle"></div>
+        <div class="custom-modal-body">
+            <input type="text" id="fileNameInput" placeholder="Enter file name (optional)" />
+            <input type="file" id="fileUpload" />
+        </div>
+        <div class="custom-modal-buttons">
+            <button class="custom-button next" id="confirmButton">Continue</button>
+            <button class="custom-button cancel" id="cancelButton">Cancel</button>
+        </div>
+    </div>
+    <div id="customModalOverlay" class="custom-modal-overlay" style="display: none;"></div>
 <!-- Language selection dropdown -->
     <div class="translate-dropdown">
         <select id="translate-select" onchange="changeLanguage()">
@@ -850,6 +990,7 @@ body.dark-mode {
                 <option value="11">pdf</option>
                 <option value="12">download</option>
                 <option value="13">videocall</option>
+                <option value="14">file</option>
             </select>
         </div>
         <div id="form-buttons">
@@ -1020,7 +1161,8 @@ const markoTypes = [
     'payment',            // Index 10
     'pdf',                // Index 11
     'download',           // Index 12
-    'videocall'           // Index 13
+    'videocall',          // Index 13
+    'file'                // Index 14
 ];
 
 // Initialize Notiflix Prompt with options
@@ -1029,7 +1171,7 @@ Notiflix.Confirm.init({
     position: 'center-top', // Position in the upper half of the screen in the middle
     width: '400px', // Maximum width
     borderRadius: '8px', // Border radius
-    useGoogleFont: true, // Disable Google Fonts to use custom font
+    useGoogleFont: true, // Disable Google Fonts to use custom fon
     fontFamily: 'Roboto, sans-serif', // Set font family
     cssAnimationStyle: 'zoom', // Animation style
     backOverlay: true,
@@ -1717,6 +1859,7 @@ function hideForm(formId) {
 
 async function getFavicon(url) {
     url = url.replace(/^https?:\/\//, '');
+    // TODO: change to my own custom solution --> fetchMetadata
     const fav = `https://mass-pink-panther.faviconkit.com/${url}/64`;
     return fav;
 }
@@ -1833,7 +1976,18 @@ async function chooseMarkoType() {
                 sessionStorage.setItem('temp-marko-type', selectedType);
                 
                 try {
-                    if (selectedType !== 'note' && selectedType !== 'post' &&  selectedType !== 'videocall' && selectedType !== 'window') {
+                    if (selectedType === 'file') {
+                        alert('You have to login to use this feature - You will upload to your own Google Drive to create the Marko');
+                        const file = await chooseMarkoFile(selectedType);
+                        console.log('File chosen: ', file);
+                        randomColor = getRandomColor();
+                        sessionStorage.setItem('temp-marko-icon', 'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/file/default/48px.svg');
+                        randomColor = getRandomColor();
+                        sessionStorage.setItem('temp-marko-color', randomColor);
+                        
+                        
+                    }
+                    else if (selectedType !== 'note' && selectedType !== 'post' &&  selectedType !== 'videocall' && selectedType !== 'window') {
                     // Delay before calling chooseMarkoLink
                     await new Promise(resolve => setTimeout(resolve, 500));
                     console.log('Calling chooseMarkoLink');
@@ -2418,6 +2572,125 @@ async function processNote(name) {
     }
 }
 
+async function chooseMarkoFile(type) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+try {
+        const fileData = await askForFileUpload();
+        
+        if (!fileData || !fileData.file) {
+            throw new Error('No file uploaded!');
+        }
+
+        const accessToken = localStorage.getItem('accessToken'); // Replace with your actual access token
+        const fileId = await uploadFile(fileData.file, accessToken, fileData.name);
+
+        alert(`Marko created with uploaded file. File ID: ${fileId}`);
+    } catch (error) {
+        alert(error.message);
+    }
+
+}
+
+async function uploadFile(file, accessToken, fileName) {
+    try {
+        // Prepare file metadata
+        const metadata = {
+            name: fileName || file.name,
+            mimeType: file.type,
+        };
+
+        const formData = new FormData();
+        formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+        formData.append('file', file);
+
+        // Upload file
+        const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: formData
+        });
+
+        if (!uploadResponse.ok) {
+            const errorText = await uploadResponse.text();
+            console.error('Error uploading file:', errorText);
+            throw new Error(`Error uploading file: ${errorText}`);
+        }
+
+        const uploadResult = await uploadResponse.json();
+        console.log('File uploaded:', uploadResult);
+
+        // Set file permissions to public
+        const permissionResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${uploadResult.id}/permissions`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                type: 'anyone',
+                role: 'reader'
+            })
+        });
+
+        if (!permissionResponse.ok) {
+            const permissionErrorText = await permissionResponse.text();
+            console.error('Error setting file permissions:', permissionErrorText);
+            throw new Error(`Error setting file permissions: ${permissionErrorText}`);
+        }
+
+        console.log('File ID is ' + uploadResult.id);
+        const fileUrl = `https://drive.google.com/thumbnail?id=${uploadResult.id}`;
+
+        // Save the URL to sessionStorage
+        sessionStorage.setItem('temp-marko-link', fileUrl);
+        sessionStorage.setItem('temp-marko-name', fileName || file.name);
+
+        return uploadResult.id;
+    } catch (error) {
+        console.error('Error during file upload process:', error);
+        throw error;
+    }
+}
+
+async function askForFileUpload() {
+    return new Promise((resolve) => {
+        // Show the custom modal
+        document.getElementById('modalTitle').textContent = 'Upload a File';
+        document.getElementById('customModal').style.display = 'block';
+        document.getElementById('customModalOverlay').style.display = 'block';
+
+        // Initialize FilePond for the file input
+        const inputElement = document.querySelector('#fileUpload');
+        const pond = FilePond.create(inputElement, {
+            labelIdle: window.innerWidth < 768 
+                ? 'Select a file'  // Mobile-specific label
+                : 'Drag & Drop your files or <span class="filepond--label-action">Browse</span>' // Default label for desktop
+        });
+
+        // Confirm button action
+        document.getElementById('confirmButton').addEventListener('click', function() {
+            const file = pond.getFile();
+            const fileName = document.getElementById('fileNameInput').value || (file ? file.file.name : '');
+            resolve(file ? { file: file.file, name: fileName } : null); // Resolve with the file and name if uploaded
+            closeModal();
+        });
+
+        // Cancel button action
+        document.getElementById('cancelButton').addEventListener('click', function() {
+            resolve(null); // Resolve with null if canceled
+            closeModal();
+        });
+
+        function closeModal() {
+            // Hide the modal and overlay
+            document.getElementById('customModal').style.display = 'none';
+            document.getElementById('customModalOverlay').style.display = 'none';
+        }
+    });
+}
+        
 async function chooseMarkoIconType(type) {
     console.log('Entering chooseMarkoLink for type:', type);
     await new Promise(resolve => setTimeout(resolve, 500));
