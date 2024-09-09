@@ -3218,6 +3218,19 @@ function handleSharedLink(url, title, text) {
         }
     }
 
+  if (sharedText && sharedText.startsWith("http")) {
+    const decodedText = decodeURIComponent(sharedText); // Decode the URL
+    const baseUrl = getBaseUrl(decodedText);
+    const urlWithoutProtocolAndPathAsName = baseUrl.replace(/(^\w+:|^)\/\//, '').split('/')[0]; // Removing protocol and path
+    const randomColor = getColor();
+
+    console.log(`Creating a Marko for the website: ${urlWithoutProtocolAndPathAsName}`);
+    createMarko("website", decodedText, urlWithoutProtocolAndPathAsName, '/triskelion.svg', randomColor);
+    
+    window.history.replaceState({}, document.title, "/");
+    return;
+}
+
     if (reminder) {
         alert("Reminder detected: " + reminder); // Alert for reminder
         openReminder(reminder);
