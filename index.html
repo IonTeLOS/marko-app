@@ -3122,14 +3122,7 @@ function handleSharedLink(url, title, text) {
 }
             
   function loadArrayFromURL() {
-        function getColor() {
-        const letters = '0123456789ABCDEF';
-        let color = '#';
-        for (let i = 0; i < 6; i++) {
-            color += letters[Math.floor(Math.random() * 16)];
-        }
-        return color;
-    }
+
     const params = new URLSearchParams(window.location.search);
     
     const compressed = params.get('data');
@@ -3390,6 +3383,14 @@ if (commonMarkoId && isCommon) {
         } catch (error) {
             console.log('Failed to load array from URL.');
         }
+    }
+            function getColor() {
+        const letters = '0123456789ABCDEF';
+        let color = '#';
+        for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
     }
 }
       
