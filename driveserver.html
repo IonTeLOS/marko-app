@@ -499,9 +499,11 @@ async function handleOAuth2Flow() {
         const contentResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`, {
             method: 'GET'
         });
-
+      
         // Handle content based on MIME type
         const contentType = contentResponse.headers.get('Content-Type');
+        console.log(contentType);
+        console.log(contentResponse);
         const fileName = 'filename.ext'; // This should be fetched from metadata if available
 
         if (contentType.includes('application/pdf')) {
@@ -533,8 +535,7 @@ async function handleOAuth2Flow() {
                 iframe.src = fileUrl;
             } else {
                 // Notify the user that the file cannot be displayed and prompt for download
-                alert(`The file '${fileName}' cannot be displayed in the browser.`);
-                const userConfirmed = confirm('Do you want to download the file?');
+                const userConfirmed = confirm(`The file '${fileName}' cannot be displayed in the browser. Do you want to download the file?`);
 
                 if (userConfirmed) {
                     // Trigger download
