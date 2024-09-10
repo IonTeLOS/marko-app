@@ -164,6 +164,7 @@
         let mediaStream, mediaRecorder, recordedChunks = [];
         let isAudioMuted = false, isVideoPaused = false, isStreamPaused = false;
         let pauseTimer, warningTimer;
+        let accessToken = localStorage.getItem('accessToken');
 
         const $ = document.querySelector.bind(document);
         const mediaPreview = $('#mediaPreview');
