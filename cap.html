@@ -327,8 +327,8 @@
             clearPauseTimer();
         };
         
-        async function uploadFile(file, accessToken, fileName) {
-    try {
+    async function uploadFile(file, accessToken = localStorage.getItem('accessToken'), fileName) {    
+        try {
         // Prepare file metadata
         const metadata = {
             name: fileName || file.name,
