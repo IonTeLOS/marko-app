@@ -19,15 +19,21 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
+
 async function getKey(topic) {
     const key = await localforage.getItem(topic);
     if (!key) {
         console.error('No key found for topic:', topic);
         return null;
     }
+    if (key.byteLength !== 32) {
+        console.error('Invalid key length:', key.byteLength);
+        return null;
+    }
     return new Uint8Array(key);
 }
 
+// Decrypt the message
 async function decryptMessage(encryptedMessage, key) {
     const keyBuffer = await crypto.subtle.importKey(
         "raw",
@@ -38,10 +44,15 @@ async function decryptMessage(encryptedMessage, key) {
     );
 
     const { iv, encryptedData } = JSON.parse(encryptedMessage);
+
+    // Ensure iv and encryptedData are Uint8Array
+    const ivBuffer = new Uint8Array(iv);
+    const encryptedDataBuffer = new Uint8Array(encryptedData);
+
     const decrypted = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: new Uint8Array(iv) },
+        { name: "AES-GCM", iv: ivBuffer },
         keyBuffer,
-        new Uint8Array(encryptedData)
+        encryptedDataBuffer
     );
 
     return new TextDecoder().decode(decrypted);
