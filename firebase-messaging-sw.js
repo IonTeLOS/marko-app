@@ -19,14 +19,41 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
+// Pre-shared key (32 bytes for AES-256)
+const key = new Uint8Array([
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+    17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32
+]);
+
+async function decryptMessage(encryptedMessage) {
+    const keyBuffer = await crypto.subtle.importKey(
+        "raw",
+        key,
+        { name: "AES-GCM" },
+        false,
+        ["decrypt"]
+    );
+
+    const { iv, encryptedData } = JSON.parse(encryptedMessage);
+    const decrypted = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: new Uint8Array(iv) },
+        keyBuffer,
+        new Uint8Array(encryptedData)
+    );
+
+    return new TextDecoder().decode(decrypted);
+}
+
 messaging.onBackgroundMessage(async (payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
 
   // Check if the message is from a topic
   if (payload.data && payload.data.topic) {
+    const decryptedMessage = await decryptMessage(payload.data.message);
     // Extract necessary fields from the data payload
     const notificationTitle = payload.data.title || payload.data.topic;
-    const notificationBody = payload.data.message || 'buzzed..';
+    const notificationBody = decryptedMessage || 'buzzed..';
+    //const notificationBody = payload.data.message || 'buzzed..';
     const notificationIcon = payload.data.attachment_url || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg'; // Default icon if not provided
     const clickAction = payload.data.click || 'https://marko-app.netlify.app'; // Default click action if not provided
 
