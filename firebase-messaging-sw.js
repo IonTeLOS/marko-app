@@ -19,13 +19,16 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// Pre-shared key (32 bytes for AES-256)
-const key = new Uint8Array([
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-    17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32
-]);
+async function getKey(topic) {
+    const key = await localforage.getItem(topic);
+    if (!key) {
+        console.error('No key found for topic:', topic);
+        return null;
+    }
+    return new Uint8Array(key);
+}
 
-async function decryptMessage(encryptedMessage) {
+async function decryptMessage(encryptedMessage, key) {
     const keyBuffer = await crypto.subtle.importKey(
         "raw",
         key,
@@ -46,10 +49,16 @@ async function decryptMessage(encryptedMessage) {
 
 messaging.onBackgroundMessage(async (payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
-
   // Check if the message is from a topic
-  if (payload.data && payload.data.topic) {
-    const decryptedMessage = await decryptMessage(payload.data.message);
+    if (payload.data && payload.data.topic) {
+      try {
+      const topic = payload.data.topic;
+    const key = await getKey(topic);
+
+    if (!key) {
+      throw new Error('No key available for decryption');
+    }
+    const decryptedMessage = await decryptMessage(payload.data.message, key);
     // Extract necessary fields from the data payload
     const notificationTitle = payload.data.title || payload.data.topic;
     const notificationBody = decryptedMessage || 'buzzed..';
@@ -74,7 +83,11 @@ messaging.onBackgroundMessage(async (payload) => {
     }
     // Show the notification
     self.registration.showNotification(notificationTitle, notificationOptions);
-  }
+   } catch (error) {
+            console.error('Error processing encrypted message:', error);
+            // Handle decryption error (e.g., show a generic notification)
+     }
+    }
 
   // Handle other cases where notification is provided in payload.notification
   if (payload.notification) {
