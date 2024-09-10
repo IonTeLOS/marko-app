@@ -299,8 +299,6 @@
                 loadingOverlay.classList.remove('hidden');
                 const fileId = await uploadFile(blob, accessToken, fileName);
                 const fileUrl = `https://marko-app.netlify.app/driveserver?site=${fileId}`;
-                fileLink.href = fileUrl;
-                fileLink.textContent = `View ${fileName}`;
            Notiflix.Confirm.show(
             'File Upload Success',
             `Click OK to view <strong>${fileName}</strong>.`,
@@ -485,9 +483,17 @@ async function getOrCreateFolder(folderName, accessToken) {
                     loadingOverlay.classList.remove('hidden');
                     const fileId = await uploadFile(photoBlob, accessToken, fileName);
                     const fileUrl = `https://marko-app.netlify.app/driveserver?site=${fileId}`;
-                    fileLink.href = fileUrl;
-                    fileLink.textContent = `View ${fileName}`;
-                    fileUrl.classList.remove('hidden');
+                Notiflix.Confirm.show(
+                'File Upload Success',
+                `Click OK to view <strong>${fileName}</strong>.`,
+                'OK',
+                'Cancel',
+                () => {
+                // Open the link in a new tab when OK is clicked
+                window.open(fileUrl, '_blank');
+                },
+                () => { /* Optional: Handle Cancel button click if needed */ }
+                );
                 } catch (error) {
                     console.error('Error capturing or uploading photo:', error);
                     alert('Failed to capture or upload photo. Please try again.');
