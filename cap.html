@@ -325,12 +325,16 @@
             clearPauseTimer();
         };
         
-    async function uploadFile(file, accessToken = localStorage.getItem('accessToken'), fileName) {    
-        try {
+async function uploadFile(file, accessToken = localStorage.getItem('accessToken'), fileName) {    
+    try {
+        // Step 1: Check if the folder exists
+        let folderId = await getOrCreateFolder('marko-app', accessToken);
+
         // Prepare file metadata
         const metadata = {
             name: fileName || file.name,
             mimeType: file.type,
+            parents: [folderId]  // Set the parent folder ID
         };
 
         const formData = new FormData();
@@ -387,6 +391,72 @@
         throw error;
     }
 }
+
+async function getOrCreateFolder(folderName, accessToken) {
+    // Step 2: Search for the folder
+    const folderSearchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false&fields=files(id)`, {
+        headers: {
+            'Authorization': `Bearer ${accessToken}`
+        }
+    });
+
+    if (!folderSearchResponse.ok) {
+        const errorText = await folderSearchResponse.text();
+        console.error('Error searching for folder:', errorText);
+        throw new Error(`Error searching for folder: ${errorText}`);
+    }
+
+    const folderSearchResult = await folderSearchResponse.json();
+    let folderId = folderSearchResult.files[0]?.id;
+
+    if (!folderId) {
+        // Step 3: Create the folder if it does not exist
+        const createFolderResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: folderName,
+                mimeType: 'application/vnd.google-apps.folder',
+                parents: [],
+                fields: 'id'
+            })
+        });
+
+        if (!createFolderResponse.ok) {
+            const errorText = await createFolderResponse.text();
+            console.error('Error creating folder:', errorText);
+            throw new Error(`Error creating folder: ${errorText}`);
+        }
+
+        const createFolderResult = await createFolderResponse.json();
+        folderId = createFolderResult.id;
+
+        // Step 4: Make the folder universally readable
+        const permissionResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${folderId}/permissions`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                type: 'anyone',
+                role: 'reader'
+            })
+        });
+
+        if (!permissionResponse.ok) {
+            const permissionErrorText = await permissionResponse.text();
+            console.error('Error setting folder permissions:', permissionErrorText);
+            throw new Error(`Error setting folder permissions: ${permissionErrorText}`);
+        }
+    }
+
+    return folderId;
+}
+
 
         takePhotoBtn.addEventListener('click', async () => {
             if (takePhotoBtn.textContent.includes('Photo')) {
