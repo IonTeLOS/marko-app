@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Optimized Media Capture with File Upload</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notiflix@3.2.6/dist/notiflix-3.2.6.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/notiflix@3.2.6/dist/notiflix-3.2.6.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -299,7 +301,17 @@
                 const fileUrl = `https://marko-app.netlify.app/driveserver?site=${fileId}`;
                 fileLink.href = fileUrl;
                 fileLink.textContent = `View ${fileName}`;
-                fileUrl.classList.remove('hidden');
+           Notiflix.Confirm.show(
+            'File Upload Success',
+            `Click OK to view <strong>${fileName}</strong>.`,
+            'OK',
+            'Cancel',
+            () => {
+                // Open the link in a new tab when OK is clicked
+                window.open(fileUrl, '_blank');
+            },
+            () => { /* Optional: Handle Cancel button click if needed */ }
+        );
             } catch (error) {
                 console.error('Error uploading file:', error);
                 alert('Failed to upload file. Please try again.');
