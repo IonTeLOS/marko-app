@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimized Media Capture with File Upload</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 640px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        #mediaPreview, #photoResult, #videoResult, #audioResult {
+            width: 100%;
+            max-height: 480px;
+            object-fit: cover;
+        }
+        .controls {
+            padding: 20px;
+        }
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-blue { background-color: #2196F3; color: white; }
+        .btn-green { background-color: #4CAF50; color: white; }
+        .btn-orange { background-color: #FF9800; color: white; }
+        .btn-red { background-color: #F44336; color: white; }
+        .indicator {
+            padding: 5px 10px;
+            border-radius: 4px;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+            font-size: 12px;
+            color: white;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+        }
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #F44336;
+            margin-right: 5px;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.7; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.7; }
+        }
+        .hidden { display: none !important; }
+        #defaultPhoto {
+            width: 100%;
+            height: 480px;
+            object-fit: cover;
+            display: none;
+        }
+        .warning {
+            color: #FFA000;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #09f;
+            animation: spin 1s ease infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+    <div class="container">
+        <h1>Optimized Media Capture</h1>
+        <div style="position: relative;">
+            <video id="mediaPreview" autoplay playsinline muted class="hidden"></video>
+            <img id="defaultPhoto" src="https://via.placeholder.com/640x480.png?text=Video+Paused" alt="Default Photo">
+            <div id="indicator" class="indicator hidden">
+                <div class="pulse-dot"></div>
+                <span id="indicatorText"></span>
+            </div>
+        </div>
+        <img id="photoResult" class="hidden" alt="Captured photo"/>
+        <video id="videoResult" controls class="hidden"></video>
+        <audio id="audioResult" controls class="hidden"></audio>
+        <div class="controls">
+            <div class="btn-group">
+                <button id="takePhoto" class="btn btn-blue"><i class="material-icons">camera_alt</i> Photo</button>
+                <button id="startVideo" class="btn btn-green"><i class="material-icons">videocam</i> Video</button>
+                <button id="startAudio" class="btn btn-orange"><i class="material-icons">mic</i> Audio</button>
+                <button id="stopCapture" class="btn btn-red hidden"><i class="material-icons">stop</i> Stop</button>
+            </div>
+            <div id="streamControls" class="btn-group hidden">
+                <button id="toggleAudio" class="btn btn-blue"><i class="material-icons">volume_off</i> Mute Audio</button>
+                <button id="toggleVideo" class="btn btn-green"><i class="material-icons">videocam_off</i> Hide Video</button>
+                <button id="pauseStream" class="btn btn-orange"><i class="material-icons">pause</i> Pause</button>
+            </div>
+            <div id="fileUrl" class="hidden">
+                <a id="fileLink" class="btn btn-blue" target="_blank"><i class="material-icons">file_download</i> View File</a>
+            </div>
+            <div id="warningMessage" class="warning hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        let mediaStream, mediaRecorder, recordedChunks = [];
+        let isAudioMuted = false, isVideoPaused = false, isStreamPaused = false;
+        let pauseTimer, warningTimer;
+
+        const $ = document.querySelector.bind(document);
+        const mediaPreview = $('#mediaPreview');
+        const photoResult = $('#photoResult');
+        const videoResult = $('#videoResult');
+        const audioResult = $('#audioResult');
+        const defaultPhoto = $('#defaultPhoto');
+        const indicator = $('#indicator');
+        const indicatorText = $('#indicatorText');
+        const takePhotoBtn = $('#takePhoto');
+        const startVideoBtn = $('#startVideo');
+        const startAudioBtn = $('#startAudio');
+        const stopCaptureBtn = $('#stopCapture');
+        const toggleAudioBtn = $('#toggleAudio');
+        const toggleVideoBtn = $('#toggleVideo');
+        const pauseStreamBtn = $('#pauseStream');
+        const streamControls = $('#streamControls');
+        const warningMessage = $('#warningMessage');
+        const loadingOverlay = $('#loadingOverlay');
+        const fileUrl = $('#fileUrl');
+        const fileLink = $('#fileLink');
+
+        // Simulated access token (replace with actual implementation)
+        const accessToken = 'your_access_token_here';
+
+        window.addEventListener('load', () => {
+            loadingOverlay.classList.add('hidden');
+        });
+
+        const getFileName = (type) => `${new Date().toISOString().replace(/:/g, '-')}.${type}`;
+
+        const hideMediaPreviews = () => {
+            [photoResult, videoResult, audioResult].forEach(el => el.classList.add('hidden'));
+        };
+
+        const showIndicator = (text) => {
+            indicatorText.textContent = text;
+            indicator.classList.remove('hidden');
+        };
+
+        const hideIndicator = () => {
+            indicator.classList.add('hidden');
+        };
+
+        const startPreview = async (type) => {
+            hideMediaPreviews();
+            const constraints = {
+                audio: true,
+                video: type !== 'audio' ? { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } : false
+            };
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                if (type !== 'audio') {
+                    mediaPreview.srcObject = mediaStream;
+                    mediaPreview.classList.remove('hidden');
+                    defaultPhoto.style.display = 'none';
+                }
+                stopCaptureBtn.classList.remove('hidden');
+
+                const mimeType = type === 'audio' ? 'audio/webm' : 'video/webm;codecs=vp9,opus';
+                mediaRecorder = new MediaRecorder(mediaStream, { mimeType });
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) {
+                        recordedChunks.push(e.data);
+                    }
+                };
+                mediaRecorder.onstart = () => showIndicator('Recording');
+                mediaRecorder.onpause = () => showIndicator('Paused');
+                mediaRecorder.onresume = () => showIndicator('Recording');
+                mediaRecorder.onstop = handleStop;
+
+                if (type === 'video' || type === 'audio') {
+                    streamControls.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error accessing media devices:', error);
+                alert('Failed to access media devices. Please ensure you have given the necessary permissions.');
+            }
+        };
+
+        const toggleAudio = () => {
+            isAudioMuted = !isAudioMuted;
+            mediaStream.getAudioTracks().forEach(track => track.enabled = !isAudioMuted);
+            toggleAudioBtn.innerHTML = isAudioMuted ? 
+                '<i class="material-icons">volume_up</i> Unmute' :
+                '<i class="material-icons">volume_off</i> Mute Audio';
+        };
+
+        const toggleVideo = () => {
+            isVideoPaused = !isVideoPaused;
+            mediaStream.getVideoTracks().forEach(track => track.enabled = !isVideoPaused);
+            toggleVideoBtn.innerHTML = isVideoPaused ?
+                '<i class="material-icons">videocam</i> Show Video' :
+                '<i class="material-icons">videocam_off</i> Hide Video';
+            mediaPreview.style.display = isVideoPaused ? 'none' : 'block';
+            defaultPhoto.style.display = isVideoPaused ? 'block' : 'none';
+        };
+
+        const pauseStream = () => {
+            isStreamPaused = !isStreamPaused;
+            if (isStreamPaused) {
+                mediaRecorder.pause();
+                pauseStreamBtn.innerHTML = '<i class="material-icons">play_arrow</i> Resume';
+                startPauseTimer();
+            } else {
+                mediaRecorder.resume();
+                pauseStreamBtn.innerHTML = '<i class="material-icons">pause</i> Pause';
+                clearPauseTimer();
+            }
+        };
+
+        const startPauseTimer = () => {
+            clearPauseTimer();
+            pauseTimer = setTimeout(() => {
+                warningMessage.textContent = 'Warning: Recording will stop in 1 minute if not resumed.';
+                warningMessage.classList.remove('hidden');
+                warningTimer = setTimeout(stopCapture, 60000);
+            }, 240000);
+        };
+
+        const clearPauseTimer = () => {
+            clearTimeout(pauseTimer);
+            clearTimeout(warningTimer);
+            warningMessage.classList.add('hidden');
+        };
+
+        const handleStop = async () => {
+            const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
+            const fileName = getFileName(mediaRecorder.mimeType.includes('video') ? 'webm' : 'wav');
+            
+            try {
+                loadingOverlay.classList.remove('hidden');
+                const fileId = await uploadFile(blob, accessToken, fileName);
+                const fileUrl = `https://marko-app.netlify.app/driveserver?site=${fileId}`;
+                fileLink.href = fileUrl;
+                fileLink.textContent = `View ${fileName}`;
+                fileUrl.classList.remove('hidden');
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                alert('Failed to upload file. Please try again.');
+            } finally {
+                loadingOverlay.classList.add('hidden');
+            }
+
+            recordedChunks = [];
+            [startVideoBtn, takePhotoBtn, startAudioBtn].forEach(btn => btn.classList.remove('hidden'));
+            mediaPreview.classList.add('hidden');
+            defaultPhoto.style.display = 'none';
+            hideIndicator();
+        };
+
+        const stopCapture = () => {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
+            stopCaptureBtn.classList.add('hidden');
+            streamControls.classList.add('hidden');
+            clearPauseTimer();
+        };
+        
+        async function uploadFile(file, accessToken, fileName) {
+    try {
+        // Prepare file metadata
+        const metadata = {
+            name: fileName || file.name,
+            mimeType: file.type,
+        };
+
+        const formData = new FormData();
+        formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+        formData.append('file', file);
+
+        // Upload file
+        const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: formData
+        });
+
+        if (!uploadResponse.ok) {
+            const errorText = await uploadResponse.text();
+            console.error('Error uploading file:', errorText);
+            throw new Error(`Error uploading file: ${errorText}`);
+        }
+
+        const uploadResult = await uploadResponse.json();
+        console.log('File uploaded:', uploadResult);
+
+        // Set file permissions to public
+        const permissionResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${uploadResult.id}/permissions`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                type: 'anyone',
+                role: 'reader'
+            })
+        });
+
+        if (!permissionResponse.ok) {
+            const permissionErrorText = await permissionResponse.text();
+            console.error('Error setting file permissions:', permissionErrorText);
+            throw new Error(`Error setting file permissions: ${permissionErrorText}`);
+        }
+
+        console.log('File ID is ' + uploadResult.id);
+        const fileUrl = `https://marko-app.netlify.app/driveserver?site=${uploadResult.id}`;
+
+        // Save the URL to sessionStorage
+        sessionStorage.setItem('temp-marko-link', fileUrl);
+        sessionStorage.setItem('temp-marko-name', fileName || file.name);
+
+        return uploadResult.id;
+    } catch (error) {
+        console.error('Error during file upload process:', error);
+        throw error;
+    }
+}
+
+        takePhotoBtn.addEventListener('click', async () => {
+            if (takePhotoBtn.textContent.includes('Photo')) {
+                await startPreview('photo');
+                takePhotoBtn.innerHTML = '<i class="material-icons">camera</i> Capture';
+                [startVideoBtn, startAudioBtn].forEach(btn => btn.classList.add('hidden'));
+            } else {
+                const track = mediaStream.getVideoTracks()[0];
+                const imageCapture = new ImageCapture(track);
+                try {
+                    const photoBlob = await imageCapture.takePhoto();
+                    const fileName = getFileName('jpg');
+                    loadingOverlay.classList.remove('hidden');
+                    const fileId = await uploadFile(photoBlob, accessToken, fileName);
+                    const fileUrl = `https://marko-app.netlify.app/driveserver?site=${fileId}`;
+                    fileLink.href = fileUrl;
+                    fileLink.textContent = `View ${fileName}`;
+                    fileUrl.classList.remove('hidden');
+                } catch (error) {
+                    console.error('Error capturing or uploading photo:', error);
+                    alert('Failed to capture or upload photo. Please try again.');
+                } finally {
+                    loadingOverlay.classList.add('hidden');
+                }
+                stopCapture();
+                takePhotoBtn.innerHTML = '<i class="material-icons">camera_alt</i> Photo';
+            }
+        });
+
+        startVideoBtn.addEventListener('click', async () => {
+            await startPreview('video');
+            mediaRecorder.start();
+            [startVideoBtn, takePhotoBtn, startAudioBtn].forEach(btn => btn.classList.add('hidden'));
+        });
+
+        startAudioBtn.addEventListener('click', async () => {
+            await startPreview('audio');
+            mediaRecorder.start();
+            [startAudioBtn, takePhotoBtn, startVideoBtn].forEach(btn => btn.classList.add('hidden'));
+        });
+
+        stopCaptureBtn.addEventListener('click', stopCapture);
+        toggleAudioBtn.addEventListener('click', toggleAudio);
+        toggleVideoBtn.addEventListener('click', toggleVideo);
+        pauseStreamBtn.addEventListener('click', pauseStream);
+    </script>
+</body>
+</html>
