@@ -326,7 +326,7 @@
             clearPauseTimer();
         };
         
-async function uploadFile(file, accessToken = localStorage.getItem('accessToken'), fileName) {    
+async function uploadFile(file, accessToken, fileName) {    
     try {
         // Step 1: Check if the folder exists
         let folderId = await getOrCreateFolder('marko-app', accessToken);
