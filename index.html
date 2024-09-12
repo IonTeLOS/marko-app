@@ -1748,6 +1748,48 @@ function showNotification({ topic, title, message, attachmentUrl, clickActionUrl
     }, 300);
   }, 20000); 
 }
+
+async function encryptData(data, key) {
+
+    const keyBuffer = new Uint8Array(key);
+    
+    // Import the key into the Web Crypto API
+    const cryptoKey = await crypto.subtle.importKey(
+        "raw",
+        keyBuffer,
+        { name: "AES-GCM" },
+        false,
+        ["encrypt"]
+    );
+
+    // Generate a random IV (Initialization Vector)
+    const iv = crypto.getRandomValues(new Uint8Array(12)); // AES-GCM standard IV length is 12 bytes
+
+    // Convert the data to an ArrayBuffer
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(data);
+
+    // Encrypt the data
+    const encryptedBuffer = await crypto.subtle.encrypt(
+        {
+            name: "AES-GCM",
+            iv: iv
+        },
+        cryptoKey,
+        dataBuffer
+    );
+
+    // Convert the encrypted data and IV to base64 for easy transmission
+    const encryptedArray = new Uint8Array(encryptedBuffer);
+    const encryptedBase64 = btoa(String.fromCharCode(...encryptedArray));
+    const ivBase64 = btoa(String.fromCharCode(...iv));
+
+    // Return an object containing the encrypted data and IV
+    return {
+        iv: ivBase64,
+        encryptedData: encryptedBase64
+    };
+}  
   
 function showReplyForm(topic) {
   // Create a form container
@@ -1850,9 +1892,21 @@ function showReplyForm(topic) {
 
   // Add event listener to the submit button
   submitButton.addEventListener('click', () => {
-    const message = messageInput.value;
-    const attachment_url = attachmentUrlInput.value;
-    const click = clickUrlInput.value;
+    //const message = messageInput.value;
+    //const attachment_url = attachmentUrlInput.value;
+    //const click = clickUrlInput.value;
+    // Retrieve the key from localForage
+    const key = localforage.getItem(topic);
+    if (!key) {
+        throw new Error('No key found for topic:', topic);
+    }
+    if (key.byteLength !== 32) {
+        throw new Error('Invalid key length:', key.byteLength);
+    }
+    
+    const message = await encryptData(messageInput.value, key);
+    const attachment_url = await encryptData(attachmentUrlInput.value, key);
+    const click = await encryptData(clickUrlInput.value, key);
     const confTag = confCheckbox.checked ? 'conf' : '';
     
     // Perform the fetch request
