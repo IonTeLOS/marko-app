@@ -1789,8 +1789,7 @@ function encryptData(data, key) {
                 };
             });
         });
-    });
-}
+    }
   
 function showReplyForm(topic) {
   // Create a form container
@@ -1945,10 +1944,6 @@ submitButton.addEventListener('click', () => {
   document.body.appendChild(formContainer);
 }
 
-window.showReplyForm = showReplyForm;
-window.encryptData = encryptData;
-
-
       // Register the service worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/firebase-messaging-sw.js', {
@@ -2072,7 +2067,8 @@ export async function cancelScheduledNotification(uuid) {
 
 // Expose the function globally
 window.cancelScheduledNotification = cancelScheduledNotification;
-
+window.showReplyForm = showReplyForm;
+window.encryptData = encryptData;
 
 </script>
 <script>  
