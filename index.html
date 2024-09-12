@@ -1750,46 +1750,50 @@ function showNotification({ topic, title, message, attachmentUrl, clickActionUrl
 }
 
 function encryptData(data, key) {
-
+    // Ensure key is a Uint8Array and has a length of 32 bytes for AES-256
     const keyBuffer = new Uint8Array(key);
-
-        // Import the key into the Web Crypto API
-        return crypto.subtle.importKey(
-            "raw",
-            keyBuffer,
-            { name: "AES-GCM" },
-            false,
-            ["encrypt"]
-        ).then(cryptoKey => {
-            // Generate a random IV (Initialization Vector)
-            const iv = crypto.getRandomValues(new Uint8Array(12)); // AES-GCM standard IV length is 12 bytes
-
-            // Convert the data to an ArrayBuffer
-            const encoder = new TextEncoder();
-            const dataBuffer = encoder.encode(data);
-
-            // Encrypt the data
-            return crypto.subtle.encrypt(
-                {
-                    name: "AES-GCM",
-                    iv: iv
-                },
-                cryptoKey,
-                dataBuffer
-            ).then(encryptedBuffer => {
-                // Convert the encrypted data and IV to base64 for easy transmission
-                const encryptedArray = new Uint8Array(encryptedBuffer);
-                const encryptedBase64 = btoa(String.fromCharCode(...encryptedArray));
-                const ivBase64 = btoa(String.fromCharCode(...iv));
-
-                // Return an object containing the encrypted data and IV
-                return {
-                    iv: ivBase64,
-                    encryptedData: encryptedBase64
-                };
-            });
-        });
+    if (keyBuffer.length !== 32) {
+        throw new Error('Invalid key length: ' + keyBuffer.length);
     }
+
+    // Import the key into the Web Crypto API
+    return crypto.subtle.importKey(
+        "raw",
+        keyBuffer,
+        { name: "AES-GCM" },
+        false,
+        ["encrypt"]
+    ).then(cryptoKey => {
+        // Generate a random IV (Initialization Vector)
+        const iv = crypto.getRandomValues(new Uint8Array(12)); // AES-GCM standard IV length is 12 bytes
+
+        // Convert the data to an ArrayBuffer
+        const encoder = new TextEncoder();
+        const dataBuffer = encoder.encode(data);
+
+        // Encrypt the data
+        return crypto.subtle.encrypt(
+            {
+                name: "AES-GCM",
+                iv: iv
+            },
+            cryptoKey,
+            dataBuffer
+        ).then(encryptedBuffer => {
+            // Convert the encrypted data and IV to base64 for easy transmission
+            const encryptedArray = new Uint8Array(encryptedBuffer);
+            const encryptedBase64 = btoa(String.fromCharCode(...encryptedArray));
+            const ivBase64 = btoa(String.fromCharCode(...iv));
+
+            // Return an object containing the encrypted data and IV
+            return {
+                iv: ivBase64,
+                encryptedData: encryptedBase64
+            };
+        });
+    });
+}
+
   
 function showReplyForm(topic) {
   // Create a form container
