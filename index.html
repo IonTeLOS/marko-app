@@ -1749,49 +1749,50 @@ function showNotification({ topic, title, message, attachmentUrl, clickActionUrl
   }, 20000); 
 }
 
-async function encryptData(data, key) {
+function encryptData(data, key) {
 
     const keyBuffer = new Uint8Array(key);
-    
-    // Import the key into the Web Crypto API
-    const cryptoKey = await crypto.subtle.importKey(
-        "raw",
-        keyBuffer,
-        { name: "AES-GCM" },
-        false,
-        ["encrypt"]
-    );
 
-    // Generate a random IV (Initialization Vector)
-    const iv = crypto.getRandomValues(new Uint8Array(12)); // AES-GCM standard IV length is 12 bytes
+        // Import the key into the Web Crypto API
+        return crypto.subtle.importKey(
+            "raw",
+            keyBuffer,
+            { name: "AES-GCM" },
+            false,
+            ["encrypt"]
+        ).then(cryptoKey => {
+            // Generate a random IV (Initialization Vector)
+            const iv = crypto.getRandomValues(new Uint8Array(12)); // AES-GCM standard IV length is 12 bytes
 
-    // Convert the data to an ArrayBuffer
-    const encoder = new TextEncoder();
-    const dataBuffer = encoder.encode(data);
+            // Convert the data to an ArrayBuffer
+            const encoder = new TextEncoder();
+            const dataBuffer = encoder.encode(data);
 
-    // Encrypt the data
-    const encryptedBuffer = await crypto.subtle.encrypt(
-        {
-            name: "AES-GCM",
-            iv: iv
-        },
-        cryptoKey,
-        dataBuffer
-    );
+            // Encrypt the data
+            return crypto.subtle.encrypt(
+                {
+                    name: "AES-GCM",
+                    iv: iv
+                },
+                cryptoKey,
+                dataBuffer
+            ).then(encryptedBuffer => {
+                // Convert the encrypted data and IV to base64 for easy transmission
+                const encryptedArray = new Uint8Array(encryptedBuffer);
+                const encryptedBase64 = btoa(String.fromCharCode(...encryptedArray));
+                const ivBase64 = btoa(String.fromCharCode(...iv));
 
-    // Convert the encrypted data and IV to base64 for easy transmission
-    const encryptedArray = new Uint8Array(encryptedBuffer);
-    const encryptedBase64 = btoa(String.fromCharCode(...encryptedArray));
-    const ivBase64 = btoa(String.fromCharCode(...iv));
-
-    // Return an object containing the encrypted data and IV
-    return {
-        iv: ivBase64,
-        encryptedData: encryptedBase64
-    };
-}  
+                // Return an object containing the encrypted data and IV
+                return {
+                    iv: ivBase64,
+                    encryptedData: encryptedBase64
+                };
+            });
+        });
+    });
+}
   
-async function showReplyForm(topic) {
+function showReplyForm(topic) {
   // Create a form container
   const formContainer = document.createElement('div');
   formContainer.style.position = 'fixed';
@@ -1890,45 +1891,51 @@ async function showReplyForm(topic) {
   iconSpan.style.marginRight = '8px';
   submitButton.appendChild(iconSpan);
 
-  // Add event listener to the submit button
-  submitButton.addEventListener('click', () => {
-    //const message = messageInput.value;
+submitButton.addEventListener('click', () => {
+      //const message = messageInput.value;
     //const attachment_url = attachmentUrlInput.value;
     //const click = clickUrlInput.value;
-    // Retrieve the key from localForage
-    const key = localforage.getItem(topic);
-    if (!key) {
+  // Retrieve the key from localForage
+  localforage.getItem(topic)
+    .then(key => {
+      if (!key) {
         throw new Error('No key found for topic:', topic);
-    }
-    if (key.byteLength !== 32) {
+      }
+      if (key.byteLength !== 32) {
         throw new Error('Invalid key length:', key.byteLength);
-    }
-    
-    const message = await encryptData(messageInput.value, key);
-    const attachment_url = await encryptData(attachmentUrlInput.value, key);
-    const click = await encryptData(clickUrlInput.value, key);
-    const confTag = confCheckbox.checked ? 'conf' : '';
-    
-    // Perform the fetch request
-    fetch(`https://notify.pchat.xyz/${topic}`, {
-      method: 'POST',
-      headers: {
-        'Click': click,
-        'Attach': attachment_url,
-        ...(confTag && { 'Tags': confTag }),
-      },
-      body: message,
+      }
+      
+      // Encrypt the data
+      return Promise.all([
+        encryptData(messageInput.value, key),
+        attachmentUrlInput.value ? encryptData(attachmentUrlInput.value, key) : Promise.resolve(''),
+        clickUrlInput.value ? encryptData(clickUrlInput.value, key) : Promise.resolve(''),
+        Promise.resolve(confCheckbox.checked ? 'conf' : '')
+      ]);
     })
-      .then(response => response.text())
-      .then(result => {
-        console.log('Message sent:', result);
-        // Remove the form on successful submission
-        formContainer.remove();
-      })
-      .catch(error => {
-        console.error('Error:', error);
+    .then(([encryptedMessage, encryptedAttachmentUrl, encryptedClick, confTag]) => {
+      // Perform the fetch request
+      return fetch(`https://notify.pchat.xyz/${topic}`, {
+        method: 'POST',
+        headers: {
+          'Click': encryptedClick,
+          'Attach': encryptedAttachmentUrl,
+          ...(confTag && { 'Tags': confTag }),
+        },
+        body: encryptedMessage,
       });
-  });
+    })
+    .then(response => response.text())
+    .then(result => {
+      console.log('Message sent:', result);
+      // Remove the form on successful submission
+      formContainer.remove();
+    })
+    .catch(error => {
+      console.error('Error:', error);
+    });
+});
+
   
   formContainer.appendChild(submitButton);
   if (confCheckbox.checked) {
