@@ -63,7 +63,7 @@ messaging.onBackgroundMessage(async (payload) => {
   // Check if the message is from a topic
 if (payload.data && payload.data.topic) {
 // Check if the message is encrypted (i.e., does not have a 'sys' tag)
-  const isEncrypted = !payload.data.tag || payload.data.tag !== 'sys';
+  const isEncrypted = !payload.data.tags || payload.data.tags !== 'sys';
 
   if (isEncrypted && payload.data && payload.data.topic) {
     try {
@@ -114,7 +114,7 @@ if (payload.data && payload.data.topic) {
       console.error('Error processing encrypted message:', error);
       // Handle decryption error (e.g., show a generic notification)
     }
-  } else if (payload.data.tag === 'sys') {
+  } else if (payload.data.tags === 'sys') {
     // Handle unencrypted system message
     const notificationTitle = payload.data.title || 'System Message';
     const notificationBody = payload.data.message || 'You have a new notification';
