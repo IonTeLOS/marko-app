@@ -1894,18 +1894,19 @@ function showReplyForm(topic) {
   iconSpan.style.marginRight = '8px';
   submitButton.appendChild(iconSpan);
 
-submitButton.addEventListener('click', () => {
       //const message = messageInput.value;
     //const attachment_url = attachmentUrlInput.value;
     //const click = clickUrlInput.value;
   // Retrieve the key from localForage
+submitButton.addEventListener('click', () => {
+  // Retrieve the key from localForage
   localforage.getItem(topic)
     .then(key => {
       if (!key) {
-        throw new Error('No key found for topic:', topic);
+        throw new Error('No key found for topic: ' + topic);
       }
       if (key.byteLength !== 32) {
-        throw new Error('Invalid key length:', key.byteLength);
+        throw new Error('Invalid key length: ' + key.byteLength);
       }
       
       // Encrypt the data
@@ -1938,6 +1939,7 @@ submitButton.addEventListener('click', () => {
       console.error('Error:', error);
     });
 });
+
 
   
   formContainer.appendChild(submitButton);
