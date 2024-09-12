@@ -1898,55 +1898,48 @@ function showReplyForm(topic) {
     //const attachment_url = attachmentUrlInput.value;
     //const click = clickUrlInput.value;
   // Retrieve the key from localForage
-submitButton.addEventListener('click', () => {
-  // Retrieve the key from localForage
-  localforage.getItem(topic)
-    .then(key => {
-      if (!key) {
-        throw new Error('No key found for topic: ' + topic);
-      }
-      if (key.byteLength !== 32) {
-        throw new Error('Invalid key length: ' + key.byteLength);
-      }
-      
-       // Encrypt the data
-      return Promise.all([
-        encryptData(messageInput.value, key),
-        attachmentUrlInput.value ? encryptData(attachmentUrlInput.value, key) : Promise.resolve(''),
-        clickUrlInput.value ? encryptData(clickUrlInput.value, key) : Promise.resolve(''),
-        Promise.resolve(confCheckbox.checked ? 'conf' : '')
-      ]);
-    })
-    .then(([encryptedMessage, encryptedAttachmentUrl, encryptedClick, confTag]) => {
-      // Prepare the data for sending
-      const postData = {
-        message: encryptedMessage,
-        attachment_url: encryptedAttachmentUrl,
-        click: encryptedClick,
-        tag: confTag
-      };
-      
-      // Perform the fetch request
-      return fetch(`https://notify.pchat.xyz/${topic}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json', // Set appropriate Content-Type header
-          'Click': encryptedClick, // Custom header
-          'Attach': encryptedAttachmentUrl, // Custom header
-          ...(confTag && { 'Tags': confTag }) // Conditional custom header
-        },
-        body: JSON.stringify(encryptedMessage) // Convert data to JSON string
-      });
-    })
-    .then(response => response.text())
-    .then(result => {
-      console.log('Message sent:', result);
-      // Remove the form on successful submission
-      formContainer.remove();
-    })
-    .catch(error => {
-      console.error('Error:', error);
-    });
+submitButton.addEventListener('click', async () => {
+    try {
+        const key = await localforage.getItem(topic);
+
+        if (!key) {
+            throw new Error('No key found for topic: ' + topic);
+        }
+        if (key.byteLength !== 32) {
+            throw new Error('Invalid key length: ' + key.byteLength);
+        }
+
+        // Encrypt the data
+        const [encryptedMessage, encryptedAttachmentUrl, encryptedClick, confTag] = await Promise.all([
+            encryptData(messageInput.value, key),
+            attachmentUrlInput.value ? encryptData(attachmentUrlInput.value, key) : Promise.resolve(null),
+            clickUrlInput.value ? encryptData(clickUrlInput.value, key) : Promise.resolve(null),
+            Promise.resolve(confCheckbox.checked ? 'conf' : '')
+        ]);
+
+        // Build headers object conditionally
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(encryptedClick && { 'Click': encryptedClick.encryptedData }), // Encrypted Click URL
+            ...(encryptedAttachmentUrl && { 'Attach': encryptedAttachmentUrl.encryptedData }), // Encrypted Attach URL
+            ...(confTag && { 'Tags': confTag })  // Only add 'Tags' if it's set
+        };
+
+        // Perform the fetch request
+        const response = await fetch(`https://notify.pchat.xyz/${topic}`, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(encryptedMessage)  // Send the encrypted message in the body
+        });
+
+        const result = await response.text();  // Process the response
+        console.log('Message sent:', result);
+        // Remove the form on successful submission
+        formContainer.remove();
+
+    } catch (error) {
+        console.error('Error:', error);
+    }
 });
 
 
