@@ -61,47 +61,85 @@ async function decryptMessage(encryptedMessage, key) {
 messaging.onBackgroundMessage(async (payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   // Check if the message is from a topic
-    if (payload.data && payload.data.topic) {
-      try {
+if (payload.data && payload.data.topic) {
+// Check if the message is encrypted (i.e., does not have a 'sys' tag)
+  const isEncrypted = !payload.data.tag || payload.data.tag !== 'sys';
+
+  if (isEncrypted && payload.data && payload.data.topic) {
+    try {
       const topic = payload.data.topic;
-    const key = await getKey(topic);
+      const key = await getKey(topic);
 
-    if (!key) {
-      throw new Error('No key available for decryption');
+      if (!key) {
+        throw new Error('No key available for decryption');
+      }
+
+      // Decrypt the message itself
+      const decryptedMessage = await decryptMessage(payload.data.message, key);
+
+      // Decrypt attachment_url if it exists
+      let decryptedAttachmentUrl = payload.data.attachment_url;
+      if (decryptedAttachmentUrl) {
+        decryptedAttachmentUrl = await decryptMessage(decryptedAttachmentUrl, key);
+      }
+
+      // Decrypt click URL if it exists
+      let decryptedClickUrl = payload.data.click;
+      if (decryptedClickUrl) {
+        decryptedClickUrl = await decryptMessage(decryptedClickUrl, key);
+      }
+
+      // Show the notification with decrypted data
+      const notificationTitle = payload.data.title || payload.data.topic;
+      const notificationBody = decryptedMessage || 'buzzed..';
+      const notificationIcon = decryptedAttachmentUrl || 'default_icon_url.svg'; // Fallback icon
+      const clickAction = decryptedClickUrl || 'default_click_url'; // Fallback URL
+
+      const notificationOptions = {
+        body: notificationBody,
+        icon: notificationIcon,
+        data: {
+          url: clickAction
+        }
+      };
+
+      // Store any navigation request for later use
+      if (decryptedClickUrl) {
+        await localforage.setItem('new-nav-request', decryptedClickUrl);
+        console.log('Decrypted navigation request stored successfully.');
+      }
+
+      self.registration.showNotification(notificationTitle, notificationOptions);
+    } catch (error) {
+      console.error('Error processing encrypted message:', error);
+      // Handle decryption error (e.g., show a generic notification)
     }
-    const decryptedMessage = await decryptMessage(payload.data.message, key);
-    // Extract necessary fields from the data payload
-    const notificationTitle = payload.data.title || payload.data.topic;
-    const notificationBody = decryptedMessage || 'buzzed..';
-    //const notificationBody = payload.data.message || 'buzzed..';
-    const notificationIcon = payload.data.attachment_url || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg'; // Default icon if not provided
-    const clickAction = payload.data.click || 'https://marko-app.netlify.app'; // Default click action if not provided
+  } else if (payload.data.tag === 'sys') {
+    // Handle unencrypted system message
+    const notificationTitle = payload.data.title || 'System Message';
+    const notificationBody = payload.data.message || 'You have a new notification';
+    const notificationIcon = payload.data.attachment_url || 'default_icon_url.svg';
+    const clickAction = payload.data.click || 'default_click_url';
 
-    // Build notification options
     const notificationOptions = {
       body: notificationBody,
       icon: notificationIcon,
       data: {
-        url: clickAction // Store URL for click handling
+        url: clickAction
       }
     };
 
-    // Store a value for the redirect to the Marko link to happen when page is opened or focused
+    // Store any navigation request
     if (payload.data.click) {
-      localforage.setItem('new-nav-request', String(payload.data.click))
-        .then(() => console.log('Navigation request stored successfully in localForage from Service Worker.'))
-        .catch(err => console.error('Error storing value in Service Worker:', err));
-    }
-    // Show the notification
-    self.registration.showNotification(notificationTitle, notificationOptions);
-   } catch (error) {
-            console.error('Error processing encrypted message:', error);
-            // Handle decryption error (e.g., show a generic notification)
-     }
+      await localforage.setItem('new-nav-request', payload.data.click);
+      console.log('Navigation request stored for system message.');
     }
 
+    self.registration.showNotification(notificationTitle, notificationOptions);
+  }
+}
   // Handle other cases where notification is provided in payload.notification
-  if (payload.notification) {
+else if (payload.notification) {
     const { title, body } = payload.notification;
     const theIcon = payload.data.icon || 'https://raw.githubusercontent.com/IonTeLOS/marko/main/triskelion.svg'; // Default icon if not provided
     const clickAction = payload.data.url || 'https://marko-app.netlify.app'; // Default URL if not provided
