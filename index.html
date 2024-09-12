@@ -1896,7 +1896,7 @@ async function showReplyForm(topic) {
     //const attachment_url = attachmentUrlInput.value;
     //const click = clickUrlInput.value;
     // Retrieve the key from localForage
-    const key = await localforage.getItem(topic);
+    const key = localforage.getItem(topic);
     if (!key) {
         throw new Error('No key found for topic:', topic);
     }
