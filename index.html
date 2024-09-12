@@ -1935,7 +1935,7 @@ submitButton.addEventListener('click', () => {
           'Attach': encryptedAttachmentUrl, // Custom header
           ...(confTag && { 'Tags': confTag }) // Conditional custom header
         },
-        body: JSON.stringify(postData) // Convert data to JSON string
+        body: JSON.stringify(encryptedMessage) // Convert data to JSON string
       });
     })
     .then(response => response.text())
