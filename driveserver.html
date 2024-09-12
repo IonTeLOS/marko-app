@@ -530,17 +530,71 @@ async function handleOAuth2Flow() {
         } else {
             console.log('This is not a site. Detected file type: ', contentType);
 
-            // Check if the content type can be displayed in an iframe
-            const displayableTypes = ['image/', 'audio/', 'video/', 'text/'];
-            const isDisplayable = displayableTypes.some(type => contentType.startsWith(type));
-            const iframe = document.getElementById('contentFrame');
+// Check if the content type can be displayed in an iframe
+const displayableTypes = ['image/', 'audio/', 'video/', 'text/plain'];
+const isDisplayable = displayableTypes.some(type => contentType.startsWith(type));
+const iframe = document.getElementById('contentFrame');
 
-            if (isDisplayable) {
-                // Set iframe source to the file URL
-                const fileBlob = await contentResponse.blob();
-                const fileUrl = URL.createObjectURL(fileBlob);
-                iframe.src = fileUrl;
-            } else {
+if (isDisplayable) {
+    try {
+        // Fetch file as a Blob and create a URL
+        const fileBlob = await contentResponse.blob();
+        const fileUrl = URL.createObjectURL(fileBlob);
+
+        // Set iframe source to the file URL
+        iframe.src = fileUrl;
+
+        // Apply responsive styling for different content types
+        iframe.onload = function () {
+            // Style the iframe content based on type
+            const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
+
+            if (contentType.startsWith('image/')) {
+                // Center and scale down the image responsively
+                const img = iframeDocument.querySelector('img');
+                if (img) {
+                    img.style.maxWidth = '100%';
+                    img.style.height = 'auto';
+                    img.style.display = 'block';
+                    img.style.margin = '0 auto'; // Center the image
+                }
+            } else if (contentType.startsWith('text/plain')) {
+                // Ensure plain text files are responsive
+                iframeDocument.body.style.padding = '20px';
+                iframeDocument.body.style.fontFamily = 'Arial, sans-serif';
+                iframeDocument.body.style.maxWidth = '100%';
+                iframeDocument.body.style.wordWrap = 'break-word'; // Handle long lines
+            } else if (contentType.startsWith('video/')) {
+                // Style video to be responsive and centered
+                const video = iframeDocument.querySelector('video');
+                if (video) {
+                    video.style.maxWidth = '100%';
+                    video.style.height = 'auto';
+                    video.style.display = 'block';
+                    video.style.margin = '0 auto'; // Center the video
+
+                    // Add controls if not present
+                    video.setAttribute('controls', 'controls');
+                }
+            } else if (contentType.startsWith('audio/')) {
+                // Style audio to be responsive and centered
+                const audio = iframeDocument.querySelector('audio');
+                if (audio) {
+                    audio.style.width = '100%'; // Make the audio player full-width
+                    audio.style.display = 'block';
+                    audio.style.margin = '0 auto'; // Center the audio element
+
+                    // Add controls if not present
+                    audio.setAttribute('controls', 'controls');
+                }
+            }
+
+            // Add any other content-type-specific styling here (e.g., additional file types)
+        };
+    } catch (error) {
+        console.error('Error displaying file in iframe:', error);
+    }
+} else {
                 // Notify the user that the file cannot be displayed and prompt for download
                 const userConfirmed = confirm(`The file '${fileName}' cannot be displayed in the browser. Download it?`);
 
