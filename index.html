@@ -1791,7 +1791,7 @@ async function encryptData(data, key) {
     };
 }  
   
-function showReplyForm(topic) {
+async function showReplyForm(topic) {
   // Create a form container
   const formContainer = document.createElement('div');
   formContainer.style.position = 'fixed';
@@ -1896,7 +1896,7 @@ function showReplyForm(topic) {
     //const attachment_url = attachmentUrlInput.value;
     //const click = clickUrlInput.value;
     // Retrieve the key from localForage
-    const key = localforage.getItem(topic);
+    const key = await localforage.getItem(topic);
     if (!key) {
         throw new Error('No key found for topic:', topic);
     }
