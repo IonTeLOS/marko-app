@@ -1909,7 +1909,7 @@ submitButton.addEventListener('click', () => {
         throw new Error('Invalid key length: ' + key.byteLength);
       }
       
-      // Encrypt the data
+       // Encrypt the data
       return Promise.all([
         encryptData(messageInput.value, key),
         attachmentUrlInput.value ? encryptData(attachmentUrlInput.value, key) : Promise.resolve(''),
@@ -1918,15 +1918,24 @@ submitButton.addEventListener('click', () => {
       ]);
     })
     .then(([encryptedMessage, encryptedAttachmentUrl, encryptedClick, confTag]) => {
+      // Prepare the data for sending
+      const postData = {
+        message: encryptedMessage,
+        attachment_url: encryptedAttachmentUrl,
+        click: encryptedClick,
+        tag: confTag
+      };
+      
       // Perform the fetch request
       return fetch(`https://notify.pchat.xyz/${topic}`, {
         method: 'POST',
         headers: {
-          'Click': encryptedClick,
-          'Attach': encryptedAttachmentUrl,
-          ...(confTag && { 'Tags': confTag }),
+          'Content-Type': 'application/json', // Set appropriate Content-Type header
+          'Click': encryptedClick, // Custom header
+          'Attach': encryptedAttachmentUrl, // Custom header
+          ...(confTag && { 'Tags': confTag }) // Conditional custom header
         },
-        body: encryptedMessage,
+        body: JSON.stringify(postData) // Convert data to JSON string
       });
     })
     .then(response => response.text())
