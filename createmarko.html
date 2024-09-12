@@ -2579,7 +2579,7 @@ try {
         const accessToken = localStorage.getItem('accessToken'); // Replace with your actual access token
         const fileId = await uploadFile(fileData.file, accessToken, fileData.name);
 
-        alert(`Marko created with uploaded file. File ID: ${fileId}`);
+        //alert(`Successfully uploaded file with File ID: ${fileId}`);
     } catch (error) {
         alert(error.message);
     }
