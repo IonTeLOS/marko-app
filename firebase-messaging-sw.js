@@ -19,6 +19,12 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
+async function fakeUrlToEncryptedData(fakeUrl) {
+    const urlParts = fakeUrl.split('/');
+    const encryptedParts = urlParts.slice(3).join('/');
+    const jsonLikeData = encryptedParts.replace(/\//g, ':');
+    return `{"${jsonLikeData.replace(':', '":"')}"}`; 
+}
 
 async function getKey(topic) {
     const key = await localforage.getItem(topic);
@@ -99,11 +105,18 @@ if (payload.data && payload.data.topic) {
       // Decrypt the message itself
       const decryptedMessage = await decryptMessage(payload.data.message, key);
 
-      // Decrypt attach if it exists
-      let decryptedAttachmentUrl = payload.data.attach;
-      if (decryptedAttachmentUrl) {
-        decryptedAttachmentUrl = await decryptMessage(decryptedAttachmentUrl, key);
-      }
+// Decrypt attach if it exists
+let decryptedAttachmentUrl = payload.data.attach;
+if (decryptedAttachmentUrl) {
+  try {
+    const encryptedAttachData = await fakeUrlToEncryptedData(decryptedAttachmentUrl);
+    decryptedAttachmentUrl = await decryptMessage(encryptedAttachData, key);
+  } catch (error) {
+    console.error('Error decrypting attachment URL:', error);
+    // If decryption fails, fall back to the original URL
+    decryptedAttachmentUrl = '';
+  }
+}
 
       // Decrypt click URL if it exists
       let decryptedClickUrl = payload.data.click;
