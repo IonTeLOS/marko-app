@@ -33,10 +33,8 @@ async function getKey(topic) {
 }
 
 function extractEncryptedData(url) {
-    // Ensure the URL is in the correct format and split it accordingly
     const urlParts = url.split('/');
 
-    // The 'iv' part should be at index 4 and 'encryptedData' at index 6
     if (urlParts.length < 7) {
         throw new Error('Invalid URL format');
     }
@@ -44,7 +42,6 @@ function extractEncryptedData(url) {
     const iv = urlParts[4];  // Extract IV (at index 4)
     const encryptedData = urlParts[6];  // Extract Encrypted Data (at index 6)
 
-    // Construct the object directly
     return {
         iv: iv,
         encryptedData: encryptedData
@@ -121,7 +118,7 @@ let decryptedAttachmentUrl = payload.data.attachment_url;
 if (decryptedAttachmentUrl) {
   try {
         const encryptedAttachData = extractEncryptedData(payload.data.attachment_url);
-        decryptedAttachmentUrl = await decryptMessage(encryptedAttachData, key);
+        decryptedAttachmentUrl = await decryptMessage(JSON.stringify(encryptedAttachData), key);
   } catch (error) {
     console.error('Error decrypting attachment URL:', error);
     // If decryption fails, fall back to the original URL
