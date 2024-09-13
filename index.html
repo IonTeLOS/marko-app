@@ -1903,12 +1903,27 @@ function showReplyForm(topic) {
 submitButton.addEventListener('click', async () => {
   // New function to make encrypted data look like a valid URL
 function encryptedDataToFakeUrl(encryptedData) {
-    // Remove any JSON formatting
-    const cleanData = encryptedData.replace(/[{"}]/g, '');
-    // Replace ':' with '/' to make it look more URL-like
-    const urlLikeData = cleanData.replace(/:/g, '/');
-    // Prepend a fake domain to make it look like a valid URL
-    return `https://attach.example.com/${urlLikeData}`;
+    // Parse the JSON string to extract the IV and encrypted data
+    let parsedData;
+    try {
+        parsedData = JSON.parse(encryptedData);
+    } catch (e) {
+        console.error('Failed to parse encrypted data:', e);
+        throw new Error('Invalid encrypted data format');
+    }
+
+    // Extract the IV and encrypted data
+    const { iv, encryptedData: cipherText } = parsedData;
+
+    // Ensure both the IV and encrypted data are present
+    if (!iv || !cipherText) {
+        throw new Error('Invalid encrypted data structure. Missing IV or encrypted data.');
+    }
+
+    // Construct a URL-like string with IV and encrypted data, using '/' instead of ','
+    const fakeUrl = `https://attach.example.com/iv/${iv}/encryptedData/${cipherText}`;
+
+    return fakeUrl;
 }
     try {
         const key = await localforage.getItem(topic);
