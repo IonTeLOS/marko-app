@@ -1898,6 +1898,11 @@ function showReplyForm(topic) {
     //const attachment_url = attachmentUrlInput.value;
     //const click = clickUrlInput.value;
   // Retrieve the key from localForage
+// Helper function to encode encrypted data in Base64
+function base64Encode(arrayBuffer) {
+    return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+}
+
 submitButton.addEventListener('click', async () => {
     try {
         const key = await localforage.getItem(topic);
@@ -1917,11 +1922,15 @@ submitButton.addEventListener('click', async () => {
             Promise.resolve(confCheckbox.checked ? 'conf' : '')
         ]);
 
+        // Convert encrypted data to base64
+        const encodedClick = encryptedClick ? base64Encode(encryptedClick.encryptedData) : null;
+        const encodedAttach = encryptedAttachmentUrl ? base64Encode(encryptedAttachmentUrl.encryptedData) : null;
+
         // Build headers object conditionally
         const headers = {
             'Content-Type': 'application/json',
-            ...(encryptedClick && { 'Click': encryptedClick.encryptedData }), // Encrypted Click URL
-            ...(encryptedAttachmentUrl && { 'Attach': encryptedAttachmentUrl.encryptedData }), // Encrypted Attach URL
+            ...(encodedClick && { 'Click': encodedClick }),  // Encrypted Click URL in base64
+            ...(encodedAttach && { 'Attach': encodedAttach }),  // Encrypted Attach URL in base64
             ...(confTag && { 'Tags': confTag })  // Only add 'Tags' if it's set
         };
 
@@ -1941,6 +1950,7 @@ submitButton.addEventListener('click', async () => {
         console.error('Error:', error);
     }
 });
+
 
 
   
