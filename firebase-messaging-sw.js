@@ -51,19 +51,27 @@ function extractEncryptedData(url) {
 
 
 function base64ToUint8Array(base64String) {
+    // Ensure the base64 string is properly padded
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding)
-        .replace(/\-/g, '+')
+        .replace(/-/g, '+')  // Replace URL-safe base64 characters with standard base64
         .replace(/_/g, '/');
-    
-    const rawData = atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
 
-    for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
+    try {
+        // Decode base64 string
+        const rawData = atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    } catch (e) {
+        console.error('Base64 decoding failed:', e);
+        throw new Error('Base64 decoding failed');
     }
-    return outputArray;
 }
+
 
 async function decryptMessage(encryptedMessage, key) {
     const keyBuffer = await crypto.subtle.importKey(
