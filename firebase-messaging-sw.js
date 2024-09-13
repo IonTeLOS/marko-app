@@ -32,13 +32,17 @@ async function getKey(topic) {
     return new Uint8Array(key);
 }
 
-// New function to extract encrypted data from fake URL
-function fakeUrlToEncryptedData(fakeUrl) {
-    const urlParts = fakeUrl.split('/');
-    const encryptedParts = urlParts.slice(3).join('/'); // Remove the https://attach.example.com/
-    const jsonLikeData = encryptedParts.replace(/\//g, ':');
-    return `{"${jsonLikeData.replace(':', '":"')}"}`; // Reconstruct JSON format
+function extractEncryptedData(url) {
+    // Extract the parts after the domain
+    const urlParts = url.split('/');
+    // Remove the domain part and rejoin the rest
+    const encryptedParts = urlParts.slice(3).join('/');
+    
+    // Decode the extracted parts into a JSON-like string
+    const jsonLikeData = encryptedParts.replace(/encryptedData\//, '","encryptedData":"').replace(/iv\//, '{"iv":"');
+    return JSON.parse(jsonLikeData + '"}');
 }
+
 
 function base64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -108,8 +112,8 @@ if (payload.data && payload.data.topic) {
 let decryptedAttachmentUrl = payload.data.attachment_url;
 if (decryptedAttachmentUrl) {
   try {
-    const encryptedAttachData = fakeUrlToEncryptedData(payload.data.attachment_url);
-    decryptedAttachmentUrl = await decryptMessage(encryptedAttachData, key);
+        const encryptedAttachData = extractEncryptedData(payload.data.attachment_url);
+        decryptedAttachmentUrl = await decryptMessage(encryptedAttachData, key);
   } catch (error) {
     console.error('Error decrypting attachment URL:', error);
     // If decryption fails, fall back to the original URL
