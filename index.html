@@ -1943,9 +1943,8 @@ function base64Encode(arrayBuffer) {
 
         // Build headers object conditionally
         const headers = {
-            'Content-Type': 'application/json',
-            ...(base64EncodedClick && { 'Click': base64EncodedClick }), // Encrypted Click URL
-            ...(base64EncodedAttach && { 'Attach': base64EncodedAttach }) // Encrypted Attach URL
+            ...(base64EncodedClick && { 'click': base64EncodedClick }), // Encrypted Click URL
+            ...(base64EncodedAttach && { 'attach': base64EncodedAttach }) // Encrypted Attach URL
         };
 
         // Build the request body
@@ -1960,9 +1959,8 @@ function base64Encode(arrayBuffer) {
         console.log('Request body:', bodyData);
 
         // Perform the fetch request
-        const response = await fetch(`https://notify.pchat.xyz/${topic}`, {
+        const response = await fetch('https://notify.pchat.xyz', {
             method: 'POST',
-            headers: headers,
             body: JSON.stringify(bodyData)  // Send the bodyData in the request body as JSON
         });
 
