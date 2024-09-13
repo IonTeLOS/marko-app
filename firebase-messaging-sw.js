@@ -73,7 +73,22 @@ async function decryptMessage(encryptedMessage, key) {
         ["decrypt"]
     );
 
-    const { iv, encryptedData } = JSON.parse(encryptedMessage);
+    let parsedMessage;
+    try {
+        // Check if encryptedMessage is an object or a string
+        if (typeof encryptedMessage === 'string') {
+            parsedMessage = JSON.parse(encryptedMessage);
+        } else if (typeof encryptedMessage === 'object') {
+            parsedMessage = encryptedMessage;
+        } else {
+            throw new Error('Invalid encrypted message format');
+        }
+    } catch (error) {
+        console.error('Error parsing encrypted message:', error);
+        throw error;
+    }
+
+    const { iv, encryptedData } = parsedMessage;
 
     // Decode base64-encoded iv and encryptedData
     const ivBuffer = base64ToUint8Array(iv);
@@ -92,6 +107,7 @@ async function decryptMessage(encryptedMessage, key) {
 
     return new TextDecoder().decode(decrypted);
 }
+
 
 messaging.onBackgroundMessage((payload) => {
   (async () => {
