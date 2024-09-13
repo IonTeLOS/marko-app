@@ -1749,50 +1749,52 @@ function showNotification({ topic, title, message, attachmentUrl, clickActionUrl
   }, 20000); 
 }
 
-function encryptData(data, key) {
+// Encryption function (updated to match decryption expectations)
+async function encryptData(data, key) {
     // Ensure key is a Uint8Array and has a length of 32 bytes for AES-256
     const keyBuffer = new Uint8Array(key);
     if (keyBuffer.length !== 32) {
         throw new Error('Invalid key length: ' + keyBuffer.length);
     }
-
     // Import the key into the Web Crypto API
-    return crypto.subtle.importKey(
+    const cryptoKey = await crypto.subtle.importKey(
         "raw",
         keyBuffer,
         { name: "AES-GCM" },
         false,
         ["encrypt"]
-    ).then(cryptoKey => {
-        // Generate a random IV (Initialization Vector)
-        const iv = crypto.getRandomValues(new Uint8Array(12)); // AES-GCM standard IV length is 12 bytes
+    );
 
-        // Convert the data to an ArrayBuffer
-        const encoder = new TextEncoder();
-        const dataBuffer = encoder.encode(data);
+    // Generate a random IV (Initialization Vector)
+    const iv = crypto.getRandomValues(new Uint8Array(12)); // AES-GCM standard IV length is 12 bytes
 
-        // Encrypt the data
-        return crypto.subtle.encrypt(
-            {
-                name: "AES-GCM",
-                iv: iv
-            },
-            cryptoKey,
-            dataBuffer
-        ).then(encryptedBuffer => {
-            // Convert the encrypted data and IV to base64 for easy transmission
-            const encryptedArray = new Uint8Array(encryptedBuffer);
-            const encryptedBase64 = btoa(String.fromCharCode(...encryptedArray));
-            const ivBase64 = btoa(String.fromCharCode(...iv));
+    // Convert the data to an ArrayBuffer
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(data);
 
-            // Return an object containing the encrypted data and IV
-            return {
-                iv: ivBase64,
-                encryptedData: encryptedBase64
-            };
-        });
+    // Encrypt the data
+    const encryptedBuffer = await crypto.subtle.encrypt(
+        {
+            name: "AES-GCM",
+            iv: iv
+        },
+        cryptoKey,
+        dataBuffer
+    );
+
+    // Convert the encrypted data and IV to base64 for easy transmission
+    const encryptedArray = new Uint8Array(encryptedBuffer);
+    const encryptedBase64 = btoa(String.fromCharCode.apply(null, encryptedArray));
+    const ivBase64 = btoa(String.fromCharCode.apply(null, iv));
+
+    // Return a JSON string containing the encrypted data and IV
+    return JSON.stringify({
+        iv: ivBase64,
+        encryptedData: encryptedBase64
     });
 }
+
+
 
   
 function showReplyForm(topic) {
@@ -1908,6 +1910,10 @@ submitButton.addEventListener('click', async () => {
         console.log('Key type:', typeof key);
         console.log('Key length:', key.byteLength);
 
+        if (!messageInput.value.trim()) {
+            throw new Error('Message cannot be empty');
+        }
+
         console.log('Message:', messageInput.value);
         console.log('Attachment URL:', attachmentUrlInput.value);
         console.log('Click URL:', clickUrlInput.value);
@@ -1915,10 +1921,6 @@ submitButton.addEventListener('click', async () => {
         // Encrypt the data
         const encryptedMessage = await encryptData(messageInput.value, key);
         console.log('Encrypted message:', encryptedMessage);
-
-        if (!encryptedMessage || !encryptedMessage.encryptedData) {
-            throw new Error('Encryption failed: No encrypted data');
-        }
 
         // Encrypt attachment and click URLs if present
         const encryptedAttachmentUrl = attachmentUrlInput.value ? await encryptData(attachmentUrlInput.value, key) : null;
@@ -1928,9 +1930,9 @@ submitButton.addEventListener('click', async () => {
         // Build the request body
         const bodyData = {
             topic: topic,
-            message: encryptedMessage.encryptedData,  // This is already base64 encoded
-            ...(encryptedClick && { click: encryptedClick.encryptedData }),
-            ...(encryptedAttachmentUrl && { attach: encryptedAttachmentUrl.encryptedData }),
+            message: encryptedMessage,  // This is now a JSON string
+            ...(encryptedClick && { click: encryptedClick }),
+            ...(encryptedAttachmentUrl && { attach: encryptedAttachmentUrl }),
             ...(confTag && { tags: [confTag] })
         };
 
