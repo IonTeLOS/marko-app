@@ -32,6 +32,14 @@ async function getKey(topic) {
     return new Uint8Array(key);
 }
 
+// New function to extract encrypted data from fake URL
+function fakeUrlToEncryptedData(fakeUrl) {
+    const urlParts = fakeUrl.split('/');
+    const encryptedParts = urlParts.slice(3).join('/'); // Remove the https://attach.example.com/
+    const jsonLikeData = encryptedParts.replace(/\//g, ':');
+    return `{"${jsonLikeData.replace(':', '":"')}"}`; // Reconstruct JSON format
+}
+
 function base64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding)
@@ -97,10 +105,11 @@ if (payload.data && payload.data.topic) {
       const decryptedMessage = await decryptMessage(payload.data.message, key);
 
 // Decrypt attach if it exists
-let decryptedAttachmentUrl = payload.data.attachment_name;
+let decryptedAttachmentUrl = payload.data.attachment_url;
 if (decryptedAttachmentUrl) {
   try {
-    decryptedAttachmentUrl = await decryptMessage(decryptedAttachmentUrl, key);
+    const encryptedAttachData = fakeUrlToEncryptedData(payload.data.attachment_url);
+    decryptedAttachmentUrl = await decryptMessage(encryptedAttachData, key);
   } catch (error) {
     console.error('Error decrypting attachment URL:', error);
     // If decryption fails, fall back to the original URL
@@ -143,7 +152,7 @@ if (decryptedAttachmentUrl) {
     // Handle unencrypted system message
     const notificationTitle = payload.data.title || 'System Message';
     const notificationBody = payload.data.message || 'BUZZZZ..!';
-    const notificationIcon = payload.data.attachment_name || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';
+    const notificationIcon = payload.data.attachment_url || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';
     const clickAction = payload.data.click || 'https://marko-app.netlify.app';
 
     const notificationOptions = {
