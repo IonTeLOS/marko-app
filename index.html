@@ -1917,14 +1917,22 @@ submitButton.addEventListener('click', async () => {
             Promise.resolve(confCheckbox.checked ? 'conf' : '')
         ]);
 
+        // Convert encrypted buffers to Base64 format for transmission
+        const base64EncodedMessage = encryptedMessage ? base64Encode(encryptedMessage.encryptedData) : null;
+        const base64EncodedAttach = encryptedAttachmentUrl ? base64Encode(encryptedAttachmentUrl.encryptedData) : null;
+        const base64EncodedClick = encryptedClick ? base64Encode(encryptedClick.encryptedData) : null;
+
         // Build the request body
         const bodyData = {
             topic: topic,
-            message: base64Encode(encryptedMessage.encryptedData),  // Encrypted message
-            ...(encryptedAttachmentUrl ? { attach: base64Encode(encryptedAttachmentUrl.encryptedData) } : {}),  // Include Attach if present
-            ...(encryptedClick ? { click: base64Encode(encryptedClick.encryptedData) } : {}),  // Include Click if present
+            message: base64EncodedMessage,  // Encrypted message
+            ...(base64EncodedAttach ? { attach: base64EncodedAttach } : {}),  // Include Attach if present
+            ...(base64EncodedClick ? { click: base64EncodedClick } : {}),  // Include Click if present
             ...(confTag && { tags: [confTag] }),  // Include Tags if 'conf' is set
         };
+
+        // Log data for debugging
+        console.log('Request body:', bodyData);
 
         // Perform the fetch request
         const response = await fetch(`https://notify.pchat.xyz`, {
@@ -1943,10 +1951,6 @@ submitButton.addEventListener('click', async () => {
     }
 });
 
-// Helper function to encode encrypted data in Base64
-function base64Encode(arrayBuffer) {
-    return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-}
   
   formContainer.appendChild(submitButton);
   if (confCheckbox.checked) {
@@ -1956,6 +1960,10 @@ function base64Encode(arrayBuffer) {
   document.body.appendChild(formContainer);
 }
 
+// Helper function to encode encrypted data in Base64
+function base64Encode(arrayBuffer) {
+    return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+}  
 window.showReplyForm = showReplyForm;
 window.encryptData = encryptData;
 
