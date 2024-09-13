@@ -164,6 +164,7 @@ else if (payload.notification) {
     // Show the notification
     self.registration.showNotification(title, notificationOptions);
   }
+})(); // IIFE wrapper
 });
 
                               
