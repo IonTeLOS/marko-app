@@ -19,13 +19,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-async function fakeUrlToEncryptedData(fakeUrl) {
-    const urlParts = fakeUrl.split('/');
-    const encryptedParts = urlParts.slice(3).join('/');
-    const jsonLikeData = encryptedParts.replace(/\//g, ':');
-    return `{"${jsonLikeData.replace(':', '":"')}"}`; 
-}
-
 async function getKey(topic) {
     const key = await localforage.getItem(topic);
     if (!key) {
@@ -83,8 +76,6 @@ async function decryptMessage(encryptedMessage, key) {
     return new TextDecoder().decode(decrypted);
 }
 
-
-
 messaging.onBackgroundMessage((payload) => {
   (async () => {
 console.log('[firebase-messaging-sw.js] Received background message ', payload);
@@ -106,10 +97,9 @@ if (payload.data && payload.data.topic) {
       const decryptedMessage = await decryptMessage(payload.data.message, key);
 
 // Decrypt attach if it exists
-let decryptedAttachmentUrl = payload.data.attachment_url;
+let decryptedAttachmentUrl = payload.data.attachment_name;
 if (decryptedAttachmentUrl) {
   try {
-    const encryptedAttachData = await fakeUrlToEncryptedData(decryptedAttachmentUrl);
     decryptedAttachmentUrl = await decryptMessage(encryptedAttachData, key);
   } catch (error) {
     console.error('Error decrypting attachment URL:', error);
@@ -153,7 +143,7 @@ if (decryptedAttachmentUrl) {
     // Handle unencrypted system message
     const notificationTitle = payload.data.title || 'System Message';
     const notificationBody = payload.data.message || 'BUZZZZ..!';
-    const notificationIcon = payload.data.attachment_url || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';
+    const notificationIcon = payload.data.attachment_name || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';
     const clickAction = payload.data.click || 'https://marko-app.netlify.app';
 
     const notificationOptions = {
