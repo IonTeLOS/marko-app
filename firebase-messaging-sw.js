@@ -33,20 +33,51 @@ async function getKey(topic) {
     return new Uint8Array(key);
 }
 
-    // Decode the base64-encoded IV and encrypted data into Uint8Array
-    const ivBuffer = Uint8Array.from(atob(iv), c => c.charCodeAt(0));
-    const encryptedDataBuffer = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+function base64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+        .replace(/\-/g, '+')
+        .replace(/_/g, '/');
+    
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
 
-    // Perform decryption
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+async function decryptMessage(encryptedMessage, key) {
+    const keyBuffer = await crypto.subtle.importKey(
+        "raw",
+        key,
+        { name: "AES-GCM" },
+        false,
+        ["decrypt"]
+    );
+
+    const { iv, encryptedData } = JSON.parse(encryptedMessage);
+
+    // Decode base64-encoded iv and encryptedData
+    const ivBuffer = base64ToUint8Array(iv);
+    const encryptedDataBuffer = base64ToUint8Array(encryptedData);
+
+    // Ensure IV is 12 bytes (96 bits) long
+    if (ivBuffer.length !== 12) {
+        throw new Error(`Invalid IV length: ${ivBuffer.length} bytes. Expected 12 bytes.`);
+    }
+
     const decrypted = await crypto.subtle.decrypt(
         { name: "AES-GCM", iv: ivBuffer },
         keyBuffer,
         encryptedDataBuffer
     );
 
-    // Decode the decrypted ArrayBuffer into a string
     return new TextDecoder().decode(decrypted);
 }
+
+
 
 messaging.onBackgroundMessage((payload) => {
   (async () => {
