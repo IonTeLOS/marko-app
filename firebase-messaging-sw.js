@@ -51,13 +51,6 @@ function extractEncryptedData(url) {
     };
 }
 
-// Example usage:
-const url = 'https://attach.example.com/iv/S7cEmtgCHlQkqudR,encryptedData/Vz3yd36+HOkMEARN0asAYHcqbjNwTcaK1fivbytL60cYab2hhDiYJRgEFKIEvMTPLtws3PCyKGylWAOddtEIkw4zzAmdFqcF6cdrBP6lOvRjKCC00PHbS+UYjOnNIgWFen/hRASjyQ==';
-const encryptedData = extractEncryptedData(url);
-console.log(encryptedData);
-
-
-
 
 function base64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
