@@ -1909,6 +1909,11 @@ submitButton.addEventListener('click', async () => {
             throw new Error('Invalid key length: ' + key.byteLength);
         }
 
+        // Log the input values before encryption
+        console.log('Message:', messageInput.value);
+        console.log('Attachment URL:', attachmentUrlInput.value);
+        console.log('Click URL:', clickUrlInput.value);
+
         // Encrypt the data
         const [encryptedMessage, encryptedAttachmentUrl, encryptedClick, confTag] = await Promise.all([
             encryptData(messageInput.value, key),
@@ -1917,21 +1922,31 @@ submitButton.addEventListener('click', async () => {
             Promise.resolve(confCheckbox.checked ? 'conf' : '')
         ]);
 
+        // Log the encrypted data for debugging
+        console.log('Encrypted Message:', encryptedMessage);
+        console.log('Encrypted Attachment URL:', encryptedAttachmentUrl);
+        console.log('Encrypted Click URL:', encryptedClick);
+
         // Convert encrypted buffers to Base64 format for transmission
         const base64EncodedMessage = encryptedMessage ? base64Encode(encryptedMessage.encryptedData) : null;
         const base64EncodedAttach = encryptedAttachmentUrl ? base64Encode(encryptedAttachmentUrl.encryptedData) : null;
         const base64EncodedClick = encryptedClick ? base64Encode(encryptedClick.encryptedData) : null;
 
-        // Build the request body
+        // Log the base64 encoded values
+        console.log('Base64 Encoded Message:', base64EncodedMessage);
+        console.log('Base64 Encoded Attach:', base64EncodedAttach);
+        console.log('Base64 Encoded Click:', base64EncodedClick);
+
+        // Build the request body, only include fields if they are non-empty
         const bodyData = {
             topic: topic,
             message: base64EncodedMessage,  // Encrypted message
-            ...(base64EncodedAttach ? { attach: base64EncodedAttach } : {}),  // Include Attach if present
-            ...(base64EncodedClick ? { click: base64EncodedClick } : {}),  // Include Click if present
-            ...(confTag && { tags: [confTag] }),  // Include Tags if 'conf' is set
+            ...(base64EncodedAttach ? { attach: base64EncodedAttach } : {}),  // Conditionally include Attach
+            ...(base64EncodedClick ? { click: base64EncodedClick } : {}),  // Conditionally include Click
+            ...(confTag && { tags: [confTag] })  // Conditionally include Tags if set
         };
 
-        // Log data for debugging
+        // Log the final request body before sending
         console.log('Request body:', bodyData);
 
         // Perform the fetch request
@@ -1951,6 +1966,11 @@ submitButton.addEventListener('click', async () => {
     }
 });
 
+// Helper function to encode encrypted data in Base64
+function base64Encode(arrayBuffer) {
+    return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+}
+
   
   formContainer.appendChild(submitButton);
   if (confCheckbox.checked) {
@@ -1960,10 +1980,6 @@ submitButton.addEventListener('click', async () => {
   document.body.appendChild(formContainer);
 }
 
-// Helper function to encode encrypted data in Base64
-function base64Encode(arrayBuffer) {
-    return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-}  
 window.showReplyForm = showReplyForm;
 window.encryptData = encryptData;
 
