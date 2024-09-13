@@ -35,14 +35,14 @@ async function getKey(topic) {
 function extractEncryptedData(url) {
     // Ensure the URL is in the correct format and split it accordingly
     const urlParts = url.split('/');
-    
-    // The 'iv' part should be at index 3 and 'encryptedData' at index 5
-    if (urlParts.length < 6) {
+
+    // The 'iv' part should be at index 4 and 'encryptedData' at index 6
+    if (urlParts.length < 7) {
         throw new Error('Invalid URL format');
     }
-    
-    const iv = urlParts[3];  // Extract IV
-    const encryptedData = urlParts[5];  // Extract Encrypted Data
+
+    const iv = urlParts[4];  // Extract IV (at index 4)
+    const encryptedData = urlParts[6];  // Extract Encrypted Data (at index 6)
 
     // Construct the object directly
     return {
@@ -50,6 +50,12 @@ function extractEncryptedData(url) {
         encryptedData: encryptedData
     };
 }
+
+// Example usage:
+const url = 'https://attach.example.com/iv/S7cEmtgCHlQkqudR,encryptedData/Vz3yd36+HOkMEARN0asAYHcqbjNwTcaK1fivbytL60cYab2hhDiYJRgEFKIEvMTPLtws3PCyKGylWAOddtEIkw4zzAmdFqcF6cdrBP6lOvRjKCC00PHbS+UYjOnNIgWFen/hRASjyQ==';
+const encryptedData = extractEncryptedData(url);
+console.log(encryptedData);
+
 
 
 
