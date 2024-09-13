@@ -32,31 +32,20 @@ async function getKey(topic) {
     return new Uint8Array(key);
 }
 
-function extractIvAndEncryptedData(attachmentUrl) {
-    // Remove the base URL part
-    const baseRemoved = attachmentUrl.replace('https://attach.example.com', '');
+function extractEncryptedData(fakeUrl) {
+    const regex = /iv\/([^/]+)\/encryptedData\/(.+)/;
+    const match = fakeUrl.match(regex);
 
-    // Split the remaining URL by '/'
-    const urlParts = baseRemoved.split('/');
-
-    if (urlParts.length < 5) {
-        throw new Error('Invalid URL format');
+    if (!match || match.length < 3) {
+        throw new Error('Invalid fake URL format');
     }
 
-    // Extract IV part (after iv/ up to the comma ',')
-    const ivPart = urlParts[2].split(',')[0];
+    const iv = match[1];
+    const encryptedData = match[2];
 
-    // Extract encrypted data (after encryptedData/ up to the end)
-    const encryptedDataPart = urlParts[4];
-
-    console.log('Extracted IV:', ivPart);
-    console.log('Extracted Encrypted Data:', encryptedDataPart);
-
-    return {
-        iv: ivPart,
-        encryptedData: encryptedDataPart
-    };
+    return { iv, encryptedData };
 }
+
 
 
 
@@ -156,7 +145,7 @@ let decryptedAttachmentUrl = payload.data.attachment_url;
 if (decryptedAttachmentUrl) {
   try {
     // Extract iv and encryptedData from the attachment URL
-    const encryptedAttachData = extractIvAndEncryptedData(payload.data.attachment_url);
+    const encryptedAttachData = extractEncryptedData(payload.data.attachment_url);
 
     // Decrypt the extracted data
     decryptedAttachmentUrl = await decryptMessage(JSON.stringify(encryptedAttachData), key);
