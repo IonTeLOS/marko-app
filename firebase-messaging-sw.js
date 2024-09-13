@@ -100,7 +100,7 @@ if (payload.data && payload.data.topic) {
 let decryptedAttachmentUrl = payload.data.attachment_name;
 if (decryptedAttachmentUrl) {
   try {
-    decryptedAttachmentUrl = await decryptMessage(encryptedAttachData, key);
+    decryptedAttachmentUrl = await decryptMessage(decryptedAttachmentUrl, key);
   } catch (error) {
     console.error('Error decrypting attachment URL:', error);
     // If decryption fails, fall back to the original URL
