@@ -1899,51 +1899,38 @@ function showReplyForm(topic) {
     //const click = clickUrlInput.value;
   // Retrieve the key from localForage
 submitButton.addEventListener('click', async () => {
-    // Helper function to encode encrypted data in Base64
-    function base64Encode(arrayBuffer) {
-        return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-    }
-
     try {
         const key = await localforage.getItem(topic);
         if (!key) {
             throw new Error('No key found for topic: ' + topic);
         }
-        if (key.byteLength !== 32) {
-            throw new Error('Invalid key length: ' + key.byteLength);
-        }
+        
+        console.log('Key type:', typeof key);
+        console.log('Key length:', key.byteLength);
 
         console.log('Message:', messageInput.value);
         console.log('Attachment URL:', attachmentUrlInput.value);
         console.log('Click URL:', clickUrlInput.value);
 
         // Encrypt the data
-        const [encryptedMessage, encryptedAttachmentUrl, encryptedClick, confTag] = await Promise.all([
-            encryptData(messageInput.value, key),
-            attachmentUrlInput.value ? encryptData(attachmentUrlInput.value, key) : Promise.resolve(null),
-            clickUrlInput.value ? encryptData(clickUrlInput.value, key) : Promise.resolve(null),
-            Promise.resolve(confCheckbox.checked ? 'conf' : '')
-        ]);
+        const encryptedMessage = await encryptData(messageInput.value, key);
+        console.log('Encrypted message:', encryptedMessage);
 
-        console.log('Encrypted Message:', encryptedMessage);
-        console.log('Encrypted Attachment URL:', encryptedAttachmentUrl);
-        console.log('Encrypted Click URL:', encryptedClick);
+        if (!encryptedMessage || !encryptedMessage.encryptedData) {
+            throw new Error('Encryption failed: No encrypted data');
+        }
 
-        // Convert encrypted buffers to Base64 format for transmission
-        const base64EncodedMessage = encryptedMessage ? base64Encode(encryptedMessage.encryptedData) : null;
-        const base64EncodedAttach = encryptedAttachmentUrl ? base64Encode(encryptedAttachmentUrl.encryptedData) : null;
-        const base64EncodedClick = encryptedClick ? base64Encode(encryptedClick.encryptedData) : null;
-
-        console.log('Base64 Encoded Message:', base64EncodedMessage);
-        console.log('Base64 Encoded Attach:', base64EncodedAttach);
-        console.log('Base64 Encoded Click:', base64EncodedClick);
+        // Encrypt attachment and click URLs if present
+        const encryptedAttachmentUrl = attachmentUrlInput.value ? await encryptData(attachmentUrlInput.value, key) : null;
+        const encryptedClick = clickUrlInput.value ? await encryptData(clickUrlInput.value, key) : null;
+        const confTag = confCheckbox.checked ? 'conf' : '';
 
         // Build the request body
         const bodyData = {
             topic: topic,
-            message: base64EncodedMessage || '',  // Ensure message is never null
-            ...(base64EncodedClick && { click: base64EncodedClick }),
-            ...(base64EncodedAttach && { attach: base64EncodedAttach }),
+            message: encryptedMessage.encryptedData,  // This is already base64 encoded
+            ...(encryptedClick && { click: encryptedClick.encryptedData }),
+            ...(encryptedAttachmentUrl && { attach: encryptedAttachmentUrl.encryptedData }),
             ...(confTag && { tags: [confTag] })
         };
 
