@@ -99,8 +99,8 @@ if (payload.data && payload.data.topic) {
       // Decrypt the message itself
       const decryptedMessage = await decryptMessage(payload.data.message, key);
 
-      // Decrypt attachment_url if it exists
-      let decryptedAttachmentUrl = payload.data.attachment_url;
+      // Decrypt attach if it exists
+      let decryptedAttachmentUrl = payload.data.attach;
       if (decryptedAttachmentUrl) {
         decryptedAttachmentUrl = await decryptMessage(decryptedAttachmentUrl, key);
       }
@@ -140,7 +140,7 @@ if (payload.data && payload.data.topic) {
     // Handle unencrypted system message
     const notificationTitle = payload.data.title || 'System Message';
     const notificationBody = payload.data.message || 'BUZZZZ..!';
-    const notificationIcon = payload.data.attachment_url || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';
+    const notificationIcon = payload.data.attach || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';
     const clickAction = payload.data.click || 'https://marko-app.netlify.app';
 
     const notificationOptions = {
