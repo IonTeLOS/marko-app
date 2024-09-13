@@ -1899,6 +1899,10 @@ function showReplyForm(topic) {
     //const click = clickUrlInput.value;
   // Retrieve the key from localForage
 submitButton.addEventListener('click', async () => {
+  // Helper function to encode encrypted data in Base64
+function base64Encode(arrayBuffer) {
+    return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+}
     try {
         const key = await localforage.getItem(topic);
 
@@ -1937,22 +1941,28 @@ submitButton.addEventListener('click', async () => {
         console.log('Base64 Encoded Attach:', base64EncodedAttach);
         console.log('Base64 Encoded Click:', base64EncodedClick);
 
-        // Build the request body, only include fields if they are non-empty
+        // Build headers object conditionally
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(base64EncodedClick && { 'Click': base64EncodedClick }), // Encrypted Click URL
+            ...(base64EncodedAttach && { 'Attach': base64EncodedAttach }) // Encrypted Attach URL
+        };
+
+        // Build the request body
         const bodyData = {
             topic: topic,
             message: base64EncodedMessage,  // Encrypted message
-            ...(base64EncodedAttach ? { attach: base64EncodedAttach } : {}),  // Conditionally include Attach
-            ...(base64EncodedClick ? { click: base64EncodedClick } : {}),  // Conditionally include Click
             ...(confTag && { tags: [confTag] })  // Conditionally include Tags if set
         };
 
-        // Log the final request body before sending
+        // Log the final request body and headers before sending
+        console.log('Request headers:', headers);
         console.log('Request body:', bodyData);
 
         // Perform the fetch request
-        const response = await fetch(`https://notify.pchat.xyz`, {
+        const response = await fetch(`https://notify.pchat.xyz/${topic}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers,
             body: JSON.stringify(bodyData)  // Send the bodyData in the request body as JSON
         });
 
@@ -1966,10 +1976,7 @@ submitButton.addEventListener('click', async () => {
     }
 });
 
-// Helper function to encode encrypted data in Base64
-function base64Encode(arrayBuffer) {
-    return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-}
+
 
   
   formContainer.appendChild(submitButton);
