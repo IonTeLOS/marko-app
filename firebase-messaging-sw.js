@@ -33,15 +33,24 @@ async function getKey(topic) {
 }
 
 function extractEncryptedData(url) {
-    // Extract the parts after the domain
+    // Ensure the URL is in the correct format and split it accordingly
     const urlParts = url.split('/');
-    // Remove the domain part and rejoin the rest
-    const encryptedParts = urlParts.slice(3).join('/');
     
-    // Decode the extracted parts into a JSON-like string
-    const jsonLikeData = encryptedParts.replace(/encryptedData\//, '","encryptedData":"').replace(/iv\//, '{"iv":"');
-    return JSON.parse(jsonLikeData + '"}');
+    // The 'iv' part should be at index 3 and 'encryptedData' at index 5
+    if (urlParts.length < 6) {
+        throw new Error('Invalid URL format');
+    }
+    
+    const iv = urlParts[3];  // Extract IV
+    const encryptedData = urlParts[5];  // Extract Encrypted Data
+
+    // Construct the object directly
+    return {
+        iv: iv,
+        encryptedData: encryptedData
+    };
 }
+
 
 
 function base64ToUint8Array(base64String) {
