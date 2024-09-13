@@ -48,8 +48,9 @@ async function getKey(topic) {
     return new TextDecoder().decode(decrypted);
 }
 
-messaging.onBackgroundMessage(async (payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
+messaging.onBackgroundMessage((payload) => {
+  (async () => {
+console.log('[firebase-messaging-sw.js] Received background message ', payload);
   // Check if the message is from a topic
 if (payload.data && payload.data.topic) {
 // Check if the message is encrypted (i.e., does not have a 'sys' tag)
