@@ -33,20 +33,21 @@ async function getKey(topic) {
 }
 
 function extractEncryptedData(url) {
-    const urlParts = url.split('/');
+    const urlParts = url.split(',');
 
-    if (urlParts.length < 7) {
+    if (urlParts.length < 2) {
         throw new Error('Invalid URL format');
     }
 
-    const iv = urlParts[4];  // Extract IV (at index 4)
-    const encryptedData = urlParts[6];  // Extract Encrypted Data (at index 6)
+    const ivPart = urlParts[0].split('/').pop();  // Extract IV part
+    const encryptedDataPart = urlParts[1].split('/').pop();  // Extract Encrypted Data part
 
     return {
-        iv: iv,
-        encryptedData: encryptedData
+        iv: ivPart,
+        encryptedData: encryptedDataPart
     };
 }
+
 
 
 function base64ToUint8Array(base64String) {
