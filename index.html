@@ -1898,11 +1898,6 @@ function showReplyForm(topic) {
     //const attachment_url = attachmentUrlInput.value;
     //const click = clickUrlInput.value;
   // Retrieve the key from localForage
-// Helper function to encode encrypted data in Base64
-function base64Encode(arrayBuffer) {
-    return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-}
-
 submitButton.addEventListener('click', async () => {
     try {
         const key = await localforage.getItem(topic);
@@ -1922,15 +1917,11 @@ submitButton.addEventListener('click', async () => {
             Promise.resolve(confCheckbox.checked ? 'conf' : '')
         ]);
 
-        // Convert encrypted data to base64
-        const encodedClick = encryptedClick ? base64Encode(encryptedClick.encryptedData) : null;
-        const encodedAttach = encryptedAttachmentUrl ? base64Encode(encryptedAttachmentUrl.encryptedData) : null;
-
         // Build headers object conditionally
         const headers = {
             'Content-Type': 'application/json',
-            ...(encodedClick && { 'Click': encodedClick }),  // Encrypted Click URL in base64
-            ...(encodedAttach && { 'Attach': encodedAttach }),  // Encrypted Attach URL in base64
+            ...(encryptedClick ? { 'Click': base64Encode(encryptedClick.encryptedData) } : {}),  // Include Click header if present
+            ...(encryptedAttachmentUrl ? { 'Attach': base64Encode(encryptedAttachmentUrl.encryptedData) } : {}),  // Include Attach header if present
             ...(confTag && { 'Tags': confTag })  // Only add 'Tags' if it's set
         };
 
@@ -1951,8 +1942,10 @@ submitButton.addEventListener('click', async () => {
     }
 });
 
-
-
+// Helper function to encode encrypted data in Base64
+function base64Encode(arrayBuffer) {
+    return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+}
   
   formContainer.appendChild(submitButton);
   if (confCheckbox.checked) {
