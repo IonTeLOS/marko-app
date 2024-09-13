@@ -32,15 +32,25 @@ async function getKey(topic) {
     return new Uint8Array(key);
 }
 
-function extractEncryptedData(url) {
-    const urlParts = url.split(',');
+function extractIvAndEncryptedData(attachmentUrl) {
+    // Remove the base URL part
+    const baseRemoved = attachmentUrl.replace('https://attach.example.com', '');
 
-    if (urlParts.length < 2) {
+    // Split the remaining URL by '/'
+    const urlParts = baseRemoved.split('/');
+
+    if (urlParts.length < 5) {
         throw new Error('Invalid URL format');
     }
 
-    const ivPart = urlParts[0].split('/').pop();  // Extract IV part
-    const encryptedDataPart = urlParts[1].split('/').pop();  // Extract Encrypted Data part
+    // Extract IV part (after iv/ up to the comma ',')
+    const ivPart = urlParts[2].split(',')[0];
+
+    // Extract encrypted data (after encryptedData/ up to the end)
+    const encryptedDataPart = urlParts[4];
+
+    console.log('Extracted IV:', ivPart);
+    console.log('Extracted Encrypted Data:', encryptedDataPart);
 
     return {
         iv: ivPart,
@@ -51,24 +61,26 @@ function extractEncryptedData(url) {
 
 
 function base64ToUint8Array(base64String) {
-    // Ensure the base64 string is properly padded
+    // Ensure the base64 string has the correct padding
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding)
-        .replace(/-/g, '+')  // Replace URL-safe base64 characters with standard base64
-        .replace(/_/g, '/');
+        .replace(/-/g, '+')  // Replace URL-safe base64 '-' with '+'
+        .replace(/_/g, '/'); // Replace URL-safe base64 '_' with '/'
 
     try {
-        // Decode base64 string
+        // Decode the base64 string
         const rawData = atob(base64);
         const outputArray = new Uint8Array(rawData.length);
 
+        // Convert raw string data to a Uint8Array
         for (let i = 0; i < rawData.length; ++i) {
             outputArray[i] = rawData.charCodeAt(i);
         }
+
         return outputArray;
     } catch (e) {
         console.error('Base64 decoding failed:', e);
-        throw new Error('Base64 decoding failed');
+        throw new Error('Failed to decode base64 string');
     }
 }
 
@@ -138,18 +150,23 @@ if (payload.data && payload.data.topic) {
       // Decrypt the message itself
       const decryptedMessage = await decryptMessage(payload.data.message, key);
 
-// Decrypt attach if it exists
+// Decrypt attachment URL if it exists
 let decryptedAttachmentUrl = payload.data.attachment_url;
+
 if (decryptedAttachmentUrl) {
   try {
-        const encryptedAttachData = extractEncryptedData(payload.data.attachment_url);
-        decryptedAttachmentUrl = await decryptMessage(JSON.stringify(encryptedAttachData), key);
+    // Extract iv and encryptedData from the attachment URL
+    const encryptedAttachData = extractIvAndEncryptedData(payload.data.attachment_url);
+
+    // Decrypt the extracted data
+    decryptedAttachmentUrl = await decryptMessage(JSON.stringify(encryptedAttachData), key);
   } catch (error) {
     console.error('Error decrypting attachment URL:', error);
-    // If decryption fails, fall back to the original URL
+    // If decryption fails, fall back to an empty string
     decryptedAttachmentUrl = '';
   }
 }
+
 
       // Decrypt click URL if it exists
       let decryptedClickUrl = payload.data.click;
