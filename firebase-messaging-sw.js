@@ -33,28 +33,18 @@ async function getKey(topic) {
     return new Uint8Array(key);
 }
 
-// Decrypt the message
-async function decryptMessage(encryptedMessage, key) {
-    const keyBuffer = await crypto.subtle.importKey(
-        "raw",
-        key,
-        { name: "AES-GCM" },
-        false,
-        ["decrypt"]
-    );
+    // Decode the base64-encoded IV and encrypted data into Uint8Array
+    const ivBuffer = Uint8Array.from(atob(iv), c => c.charCodeAt(0));
+    const encryptedDataBuffer = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
 
-    const { iv, encryptedData } = JSON.parse(encryptedMessage);
-
-    // Ensure iv and encryptedData are Uint8Array
-    const ivBuffer = new Uint8Array(iv);
-    const encryptedDataBuffer = new Uint8Array(encryptedData);
-
+    // Perform decryption
     const decrypted = await crypto.subtle.decrypt(
         { name: "AES-GCM", iv: ivBuffer },
         keyBuffer,
         encryptedDataBuffer
     );
 
+    // Decode the decrypted ArrayBuffer into a string
     return new TextDecoder().decode(decrypted);
 }
 
@@ -92,8 +82,8 @@ if (payload.data && payload.data.topic) {
       // Show the notification with decrypted data
       const notificationTitle = payload.data.title || payload.data.topic;
       const notificationBody = decryptedMessage || 'buzzed..';
-      const notificationIcon = decryptedAttachmentUrl || 'default_icon_url.svg'; // Fallback icon
-      const clickAction = decryptedClickUrl || 'default_click_url'; // Fallback URL
+      const notificationIcon = decryptedAttachmentUrl || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg'; // Fallback icon
+      const clickAction = decryptedClickUrl || 'https://marko-app.netlify.app'; // Fallback URL
 
       const notificationOptions = {
         body: notificationBody,
@@ -112,14 +102,14 @@ if (payload.data && payload.data.topic) {
       self.registration.showNotification(notificationTitle, notificationOptions);
     } catch (error) {
       console.error('Error processing encrypted message:', error);
-      // Handle decryption error (e.g., show a generic notification)
+      // TODO: Handle decryption error (e.g., show a generic notification)
     }
   } else if (payload.data.tags === 'sys') {
     // Handle unencrypted system message
     const notificationTitle = payload.data.title || 'System Message';
-    const notificationBody = payload.data.message || 'You have a new notification';
-    const notificationIcon = payload.data.attachment_url || 'default_icon_url.svg';
-    const clickAction = payload.data.click || 'default_click_url';
+    const notificationBody = payload.data.message || 'BUZZZZ..!';
+    const notificationIcon = payload.data.attachment_url || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';
+    const clickAction = payload.data.click || 'https://marko-app.netlify.app';
 
     const notificationOptions = {
       body: notificationBody,
