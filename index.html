@@ -118,12 +118,6 @@ background-color: #1f1b24;
       -webkit-touch-callout: none; /* Disable the callout */
     }      
 
-
-
-
-
-
-      
       .bookmark-wrapper {
         width: 100%;
       }  
@@ -1518,7 +1512,8 @@ getId(installations).then((installationId) => {
 });
 
 async function getKey(topic) {
-    const key = await localforage.getItem(topic);
+    const topicKey = `topic-${topic}`; // Create localforage key
+    const key = await localforage.getItem(topicKey);
     if (!key) {
         console.error('No key found for topic:', topic);
         return null;
