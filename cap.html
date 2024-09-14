@@ -524,9 +524,9 @@ async function getOrCreateFolder(folderName, accessToken) {
 
 const switchStreamSource = async () => {
     // Stop the current media tracks before switching
-    if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-    }
+    //if (mediaStream) {
+        //mediaStream.getTracks().forEach(track => track.stop());
+   // }
 
     // Toggle between front and back camera
     currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
