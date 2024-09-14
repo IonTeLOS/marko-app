@@ -236,7 +236,9 @@
                     defaultPhoto.style.display = 'none';
                 } else {
                     pauseStreamBtn.classList.add('hidden');
+                    toggleVideoBtn.classList.add('hidden');
                 }
+                
                 stopCaptureBtn.classList.remove('hidden');
 
                 const mimeType = type === 'audio' ? 'audio/webm' : 'video/webm;codecs=vp9,opus';
