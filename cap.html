@@ -62,6 +62,7 @@
         .btn-green { background-color: #4CAF50; color: white; }
         .btn-orange { background-color: #FF9800; color: white; }
         .btn-red { background-color: #F44336; color: white; }
+        .btn-yellow { background-color: #FFD300; color: white; }
         .indicator {
             padding: 5px 10px;
             border-radius: 4px;
@@ -221,7 +222,7 @@
             const constraints = {
                 audio: true,
                 video: type !== 'audio' 
-                    ? { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } }
+                    ? { facingMode: mode, width: { ideal: 1920 }, height: { ideal: 1080 } }
                     : false
             };
 
@@ -483,7 +484,7 @@ async function getOrCreateFolder(folderName, accessToken) {
             if (takePhotoBtn.textContent.includes('Photo')) {
                 await startPreview('photo');
                 takePhotoBtn.innerHTML = '<i class="material-icons">camera</i> Capture';
-                [startVideoBtn, startAudioBtn].forEach(btn => btn.classList.add('hidden'));
+                [startVideoBtn, stopCaptureBtn, startAudioBtn].forEach(btn => btn.classList.add('hidden'));
             } else {
                 const track = mediaStream.getVideoTracks()[0];
                 const imageCapture = new ImageCapture(track);
@@ -526,53 +527,89 @@ async function getOrCreateFolder(folderName, accessToken) {
             mediaRecorder.start();
             [startAudioBtn, takePhotoBtn, startVideoBtn].forEach(btn => btn.classList.add('hidden'));
         });
-        const switchStreamSource = async () => {
-        try {
-        // Get available video input devices (cameras)
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-
-        // Check if more than one camera is available
-        if (videoDevices.length < 2) {
-            alert('Only one camera is available.');
-            return;
+    const switchStreamSource = async () => {
+    try {
+        // Pause the current media tracks
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.enabled = false);
         }
 
-        // Get 'whichCam' from localStorage (default to 'user' if not present)
-        let whichCam = localStorage.getItem('whichCam') || 'user';
+        // Get the camera mode from local storage
+        const mode = localStorage.getItem('whichCam') || 'user';
 
-        // Toggle between 'user' and 'environment' values
-        whichCam = whichCam === 'user' ? 'environment' : 'user';
+        // Toggle between front and back camera
+        currentFacingMode = mode === 'user' ? 'environment' : 'user';
+        localStorage.setItem('whichCam', currentFacingMode); // Save the new mode
 
-        // Save the new value back to localStorage
-        localStorage.setItem('whichCam', whichCam);
-
-        // Update the media stream with the new facing mode
+        // Define the new media constraints with higher resolution
         const constraints = {
             audio: true,
-            video: { facingMode: whichCam, width: { ideal: 1280 }, height: { ideal: 720 } }
+            video: { facingMode: currentFacingMode, width: { ideal: 1920 }, height: { ideal: 1080 } }
         };
 
-        // Get the new media stream with the toggled camera
+        // Get new media stream
         mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
 
         // Update the preview with the new stream
         mediaPreview.srcObject = mediaStream;
 
-        // Change the icon on the switch button based on the camera mode
-        const switchIcon = document.querySelector('#switchSource i');
-        switchIcon.textContent = whichCam === 'user' ? 'camera_front' : 'camera_rear';
+        // Resume the media tracks if needed
+        mediaStream.getTracks().forEach(track => track.enabled = true);
+
     } catch (error) {
         console.error('Error switching stream source:', error);
         alert('Failed to switch camera source.');
     }
 };
 
+// Ensure the button updates the icon
+const switchSourceButton = document.getElementById('switchSource');
+switchSourceButton.addEventListener('click', switchStreamSource);
+
+
         switchStreamBtn.addEventListener('click', switchStreamSource);
         stopCaptureBtn.addEventListener('click', stopCapture);
         toggleAudioBtn.addEventListener('click', toggleAudio);
         toggleVideoBtn.addEventListener('click', toggleVideo);
         pauseStreamBtn.addEventListener('click', pauseStream);
+
+        // Function to check available video sources
+const checkVideoSources = async () => {
+    try {
+        // Get list of media devices
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        // Filter video input devices
+        const videoInputs = devices.filter(device => device.kind === 'videoinput');
+
+        // Show or hide the switch source button based on the number of video inputs
+        const switchSourceButton = document.getElementById('switchSource');
+        if (videoInputs.length > 1) {
+            switchSourceButton.style.display = 'block'; // Show button if more than one camera is available
+        } else {
+            switchSourceButton.style.display = 'none'; // Hide button if only one camera is available
+        }
+    } catch (error) {
+        console.error('Error checking video sources:', error);
+    }
+};
+
+// Function to update the button icon based on the current camera mode
+const updateButtonIcon = () => {
+    const switchSourceButton = document.getElementById('switchSource');
+    const mode = localStorage.getItem('whichCam') || 'user';
+    const iconElement = switchSourceButton.querySelector('i');
+
+    if (mode === 'user') {
+        iconElement.textContent = 'cameraswitch'; // Replace with the appropriate icon for the front camera
+    } else {
+        iconElement.textContent = 'flip_camera_ios'; // Replace with the appropriate icon for the back camera
+    }
+};
+        // Ensure the button updates the icon and visibility on page load
+document.addEventListener('DOMContentLoaded', () => {
+    updateButtonIcon();
+    checkVideoSources();
+});
     </script>
 </body>
 </html>
