@@ -1925,6 +1925,15 @@ function encryptedDataToFakeUrl(encryptedData) {
 
     return fakeUrl;
 }
+
+async function isImageUrl(url) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(true);  // If the image loads successfully
+        img.onerror = () => resolve(false);  // If there's an error loading the image
+        img.src = url;
+    });
+}
     try {
         const key = await localforage.getItem(topic);
         if (!key) {
@@ -1955,19 +1964,39 @@ function encryptedDataToFakeUrl(encryptedData) {
             ...(confTag && { tags: [confTag] })
         };
 
-        // Handle attachment URL
-        if (attachmentUrlInput.value) {
-            const encryptedAttach = await encryptData(attachmentUrlInput.value, key);
-            const fakeAttachUrl = encryptedDataToFakeUrl(encryptedAttach);
-            bodyData.attach = fakeAttachUrl;
-        }
-
         // Handle click URL
         if (clickUrlInput.value) {
             const encryptedClick = await encryptData(clickUrlInput.value, key);
             bodyData.click = encryptedClick;
         }
+      
+    let substitutedClick = false;
 
+    // Check if the attachment URL is an image
+    if (attachmentUrlInput.value) {
+        const isImage = await isImageUrl(attachmentUrlInput.value);
+
+        if (isImage) {
+            // If it is an image, encrypt it as an attachment URL
+            const encryptedAttach = await encryptData(attachmentUrlInput.value, key);
+            const fakeAttachUrl = encryptedDataToFakeUrl(encryptedAttach);
+            bodyData.attach = fakeAttachUrl;
+        } else {
+            // If it's not an image, treat it as the click URL
+            substitutedClick = true;
+            const encryptedClick = await encryptData(attachmentUrlInput.value, key);
+            bodyData.click = encryptedClick;
+            if (clickUrlInput.value) {
+              // Set attachment URL value to click URL input
+              clickUrlInput.value = attachmentUrlInput.value;
+
+              // Hide the attachment URL input element
+              attachmentUrlInput.style.display = 'none';
+              alert('The attachment URL was not an image and has been used as the click URL instead.');
+            }
+        }
+    }
+      
         console.log('Request body:', bodyData);
 
         // Perform the fetch request
