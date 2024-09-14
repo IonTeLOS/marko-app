@@ -184,11 +184,18 @@ qrcodeContainer.onclick = function() {
             }
         }
 
-        // Function to parse URL parameters
-        function getUrlParam(param) {
-            const params = new URLSearchParams(window.location.search);
-            return params.get(param);
-        }
+function getUrlParam(name) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramValue = urlParams.get(name);
+    
+    if (paramValue) {
+        // Decode the parameter value
+        return decodeURIComponent(paramValue);
+    }
+    
+    return null;
+}
+
 
         // On page load, check if the `url` parameter exists
         window.onload = function() {
