@@ -2330,29 +2330,28 @@ function generateFriendlyName() {
 // Generate a cryptographically random key and store it in localForage
 // Function to generate and store a topic key
 async function createTopic(topic, friendlyName = generateFriendlyName()) {
-    // Initialize localForage if not already initialized
-    localforage.config({
-        driver: localforage.INDEXEDDB, // Use IndexedDB as the driver
-        name: 'Marko' // Name for the database
-    });
-
     try {
-        // Generate a random key
-        const keyMaterial = await crypto.subtle.generateKey(
-            {
-                name: 'AES-GCM',
-                length: 256 // Length in bits
-            },
-            true, // Whether the key is extractable
-            ['encrypt', 'decrypt'] // Key usages
-        );
+            // Generate a random key
+    const keyMaterial = await crypto.subtle.generateKey(
+        {
+            name: 'AES-GCM',
+            length: 256 // Length in bits
+        },
+        true, // Whether the key is extractable
+        ['encrypt', 'decrypt'] // Key usages
+    );
 
-        // Export the key to raw format
-        const exportedKey = await crypto.subtle.exportKey('raw', keyMaterial);
+    // Export the key to raw format
+    const exportedKey = await crypto.subtle.exportKey('raw', keyMaterial);
 
-        // Store the key as ArrayBuffer
-        const keyName = `topic-${topic}`;
-        await localforage.setItem(keyName, exportedKey);
+    // Convert ArrayBuffer to Uint8Array
+    const keyUint8Array = new Uint8Array(exportedKey);
+
+    // Create the key name
+    const keyName = `topic-${topic}`;
+
+    // Store the key in localForage
+        await localforage.setItem(keyName, keyUint8Array);
         await subscribeTopic(topic);
         alert(`Successfully created and subscribed to ${friendlyName}!`);
         console.log(`${friendlyName}: Key stored successfully!`);
