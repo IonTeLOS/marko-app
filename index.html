@@ -3459,6 +3459,7 @@ async function addTopic(topic, keyBase64) {
         // Store key in localforage
         await localforage.setItem(topicKey, keyArray);
         console.log(`Successfully added ${topicKey} to localforage.`);
+        subscribeTopic(topic);
     } catch (error) {
         console.error('Error adding topic to localforage:', error);
     }
