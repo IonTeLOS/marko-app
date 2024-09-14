@@ -318,17 +318,20 @@
                 loadingOverlay.classList.remove('hidden');
                 const fileId = await uploadFile(blob, accessToken, fileName);
                 const fileUrl = `https://marko-app.netlify.app/driveserver?site=${fileId}`;
-           Notiflix.Confirm.show(
-            'File Upload Success',
-            `Click OK to view <strong>${fileName}</strong>.`,
-            'OK',
-            'Cancel',
-            () => {
-                // Open the link in a new tab when OK is clicked
-                window.open(fileUrl, '_blank');
-            },
-            () => { /* Optional: Handle Cancel button click if needed */ }
-        );
+Notiflix.Confirm.show(
+    'File Upload Success',
+    `Click OK to view <strong>${fileName}</strong>.`,
+    'OK',
+    'Cancel',
+    () => {
+        // Open the link in a new tab when OK is clicked
+        window.location.href = fileUrl;
+    },
+    () => {
+        // Reload the page when Cancel is clicked
+        window.location.reload();
+    }
+);
             } catch (error) {
                 console.error('Error uploading file:', error);
                 alert('Failed to upload file. Please try again.');
@@ -498,6 +501,7 @@ async function getOrCreateFolder(folderName, accessToken) {
             } else {
                 const track = mediaStream.getVideoTracks()[0];
                 const imageCapture = new ImageCapture(track);
+                mediaPreview.classList.add('hidden');
                 shutterSound.play();
                 try {
                     const photoBlob = await imageCapture.takePhoto();
@@ -510,11 +514,14 @@ async function getOrCreateFolder(folderName, accessToken) {
                 `Click OK to view <strong>${fileName}</strong>.`,
                 'OK',
                 'Cancel',
-                () => {
-                // Open the link in a new tab when OK is clicked
-                window.open(fileUrl, '_blank');
-                },
-                () => { /* Optional: Handle Cancel button click if needed */ }
+                    () => {
+                    // Open the link in a new tab when OK is clicked
+                    window.location.href = fileUrl;
+                 },
+                 () => {
+                 // Reload the page when Cancel is clicked
+                 window.location.reload();
+                }
                 );
                 } catch (error) {
                     console.error('Error capturing or uploading photo:', error);
