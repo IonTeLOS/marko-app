@@ -482,6 +482,7 @@ async function getOrCreateFolder(folderName, accessToken) {
 
 
         takePhotoBtn.addEventListener('click', async () => {
+            switchStreamBtn.classList.remove('hidden');
             if (takePhotoBtn.textContent.includes('Photo')) {
                 await startPreview('photo');
                 takePhotoBtn.innerHTML = '<i class="material-icons">camera</i> Capture';
@@ -528,6 +529,7 @@ async function getOrCreateFolder(folderName, accessToken) {
             mediaRecorder.start();
             [startAudioBtn, takePhotoBtn, startVideoBtn].forEach(btn => btn.classList.add('hidden'));
         });
+        
     const switchStreamSource = async () => {
     try {
 
@@ -537,7 +539,9 @@ async function getOrCreateFolder(folderName, accessToken) {
         // Toggle between front and back camera
         currentFacingMode = mode === 'user' ? 'environment' : 'user';
         localStorage.setItem('whichCam', currentFacingMode); // Save the new mode
-
+        setTimeout(() => {
+            updateButtonIcon();
+        }, 500);
     } catch (error) {
         console.error('Error switching stream source:', error);
         alert('Failed to switch camera source.');
