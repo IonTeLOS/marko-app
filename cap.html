@@ -553,11 +553,6 @@ async function getOrCreateFolder(folderName, accessToken) {
             video: { facingMode: whichCam, width: { ideal: 1280 }, height: { ideal: 720 } }
         };
 
-        // Stop current media tracks before switching
-        if (mediaStream) {
-            mediaStream.getTracks().forEach(track => track.stop());
-        }
-
         // Get the new media stream with the toggled camera
         mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
 
