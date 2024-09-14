@@ -1517,6 +1517,101 @@ getId(installations).then((installationId) => {
   console.error('Error getting installation ID:', error);
 });
 
+async function getKey(topic) {
+    const key = await localforage.getItem(topic);
+    if (!key) {
+        console.error('No key found for topic:', topic);
+        return null;
+    }
+    if (key.byteLength !== 32) {
+        console.error('Invalid key length:', key.byteLength);
+        return null;
+    }
+    return new Uint8Array(key);
+}
+
+function extractEncryptedData(fakeUrl) {
+    const regex = /iv\/([^/]+)\/encryptedData\/(.+)/;
+    const match = fakeUrl.match(regex);
+
+    if (!match || match.length < 3) {
+        throw new Error('Invalid fake URL format');
+    }
+
+    const iv = match[1];
+    const encryptedData = match[2];
+
+    return { iv, encryptedData };
+}
+
+function base64ToUint8Array(base64String) {
+    // Ensure the base64 string has the correct padding
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+        .replace(/-/g, '+')  // Replace URL-safe base64 '-' with '+'
+        .replace(/_/g, '/'); // Replace URL-safe base64 '_' with '/'
+
+    try {
+        // Decode the base64 string
+        const rawData = atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+
+        // Convert raw string data to a Uint8Array
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+
+        return outputArray;
+    } catch (e) {
+        console.error('Base64 decoding failed:', e);
+        throw new Error('Failed to decode base64 string');
+    }
+}
+
+
+async function decryptMessage(encryptedMessage, key) {
+    const keyBuffer = await crypto.subtle.importKey(
+        "raw",
+        key,
+        { name: "AES-GCM" },
+        false,
+        ["decrypt"]
+    );
+
+    let parsedMessage;
+    try {
+        // Check if encryptedMessage is an object or a string
+        if (typeof encryptedMessage === 'string') {
+            parsedMessage = JSON.parse(encryptedMessage);
+        } else if (typeof encryptedMessage === 'object') {
+            parsedMessage = encryptedMessage;
+        } else {
+            throw new Error('Invalid encrypted message format');
+        }
+    } catch (error) {
+        console.error('Error parsing encrypted message:', error);
+        throw error;
+    }
+
+    const { iv, encryptedData } = parsedMessage;
+
+    // Decode base64-encoded iv and encryptedData
+    const ivBuffer = base64ToUint8Array(iv);
+    const encryptedDataBuffer = base64ToUint8Array(encryptedData);
+
+    // Ensure IV is 12 bytes (96 bits) long
+    if (ivBuffer.length !== 12) {
+        throw new Error(`Invalid IV length: ${ivBuffer.length} bytes. Expected 12 bytes.`);
+    }
+
+    const decrypted = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: ivBuffer },
+        keyBuffer,
+        encryptedDataBuffer
+    );
+
+    return new TextDecoder().decode(decrypted);
+}
  // Handle foreground messages
 onMessage(messaging, async (payload) => {
   console.log('Message received. ', payload);
