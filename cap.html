@@ -534,13 +534,27 @@ async function getOrCreateFolder(folderName, accessToken) {
         
     const switchStreamSource = async () => {
     try {
-
+        // Stop all existing media tracks
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+        }
         // Get the camera mode from local storage
         const mode = localStorage.getItem('whichCam') || 'user';
 
         // Toggle between front and back camera
         currentFacingMode = mode === 'user' ? 'environment' : 'user';
         localStorage.setItem('whichCam', currentFacingMode); // Save the new mode
+        const constraints = {
+            audio: true,
+            video: { facingMode: currentFacingMode, width: { ideal: 1920 }, height: { ideal: 1080 } }
+        };
+
+        // Get new media stream
+        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        // Update the preview with the new stream
+        mediaPreview.srcObject = mediaStream;
+
         setTimeout(() => {
             updateButtonIcon();
         }, 200);
