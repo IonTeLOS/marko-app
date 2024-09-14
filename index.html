@@ -2037,7 +2037,7 @@ function showReplyForm(topic) {
   // Retrieve the key from localForage
 submitButton.addEventListener('click', async () => {
   // the key of topic in localforage is stored as topic-{topic}
-  topicKey = `topic-${topic}`;
+  const topicKey = `topic-${topic}`;
 
   // New function to make encrypted data look like a valid URL
 function encryptedDataToFakeUrl(encryptedData) {
