@@ -16,6 +16,12 @@ const firebaseConfig = {
   appId: "1:7036670175:web:99992356716578ea13996a"
 };
 
+// Ensure localForage is configured properly
+localforage.config({
+    driver: localforage.INDEXEDDB, // Use IndexedDB as the driver
+    name: 'Marko' // Name for the database
+});
+
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
