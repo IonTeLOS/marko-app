@@ -2314,12 +2314,10 @@ function uint8ArrayToBase64(uint8Array) {
     return btoa(binary); // Base64 encode
 }
 
-async function shareTopic(topicKey) {    
-    // Remove 'topic-' prefix if it exists
-    const topic = topicKey.startsWith('topic-') ? topicKey.slice(6) : topicKey;
-    
+async function shareTopic(topic) {        
     // Fetch the key from localforage
-    const key = await localforage.getItem(topic);
+    const topicKey = `topic-${topic}`; // Create localforage key
+    const key = await localforage.getItem(topicKey);
     
     if (!key || key.byteLength !== 32) {
         console.error('Invalid key or key not found');
@@ -3455,8 +3453,8 @@ function handleSharedLink(url, title, text) {
 // Function to add topic and key to localforage
 async function addTopic(topic, keyBase64) {
     try {
-        const keyArray = base64ToUint8Array(keyBase64); // Use your existing function to convert Base64 string to Uint8Array
-        const topicKey = `topic-${topic}`; // Create localforage key
+        const keyArray = base64ToUint8Array(keyBase64); 
+        const topicKey = `topic-${topic}`; 
 
         // Store key in localforage
         await localforage.setItem(topicKey, keyArray);
