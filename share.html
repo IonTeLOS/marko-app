@@ -165,9 +165,9 @@ qrcodeContainer.onclick = function() {
                         if (redirectParam) {
                             console.log('Redirecting to:', redirectParam);
                             setTimeout(() => {
-                                console.log('Redirecting after 5 seconds');
+                                console.log('Redirecting after 3 seconds');
                                 window.location.href = redirectParam;
-                            }, 5000);
+                            }, 3000);
                         }
                     })
                     .catch(err => {
@@ -267,9 +267,9 @@ document.getElementById("shareBtn").addEventListener("click", function() {
                 if (redirectParam) {
                     console.log("Redirecting to:", redirectParam);
                     setTimeout(() => {
-                        console.log("Redirecting after 5 seconds");
+                        console.log("Redirecting after 3 seconds");
                         window.location.href = redirectParam;
-                    }, 5000); // Delay the redirection by 5 seconds
+                    }, 3000); // Delay the redirection by 5 seconds
                 }
             })
             .catch(err => {
