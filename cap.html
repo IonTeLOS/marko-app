@@ -215,10 +215,16 @@
 
         const startPreview = async (type) => {
             hideMediaPreviews();
+            
+            const mode = localStorage.getItem('whichCam') || 'user';  // Default to 'user' if 'whichCam' is not found
+
             const constraints = {
                 audio: true,
-                video: type !== 'audio' ? { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } : false
+                video: type !== 'audio' 
+                    ? { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } }
+                    : false
             };
+
             try {
                 mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
                 if (type !== 'audio') {
@@ -520,26 +526,47 @@ async function getOrCreateFolder(folderName, accessToken) {
             mediaRecorder.start();
             [startAudioBtn, takePhotoBtn, startVideoBtn].forEach(btn => btn.classList.add('hidden'));
         });
-        let currentFacingMode = 'user'; // Default to front camera
+        const switchStreamSource = async () => {
+        try {
+        // Get available video input devices (cameras)
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
 
-const switchStreamSource = async () => {
-    // Stop the current media tracks before switching
-    //if (mediaStream) {
-        //mediaStream.getTracks().forEach(track => track.stop());
-   // }
+        // Check if more than one camera is available
+        if (videoDevices.length < 2) {
+            alert('Only one camera is available.');
+            return;
+        }
 
-    // Toggle between front and back camera
-    currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+        // Get 'whichCam' from localStorage (default to 'user' if not present)
+        let whichCam = localStorage.getItem('whichCam') || 'user';
 
-    // Update the media stream with the new facing mode
-    const constraints = {
-        audio: true,
-        video: { facingMode: currentFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
-    };
+        // Toggle between 'user' and 'environment' values
+        whichCam = whichCam === 'user' ? 'environment' : 'user';
 
-    try {
+        // Save the new value back to localStorage
+        localStorage.setItem('whichCam', whichCam);
+
+        // Update the media stream with the new facing mode
+        const constraints = {
+            audio: true,
+            video: { facingMode: whichCam, width: { ideal: 1280 }, height: { ideal: 720 } }
+        };
+
+        // Stop current media tracks before switching
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+        }
+
+        // Get the new media stream with the toggled camera
         mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-        mediaPreview.srcObject = mediaStream; // Update the preview with the new stream
+
+        // Update the preview with the new stream
+        mediaPreview.srcObject = mediaStream;
+
+        // Change the icon on the switch button based on the camera mode
+        const switchIcon = document.querySelector('#switchSource i');
+        switchIcon.textContent = whichCam === 'user' ? 'camera_front' : 'camera_rear';
     } catch (error) {
         console.error('Error switching stream source:', error);
         alert('Failed to switch camera source.');
