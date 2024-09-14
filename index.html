@@ -1484,7 +1484,11 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js';
 import { getInstallations, getId } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-installations.js';
 import { getDatabase, ref, set, serverTimestamp, query, orderByChild, equalTo, remove, get } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
-
+// Ensure localForage is configured properly
+localforage.config({
+    driver: localforage.INDEXEDDB, // Use IndexedDB as the driver
+    name: 'Marko' // Name for the database
+});
 const firebaseConfig = {
   apiKey: "AIzaSyD96IBVqGKVEdmXIVCYL_7kvlBhJNSD1Ww",
   authDomain: "marko-be9a9.firebaseapp.com",
@@ -2304,6 +2308,11 @@ window.cancelScheduledNotification = cancelScheduledNotification;
 
 </script>
 <script>  
+// Ensure localForage is configured properly
+localforage.config({
+    driver: localforage.INDEXEDDB, // Use IndexedDB as the driver
+    name: 'Marko' // Name for the database
+});  
 // Helper function to convert Uint8Array to a Base64-encoded string
 function uint8ArrayToBase64(uint8Array) {
     let binary = '';
