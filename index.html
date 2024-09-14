@@ -2320,7 +2320,7 @@ async function shareTopic(topicKey) {
     const topic = topicKey.startsWith('topic-') ? topicKey.slice(6) : topicKey;
     
     // Fetch the key from localforage
-    const key = await localforage.getItem(topicKey);
+    const key = await localforage.getItem(topic);
     
     if (!key || key.byteLength !== 32) {
         console.error('Invalid key or key not found');
