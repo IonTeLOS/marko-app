@@ -2037,7 +2037,7 @@ function showReplyForm(topic) {
   // Retrieve the key from localForage
 submitButton.addEventListener('click', async () => {
   // the key of topic in localforage is stored as topic-{topic}
-  topic = `topic-${topic}`;
+  topicKey = `topic-${topic}`;
 
   // New function to make encrypted data look like a valid URL
 function encryptedDataToFakeUrl(encryptedData) {
@@ -2073,7 +2073,7 @@ async function isImageUrl(url) {
     });
 }
     try {
-        const key = await localforage.getItem(topic);
+        const key = await localforage.getItem(topicKey);
         if (!key) {
             throw new Error('No key found for topic: ' + topic);
         }
