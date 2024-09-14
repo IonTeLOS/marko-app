@@ -600,12 +600,12 @@ const updateButtonIcon = () => {
     const iconElement = switchSourceButton.querySelector('i');
 
     if (mode === 'user') {
-        iconElement.textContent = 'cameraswitch'; // Replace with the appropriate icon for the front camera
+        iconElement.textContent = 'camera_front'; 
     } else {
-        iconElement.textContent = 'flip_camera_ios'; // Replace with the appropriate icon for the back camera
+        iconElement.textContent = 'camera_rear'; 
     }
 };
-        // Ensure the button updates the icon and visibility on page load
+
 document.addEventListener('DOMContentLoaded', () => {
     updateButtonIcon();
     checkVideoSources();
