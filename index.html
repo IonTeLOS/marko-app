@@ -2352,7 +2352,7 @@ async function createTopic(topic, friendlyName = generateFriendlyName()) {
 
     // Store the key in localForage
         await localforage.setItem(keyName, keyUint8Array);
-        await subscribeTopic(topic);
+        subscribeTopic(topic);
         alert(`Successfully created and subscribed to ${friendlyName}!`);
         console.log(`${friendlyName}: Key stored successfully!`);
     } catch (error) {
@@ -3506,7 +3506,7 @@ async function addTopic(topic, keyBase64) {
         // Store key in localforage
         await localforage.setItem(topicKey, keyArray);
         console.log(`Successfully added ${topicKey} to localforage.`);
-        await subscribeTopic(topic);
+        subscribeTopic(topic);
         alert(`Successfully subscribed to ${topic}!`);
     } catch (error) {
         console.error('Error adding topic to localforage:', error);
