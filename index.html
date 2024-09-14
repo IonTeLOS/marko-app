@@ -2314,50 +2314,36 @@ function uint8ArrayToBase64(uint8Array) {
     return btoa(binary); // Base64 encode
 }
 
-// Helper function to convert ArrayBuffer to Base64 string
-function arrayBufferToBase64(buffer) {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return window.btoa(binary);
-}
-
 // Function to generate a random friendly name
 function generateFriendlyName() {
     return `${chance.word({ length: 5 })}-${chance.word({ length: 5 })}-${chance.word({ length: 5 })}`;
 }  
 // Generate a cryptographically random key and store it in localForage
+// Function to generate and store a topic key
 async function createTopic(topic, friendlyName = generateFriendlyName()) {
-  // Initialize localForage if not already initialized
-  localforage.config({
-    driver: localforage.INDEXEDDB, // Use IndexedDB as the driver
-    name: 'Marko' // Name for the database
-  });
-    // Generate a random key
-    const keyMaterial = await crypto.subtle.generateKey(
-        {
-            name: 'AES-GCM',
-            length: 256 // Length in bits
-        },
-        true, // Whether the key is extractable
-        ['encrypt', 'decrypt'] // Key usages
-    );
+    // Initialize localForage if not already initialized
+    localforage.config({
+        driver: localforage.INDEXEDDB, // Use IndexedDB as the driver
+        name: 'Marko' // Name for the database
+    });
 
-    // Export the key to raw format
-    const exportedKey = await crypto.subtle.exportKey('raw', keyMaterial);
-
-    // Convert the exported key to Base64 (or Uint8Array)
-    const keyBase64 = arrayBufferToBase64(exportedKey);
-
-    // Create the key name
-    const keyName = `topic-${topic}`;
-
-    // Store the key in localForage
     try {
-        await localforage.setItem(keyName, keyBase64);
+        // Generate a random key
+        const keyMaterial = await crypto.subtle.generateKey(
+            {
+                name: 'AES-GCM',
+                length: 256 // Length in bits
+            },
+            true, // Whether the key is extractable
+            ['encrypt', 'decrypt'] // Key usages
+        );
+
+        // Export the key to raw format
+        const exportedKey = await crypto.subtle.exportKey('raw', keyMaterial);
+
+        // Store the key as ArrayBuffer
+        const keyName = `topic-${topic}`;
+        await localforage.setItem(keyName, exportedKey);
         console.log(`${friendlyName}: Key stored successfully!`);
     } catch (error) {
         console.error(`${friendlyName}: Error storing key:`, error);
