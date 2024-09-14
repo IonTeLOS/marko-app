@@ -53,7 +53,7 @@
 <script src="https://unpkg.com/showdown/dist/showdown.min.js"></script>
     <!-- Materialize JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
-
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/random-words/1.1.0/random-words.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/notiflix@3/dist/notiflix-aio-3.2.7.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/notiflix@3/src/notiflix.min.css" rel="stylesheet">
   <script src="https://marko-app.netlify.app/create-marko-page.js" defer></script>
@@ -2314,6 +2314,52 @@ function uint8ArrayToBase64(uint8Array) {
     return btoa(binary); // Base64 encode
 }
 
+// Helper function to convert ArrayBuffer to Base64 string
+function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
+}
+
+// Generate a cryptographically random key and store it in localForage
+async function createTopic(topic, friendlyName = randomWords({ exactly: 3, join: '-' })) {
+  // Initialize localForage if not already initialized
+  localforage.config({
+    driver: localforage.INDEXEDDB, // Use IndexedDB as the driver
+    name: 'Marko' // Name for the database
+  });
+    // Generate a random key
+    const keyMaterial = await crypto.subtle.generateKey(
+        {
+            name: 'AES-GCM',
+            length: 256 // Length in bits
+        },
+        true, // Whether the key is extractable
+        ['encrypt', 'decrypt'] // Key usages
+    );
+
+    // Export the key to raw format
+    const exportedKey = await crypto.subtle.exportKey('raw', keyMaterial);
+
+    // Convert the exported key to Base64 (or Uint8Array)
+    const keyBase64 = arrayBufferToBase64(exportedKey);
+
+    // Create the key name
+    const keyName = `topic-${topic}`;
+
+    // Store the key in localForage
+    try {
+        await localforage.setItem(keyName, keyBase64);
+        console.log(`${friendlyName}: Key stored successfully!`);
+    } catch (error) {
+        console.error(`${friendlyName}: Error storing key:`, error);
+    }
+}
+
 async function shareTopic(topic) {        
     // Fetch the key from localforage
     const topicKey = `topic-${topic}`; // Create localforage key
@@ -2326,7 +2372,7 @@ async function shareTopic(topic) {
     
     // Convert Uint8Array key to Base64 (or other format, like hex if needed)
     const keyBase64 = uint8ArrayToBase64(key);
-    
+    // TODO: add a 'friendly name' for topic
     // Create URL with parameters
     const params = new URLSearchParams({
         addTopic: true,
@@ -3452,6 +3498,7 @@ function handleSharedLink(url, title, text) {
 
 // Function to add topic and key to localforage
 async function addTopic(topic, keyBase64) {
+  // TODO: add a 'friendly name' for topic
     try {
         const keyArray = base64ToUint8Array(keyBase64); 
         const topicKey = `topic-${topic}`; 
