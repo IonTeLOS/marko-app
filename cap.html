@@ -228,6 +228,7 @@
 
             try {
                 mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                switchStreamBtn.classList.add('hidden');
                 if (type !== 'audio') {
                     mediaPreview.srcObject = mediaStream;
                     mediaPreview.classList.remove('hidden');
@@ -529,10 +530,6 @@ async function getOrCreateFolder(folderName, accessToken) {
         });
     const switchStreamSource = async () => {
     try {
-        // Pause the current media tracks
-        if (mediaStream) {
-            mediaStream.getTracks().forEach(track => track.enabled = false);
-        }
 
         // Get the camera mode from local storage
         const mode = localStorage.getItem('whichCam') || 'user';
@@ -541,31 +538,11 @@ async function getOrCreateFolder(folderName, accessToken) {
         currentFacingMode = mode === 'user' ? 'environment' : 'user';
         localStorage.setItem('whichCam', currentFacingMode); // Save the new mode
 
-        // Define the new media constraints with higher resolution
-        const constraints = {
-            audio: true,
-            video: { facingMode: currentFacingMode, width: { ideal: 1920 }, height: { ideal: 1080 } }
-        };
-
-        // Get new media stream
-        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-
-        // Update the preview with the new stream
-        mediaPreview.srcObject = mediaStream;
-
-        // Resume the media tracks if needed
-        mediaStream.getTracks().forEach(track => track.enabled = true);
-
     } catch (error) {
         console.error('Error switching stream source:', error);
         alert('Failed to switch camera source.');
     }
 };
-
-// Ensure the button updates the icon
-const switchSourceButton = document.getElementById('switchSource');
-switchSourceButton.addEventListener('click', switchStreamSource);
-
 
         switchStreamBtn.addEventListener('click', switchStreamSource);
         stopCaptureBtn.addEventListener('click', stopCapture);
