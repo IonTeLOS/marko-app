@@ -234,6 +234,8 @@
                     mediaPreview.srcObject = mediaStream;
                     mediaPreview.classList.remove('hidden');
                     defaultPhoto.style.display = 'none';
+                } else {
+                    pauseStreamBtn.classList.add('hidden');
                 }
                 stopCaptureBtn.classList.remove('hidden');
 
