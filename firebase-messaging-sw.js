@@ -20,7 +20,8 @@ firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
 async function getKey(topic) {
-    const key = await localforage.getItem(topic);
+    const topicKey = `topic-${topic}`; 
+    const key = await localforage.getItem(topicKey);
     if (!key) {
         console.error('No key found for topic:', topic);
         return null;
