@@ -1518,7 +1518,7 @@ getId(installations).then((installationId) => {
 });
 
  // Handle foreground messages
-onMessage(messaging, (payload) => {
+onMessage(messaging, async (payload) => {
   console.log('Message received. ', payload);
   if (payload.data.goto) {
     const navUrl = String(payload.data.goto);
