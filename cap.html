@@ -133,6 +133,7 @@
     <div id="loadingOverlay">
         <div class="spinner"></div>
     </div>
+    <audio id="shutterSound" src="shutter.mp3"></audio>
     <div class="container">
         <h1>Create, upload to Drive, share with friends, easily!</h1>
         <div style="position: relative;">
@@ -195,6 +196,7 @@
         const loadingOverlay = $('#loadingOverlay');
         const fileUrl = $('#fileUrl');
         const fileLink = $('#fileLink');
+        const shutterSound = document.getElementById('shutterSound');
 
         
         window.addEventListener('load', () => {
@@ -496,6 +498,7 @@ async function getOrCreateFolder(folderName, accessToken) {
             } else {
                 const track = mediaStream.getVideoTracks()[0];
                 const imageCapture = new ImageCapture(track);
+                shutterSound.play();
                 try {
                     const photoBlob = await imageCapture.takePhoto();
                     const fileName = getFileName('jpg');
