@@ -2337,7 +2337,7 @@ async function shareTopic(topic) {
     const newUrl = `https://marko-app.netlify.app?${params.toString()}`;
     
     console.log('Generated URL:', newUrl);
-    
+    window.location.href = `/share?url=${newUrl}&redirect=/`;
     return newUrl;
 }
 
