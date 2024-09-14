@@ -25,6 +25,7 @@
         h1 {
             text-align: center;
             color: #333;
+            padding: 10px;
         }
         #mediaPreview, #photoResult, #videoResult, #audioResult {
             width: 100%;
@@ -39,6 +40,7 @@
             flex-wrap: wrap;
             gap: 10px;
             margin-bottom: 10px;
+            align-items: center;
         }
         .btn {
             padding: 10px 15px;
@@ -228,7 +230,6 @@
 
             try {
                 mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-                switchStreamBtn.classList.add('hidden');
                 if (type !== 'audio') {
                     mediaPreview.srcObject = mediaStream;
                     mediaPreview.classList.remove('hidden');
@@ -343,6 +344,7 @@
             if (mediaStream) {
                 mediaStream.getTracks().forEach(track => track.stop());
             }
+            switchStreamBtn.classList.remove('hidden');
             stopCaptureBtn.classList.add('hidden');
             streamControls.classList.add('hidden');
             clearPauseTimer();
@@ -482,9 +484,9 @@ async function getOrCreateFolder(folderName, accessToken) {
 
 
         takePhotoBtn.addEventListener('click', async () => {
-            switchStreamBtn.classList.remove('hidden');
             if (takePhotoBtn.textContent.includes('Photo')) {
                 await startPreview('photo');
+                switchStreamBtn.classList.remove('hidden');
                 takePhotoBtn.innerHTML = '<i class="material-icons">camera</i> Capture';
                 [startVideoBtn, stopCaptureBtn, startAudioBtn].forEach(btn => btn.classList.add('hidden'));
             } else {
@@ -521,13 +523,13 @@ async function getOrCreateFolder(folderName, accessToken) {
         startVideoBtn.addEventListener('click', async () => {
             await startPreview('video');
             mediaRecorder.start();
-            [startVideoBtn, takePhotoBtn, startAudioBtn].forEach(btn => btn.classList.add('hidden'));
+            [startVideoBtn, takePhotoBtn, switchStreamBtn, startAudioBtn].forEach(btn => btn.classList.add('hidden'));
         });
 
         startAudioBtn.addEventListener('click', async () => {
             await startPreview('audio');
             mediaRecorder.start();
-            [startAudioBtn, takePhotoBtn, startVideoBtn].forEach(btn => btn.classList.add('hidden'));
+            [startAudioBtn, takePhotoBtn, switchStreamBtn, startVideoBtn].forEach(btn => btn.classList.add('hidden'));
         });
         
     const switchStreamSource = async () => {
@@ -541,7 +543,7 @@ async function getOrCreateFolder(folderName, accessToken) {
         localStorage.setItem('whichCam', currentFacingMode); // Save the new mode
         setTimeout(() => {
             updateButtonIcon();
-        }, 500);
+        }, 200);
     } catch (error) {
         console.error('Error switching stream source:', error);
         alert('Failed to switch camera source.');
