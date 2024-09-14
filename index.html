@@ -2177,6 +2177,7 @@ async function isImageUrl(url) {
 
 window.showReplyForm = showReplyForm;
 window.encryptData = encryptData;
+window.base64ToUint8Array = base64ToUint8Array;
 
       // Register the service worker
 if ('serviceWorker' in navigator) {
@@ -3452,7 +3453,21 @@ function handleSharedLink(url, title, text) {
     console.log(`Link: ${url}, Title: ${title}, Extras: ${text}`);  
     createMarko('', url, title, '', '');
 }
-            
+
+// Function to add topic and key to localforage
+async function addTopic(topic, keyBase64) {
+    try {
+        const keyArray = base64ToUint8Array(keyBase64); // Use your existing function to convert Base64 string to Uint8Array
+        const topicKey = `topic-${topic}`; // Create localforage key
+
+        // Store key in localforage
+        await localforage.setItem(topicKey, keyArray);
+        console.log(`Successfully added ${topicKey} to localforage.`);
+    } catch (error) {
+        console.error('Error adding topic to localforage:', error);
+    }
+}  
+  
   function loadArrayFromURL() {
 
     const params = new URLSearchParams(window.location.search);
@@ -3475,6 +3490,7 @@ function handleSharedLink(url, title, text) {
     const color = params.get('color');
     const isNewMarko = params.get('createMarko');
     const noConfirmation = params.get('noConfirm');
+    const addingTopic = params.get('addTopic');
     
     //alert("URL parameters loaded: " + window.location.search); // Alert with full query string
 
@@ -3489,6 +3505,20 @@ function handleSharedLink(url, title, text) {
         saveToGoogleDrive
     };
 
+    // Check if 'addTopic' exists and is 'true'
+    if (addingTopic && addingTopic === 'true') {
+        const topic = params.get('topic');
+        const key = params.get('key');
+
+        if (topic && key) {
+            // Call addTopic function with the topic and key
+            addTopic(topic, key);
+        } else {
+            console.error('Missing topic or key in URL parameters.');
+        }
+    }
+
+// Call this function when you need to
     if (func && functionsMap[func]) {
         //alert("Executing function: " + func); // Alert the function being executed
         functionsMap[func](); // Execute the corresponding function
