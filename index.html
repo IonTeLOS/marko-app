@@ -1524,18 +1524,63 @@ onMessage(messaging, (payload) => {
     const navUrl = String(payload.data.goto);
     window.open(navUrl, '_blank');
   }
-  if (payload.data.topic) {
-    showNotification({
-    topic: payload.data.topic,  
-    title: payload.data.title || `🔔 -  ${payload.data.topic}`,
-    message: payload.data.message,
-    attachmentUrl: payload.data.attachment_url, 
-    clickActionUrl: payload.data.click,
-    otherAction: payload.data.tags  
-  });
-    //const navUrl = String(payload.data.click);
-    //window.open(navUrl, '_blank');
-  }
+
+    if (payload.data && payload.data.topic) {
+        // Check if the message is encrypted (i.e., does not have a 'sys' tag)
+        const isEncrypted = !payload.data.tags || payload.data.tags !== 'sys';
+
+        let title = payload.data.title || `🔔 -  ${payload.data.topic}`;
+        let message = payload.data.message || '';
+        let attachmentUrl = payload.data.attachment_url || '';
+        let clickActionUrl = payload.data.click || '';
+
+        if (isEncrypted) {
+            try {
+                const topic = payload.data.topic;
+                const key = await getKey(topic);
+
+                if (!key) {
+                    throw new Error('No key available for decryption');
+                }
+
+                // Decrypt the message content
+                if (message) {
+                    message = await decryptMessage(message, key);
+                }
+
+                // Decrypt the attachment URL, if present
+                if (attachmentUrl) {
+                    const encryptedAttachData = extractEncryptedData(attachmentUrl);
+                    attachmentUrl = await decryptMessage(JSON.stringify(encryptedAttachData), key);
+                }
+
+                // Decrypt the click action URL, if present
+                if (clickActionUrl) {
+                    clickActionUrl = await decryptMessage(clickActionUrl, key);
+                }
+
+                console.log('Decrypted message:', { title, message, attachmentUrl, clickActionUrl });
+
+            } catch (error) {
+                console.error('Error decrypting notification:', error);
+                // Handle decryption error (e.g., fall back to generic data)
+            }
+        } else if (payload.data.tags === 'sys') {
+            console.log('System message received');
+            // No decryption needed for system messages
+        }
+
+        // Launch the showNotification function with decrypted (or original) values
+        showNotification({
+            topic: payload.data.topic,
+            title: title,
+            message: message,
+            attachmentUrl: attachmentUrl,
+            clickActionUrl: clickActionUrl,
+            otherAction: payload.data.tags
+        });
+    }
+z
   if (payload.data.url) {
     const navUrl = String(payload.data.url);
     window.open(navUrl, '_blank');
