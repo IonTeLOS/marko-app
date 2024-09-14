@@ -149,11 +149,14 @@
                 <button id="startVideo" class="btn btn-green"><i class="material-icons">videocam</i> Video</button>
                 <button id="startAudio" class="btn btn-orange"><i class="material-icons">mic</i> Audio</button>
                 <button id="stopCapture" class="btn btn-red hidden"><i class="material-icons">stop</i> Stop</button>
+                <button id="switchSource" class="btn btn-yellow"><i class="material-icons">cameraswitch</i> Switch</button>
+
             </div>
             <div id="streamControls" class="btn-group hidden">
                 <button id="toggleAudio" class="btn btn-blue"><i class="material-icons">volume_off</i> Mute Audio</button>
                 <button id="toggleVideo" class="btn btn-green"><i class="material-icons">videocam_off</i> Hide Video</button>
-                <button id="pauseStream" class="btn btn-orange"><i class="material-icons">pause</i> Pause</button>
+                <button id="pauseStream" class="btn btn-orange"><i class="material-icons">pause</i> Pause</button
+
             </div>
             <div id="fileUrl" class="hidden">
                 <a id="fileLink" class="btn btn-blue" target="_blank"><i class="material-icons">file_download</i> View File</a>
@@ -183,6 +186,7 @@
         const toggleAudioBtn = $('#toggleAudio');
         const toggleVideoBtn = $('#toggleVideo');
         const pauseStreamBtn = $('#pauseStream');
+        const switchStreamBtn = $('#switchSource');
         const streamControls = $('#streamControls');
         const warningMessage = $('#warningMessage');
         const loadingOverlay = $('#loadingOverlay');
@@ -516,7 +520,33 @@ async function getOrCreateFolder(folderName, accessToken) {
             mediaRecorder.start();
             [startAudioBtn, takePhotoBtn, startVideoBtn].forEach(btn => btn.classList.add('hidden'));
         });
+        let currentFacingMode = 'user'; // Default to front camera
 
+const switchStreamSource = async () => {
+    // Stop the current media tracks before switching
+    if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+    }
+
+    // Toggle between front and back camera
+    currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+
+    // Update the media stream with the new facing mode
+    const constraints = {
+        audio: true,
+        video: { facingMode: currentFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
+    };
+
+    try {
+        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        mediaPreview.srcObject = mediaStream; // Update the preview with the new stream
+    } catch (error) {
+        console.error('Error switching stream source:', error);
+        alert('Failed to switch camera source.');
+    }
+};
+
+        switchStreamBtn.addEventListener('click', switchStreamSource);
         stopCaptureBtn.addEventListener('click', stopCapture);
         toggleAudioBtn.addEventListener('click', toggleAudio);
         toggleVideoBtn.addEventListener('click', toggleVideo);
