@@ -2305,6 +2305,44 @@ window.cancelScheduledNotification = cancelScheduledNotification;
 
 </script>
 <script>  
+// Helper function to convert Uint8Array to a Base64-encoded string
+function uint8ArrayToBase64(uint8Array) {
+    let binary = '';
+    const len = uint8Array.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(uint8Array[i]);
+    }
+    return btoa(binary); // Base64 encode
+}
+
+async function shareTopic(topicKey) {    
+    // Remove 'topic-' prefix if it exists
+    const topic = topicKey.startsWith('topic-') ? topicKey.slice(6) : topicKey;
+    
+    // Fetch the key from localforage
+    const key = await localforage.getItem(topicKey);
+    
+    if (!key || key.byteLength !== 32) {
+        console.error('Invalid key or key not found');
+        return;
+    }
+    
+    // Convert Uint8Array key to Base64 (or other format, like hex if needed)
+    const keyBase64 = uint8ArrayToBase64(key);
+    
+    // Create URL with parameters
+    const params = new URLSearchParams({
+        addTopic: true,
+        topic: topic,
+        key: keyBase64
+    });
+    
+    const newUrl = `https://marko-app.netlify.app?${params.toString()}`;
+    
+    console.log('Generated URL:', newUrl);
+    
+    return newUrl;
+}
 
         Notiflix.Notify.init({
             position: 'center-top',
