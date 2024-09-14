@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Generator</title>
+    <title>Sharer</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
         body {
@@ -83,7 +83,7 @@
 </head>
 <body>
     <div class="container">
-        <h1 id="pageTitle">QR Code Generator</h1>
+        <h1 id="pageTitle">Sharer</h1>
         <input type="text" id="urlInput" placeholder="Enter URL" />
         <button id="generateBtn">
             <span class="material-icons">qr_code</span> Generate QR Code
@@ -125,31 +125,60 @@
                 // Show instruction text
                 instructionText.style.display = "block";
 
-                // Make QR code clickable to share/copy
-                qrcodeContainer.onclick = function() {
-                    const canvas = qrcodeContainer.querySelector('canvas');
-                    if (canvas) {
-                        canvas.toBlob(blob => {
-                            if (navigator.share) {
-                                const shareData = {
-                                    title: 'Share QR Code',
-                                    text: 'Scan this QR code!',
-                                    files: [new File([blob], 'qrcode.png', { type: 'image/png' })]
-                                };
-                                navigator.share(shareData).catch(console.error);
-                            } else if (navigator.clipboard && navigator.clipboard.write) {
-                                const item = new ClipboardItem({ 'image/png': blob });
-                                navigator.clipboard.write([item]).then(() => {
-                                    alert('QR code image copied to clipboard!');
-                                }).catch(err => {
-                                    console.error('Could not copy image to clipboard: ', err);
-                                });
-                            } else {
-                                alert('Web Share API and Clipboard API are not supported in this browser.');
-                            }
-                        }, 'image/png');
-                    }
+                // Get redirect parameter if it exists
+const redirectParam = getUrlParam('redirect');
+
+// Make QR code clickable to share/copy
+qrcodeContainer.onclick = function() {
+    const canvas = qrcodeContainer.querySelector('canvas');
+    if (canvas) {
+        canvas.toBlob(blob => {
+            if (navigator.share) {
+                const shareData = {
+                    title: 'Share QR Code',
+                    text: 'Scan this QR code!',
+                    files: [new File([blob], 'qrcode.png', { type: 'image/png' })]
                 };
+
+                navigator.share(shareData)
+                    .then(() => {
+                        console.log('Sharing successful');
+                        // Redirect if redirectParam exists
+                        if (redirectParam) {
+                            console.log('Redirecting to:', redirectParam);
+                            setTimeout(() => {
+                                console.log('Redirecting after 3 seconds');
+                                window.location.href = redirectParam;
+                            }, 3000);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error while sharing:', error);
+                    });
+            } else if (navigator.clipboard && navigator.clipboard.write) {
+                const item = new ClipboardItem({ 'image/png': blob });
+                
+                navigator.clipboard.write([item])
+                    .then(() => {
+                        alert('QR code image copied to clipboard!');
+                        // Redirect if redirectParam exists
+                        if (redirectParam) {
+                            console.log('Redirecting to:', redirectParam);
+                            setTimeout(() => {
+                                console.log('Redirecting after 5 seconds');
+                                window.location.href = redirectParam;
+                            }, 5000);
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Could not copy image to clipboard: ', err);
+                    });
+            } else {
+                alert('Web Share API and Clipboard API are not supported in this browser.');
+            }
+        }, 'image/png');
+    }
+};
             } else {
                 alert("Please enter a valid URL.");
             }
