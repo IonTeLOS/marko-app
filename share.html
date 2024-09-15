@@ -477,9 +477,10 @@ document.getElementById("shareBtn").addEventListener("click", function() {
 
       const baseURL = getBaseURL(currentUrl); // Get the base URL
       const title = baseURL; // Use the base URL as the title
+      const fav = `https://mass-pink-panther.faviconkit.com/${currentUrl}/64`;
 
       // Define the URL to open when the button is clicked
-      const urlToOpen = `https://marko-app.netlify.app?createMarko=true&type=website&link=${url}&title=${title}&icon=${favicon}&color=blue`; 
+      const urlToOpen = `https://marko-app.netlify.app?createMarko=true&type=website&link=${url}&title=${title}&icon=${fav}&color=blue`; 
       markoButton.onclick = function() {
         window.open(urlToOpen, '_blank'); // Open the URL in a new tab/window
       };
