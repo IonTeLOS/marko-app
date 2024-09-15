@@ -346,7 +346,14 @@ document.addEventListener('DOMContentLoaded', function() {
         moreOptions.classList.remove('hidden');
       }
     }
-    
+
+    if (urlParams.has('url')) {
+        const target = urlParams.get('url');
+        urlInput.value = decodeURIComponent(target);
+        document.querySelector('input[name="urlInput"]').disabled = true;
+        moreOptions.classList.remove('hidden');
+      }
+                          
     moreOptionsBtn.addEventListener('click', () => {
         if (!moreOptions.classList.contains('hidden')) {
             // More options are already visible, hide them
