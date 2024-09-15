@@ -476,7 +476,7 @@ function addMarkoButton() {
       const favicon = `https://mass-pink-panther.faviconkit.com/${favUrl}/64`;
 
       // Define the URL to open when the button is clicked
-      const urlToOpen = `https://marko-app.netlify.app?createMarko=true&type=website&link=${url}&title=${title}&icon=${favicon}&color=blue`; 
+      const urlToOpen = `https://marko-app.netlify.app?createMarko=true&type=website&link=${currentUrl}&title=${title}&icon=${favicon}&color=blue`; 
       markoButton.onclick = function() {
         window.open(urlToOpen, '_blank');
       };
