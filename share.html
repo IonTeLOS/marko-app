@@ -425,30 +425,26 @@ document.getElementById("shareBtn").addEventListener("click", function() {
                 console.error("Error while sharing:", error);
             });
         } else {
-            // Fallback: copy URL to clipboard
-            console.log("Web Share API not available, copying URL to clipboard");
-            showShareDialog(currentUrl, defaultText)
-            //navigator.clipboard.writeText(url)
-            .then(() => {
-                console.log('URL shared');
+            // Fallback: show share dialog
+            console.log("Web Share API not available, using fallback");
+            showShareDialog(url, defaultText); // Show custom share dialog
 
-                // Check for the redirect parameter and navigate if present
-                if (redirectParam) {
-                    console.log("Redirecting to:", redirectParam);
-                    setTimeout(() => {
-                        console.log("Redirecting after 3 seconds");
-                        window.location.href = redirectParam;
-                    }, 3000); // Delay the redirection by 5 seconds
-                }
-            })
-            .catch(err => {
-                console.error('Failed to share URL: ', err);
-            });
+            console.log('URL shared using fallback');
+
+            // Check for the redirect parameter and navigate if present
+            if (redirectParam) {
+                console.log("Redirecting to:", redirectParam);
+                setTimeout(() => {
+                    console.log("Redirecting after 3 seconds");
+                    window.location.href = redirectParam;
+                }, 3000); // Delay the redirection by 3 seconds
+            }
         }
     } else {
         alert('No URL available to share.');
     }
 });
+
     const shareContainer = document.getElementById('shareContainer');
     const shareText = document.getElementById('shareText');
 
