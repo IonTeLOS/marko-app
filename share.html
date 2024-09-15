@@ -185,7 +185,7 @@
             <span class="material-icons">share</span> Share as Link
         </button>
         <button id="shortBtn">
-            <span class="material-icons">blur_short</span> Shorten Link
+            <span class="material-icons">double_arrow</span> Shorten Link
         </button>
         <div id="qrcode"></div>
         <div id="instruction">
@@ -380,6 +380,7 @@ function getUrlParam(name) {
 }
         
 document.getElementById("shortBtn").addEventListener("click", function() {
+  currentUrl = document.getElementById("urlInput").value;
   window.location.href = `/short?url=${currentUrl}&redirect=share`;
 });   
         
