@@ -377,6 +377,7 @@ function getUrlParam(name) {
         document.getElementById("generateBtn").addEventListener("click", function() {
             const url = document.getElementById("urlInput").value;
             if (url) {
+                currentUrl = url;
                 generateQRCode(url);
                 document.getElementById("urlInput").value = ""; // Clear input after generating
             } else {
