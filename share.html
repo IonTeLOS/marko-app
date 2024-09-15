@@ -184,6 +184,9 @@
         <button id="shareBtn">
             <span class="material-icons">share</span> Share as Link
         </button>
+        <button id="shortBtn">
+            <span class="material-icons">blur_short</span> Shorten Link
+        </button>
         <div id="qrcode"></div>
         <div id="instruction">
     Scan the QR code to open the link.<br>
@@ -357,21 +360,7 @@ function getUrlParam(name) {
 }
 
 
-        // On page load, check if the `url` parameter exists
-        window.onload = function() {
-            const urlParam = getUrlParam('url');
-            const urlInput = document.getElementById("urlInput");
-            const generateBtn = document.getElementById("generateBtn");
 
-            if (urlParam) {
-                // If the URL parameter exists, generate QR code and hide input and button
-                generateQRCode(decodeURIComponent(urlParam));
-                urlInput.style.display = "none";
-                pageTitle.style.display = "none";
-                generateBtn.style.display = "none";
-                shareBtn.style.display = "flex";
-            }
-        };
 
         // Event listener for manual QR code generation
         document.getElementById("generateBtn").addEventListener("click", function() {
@@ -389,7 +378,11 @@ function getUrlParam(name) {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get(name);
 }
-
+        
+document.getElementById("shortBtn").addEventListener("click", function() {
+  window.location.href = `/short?url=${currentUrl}&redirect=share`;
+});   
+        
 // Share button functionality
 document.getElementById("shareBtn").addEventListener("click", function() {
     const url = getUrlParam('url') || document.getElementById("urlInput").value || gUrl;
@@ -496,10 +489,34 @@ document.getElementById("shareBtn").addEventListener("click", function() {
       }
     });
 
-    
-    window.onload = function() {
-      window.Sharer.init();
-    };
+    function loadShortlink() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlInput = document.getElementById("urlInput");
+
+      if (urlParams.has('shortlink')) {
+        const shortlink = urlParams.get('shortlink');
+        urlInput.value = decodeURIComponent(shortlink);
+        urlInput.readOnly = true; 
+        currentUrl = shortlink;
+      }
+    }
+        // On page load, check if the `url` parameter exists
+        window.onload = function() {
+            window.Sharer.init();
+            const urlParam = getUrlParam('url');
+            const urlInput = document.getElementById("urlInput");
+            const generateBtn = document.getElementById("generateBtn");
+
+            if (urlParam) {
+                // If the URL parameter exists, generate QR code and hide input and button
+                generateQRCode(decodeURIComponent(urlParam));
+                urlInput.style.display = "none";
+                pageTitle.style.display = "none";
+                generateBtn.style.display = "none";
+                shareBtn.style.display = "flex";
+                shortBtn.style.display = "flex";
+            }
+        };
     </script>
 </body>
 </html>
