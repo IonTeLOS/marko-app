@@ -333,8 +333,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const restartBtn = document.getElementById('restartBtn');
     const linkList = document.getElementById('linkList');
     const shareMessageInput = document.getElementById('shareMessageInput');
-    
+    const urlParams = new URLSearchParams(window.location.search);
     const requestedTarget = usePathParam();
+    
     if (requestedTarget) {
         urlInput.value = decodeURIComponent(requestedTarget);
         urlInput.readOnly = true; 
@@ -346,7 +347,7 @@ document.addEventListener('DOMContentLoaded', function() {
         moreOptions.classList.remove('hidden');
       }
     }
-
+    
     if (urlParams.has('url')) {
         const target = urlParams.get('url');
         urlInput.value = decodeURIComponent(target);
