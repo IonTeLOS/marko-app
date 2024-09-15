@@ -380,7 +380,7 @@ function getUrlParam(name) {
 }
         
 document.getElementById("shortBtn").addEventListener("click", function() {
-  currentUrl = document.getElementById("urlInput").value;
+  const url = getUrlParam('url') || document.getElementById("urlInput").value || gUrl;
   window.location.href = `/short?url=${currentUrl}&redirect=share`;
 });   
         
