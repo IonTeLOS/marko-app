@@ -504,7 +504,7 @@ document.getElementById("shareBtn").addEventListener("click", function() {
         // On page load, check if the `url` parameter exists
         window.onload = function() {
             window.Sharer.init();
-            const shortlink = getUrlParam('shortlink') || '';
+            const shortlink = getUrlParam('shortlink');
             const urlParam = getUrlParam('url') || `https://marko-app.netlify.app/o/${shortlink}`;
             const urlInput = document.getElementById("urlInput");
             const generateBtn = document.getElementById("generateBtn");
