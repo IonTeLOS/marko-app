@@ -496,16 +496,15 @@ document.getElementById("shareBtn").addEventListener("click", function() {
 
       if (urlParams.has('shortlink')) {
         const shortlink = urlParams.get('shortlink');
-        urlInput.value = decodeURIComponent(shortlink);
+        const newLink = `https://marko-app.netlify.app/o/${shortlink}`;
+        urlInput.value = decodeURIComponent(newLink);
         urlInput.readOnly = true; 
-        currentUrl = shortlink;
+        currentUrl = newLink;
       }
     }
         // On page load, check if the `url` parameter exists
         window.onload = function() {
             window.Sharer.init();
-            const shortlink = getUrlParam('shortlink');
-            const newLink = `https://marko-app.netlify.app/o/${shortlink}`;
             const urlParam = getUrlParam('url');
             const urlInput = document.getElementById("urlInput");
             const generateBtn = document.getElementById("generateBtn");
@@ -513,18 +512,14 @@ document.getElementById("shareBtn").addEventListener("click", function() {
 
             if (urlParam) {
                 // If the URL parameter exists, generate QR code and hide input and button
-                if (shortlink) {
-                  generateQRCode(decodeURIComponent(newLink));
-                  shortBtn.style.display = "none";
-                } else {
-                  generateQRCode(decodeURIComponent(urlParam));
-                  shortBtn.style.display = "flex";
-                }
+                generateQRCode(decodeURIComponent(urlParam));
+                shortBtn.style.display = "flex";
                 urlInput.style.display = "none";
                 pageTitle.style.display = "none";
                 generateBtn.style.display = "none";
                 shareBtn.style.display = "flex";
             }
+            loadShortlink();
         };
     </script>
 </body>
