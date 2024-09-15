@@ -380,6 +380,16 @@ function getUrlParam(name) {
     return urlParams.get(name);
 }
         
+function getBaseURL(url) {
+  try {
+    const parsedUrl = new URL(url);
+    return parsedUrl.hostname;
+  } catch (error) {
+    console.error('Invalid URL:', error);
+    return null;
+  }
+}     
+        
 document.getElementById("shortBtn").addEventListener("click", function() {
   const url = getUrlParam('url') || document.getElementById("urlInput").value || gUrl;
   window.location.href = `/short?url=${currentUrl}&redirect=share`;
