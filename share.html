@@ -79,6 +79,98 @@
             color: #666;
             display: none;
         }
+        .share-container {
+      position: fixed;
+      bottom: -100%;
+      left: 0;
+      right: 0;
+      background: #B2DFDB;
+      border-top-left-radius: 15px;
+      border-top-right-radius: 15px;
+      padding: 20px;
+      box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.2);
+      transition: bottom 0.3s ease-in-out;
+      z-index: 17001;
+    }
+
+    .share-container.active {
+      bottom: 0;
+    }
+
+    .share-input-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .share-input {
+      width: 90%;
+      max-width: 400px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 16px;
+      text-align: center;
+    }
+
+    .share-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+      gap: 15px;
+      justify-content: center;
+    }
+
+    .share-button {
+      background-color: #f4f4f4;
+      border: none;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .share-button:hover {
+      background-color: #ddd;
+    }
+
+    .share-button i {
+      font-size: 24px;
+      color: #555;
+    }
+        .share-button svg {
+      width: 24px;
+      height: 24px;
+      fill: #555;
+    }
+
+    .share-button i {
+      font-size: 24px;
+      color: #555;
+    }
+
+    .share-button img {
+      width: 24px;
+      height: 24px;
+      filter: grayscale(100%) brightness(0.5);
+      transition: filter 0.3s;
+    }
+
+    .share-button.baidu-button {
+      padding: 14px;
+      box-sizing: border-box;
+    }
+
+    .share-button.baidu-button img {
+      width: 100%;
+      height: 100%;
+    }
+    .share-button:hover img {
+      filter: grayscale(0%) brightness(1);
+    }
     </style>
 </head>
 <body>
@@ -97,10 +189,77 @@
     Click on the QR code to share it as an image.
         </div>
     </div>
+<div class="share-container" id="shareContainer">
+    <div class="share-input-container">
+      <input type="text" id="shareText" class="share-input" placeholder="Add a message..." maxlength="140">
+    </div>
+    <div class="share-buttons">
+      <button class="share-button" data-sharer="twitter" data-title="" data-url="">
+        <i class="fab fa-twitter"></i>
+      </button>
+      <button class="share-button" data-sharer="facebook" data-title="" data-url="">
+        <i class="fab fa-facebook-f"></i>
+      </button>
+      <button class="share-button" data-sharer="linkedin" data-title="" data-url="">
+        <i class="fab fa-linkedin-in"></i>
+      </button>
+      <button class="share-button" data-sharer="whatsapp" data-title="" data-url="">
+        <i class="fab fa-whatsapp"></i>
+      </button>
+      <button class="share-button" data-sharer="telegram" data-title="" data-url="">
+        <i class="fab fa-telegram-plane"></i>
+      </button>
+      <button class="share-button" data-sharer="reddit" data-title="" data-url="">
+        <i class="fab fa-reddit-alien"></i>
+      </button>
+      <button class="share-button" data-sharer="tumblr" data-title="" data-url="">
+        <i class="fab fa-tumblr"></i>
+      </button>
+      <button class="share-button" data-sharer="pinterest" data-title="" data-url="">
+        <i class="fab fa-pinterest-p"></i>
+      </button>
+      <button class="share-button" data-sharer="email" data-title="" data-url="">
+        <i class="fas fa-envelope"></i>
+      </button>
+      <button class="share-button" data-sharer="viber" data-title="" data-url="">
+        <i class="fab fa-viber"></i>
+      </button>
+      <button class="share-button" data-sharer="hackernews" data-title="" data-url="">
+        <i class="fab fa-hacker-news"></i>
+      </button>
+      <button class="share-button" data-sharer="vk" data-title="" data-url="">
+        <i class="fab fa-vk"></i>
+      </button>
+      <button class="share-button" data-sharer="okru" data-title="" data-url="">
+        <i class="fab fa-odnoklassniki"></i>
+      </button>
+      <button class="share-button" data-sharer="weibo" data-title="" data-url="">
+        <i class="fab fa-weibo"></i>
+      </button>
+      <button class="share-button" data-sharer="line" data-title="" data-url="">
+        <i class="fab fa-line"></i>
+      </button>
+            <button class="share-button baidu-button" data-sharer="baidu" data-title="" data-url="">
+        <img src="https://raw.githubusercontent.com/IonTeLOS/marko/main/baidu-svgrepo-com.svg" alt="Baidu">
+      </button>
+      <button class="share-button" data-sharer="skype" data-title="" data-url="">
+        <i class="fab fa-skype"></i>
+      </button>
+      <button class="share-button" id="copyShare">
+        <i class="fas fa-copy"></i>
+      </button>
+      <button class="share-button" id="printShare">
+        <i class="fas fa-print"></i>
+      </button>
+    </div>
+  </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/sharer.js@0.5.2/sharer.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         let gUrl = '';
+        let currentUrl = '';
+
         // Function to generate a QR code
         function generateQRCode(url) {
         	gUrl = url;
@@ -233,7 +392,8 @@ function getUrlParam(name) {
 document.getElementById("shareBtn").addEventListener("click", function() {
     const url = getUrlParam('url') || document.getElementById("urlInput").value || gUrl;
     const redirectParam = getUrlParam('redirect');
-
+    const defaultText = 'Check this out!';
+    
     console.log("URL to share:", url);
     console.log("Redirect param:", redirectParam);
 
@@ -244,11 +404,11 @@ document.getElementById("shareBtn").addEventListener("click", function() {
 
             navigator.share({
                 title: 'My link',
-                text: 'Check out this link!',
+                text: defaultText,
                 url: url
             })
             .then(() => {
-                console.log("Sharing successful");
+                console.log("Successfully shared");
 
                 // If there's a redirect param, redirect after sharing
                 if (redirectParam) {
@@ -265,10 +425,10 @@ document.getElementById("shareBtn").addEventListener("click", function() {
         } else {
             // Fallback: copy URL to clipboard
             console.log("Web Share API not available, copying URL to clipboard");
-
-            navigator.clipboard.writeText(url)
+            showShareDialog(currentUrl, defaultText);
+            //navigator.clipboard.writeText(url)
             .then(() => {
-                alert('URL copied to clipboard!');
+                console.log('URL shared');
 
                 // Check for the redirect parameter and navigate if present
                 if (redirectParam) {
@@ -280,13 +440,68 @@ document.getElementById("shareBtn").addEventListener("click", function() {
                 }
             })
             .catch(err => {
-                console.error('Failed to copy URL: ', err);
+                console.error('Failed to share URL: ', err);
             });
         }
     } else {
         alert('No URL available to share.');
     }
 });
+    const shareContainer = document.getElementById('shareContainer');
+    const shareText = document.getElementById('shareText');
+
+    function showShareDialog(url = 'https://marko-app.netlify.app', text = 'Check this out!') {
+      currentUrl = url;
+      shareContainer.classList.add('active');
+      shareText.value = text;
+      updateShareAttributes();
+    }
+
+    function updateShareAttributes() {
+      const buttons = document.querySelectorAll('.share-button');
+      buttons.forEach(button => {
+        button.setAttribute('data-url', currentUrl);
+        button.setAttribute('data-title', shareText.value);
+      });
+    }
+
+    shareText.addEventListener('input', updateShareAttributes);
+
+    document.getElementById('copyShare').addEventListener('click', function() {
+      navigator.clipboard.writeText(currentUrl).then(() => {
+        alert('URL copied to clipboard!');
+      }).catch(err => {
+        console.error('Could not copy text: ', err);
+      });
+    });
+
+    document.getElementById('printShare').addEventListener('click', function() {
+      const printContent = `
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+          <h2>Shared Content</h2>
+          <p><strong>Text:</strong> ${shareText.value}</p>
+          <p><strong>URL:</strong> <a href="${currentUrl}" target="_blank">${currentUrl}</a></p>
+        </div>
+      `;
+      
+      const newWindow = window.open('', '', 'width=600,height=400');
+      newWindow.document.write(printContent);
+      newWindow.document.close();
+      newWindow.focus();
+      newWindow.print();
+      newWindow.close();
+    });
+
+    document.addEventListener('click', function(event) {
+      if (!shareContainer.contains(event.target) && !event.target.matches('button')) {
+        shareContainer.classList.remove('active');
+      }
+    });
+
+    
+    window.onload = function() {
+      window.Sharer.init();
+    };
     </script>
 </body>
 </html>
