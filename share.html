@@ -425,7 +425,7 @@ document.getElementById("shareBtn").addEventListener("click", function() {
         } else {
             // Fallback: copy URL to clipboard
             console.log("Web Share API not available, copying URL to clipboard");
-            showShareDialog(currentUrl, defaultText);
+            showShareDialog(currentUrl, defaultText)
             //navigator.clipboard.writeText(url)
             .then(() => {
                 console.log('URL shared');
