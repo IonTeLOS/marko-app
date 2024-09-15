@@ -466,6 +466,7 @@ document.getElementById("shareBtn").addEventListener("click", function() {
       markoButton.setAttribute('data-sharer', 'marko'); // Set the platform to share on
       markoButton.setAttribute('data-title', 'Create a Marko'); // Set the title
       markoButton.setAttribute('data-url', ''); // Set the URL to share
+      markoButton.title = 'Create a bookmark in Marko';
 
       // Add the icon to the button
       const icon = document.createElement('img');
@@ -477,12 +478,13 @@ document.getElementById("shareBtn").addEventListener("click", function() {
 
       const baseURL = getBaseURL(currentUrl); // Get the base URL
       const title = baseURL; // Use the base URL as the title
-      const fav = `https://mass-pink-panther.faviconkit.com/${currentUrl}/64`;
+      const favUrl = currentUrl.replace(/^https?:\/\//, '');
+      const favicon = `https://mass-pink-panther.faviconkit.com/${favUrl}/64`;
 
       // Define the URL to open when the button is clicked
-      const urlToOpen = `https://marko-app.netlify.app?createMarko=true&type=website&link=${url}&title=${title}&icon=${fav}&color=blue`; 
+      const urlToOpen = `https://marko-app.netlify.app?createMarko=true&type=website&link=${url}&title=${title}&icon=${favicon}&color=blue`; 
       markoButton.onclick = function() {
-        window.open(urlToOpen, '_blank'); // Open the URL in a new tab/window
+        window.open(urlToOpen, '_blank');
       };
 
       // Append the new button to the container with class 'share-buttons'
