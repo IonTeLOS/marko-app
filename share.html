@@ -505,22 +505,25 @@ document.getElementById("shareBtn").addEventListener("click", function() {
         window.onload = function() {
             window.Sharer.init();
             const shortlink = getUrlParam('shortlink');
-            const urlParam = getUrlParam('url') || `https://marko-app.netlify.app/o/${shortlink}`;
+            const newLink = `https://marko-app.netlify.app/o/${shortlink}`;
+            const urlParam = getUrlParam('url');
             const urlInput = document.getElementById("urlInput");
             const generateBtn = document.getElementById("generateBtn");
             currentUrl = urlParam;
-            
+
             if (urlParam) {
                 // If the URL parameter exists, generate QR code and hide input and button
-                generateQRCode(decodeURIComponent(urlParam));
+                if (shortlink) {
+                  generateQRCode(decodeURIComponent(newLink));
+                  shortBtn.style.display = "none";
+                } else {
+                  generateQRCode(decodeURIComponent(urlParam));
+                  shortBtn.style.display = "flex";
+                }
                 urlInput.style.display = "none";
                 pageTitle.style.display = "none";
                 generateBtn.style.display = "none";
                 shareBtn.style.display = "flex";
-                shortBtn.style.display = "flex";
-                if (urlParam.startsWith('https://marko-app.netlify.app/o/')) {
-                    shortBtn.style.display = "none";
-                }
             }
         };
     </script>
