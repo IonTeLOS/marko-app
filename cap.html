@@ -134,8 +134,8 @@
         <div class="spinner"></div>
     </div>
     <audio id="shutterSound" src="shutter.wav"></audio>
-    <audio id="recordStartSound" src="record_start.mp3"></audio>
-    <audio id="endSound" src="end.mp3"></audio>
+    <audio id="recordSound" src="record.mp3"></audio>
+    <audio id="endSound" src="end.wav"></audio>
     <div class="container">
         <h1>Create, upload to Drive, share with friends, easily!</h1>
         <div style="position: relative;">
@@ -199,7 +199,7 @@
         const fileUrl = $('#fileUrl');
         const fileLink = $('#fileLink');
         const shutterSound = document.getElementById('shutterSound');
-        const recordStartSound = document.getElementById('recordStartSound');
+        const recordSound = document.getElementById('recordSound');
         const endSound = document.getElementById('endSound');
 
         
@@ -315,7 +315,7 @@
         };
 
         const handleStop = async () => {
-            recordStartSound.play();
+            recordSound.play();
             const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
             const fileName = getFileName(mediaRecorder.mimeType.includes('video') ? 'webm' : 'wav');
             
@@ -542,14 +542,14 @@ async function getOrCreateFolder(folderName, accessToken) {
 
         startVideoBtn.addEventListener('click', async () => {
             await startPreview('video');
-            recordStartSound.play();
+            recordSound.play();
             mediaRecorder.start();
             [startVideoBtn, takePhotoBtn, switchStreamBtn, startAudioBtn].forEach(btn => btn.classList.add('hidden'));
         });
 
         startAudioBtn.addEventListener('click', async () => {
             await startPreview('audio');
-            recordStartSound.play();
+            recordSound.play();
             mediaRecorder.start();
             [startAudioBtn, takePhotoBtn, switchStreamBtn, startVideoBtn].forEach(btn => btn.classList.add('hidden'));
         });
