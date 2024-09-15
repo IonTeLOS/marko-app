@@ -385,11 +385,11 @@ document.getElementById("shortBtn").addEventListener("click", function() {
 });   
         
 // Share button functionality
-document.getElementById("shareBtn").addEventListener("click", function() {
+document.getElementById("shareBtn").addEventListener("click", async function() {
     const url = getUrlParam('url') || document.getElementById("urlInput").value || gUrl;
     const redirectParam = getUrlParam('redirect');
     const defaultText = 'Check this out!';
-    
+
     console.log("URL to share:", url);
     console.log("Redirect param:", redirectParam);
 
@@ -419,25 +419,42 @@ document.getElementById("shareBtn").addEventListener("click", function() {
                 console.error("Error while sharing:", error);
             });
         } else {
-            // Fallback: show share dialog
             console.log("Web Share API not available, using fallback");
-            showShareDialog(url, defaultText); // Show custom share dialog
 
-            console.log('URL shared using fallback');
+            try {
+                const encodedUrl = encodeURIComponent(url); 
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodedUrl}`; 
+                const response = await axios.get(proxyUrl);  // Fetching the data through proxy
 
-            // Check for the redirect parameter and navigate if present
-            if (redirectParam) {
-                console.log("Redirecting to:", redirectParam);
-                setTimeout(() => {
-                    console.log("Redirecting after 3 seconds");
-                    window.location.href = redirectParam;
-                }, 3000); // Delay the redirection by 3 seconds
+                const parser = new DOMParser(); 
+                const doc = parser.parseFromString(response.data, 'text/html'); 
+                const baseURL = getBaseURL(url);
+                const title = doc.querySelector('title') ? doc.querySelector('title').innerText : baseURL;
+                
+                console.log("Page title:", title);
+
+                // Fallback: show share dialog
+                showShareDialog(url, defaultText); // Show custom share dialog
+
+                console.log('URL shared using fallback');
+
+                // Check for the redirect parameter and navigate if present
+                if (redirectParam) {
+                    console.log("Redirecting to:", redirectParam);
+                    setTimeout(() => {
+                        console.log("Redirecting after 3 seconds");
+                        window.location.href = redirectParam;
+                    }, 3000); // Delay the redirection by 3 seconds
+                }
+            } catch (error) {
+                console.error("Error fetching or parsing the URL:", error);
             }
         }
     } else {
         alert('No URL available to share.');
     }
 });
+
 
     const shareContainer = document.getElementById('shareContainer');
     const shareText = document.getElementById('shareText');
