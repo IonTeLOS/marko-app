@@ -397,8 +397,6 @@ async function uploadFile(file, accessToken, fileName) {
 
         const uploadResult = await uploadResponse.json();
         console.log('File uploaded:', uploadResult);
-        endSound.play();
-
         // Set file permissions to public
         const permissionResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${uploadResult.id}/permissions`, {
             method: 'POST',
@@ -515,6 +513,7 @@ async function getOrCreateFolder(folderName, accessToken) {
                     loadingOverlay.classList.remove('hidden');
                     const fileId = await uploadFile(photoBlob, accessToken, fileName);
                     const fileUrl = `https://marko-app.netlify.app/driveserver?site=${fileId}`;
+                    endSound.play();
                 Notiflix.Confirm.show(
                 'File Upload Success',
                 `Click OK to view <strong>${fileName}</strong>.`,
