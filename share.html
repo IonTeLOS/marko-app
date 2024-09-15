@@ -450,33 +450,27 @@ document.getElementById("shareBtn").addEventListener("click", function() {
     }
 });
 
-
-
-    const shareContainer = document.getElementById('shareContainer');
-    const shareText = document.getElementById('shareText');
-
-    function showShareDialog(url = 'https://marko-app.netlify.app', text = 'Check this out!') {
-      currentUrl = url;
-      shareContainer.classList.add('active');
-      shareText.value = text;
-      updateShareAttributes();
-      // Create a new button element
+// Function to create and add a new button if it doesn't already exist
+function addMarkoButton() {
+    // Check if the button already exists
+    if (document.querySelector('.share-button.marko')) {
+        console.log('Marko Button already exists.');
+        return; // Exit the function if the button is already present
+    }
+// Create a new button element
       const markoButton = document.createElement('button');
-      markoButton.className = 'share-button marko'; // Set the class to 'share-button' and the platform (e.g., 'facebook')
-      markoButton.setAttribute('data-sharer', 'marko'); // Set the platform to share on
-      markoButton.setAttribute('data-title', 'Create a Marko'); // Set the title
-      markoButton.setAttribute('data-url', ''); // Set the URL to share
+      markoButton.className = 'share-button marko';
       markoButton.title = 'Create a bookmark in Marko';
 
       // Add the icon to the button
       const icon = document.createElement('img');
       icon.src = 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';
-      icon.alt = 'Marko Icon'; // Set alt text for accessibility
+      icon.alt = 'Marko Icon'; 
 
       // Append the icon to the button
       markoButton.appendChild(icon);
 
-      const baseURL = getBaseURL(currentUrl); // Get the base URL
+      const baseURL = getBaseURL(currentUrl); 
       const title = baseURL; // Use the base URL as the title
       const favUrl = currentUrl.replace(/^https?:\/\//, '');
       const favicon = `https://mass-pink-panther.faviconkit.com/${favUrl}/64`;
@@ -486,11 +480,19 @@ document.getElementById("shareBtn").addEventListener("click", function() {
       markoButton.onclick = function() {
         window.open(urlToOpen, '_blank');
       };
-
-      // Append the new button to the container with class 'share-buttons'
       document.querySelector('.share-buttons').appendChild(markoButton);
+      window.Sharer.init();
+}
 
-      window.Sharer.init();  
+    const shareContainer = document.getElementById('shareContainer');
+    const shareText = document.getElementById('shareText');
+
+    function showShareDialog(url = 'https://marko-app.netlify.app', text = 'Check this out!') {
+      currentUrl = url;
+      shareContainer.classList.add('active');
+      shareText.value = text;
+      updateShareAttributes();
+      addMarkoButton();
     }
 
     function updateShareAttributes() {
