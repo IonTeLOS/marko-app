@@ -136,6 +136,7 @@
     <audio id="shutterSound" src="shutter.wav"></audio>
     <audio id="recordSound" src="record.mp3"></audio>
     <audio id="endSound" src="end.wav"></audio>
+    <audio id="switchSound" src="switch.wav"></audio>
     <div class="container">
         <h1>Create, upload to Drive, share with friends, easily!</h1>
         <div style="position: relative;">
@@ -201,6 +202,7 @@
         const shutterSound = document.getElementById('shutterSound');
         const recordSound = document.getElementById('recordSound');
         const endSound = document.getElementById('endSound');
+        const switchSound = document.getElementById('switchSound');
 
         
         window.addEventListener('load', () => {
@@ -548,6 +550,7 @@ async function getOrCreateFolder(folderName, accessToken) {
         });
 
         startAudioBtn.addEventListener('click', async () => {
+            mediaPreview.classList.add('hidden');
             await startPreview('audio');
             recordSound.play();
             mediaRecorder.start();
@@ -555,6 +558,7 @@ async function getOrCreateFolder(folderName, accessToken) {
         });
         
     const switchStreamSource = async () => {
+    switchSound.play();
     try {
         // Stop all existing media tracks
         if (mediaStream) {
