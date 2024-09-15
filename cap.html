@@ -323,6 +323,7 @@
                 loadingOverlay.classList.remove('hidden');
                 const fileId = await uploadFile(blob, accessToken, fileName);
                 const fileUrl = `https://marko-app.netlify.app/driveserver?site=${fileId}`;
+                endSound.play();
 Notiflix.Confirm.show(
     'File Upload Success',
     `Click OK to view <strong>${fileName}</strong>.`,
@@ -575,6 +576,7 @@ async function getOrCreateFolder(folderName, accessToken) {
 
         // Update the preview with the new stream
         mediaPreview.srcObject = mediaStream;
+        mediaPreview.classList.remove('hidden');
 
         setTimeout(() => {
             updateButtonIcon();
