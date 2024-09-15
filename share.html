@@ -431,12 +431,6 @@ document.getElementById("shareBtn").addEventListener("click", function() {
             });
         } else {
             console.log("Web Share API not available, using fallback");
-
-            const baseURL = getBaseURL(url); // Get the base URL
-            const title = baseURL; // Use the base URL as the title
-
-            console.log("Base URL (title):", title);
-
             // Fallback: show share dialog
             showShareDialog(url, defaultText); // Show custom share dialog
 
@@ -466,6 +460,34 @@ document.getElementById("shareBtn").addEventListener("click", function() {
       shareContainer.classList.add('active');
       shareText.value = text;
       updateShareAttributes();
+      // Create a new button element
+      const markoButton = document.createElement('button');
+      markoButton.className = 'share-button marko'; // Set the class to 'share-button' and the platform (e.g., 'facebook')
+      markoButton.setAttribute('data-sharer', 'marko'); // Set the platform to share on
+      markoButton.setAttribute('data-title', 'Create a Marko'); // Set the title
+      markoButton.setAttribute('data-url', ''); // Set the URL to share
+
+      // Add the icon to the button
+      const icon = document.createElement('img');
+      icon.src = 'https://raw.githubusercontent.com/IonTeLOS/marko-app/main/triskelion.svg';
+      icon.alt = 'Marko Icon'; // Set alt text for accessibility
+
+      // Append the icon to the button
+      markoButton.appendChild(icon);
+
+      const baseURL = getBaseURL(currentUrl); // Get the base URL
+      const title = baseURL; // Use the base URL as the title
+
+      // Define the URL to open when the button is clicked
+      const urlToOpen = `https://marko-app.netlify.app?createMarko=true&type=website&link=${url}&title=${title}&icon=${favicon}&color=blue`; 
+      markoButton.onclick = function() {
+        window.open(urlToOpen, '_blank'); // Open the URL in a new tab/window
+      };
+
+      // Append the new button to the container with class 'share-buttons'
+      document.querySelector('.share-buttons').appendChild(markoButton);
+
+      window.Sharer.init();  
     }
 
     function updateShareAttributes() {
