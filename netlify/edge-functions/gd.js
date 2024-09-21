@@ -1,8 +1,11 @@
-export default async function handler(event) {
-  const { url: siteUrl, get: requestedFieldsParam } = new URL(event.request.url).searchParams;
+export default async (request) => {
+  const { url: siteUrl, get: requestedFieldsParam } = new URL(request.url).searchParams;
 
   if (!siteUrl) {
-    return new Response(JSON.stringify({ error: 'No URL parameter provided.' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'No URL parameter provided.' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   const requestedFields = requestedFieldsParam ? requestedFieldsParam.split(',') : null;
@@ -10,31 +13,43 @@ export default async function handler(event) {
   try {
     const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(siteUrl)}`;
     const response = await fetch(proxyUrl);
+
+    // Check if the response is HTML
+    const contentType = response.headers.get('Content-Type') || '';
+    if (contentType.includes('text/html')) {
+      const htmlText = await response.text();
+      console.error('Received HTML content:', htmlText);
+      return new Response(JSON.stringify({ error: 'Received HTML content. There may be an issue with the proxy or URL.' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const text = await response.text();
     const parser = new DOMParser();
     const doc = parser.parseFromString(text, 'text/html');
 
     const metadata = {};
 
-    metadata.title = doc.querySelector('title')?.innerText || '';
-    metadata.shortname = siteUrl.replace(/https?:\/\//, '').split('/')[0] || '';
-    metadata.description = doc.querySelector('meta[name="description"]')?.content || '';
-    metadata.keywords = doc.querySelector('meta[name="keywords"]')?.content || '';
-    metadata.language = doc.documentElement.lang || '';
+    metadata.title = doc.querySelector('title')?.innerText || "";
+    metadata.shortname = siteUrl.replace(/https?:\/\//, '').split('/')[0] || "";
+    metadata.description = doc.querySelector('meta[name="description"]')?.content || "";
+    metadata.keywords = doc.querySelector('meta[name="keywords"]')?.content || "";
+    metadata.language = doc.documentElement.lang || "";
 
-    const results = getFaviconsAndOgImage(doc, siteUrl);
-    metadata.fav = results.fav;
-    metadata['fav-'] = results['fav-'];
-    metadata['og:image'] = results['og:image'];
+    const faviconsAndOgImage = getFaviconsAndOgImage(doc, siteUrl);
+    metadata.fav = faviconsAndOgImage.fav;
+    metadata['fav-'] = faviconsAndOgImage['fav-'];
+    metadata['og:image'] = faviconsAndOgImage['og:image'];
 
-    if (results.fav) {
+    if (metadata.fav) {
       try {
-        const colors = await extractColorsFromImage(results.fav);
+        const colors = await extractColorsFromImage(metadata.fav);
         Object.assign(metadata, colors);
       } catch (error) {
         console.error('Error extracting colors:', error);
-        metadata.color = '';
-        metadata['c-color'] = '';
+        metadata.color = "";
+        metadata['c-color'] = "";
       }
     }
 
@@ -45,16 +60,23 @@ export default async function handler(event) {
           filteredMetadata[field] = metadata[field];
         }
       });
-      return new Response(JSON.stringify(filteredMetadata), { headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify(filteredMetadata), {
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    return new Response(JSON.stringify(metadata), { headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify(metadata), {
+      headers: { 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
     console.error('Error fetching site data:', error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
-}
+};
 
 function resolveRelativeUrl(baseUrl, relativeUrl) {
   const urlObj = new URL(relativeUrl, baseUrl);
