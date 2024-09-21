@@ -19,7 +19,7 @@ path = "/se*"
 function = "send"
 
 [[edge_functions]]
-path = "/get-data*"
+path = "/gd*"
 function = "fetchSiteData"
 
 [[edge_functions]]
