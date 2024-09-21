@@ -19,10 +19,6 @@ path = "/se*"
 function = "send"
 
 [[edge_functions]]
-path = "/gd*"
-function = "fetchSiteData"
-
-[[edge_functions]]
 path = "/hiya*"
 function = "hello-world"
 
