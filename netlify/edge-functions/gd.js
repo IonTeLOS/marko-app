@@ -1,50 +1,9 @@
-import { json, redirect } from '@netlify/functions';
+import { json } from '@netlify/functions';
 
-async function extractColorsFromImage(imgSrc) {
-  const loadImage = (src) => {
-    return new Promise((resolveImg, rejectImg) => {
-      const img = new Image();
-      img.crossOrigin = 'Anonymous';
-      img.onload = () => resolveImg(img);
-      img.onerror = (e) => rejectImg(e);
-      img.src = src;
-    });
-  };
-
-  const extractColors = (img) => {
-    const colorThief = new ColorThief();
-    let dominantColor = colorThief.getColor(img);
-
-    let hexColor = `#${((1 << 24) + (dominantColor[0] << 16) + (dominantColor[1] << 8) + dominantColor[2]).toString(16).slice(1).toUpperCase()}`;
-
-    if (hexColor === '#FFFFFF' || hexColor === '#000000') {
-      const palette = colorThief.getPalette(img, 5);
-      dominantColor = palette.find(
-        ([r, g, b]) => r !== 255 && g !== 255 && b !== 255 && r !== 0 && g !== 0 && b !== 0
-      ) || dominantColor;
-    }
-
-    const finalHex = `#${((1 << 24) + (dominantColor[0] << 16) + (dominantColor[1] << 8) + dominantColor[2]).toString(16).slice(1).toUpperCase()}`;
-    const complementaryColor = getComplementaryColor(finalHex);
-
-    return { color: finalHex, 'c-color': complementaryColor };
-  };
-
-  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(imgSrc)}`;
-
-  try {
-    const img = await loadImage(proxyUrl);
-    return extractColors(img);
-  } catch (proxyError) {
-    console.warn('Failed to load image through proxy. Attempting direct load...');
-    try {
-      const img = await loadImage(imgSrc);
-      return extractColors(img);
-    } catch (directError) {
-      console.error('Error loading image:', directError);
-      return { color: "", 'c-color': "" };
-    }
-  }
+async function fetchHtmlContent(siteUrl) {
+  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(siteUrl)}`;
+  const response = await fetch(proxyUrl);
+  return response.text();
 }
 
 function resolveRelativeUrl(baseUrl, relativeUrl) {
@@ -52,7 +11,10 @@ function resolveRelativeUrl(baseUrl, relativeUrl) {
   return urlObj.href;
 }
 
-function getFaviconsAndOgImage(doc, baseUrl) {
+function getFaviconsAndOgImage(html, baseUrl) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+
   const faviconTags = [...doc.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]')];
   const ogImageTag = doc.querySelector('meta[property="og:image"]');
   
@@ -65,13 +27,11 @@ function getFaviconsAndOgImage(doc, baseUrl) {
     return { href, size: width || 0 };
   }).sort((a, b) => b.size - a.size);
 
-  const result = {
+  return {
     fav: faviconsWithSize[0]?.href || "",
     'fav-': faviconsWithSize.length > 1 ? faviconsWithSize[faviconsWithSize.length - 1]?.href : "",
     'og:image': ogImageTag && !ogImageTag.content.includes('$') ? resolveRelativeUrl(baseUrl, ogImageTag.content) : ""
   };
-
-  return result;
 }
 
 export async function handler(event) {
@@ -84,35 +44,22 @@ export async function handler(event) {
   const requestedFields = requestedFieldsParam ? requestedFieldsParam.split(',') : null;
 
   try {
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(siteUrl)}`;
-    const response = await fetch(proxyUrl);
-    const text = await response.text();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(text, "text/html");
-
+    const htmlContent = await fetchHtmlContent(siteUrl);
     const metadata = {};
 
-    metadata.title = doc.querySelector('title')?.innerText || "";
+    // Extract metadata
+    metadata.title = htmlContent.match(/<title>(.*?)<\/title>/)?.[1] || "";
     metadata.shortname = siteUrl.replace(/https?:\/\//, '').split('/')[0] || "";
-    metadata.description = doc.querySelector('meta[name="description"]')?.content || "";
-    metadata.keywords = doc.querySelector('meta[name="keywords"]')?.content || "";
-    metadata.language = doc.documentElement.lang || "";
+    metadata.description = htmlContent.match(/<meta name="description" content="(.*?)"/)?.[1] || "";
+    metadata.keywords = htmlContent.match(/<meta name="keywords" content="(.*?)"/)?.[1] || "";
+    metadata.language = htmlContent.match(/<html lang="(.*?)"/)?.[1] || "";
 
-    const results = getFaviconsAndOgImage(doc, siteUrl);
+    const results = getFaviconsAndOgImage(htmlContent, siteUrl);
     metadata.fav = results.fav;
     metadata['fav-'] = results['fav-'];
     metadata['og:image'] = results['og:image'];
 
-    if (results.fav) {
-      try {
-        const colors = await extractColorsFromImage(results.fav);
-        Object.assign(metadata, colors);
-      } catch (error) {
-        console.error('Error extracting colors:', error);
-        metadata.color = "";
-        metadata['c-color'] = "";
-      }
-    }
+    // External color extraction would be added here if available
 
     if (requestedFields) {
       const filteredMetadata = {};
