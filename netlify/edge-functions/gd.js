@@ -1,6 +1,4 @@
-// netlify/edge-functions/script-provider.js
-
-import { json } from '@netlify/functions';
+// netlify/edge-functions/gd.js
 
 export async function handler(event) {
   const scriptContent = `
