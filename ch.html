@@ -3,15 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Append to Google Drive File</title>
+    <title>Manage Google Drive File</title>
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-    <h1>Append Text to Google Drive File</h1>
-    <form id="appendForm">
+    <h1>Manage Google Drive File</h1>
+    <div id="fileOperations">
+        <button id="createFile">Create New File</button>
+        <button id="openFile">Open Existing File</button>
+    </div>
+    <form id="appendForm" style="display:none;">
         <label for="fileId">Google Drive File ID:</label><br>
-        <input type="text" id="fileId" name="fileId" required><br><br>
+        <input type="text" id="fileId" name="fileId" readonly><br><br>
 
         <label for="appendText">Text to Append:</label><br>
         <input type="text" id="appendText" name="appendText" required><br><br>
@@ -24,7 +28,7 @@
     <script>
         let CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
         let API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
-        let SCOPES = 'https://www.googleapis.com/auth/drive';
+        let SCOPES = 'https://www.googleapis.com/auth/drive.file';
         let tokenClient;
 
         function gapiLoaded() {
@@ -46,71 +50,94 @@
             });
         }
 
+        document.getElementById('createFile').addEventListener('click', createNewFile);
+        document.getElementById('openFile').addEventListener('click', openExistingFile);
         document.getElementById('appendForm').addEventListener('submit', function(event) {
             event.preventDefault();
-            requestNewToken();
+            appendTextToFile();
         });
 
-        function requestNewToken() {
+        function requestNewToken(callback) {
             tokenClient.callback = (response) => {
                 if (response.error) {
                     document.getElementById('result').innerText = 'Error: ' + response.error;
                     return;
                 }
-                const accessToken = gapi.client.getToken().access_token;
-                appendTextToFile(accessToken);
+                callback();
             };
 
             tokenClient.requestAccessToken({prompt: 'consent'});
         }
 
-        async function appendTextToFile(accessToken) {
+        function createNewFile() {
+            requestNewToken(async () => {
+                try {
+                    const response = await gapi.client.drive.files.create({
+                        resource: {
+                            name: 'New Text File',
+                            mimeType: 'text/plain'
+                        },
+                        fields: 'id'
+                    });
+                    document.getElementById('fileId').value = response.result.id;
+                    document.getElementById('appendForm').style.display = 'block';
+                    document.getElementById('result').innerText = 'New file created successfully!';
+                } catch (error) {
+                    document.getElementById('result').innerText = 'Error creating file: ' + error.message;
+                }
+            });
+        }
+
+        function openExistingFile() {
+            requestNewToken(() => {
+                gapi.client.drive.files.list({
+                    'pageSize': 10,
+                    'fields': "files(id, name)"
+                }).then(function(response) {
+                    const files = response.result.files;
+                    if (files && files.length > 0) {
+                        const fileId = prompt("Enter the ID of the file you want to open:", files[0].id);
+                        if (fileId) {
+                            document.getElementById('fileId').value = fileId;
+                            document.getElementById('appendForm').style.display = 'block';
+                            document.getElementById('result').innerText = 'File opened successfully!';
+                        }
+                    } else {
+                        document.getElementById('result').innerText = 'No files found.';
+                    }
+                });
+            });
+        }
+
+        async function appendTextToFile() {
             const fileId = document.getElementById('fileId').value;
             const appendText = document.getElementById('appendText').value;
 
-            try {
-                // Fetch existing file content
-                const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`
-                    }
-                });
-                
-                if (!fileResponse.ok) {
-                    throw new Error(`Failed to fetch file content: ${fileResponse.statusText}`);
-                }
+            requestNewToken(async () => {
+                try {
+                    // Fetch existing file content
+                    const fileResponse = await gapi.client.drive.files.get({
+                        fileId: fileId,
+                        alt: 'media'
+                    });
+                    
+                    const existingContent = fileResponse.body;
+                    const updatedContent = existingContent + '\n' + appendText;
 
-                const existingContent = await fileResponse.text();
-                const updatedContent = existingContent + '\n' + appendText;
+                    // Update file content
+                    await gapi.client.request({
+                        path: '/upload/drive/v3/files/' + fileId,
+                        method: 'PATCH',
+                        params: {uploadType: 'media'},
+                        body: updatedContent
+                    });
 
-                // Prepare form data for file upload
-                const metadata = {
-                    mimeType: 'text/plain',
-                };
-
-                const formData = new FormData();
-                formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-                formData.append('file', new Blob([updatedContent], { type: 'text/plain' }));
-
-                // Upload updated content
-                const uploadResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`
-                    },
-                    body: formData
-                });
-
-                if (uploadResponse.ok) {
                     document.getElementById('result').innerText = 'Text appended successfully!';
-                } else {
-                    const errorText = await uploadResponse.text();
-                    throw new Error(`Error uploading: ${errorText}`);
+                } catch (error) {
+                    document.getElementById('result').innerText = 'Error: ' + error.message;
+                    console.error('Full error:', error);
                 }
-            } catch (error) {
-                document.getElementById('result').innerText = 'Error: ' + error.message;
-                console.error('Full error:', error);
-            }
+            });
         }
 
         window.onload = function() {
