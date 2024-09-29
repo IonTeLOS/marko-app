@@ -24,7 +24,7 @@
         <input type="email" id="userEmail" name="userEmail" readonly><br><br>
 
         <label for="userName">Your Name:</label><br>
-        <input type="text" id="userName" name="userName" required><br><br>
+        <input type="text" id="userName" name="userName" readonly><br><br>
 
         <label for="messageBody">Message:</label><br>
         <textarea id="messageBody" name="messageBody" required></textarea><br><br>
@@ -46,12 +46,10 @@
         let SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
         let tokenClient;
 
-        // Function to load the Google API Client Library
         function gapiLoaded() {
             gapi.load('client', initializeGapiClient);
         }
 
-        // Initialize GAPI Client
         async function initializeGapiClient() {
             try {
                 await gapi.client.init({
@@ -64,7 +62,6 @@
             }
         }
 
-        // Initialize GIS Client
         function gisLoaded() {
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
@@ -92,23 +89,20 @@
             tokenClient.requestAccessToken({prompt: ''});
         }
 
-        async function getUserInfo() {
-            try {
-                const response = await gapi.client.request({
-                    'path': 'https://www.googleapis.com/oauth2/v1/userinfo?alt=json',
-                });
-                const userInfo = response.result;
-                document.getElementById('userEmail').value = userInfo.email;
-                if (!document.getElementById('userName').value) {
-                    document.getElementById('userName').value = userInfo.name;
-                }
-            } catch (error) {
-                console.error('Error fetching user info:', error);
-                document.getElementById('result').innerText = 'Error fetching user info: ' + error.message;
-            }
-        }
+async function getUserInfo() {
+    try {
+        const response = await gapi.client.request({
+            'path': 'https://www.googleapis.com/oauth2/v1/userinfo?alt=json',
+        });
+        const userInfo = response.result;
+        document.getElementById('userEmail').value = userInfo.email;
+        document.getElementById('userName').value = userInfo.name;
+    } catch (error) {
+        console.error('Error fetching user info:', error);
+        document.getElementById('result').innerText = 'Error fetching user info: ' + error.message;
+    }
+}
 
-        // Function to generate a random password (for encryption)
         function generatePassword(length = 16) {
             const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
             let password = '';
@@ -131,25 +125,19 @@
                     });
 
                     const fileId = fileResponse.result.id;
-                    const userName = document.getElementById('userName').value;
+                    const creatorName = document.getElementById('userName').value;
 
-                    // Generate encryption key (password)
                     const password = generatePassword();
-                    
-                    // Store password in localStorage for future use
                     localStorage.setItem('encryptionKey', password);
 
-                    // Construct a URL with parameters: fileId, userName, and password
-                    const url = `${window.location.origin}${window.location.pathname}?fileId=${fileId}&userName=${encodeURIComponent(userName)}&password=${encodeURIComponent(password)}`;
+                    const url = `${window.location.origin}${window.location.pathname}?fileId=${fileId}&creatorName=${encodeURIComponent(creatorName)}&password=${encodeURIComponent(password)}`;
                     
-                    // Copy the URL to the clipboard
                     navigator.clipboard.writeText(url).then(() => {
                         document.getElementById('result').innerText = 'New encrypted message exchange file created successfully! URL copied to clipboard.';
                     }).catch(err => {
                         document.getElementById('result').innerText = 'Error copying URL to clipboard: ' + err;
                     });
 
-                    // Set the file to be globally writable
                     await gapi.client.drive.permissions.create({
                         fileId: fileId,
                         resource: {
@@ -158,7 +146,6 @@
                         }
                     });
 
-                    // Initialize the file with a header
                     const header = "Encrypted Message Exchange File - Each line is an encrypted JSON object representing a message.\n";
                     await gapi.client.request({
                         path: '/upload/drive/v3/files/' + fileId,
@@ -225,16 +212,14 @@
 
             requestNewToken(async () => {
                 try {
-                    // Fetch existing file content
                     const fileResponse = await gapi.client.drive.files.get({
                         fileId: fileId,
                         alt: 'media'
                     });
 
                     const existingContent = fileResponse.body;
-
-                    // Update file content
                     const updatedContent = existingContent + encryptedMessage + '\n';
+                    
                     await gapi.client.request({
                         path: '/upload/drive/v3/files/' + fileId,
                         method: 'PATCH',
@@ -243,11 +228,7 @@
                     });
 
                     document.getElementById('result').innerText = 'Message sent successfully!';
-
-                    // Clear input fields
                     document.getElementById('messageBody').value = '';
-
-                    // Reload messages
                     loadMessages();
                 } catch (error) {
                     document.getElementById('result').innerText = 'Error sending message: ' + error.message;
@@ -301,22 +282,20 @@
             });
         }
 
-        // Function to parse URL parameters
         function getQueryParams() {
             const params = new URLSearchParams(window.location.search);
             return {
                 fileId: params.get('fileId'),
-                userName: params.get('userName'),
+                creatorName: params.get('creatorName'),
                 password: params.get('password')
             };
         }
 
-        // Prefill form inputs if parameters exist in the URL
-        window.onload = () => {
+ window.onload = () => {
             gapiLoaded();
             gisLoaded();
 
-            const { fileId, userName, password } = getQueryParams();
+            const { fileId, password } = getQueryParams();
 
             if (fileId) {
                 document.getElementById('existingFileId').value = fileId;
@@ -325,12 +304,7 @@
                 document.getElementById('messageDisplay').style.display = 'block';
             }
 
-            if (userName) {
-                document.getElementById('userName').value = decodeURIComponent(userName);
-            }
-
             if (password) {
-                // Store the password in localStorage for later use
                 localStorage.setItem('encryptionKey', decodeURIComponent(password));
             }
 
