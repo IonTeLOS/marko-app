@@ -257,38 +257,49 @@ function extractUserEmails(content) {
 }
 
 async function lockFileAccess(fileId, userEmails) {
-    // Remove existing permissions for users other than the locked users
-    const allPermissions = await gapi.client.drive.permissions.list({
-        fileId: fileId,
-        fields: 'permissions(id,emailAddress)',
-    });
-
-    const lockedEmailsSet = new Set(userEmails);
-    
-    for (const permission of allPermissions.permissions) {
-        if (!lockedEmailsSet.has(permission.emailAddress)) {
-            await gapi.client.drive.permissions.delete({
-                fileId: fileId,
-                permissionId: permission.id,
-            });
-        }
-    }
-
-    // Add permissions for the locked users
-    for (const email of userEmails) {
-        await gapi.client.drive.permissions.create({
+    try {
+        const allPermissions = await gapi.client.drive.permissions.list({
             fileId: fileId,
-            resource: {
-                type: 'user',
-                role: 'writer',
-                emailAddress: email,
-            },
-            fields: 'id',
+            fields: 'permissions(id,emailAddress)',
         });
-    }
 
-    console.log('File access locked for users:', userEmails);
+        console.log('All Permissions:', allPermissions);
+
+        if (Array.isArray(allPermissions.permissions)) {
+            const lockedEmailsSet = new Set(userEmails);
+            
+            // Remove existing permissions for users other than the locked users
+            for (const permission of allPermissions.permissions) {
+                if (!lockedEmailsSet.has(permission.emailAddress)) {
+                    await gapi.client.drive.permissions.delete({
+                        fileId: fileId,
+                        permissionId: permission.id,
+                    });
+                }
+            }
+
+            // Add permissions for the locked users
+            for (const email of userEmails) {
+                await gapi.client.drive.permissions.create({
+                    fileId: fileId,
+                    resource: {
+                        type: 'user',
+                        role: 'writer',
+                        emailAddress: email,
+                    },
+                    fields: 'id',
+                });
+            }
+
+            console.log('File access locked for users:', userEmails);
+        } else {
+            console.error('No permissions found or invalid response format:', allPermissions);
+        }
+    } catch (error) {
+        console.error('Error locking file access:', error);
+    }
 }
+
 
         // Ensure the gapi and GIS scripts load correctly
         window.onload = () => {
