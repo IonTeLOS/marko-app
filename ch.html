@@ -3,35 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Google Drive Files</title>
+    <title>Message Exchange via Google Drive</title>
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-    <h1>Manage Google Drive Files</h1>
+    <h1>Message Exchange via Google Drive</h1>
     <div id="fileOperations">
-        <button id="createFile">Create New Globally Writable File</button>
+        <button id="createFile">Create New Message Exchange File</button>
     </div>
-    <form id="appendForm" style="display:none;">
-        <h2>Append to Created File</h2>
-        <label for="fileId">Created File ID:</label><br>
+    <form id="sendMessageForm" style="display:none;">
+        <h2>Send Message</h2>
+        <label for="fileId">File ID:</label><br>
         <input type="text" id="fileId" name="fileId" readonly><br><br>
 
-        <label for="appendText">Text to Append:</label><br>
-        <input type="text" id="appendText" name="appendText" required><br><br>
+        <label for="userEmail">Your Email:</label><br>
+        <input type="email" id="userEmail" name="userEmail" required><br><br>
 
-        <button type="submit">Append Text</button>
-    </form>
+        <label for="userName">Your Name:</label><br>
+        <input type="text" id="userName" name="userName" required><br><br>
 
-    <form id="appendExistingForm">
-        <h2>Append to Existing File</h2>
-        <label for="existingFileId">Existing File ID:</label><br>
-        <input type="text" id="existingFileId" name="existingFileId" required><br><br>
+        <label for="messageBody">Message:</label><br>
+        <textarea id="messageBody" name="messageBody" required></textarea><br><br>
 
-        <label for="existingAppendText">Text to Append:</label><br>
-        <input type="text" id="existingAppendText" name="existingAppendText" required><br><br>
+        <label for="extras">Extras (optional JSON):</label><br>
+        <textarea id="extras" name="extras"></textarea><br><br>
 
-        <button type="submit">Append to Existing File</button>
+        <button type="submit">Send Message</button>
     </form>
 
     <p id="result"></p>
@@ -63,13 +61,9 @@
         }
 
         document.getElementById('createFile').addEventListener('click', createNewFile);
-        document.getElementById('appendForm').addEventListener('submit', function(event) {
+        document.getElementById('sendMessageForm').addEventListener('submit', function(event) {
             event.preventDefault();
-            appendTextToFile(document.getElementById('fileId').value, document.getElementById('appendText').value);
-        });
-        document.getElementById('appendExistingForm').addEventListener('submit', function(event) {
-            event.preventDefault();
-            appendTextToFile(document.getElementById('existingFileId').value, document.getElementById('existingAppendText').value);
+            sendMessage();
         });
 
         function requestNewToken(callback) {
@@ -89,8 +83,9 @@
                     // Create a new file
                     const fileResponse = await gapi.client.drive.files.create({
                         resource: {
-                            name: 'Globally Writable Text File',
-                            mimeType: 'text/plain'
+                            name: 'Message Exchange File',
+                            mimeType: 'text/plain',
+                            description: 'File for exchanging short messages'
                         },
                         fields: 'id'
                     });
@@ -106,16 +101,45 @@
                         }
                     });
 
+                    // Initialize the file with a header
+                    const header = "Message Exchange File - Each line is a JSON object representing a message.\n";
+                    await gapi.client.request({
+                        path: '/upload/drive/v3/files/' + fileId,
+                        method: 'PATCH',
+                        params: {uploadType: 'media'},
+                        body: header
+                    });
+
                     document.getElementById('fileId').value = fileId;
-                    document.getElementById('appendForm').style.display = 'block';
-                    document.getElementById('result').innerText = 'New globally writable file created successfully! File ID: ' + fileId;
+                    document.getElementById('sendMessageForm').style.display = 'block';
+                    document.getElementById('result').innerText = 'New message exchange file created successfully! File ID: ' + fileId;
                 } catch (error) {
                     document.getElementById('result').innerText = 'Error creating file: ' + error.message;
                 }
             });
         }
 
-        async function appendTextToFile(fileId, appendText) {
+        async function sendMessage() {
+            const fileId = document.getElementById('fileId').value;
+            const userEmail = document.getElementById('userEmail').value;
+            const userName = document.getElementById('userName').value;
+            const messageBody = document.getElementById('messageBody').value;
+            let extras;
+            try {
+                extras = JSON.parse(document.getElementById('extras').value || '{}');
+            } catch (error) {
+                document.getElementById('result').innerText = 'Error parsing extras JSON: ' + error.message;
+                return;
+            }
+
+            const message = {
+                timestamp: new Date().toISOString(),
+                userEmail: userEmail,
+                userName: userName,
+                messageBody: messageBody,
+                extras: extras
+            };
+
             requestNewToken(async () => {
                 try {
                     // Fetch existing file content
@@ -125,7 +149,7 @@
                     });
                     
                     const existingContent = fileResponse.body;
-                    const updatedContent = existingContent + '\n' + appendText;
+                    const updatedContent = existingContent + JSON.stringify(message) + '\n';
 
                     // Update file content
                     await gapi.client.request({
@@ -135,9 +159,11 @@
                         body: updatedContent
                     });
 
-                    document.getElementById('result').innerText = 'Text appended successfully to file: ' + fileId;
+                    document.getElementById('result').innerText = 'Message sent successfully!';
+                    document.getElementById('messageBody').value = '';
+                    document.getElementById('extras').value = '';
                 } catch (error) {
-                    document.getElementById('result').innerText = 'Error appending to file ' + fileId + ': ' + error.message;
+                    document.getElementById('result').innerText = 'Error sending message: ' + error.message;
                     console.error('Full error:', error);
                 }
             });
