@@ -11,6 +11,8 @@
     <h1>Message Exchange via Google Drive</h1>
     <div id="fileOperations">
         <button id="createFile">Create New Message Exchange File</button>
+        <input type="text" id="existingFileId" placeholder="Enter existing File ID">
+        <button id="useExistingFile">Use Existing File</button>
     </div>
     <form id="sendMessageForm" style="display:none;">
         <h2>Send Message</h2>
@@ -18,10 +20,10 @@
         <input type="text" id="fileId" name="fileId" readonly><br><br>
 
         <label for="userEmail">Your Email:</label><br>
-        <input type="email" id="userEmail" name="userEmail" required><br><br>
+        <input type="email" id="userEmail" name="userEmail" readonly><br><br>
 
         <label for="userName">Your Name:</label><br>
-        <input type="text" id="userName" name="userName" required><br><br>
+        <input type="text" id="userName" name="userName" readonly><br><br>
 
         <label for="messageBody">Message:</label><br>
         <textarea id="messageBody" name="messageBody" required></textarea><br><br>
@@ -38,7 +40,7 @@
         let CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
         let API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
         let DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
-        let SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        let SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
         let tokenClient;
 
         function gapiLoaded() {
@@ -61,20 +63,35 @@
         }
 
         document.getElementById('createFile').addEventListener('click', createNewFile);
+        document.getElementById('useExistingFile').addEventListener('click', useExistingFile);
         document.getElementById('sendMessageForm').addEventListener('submit', function(event) {
             event.preventDefault();
             sendMessage();
         });
 
         function requestNewToken(callback) {
-            tokenClient.callback = (response) => {
+            tokenClient.callback = async (response) => {
                 if (response.error) {
                     document.getElementById('result').innerText = 'Error: ' + response.error;
                     return;
                 }
+                await getUserInfo();
                 callback();
             };
             tokenClient.requestAccessToken({prompt: ''});
+        }
+
+        async function getUserInfo() {
+            try {
+                const response = await gapi.client.request({
+                    'path': 'https://www.googleapis.com/oauth2/v1/userinfo?alt=json',
+                });
+                const userInfo = response.result;
+                document.getElementById('userEmail').value = userInfo.email;
+                document.getElementById('userName').value = userInfo.name;
+            } catch (error) {
+                console.error('Error fetching user info:', error);
+            }
         }
 
         function createNewFile() {
@@ -115,6 +132,30 @@
                     document.getElementById('result').innerText = 'New message exchange file created successfully! File ID: ' + fileId;
                 } catch (error) {
                     document.getElementById('result').innerText = 'Error creating file: ' + error.message;
+                }
+            });
+        }
+
+        function useExistingFile() {
+            const fileId = document.getElementById('existingFileId').value;
+            if (!fileId) {
+                document.getElementById('result').innerText = 'Please enter a File ID';
+                return;
+            }
+            
+            requestNewToken(async () => {
+                try {
+                    // Check if the file exists and is accessible
+                    await gapi.client.drive.files.get({
+                        fileId: fileId,
+                        fields: 'id, name'
+                    });
+
+                    document.getElementById('fileId').value = fileId;
+                    document.getElementById('sendMessageForm').style.display = 'block';
+                    document.getElementById('result').innerText = 'Using existing file with ID: ' + fileId;
+                } catch (error) {
+                    document.getElementById('result').innerText = 'Error accessing file: ' + error.message;
                 }
             });
         }
