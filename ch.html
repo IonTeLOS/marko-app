@@ -24,7 +24,7 @@
     <script>
         let CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
         let API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
-        let SCOPES = 'https://www.googleapis.com/auth/drive';
+        let SCOPES = 'https://www.googleapis.com/auth/drive.file'; // Important Scope
         let tokenClient;
 
         function gapiLoaded() {
@@ -91,7 +91,7 @@
 
                 // Prepare form data for file upload (metadata and updated content)
                 const metadata = {
-                    name: fileId, // You can also set other metadata properties like name, mimeType, etc.
+                    name: fileId, // Optional: change the file name
                 };
 
                 const formData = new FormData();
