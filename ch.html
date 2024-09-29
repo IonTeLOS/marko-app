@@ -24,7 +24,7 @@
     <script>
         let CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
         let API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
-        let SCOPES = 'https://www.googleapis.com/auth/drive.file'; // Important Scope
+        let SCOPES = 'https://www.googleapis.com/auth/drive';
         let tokenClient;
 
         function gapiLoaded() {
@@ -48,13 +48,7 @@
 
         document.getElementById('appendForm').addEventListener('submit', function(event) {
             event.preventDefault();
-
-            const storedToken = localStorage.getItem('accessToken');
-            if (storedToken) {
-                appendTextToFile(storedToken);
-            } else {
-                requestNewToken();
-            }
+            requestNewToken();
         });
 
         function requestNewToken() {
@@ -63,15 +57,10 @@
                     document.getElementById('result').innerText = 'Error: ' + response.error;
                     return;
                 }
-
-                // Store access token in localStorage
                 const accessToken = gapi.client.getToken().access_token;
-                localStorage.setItem('accessToken', accessToken);
-
                 appendTextToFile(accessToken);
             };
 
-            // Request token
             tokenClient.requestAccessToken({prompt: 'consent'});
         }
 
@@ -86,12 +75,17 @@
                         'Authorization': `Bearer ${accessToken}`
                     }
                 });
+                
+                if (!fileResponse.ok) {
+                    throw new Error(`Failed to fetch file content: ${fileResponse.statusText}`);
+                }
+
                 const existingContent = await fileResponse.text();
                 const updatedContent = existingContent + '\n' + appendText;
 
-                // Prepare form data for file upload (metadata and updated content)
+                // Prepare form data for file upload
                 const metadata = {
-                    name: fileId, // Optional: change the file name
+                    mimeType: 'text/plain',
                 };
 
                 const formData = new FormData();
@@ -111,14 +105,14 @@
                     document.getElementById('result').innerText = 'Text appended successfully!';
                 } else {
                     const errorText = await uploadResponse.text();
-                    document.getElementById('result').innerText = 'Error uploading: ' + errorText;
+                    throw new Error(`Error uploading: ${errorText}`);
                 }
             } catch (error) {
                 document.getElementById('result').innerText = 'Error: ' + error.message;
+                console.error('Full error:', error);
             }
         }
 
-        // Load the GIS and GAPI libraries
         window.onload = function() {
             gapiLoaded();
             gisLoaded();
