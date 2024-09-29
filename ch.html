@@ -264,15 +264,25 @@ async function checkAndLockFileAccess(fileId, userEmails) {
             fields: 'permissions(id,emailAddress)',
         });
 
-        const allPermissions = allPermissionsResponse.result.permissions;
+        const allPermissions = allPermissionsResponse.result.permissions || [];
         console.log('All Permissions:', allPermissions);
 
         // Check if we have two unique user emails
         const userEmailSet = new Set(userEmails);
         if (userEmailSet.size === 2) {
+            // Convert Set back to Array for lockFileAccess function
+            const uniqueEmails = Array.from(userEmailSet);
+
+            // Optional: Check if these users already have the desired permissions
+            const existingEmails = allPermissions.map(permission => permission.emailAddress);
+            if (uniqueEmails.every(email => existingEmails.includes(email))) {
+                console.log('Users already have permissions. No action needed.');
+                return; // Exit if no changes are needed
+            }
+
             // Lock the file
-            await lockFileAccess(fileId, Array.from(userEmailSet));
-            console.log('File locked for users:', Array.from(userEmailSet));
+            await lockFileAccess(fileId, uniqueEmails);
+            console.log('File locked for users:', uniqueEmails);
         } else {
             console.log('Not enough unique emails to lock the file.');
         }
@@ -284,43 +294,65 @@ async function checkAndLockFileAccess(fileId, userEmails) {
     }
 }
 
-async function lockFileAccess(fileId, userEmails) {
-    try {
-        // Remove all existing permissions to lock the file
-        const permissionsResponse = await gapi.client.drive.permissions.list({
-            fileId: fileId,
-            fields: 'permissions(id)',
-        });
+// Function to change file permissions
+async function changePermissions(fileId, permissions) {
+    const accessToken = localStorage.getItem('accessToken'); // Retrieve the access token from local storage
 
-        const permissions = permissionsResponse.result.permissions;
+    const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`, // Use the access token
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(permissions), // Permissions object here
+    });
 
-        // Remove all permissions
-        for (const permission of permissions) {
-            await gapi.client.drive.permissions.delete({
-                fileId: fileId,
-                permissionId: permission.id,
-            });
-        }
-
-        // Create new permissions for the specified users
-        for (const email of userEmails) {
-            await gapi.client.drive.permissions.create({
-                fileId: fileId,
-                resource: {
-                    role: 'writer',
-                    type: 'user',
-                    emailAddress: email,
-                },
-            });
-        }
-
-        console.log('File locked successfully for users:', userEmails);
-    } catch (error) {
-        console.error('Error locking file access:', error);
+    const result = await response.json();
+    if (!response.ok) {
+        throw new Error(result.error.message);
     }
+    console.log('Permissions changed successfully', result);
 }
 
+// Function to lock a file for two specific users
+async function lockFile(fileId, userEmails) {
+    if (userEmails.length !== 2) {
+        throw new Error("Exactly two email addresses are required to lock the file.");
+    }
 
+    const permissions = [
+        {
+            role: 'reader', // Set role as needed
+            type: 'user',
+            emailAddress: userEmails[0],
+        },
+        {
+            role: 'reader',
+            type: 'user',
+            emailAddress: userEmails[1],
+        },
+        {
+            role: 'writer',
+            type: 'user',
+            emailAddress: userEmails[0],
+        },
+        {
+            role: 'writer',
+            type: 'user',
+            emailAddress: userEmails[1],
+        },
+    ];
+
+    try {
+        // Change permissions for both users
+        for (const permission of permissions) {
+            await changePermissions(fileId, permission);
+        }
+        console.log('File locked successfully for users:', userEmails);
+    } catch (error) {
+        console.error('Error locking file:', error);
+    }
+}
 
         // Ensure the gapi and GIS scripts load correctly
         window.onload = () => {
