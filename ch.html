@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Message Exchange via Google Drive</title>
-    <script src="https://apis.google.com/js/api.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
 </head>
 <body>
     <h1>Message Exchange via Google Drive</h1>
@@ -232,10 +232,10 @@
                 // First, remove global write access
                 await gapi.client.drive.permissions.delete({
                     fileId: fileId,
-                    permissionId: 'anyoneWithLink'
+                    permissionId: 'anyoneWithLink' // Remove public access
                 });
 
-                // Then, allow only the two users to read and write
+                // Then, add write permissions for the two users
                 for (const email of emailArray) {
                     await gapi.client.drive.permissions.create({
                         fileId: fileId,
@@ -256,7 +256,6 @@
         }
 
         gapiLoaded();
-        gisLoaded();
     </script>
 </body>
 </html>
