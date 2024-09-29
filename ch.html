@@ -315,7 +315,7 @@ async function changePermissions(fileId, permissions) {
 }
 
 // Function to lock a file for two specific users
-async function lockFile(fileId, userEmails) {
+async function lockFileAccess(fileId, userEmails) {
     if (userEmails.length !== 2) {
         throw new Error("Exactly two email addresses are required to lock the file.");
     }
