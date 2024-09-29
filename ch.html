@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Message Exchange via Google Drive</title>
-    <script src="https://apis.google.com/js/api.js" async defer onload="gapiLoaded()"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <h1>Message Exchange via Google Drive</h1>
@@ -53,6 +53,7 @@
             gapi.load('client', initializeGapiClient);
         }
 
+        // Initialize GAPI Client
         async function initializeGapiClient() {
             try {
                 await gapi.client.init({
@@ -65,6 +66,7 @@
             }
         }
 
+        // Initialize GIS Client
         function gisLoaded() {
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
@@ -262,6 +264,12 @@
                 console.error('Full error:', error);
             }
         }
+
+        // Ensure the gapi and GIS scripts load correctly
+        window.onload = () => {
+            gapiLoaded();
+            gisLoaded();
+        };
     </script>
 </body>
 </html>
