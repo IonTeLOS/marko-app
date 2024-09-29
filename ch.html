@@ -3,23 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Google Drive File</title>
+    <title>Manage Google Drive Files</title>
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-    <h1>Manage Google Drive File</h1>
+    <h1>Manage Google Drive Files</h1>
     <div id="fileOperations">
         <button id="createFile">Create New Globally Writable File</button>
     </div>
     <form id="appendForm" style="display:none;">
-        <label for="fileId">Google Drive File ID:</label><br>
+        <h2>Append to Created File</h2>
+        <label for="fileId">Created File ID:</label><br>
         <input type="text" id="fileId" name="fileId" readonly><br><br>
 
         <label for="appendText">Text to Append:</label><br>
         <input type="text" id="appendText" name="appendText" required><br><br>
 
         <button type="submit">Append Text</button>
+    </form>
+
+    <form id="appendExistingForm">
+        <h2>Append to Existing File</h2>
+        <label for="existingFileId">Existing File ID:</label><br>
+        <input type="text" id="existingFileId" name="existingFileId" required><br><br>
+
+        <label for="existingAppendText">Text to Append:</label><br>
+        <input type="text" id="existingAppendText" name="existingAppendText" required><br><br>
+
+        <button type="submit">Append to Existing File</button>
     </form>
 
     <p id="result"></p>
@@ -53,7 +65,11 @@
         document.getElementById('createFile').addEventListener('click', createNewFile);
         document.getElementById('appendForm').addEventListener('submit', function(event) {
             event.preventDefault();
-            appendTextToFile();
+            appendTextToFile(document.getElementById('fileId').value, document.getElementById('appendText').value);
+        });
+        document.getElementById('appendExistingForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            appendTextToFile(document.getElementById('existingFileId').value, document.getElementById('existingAppendText').value);
         });
 
         function requestNewToken(callback) {
@@ -92,17 +108,14 @@
 
                     document.getElementById('fileId').value = fileId;
                     document.getElementById('appendForm').style.display = 'block';
-                    document.getElementById('result').innerText = 'New globally writable file created successfully!';
+                    document.getElementById('result').innerText = 'New globally writable file created successfully! File ID: ' + fileId;
                 } catch (error) {
                     document.getElementById('result').innerText = 'Error creating file: ' + error.message;
                 }
             });
         }
 
-        async function appendTextToFile() {
-            const fileId = document.getElementById('fileId').value;
-            const appendText = document.getElementById('appendText').value;
-
+        async function appendTextToFile(fileId, appendText) {
             requestNewToken(async () => {
                 try {
                     // Fetch existing file content
@@ -122,9 +135,9 @@
                         body: updatedContent
                     });
 
-                    document.getElementById('result').innerText = 'Text appended successfully!';
+                    document.getElementById('result').innerText = 'Text appended successfully to file: ' + fileId;
                 } catch (error) {
-                    document.getElementById('result').innerText = 'Error: ' + error.message;
+                    document.getElementById('result').innerText = 'Error appending to file ' + fileId + ': ' + error.message;
                     console.error('Full error:', error);
                 }
             });
