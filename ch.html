@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Message Exchange via Google Drive</title>
-    <script src="https://apis.google.com/js/api.js" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer onload="gapiLoaded()"></script>
     <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
 </head>
 <body>
@@ -40,8 +40,8 @@
     <p id="result"></p>
 
     <script>
-        let CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
-        let API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
+        let CLIENT_ID = 'YOUR_CLIENT_ID';
+        let API_KEY = 'YOUR_API_KEY';
         let DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
         let SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
         let tokenClient;
@@ -54,10 +54,15 @@
         }
 
         async function initializeGapiClient() {
-            await gapi.client.init({
-                apiKey: API_KEY,
-                discoveryDocs: [DISCOVERY_DOC],
-            });
+            try {
+                await gapi.client.init({
+                    apiKey: API_KEY,
+                    discoveryDocs: [DISCOVERY_DOC],
+                });
+                console.log("GAPI client initialized successfully.");
+            } catch (error) {
+                console.error("Error initializing GAPI client:", error);
+            }
         }
 
         function gisLoaded() {
@@ -97,13 +102,13 @@
                 document.getElementById('userName').value = userInfo.name;
             } catch (error) {
                 console.error('Error fetching user info:', error);
+                document.getElementById('result').innerText = 'Error fetching user info: ' + error.message;
             }
         }
 
         function createNewFile() {
             requestNewToken(async () => {
                 try {
-                    // Create a new file
                     const fileResponse = await gapi.client.drive.files.create({
                         resource: {
                             name: 'Message Exchange File',
@@ -151,7 +156,6 @@
             
             requestNewToken(async () => {
                 try {
-                    // Check if the file exists and is accessible
                     await gapi.client.drive.files.get({
                         fileId: fileId,
                         fields: 'id, name'
@@ -193,7 +197,6 @@
 
             requestNewToken(async () => {
                 try {
-                    // Fetch existing file content
                     const fileResponse = await gapi.client.drive.files.get({
                         fileId: fileId,
                         alt: 'media'
@@ -215,28 +218,32 @@
                     document.getElementById('extras').value = '';
                     document.getElementById('messageLink').value = '';
 
-                    if (users.size === 2) {
-                        lockFileToUsers(fileId);
+                    if (users.size >= 2) {
+                        await lockFileAccess(fileId, Array.from(users));
                     }
-
                 } catch (error) {
                     document.getElementById('result').innerText = 'Error sending message: ' + error.message;
-                    console.error('Full error:', error);
                 }
             });
         }
 
-        async function lockFileToUsers(fileId) {
+        async function lockFileAccess(fileId, emailArray) {
             try {
-                const emailArray = Array.from(users);
-
-                // First, remove global write access
-                await gapi.client.drive.permissions.delete({
+                // Remove all permissions first
+                const permissionsResponse = await gapi.client.drive.permissions.list({
                     fileId: fileId,
-                    permissionId: 'anyoneWithLink' // Remove public access
+                    fields: 'permissions(id, emailAddress)'
                 });
+                const permissions = permissionsResponse.result.permissions;
 
-                // Then, add write permissions for the two users
+                for (const permission of permissions) {
+                    await gapi.client.drive.permissions.delete({
+                        fileId: fileId,
+                        permissionId: permission.id
+                    });
+                }
+
+                // Add write permissions for the specified users
                 for (const email of emailArray) {
                     await gapi.client.drive.permissions.create({
                         fileId: fileId,
@@ -255,7 +262,6 @@
                 console.error('Full error:', error);
             }
         }
-
     </script>
 </body>
 </html>
