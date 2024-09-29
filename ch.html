@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Message Exchange via Google Drive</title>
+    <title>Encrypted Message Exchange via Google Drive</title>
     <script src="https://apis.google.com/js/api.js" async defer></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body>
-    <h1>Message Exchange via Google Drive</h1>
+    <h1>Encrypted Message Exchange via Google Drive</h1>
     <div id="fileOperations">
         <button id="createFile">Create New Message Exchange File</button>
         <input type="text" id="existingFileId" placeholder="Enter existing File ID">
@@ -23,19 +24,18 @@
         <input type="email" id="userEmail" name="userEmail" readonly><br><br>
 
         <label for="userName">Your Name:</label><br>
-        <input type="text" id="userName" name="userName" readonly><br><br>
+        <input type="text" id="userName" name="userName" required><br><br>
 
         <label for="messageBody">Message:</label><br>
         <textarea id="messageBody" name="messageBody" required></textarea><br><br>
 
-        <label for="messageLink">Link (optional):</label><br>
-        <input type="url" id="messageLink" name="messageLink"><br><br>
-
-        <label for="extras">Extras (optional JSON):</label><br>
-        <textarea id="extras" name="extras"></textarea><br><br>
-
         <button type="submit">Send Message</button>
     </form>
+
+    <div id="messageDisplay" style="display:none;">
+        <h2>Messages</h2>
+        <div id="messages"></div>
+    </div>
 
     <p id="result"></p>
 
@@ -45,8 +45,6 @@
         let DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
         let SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
         let tokenClient;
-
-        let users = new Set();
 
         // Function to load the Google API Client Library
         function gapiLoaded() {
@@ -101,11 +99,23 @@
                 });
                 const userInfo = response.result;
                 document.getElementById('userEmail').value = userInfo.email;
-                document.getElementById('userName').value = userInfo.name;
+                if (!document.getElementById('userName').value) {
+                    document.getElementById('userName').value = userInfo.name;
+                }
             } catch (error) {
                 console.error('Error fetching user info:', error);
                 document.getElementById('result').innerText = 'Error fetching user info: ' + error.message;
             }
+        }
+
+        // Function to generate a random password (for encryption)
+        function generatePassword(length = 16) {
+            const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let password = '';
+            for (let i = 0, n = charset.length; i < length; ++i) {
+                password += charset.charAt(Math.floor(Math.random() * n));
+            }
+            return password;
         }
 
         function createNewFile() {
@@ -113,14 +123,31 @@
                 try {
                     const fileResponse = await gapi.client.drive.files.create({
                         resource: {
-                            name: 'Message Exchange File',
+                            name: 'Encrypted Message Exchange File',
                             mimeType: 'text/plain',
-                            description: 'File for exchanging short messages'
+                            description: 'File for exchanging encrypted messages'
                         },
                         fields: 'id'
                     });
-                    
+
                     const fileId = fileResponse.result.id;
+                    const userName = document.getElementById('userName').value;
+
+                    // Generate encryption key (password)
+                    const password = generatePassword();
+                    
+                    // Store password in localStorage for future use
+                    localStorage.setItem('encryptionKey', password);
+
+                    // Construct a URL with parameters: fileId, userName, and password
+                    const url = `${window.location.origin}${window.location.pathname}?fileId=${fileId}&userName=${encodeURIComponent(userName)}&password=${encodeURIComponent(password)}`;
+                    
+                    // Copy the URL to the clipboard
+                    navigator.clipboard.writeText(url).then(() => {
+                        document.getElementById('result').innerText = 'New encrypted message exchange file created successfully! URL copied to clipboard.';
+                    }).catch(err => {
+                        document.getElementById('result').innerText = 'Error copying URL to clipboard: ' + err;
+                    });
 
                     // Set the file to be globally writable
                     await gapi.client.drive.permissions.create({
@@ -132,17 +159,18 @@
                     });
 
                     // Initialize the file with a header
-                    const header = "Message Exchange File - Each line is a JSON object representing a message.\n";
+                    const header = "Encrypted Message Exchange File - Each line is an encrypted JSON object representing a message.\n";
                     await gapi.client.request({
                         path: '/upload/drive/v3/files/' + fileId,
                         method: 'PATCH',
-                        params: {uploadType: 'media'},
+                        params: { uploadType: 'media' },
                         body: header
                     });
 
                     document.getElementById('fileId').value = fileId;
                     document.getElementById('sendMessageForm').style.display = 'block';
-                    document.getElementById('result').innerText = 'New message exchange file created successfully! File ID: ' + fileId;
+                    document.getElementById('messageDisplay').style.display = 'block';
+                    loadMessages();
                 } catch (error) {
                     document.getElementById('result').innerText = 'Error creating file: ' + error.message;
                 }
@@ -165,199 +193,150 @@
 
                     document.getElementById('fileId').value = fileId;
                     document.getElementById('sendMessageForm').style.display = 'block';
+                    document.getElementById('messageDisplay').style.display = 'block';
                     document.getElementById('result').innerText = 'Using existing file with ID: ' + fileId;
+                    loadMessages();
                 } catch (error) {
                     document.getElementById('result').innerText = 'Error accessing file: ' + error.message;
                 }
             });
         }
 
-        let isFileLocked = false; // To track whether the file is locked
+        async function sendMessage() {
+            const fileId = document.getElementById('fileId').value;
+            const userEmail = document.getElementById('userEmail').value;
+            const userName = document.getElementById('userName').value;
+            const messageBody = document.getElementById('messageBody').value;
 
-async function sendMessage() {
-    const fileId = document.getElementById('fileId').value;
-    const userEmail = document.getElementById('userEmail').value; // Sender's email
-    const userName = document.getElementById('userName').value;
-    const messageBody = document.getElementById('messageBody').value;
-    let extras;
+            const message = {
+                timestamp: new Date().toISOString(),
+                userEmail: userEmail,
+                userName: userName,
+                messageBody: messageBody
+            };
 
-    try {
-        extras = JSON.parse(document.getElementById('extras').value || '{}');
-    } catch (error) {
-        document.getElementById('result').innerText = 'Error parsing extras JSON: ' + error.message;
-        return;
-    }
+            const encryptionKey = localStorage.getItem('encryptionKey');
+            if (!encryptionKey) {
+                document.getElementById('result').innerText = 'Error: Encryption key not found';
+                return;
+            }
 
-    const message = {
-        timestamp: new Date().toISOString(),
-        userEmail: userEmail,
-        userName: userName,
-        messageBody: messageBody,
-        extras: extras
-    };
+            const encryptedMessage = CryptoJS.AES.encrypt(JSON.stringify(message), encryptionKey).toString();
 
-    requestNewToken(async () => {
-        try {
-            // Fetch existing file content
-            const fileResponse = await gapi.client.drive.files.get({
-                fileId: fileId,
-                alt: 'media'
+            requestNewToken(async () => {
+                try {
+                    // Fetch existing file content
+                    const fileResponse = await gapi.client.drive.files.get({
+                        fileId: fileId,
+                        alt: 'media'
+                    });
+
+                    const existingContent = fileResponse.body;
+
+                    // Update file content
+                    const updatedContent = existingContent + encryptedMessage + '\n';
+                    await gapi.client.request({
+                        path: '/upload/drive/v3/files/' + fileId,
+                        method: 'PATCH',
+                        params: { uploadType: 'media' },
+                        body: updatedContent
+                    });
+
+                    document.getElementById('result').innerText = 'Message sent successfully!';
+
+                    // Clear input fields
+                    document.getElementById('messageBody').value = '';
+
+                    // Reload messages
+                    loadMessages();
+                } catch (error) {
+                    document.getElementById('result').innerText = 'Error sending message: ' + error.message;
+                    console.error('Full error:', error);
+                }
             });
+        }
 
-            const existingContent = fileResponse.body;
+        async function loadMessages() {
+            const fileId = document.getElementById('fileId').value;
+            const encryptionKey = localStorage.getItem('encryptionKey');
 
-            // Parse existing content to extract user emails
-            const userEmails = extractUserEmails(existingContent);
-            userEmails.add(userEmail); // Add the new sender's email
-
-            // Check if there are two unique user emails and lock the file
-            if (!isFileLocked && userEmails.size >= 2) {
-                await lockFileAccess(fileId, Array.from(userEmails));
-                isFileLocked = true; // Locking happens only once
+            if (!encryptionKey) {
+                document.getElementById('result').innerText = 'Error: Encryption key not found';
+                return;
             }
 
-            // Update file content
-            const updatedContent = existingContent + JSON.stringify(message) + '\n';
-            await gapi.client.request({
-                path: '/upload/drive/v3/files/' + fileId,
-                method: 'PATCH',
-                params: { uploadType: 'media' },
-                body: updatedContent
+            requestNewToken(async () => {
+                try {
+                    const fileResponse = await gapi.client.drive.files.get({
+                        fileId: fileId,
+                        alt: 'media'
+                    });
+
+                    const content = fileResponse.body;
+                    const lines = content.split('\n');
+                    const messagesContainer = document.getElementById('messages');
+                    messagesContainer.innerHTML = '';
+
+                    lines.forEach(line => {
+                        if (line.trim() !== '') {
+                            try {
+                                const decryptedBytes = CryptoJS.AES.decrypt(line, encryptionKey);
+                                const decryptedMessage = JSON.parse(decryptedBytes.toString(CryptoJS.enc.Utf8));
+
+                                const messageElement = document.createElement('div');
+                                messageElement.innerHTML = `
+                                    <p><strong>${decryptedMessage.userName}</strong> (${decryptedMessage.userEmail}) - ${new Date(decryptedMessage.timestamp).toLocaleString()}</p>
+                                    <p>${decryptedMessage.messageBody}</p>
+                                    <hr>
+                                `;
+                                messagesContainer.appendChild(messageElement);
+                            } catch (error) {
+                                console.error('Error decrypting message:', error);
+                            }
+                        }
+                    });
+                } catch (error) {
+                    document.getElementById('result').innerText = 'Error loading messages: ' + error.message;
+                }
             });
-
-            document.getElementById('result').innerText = 'Message sent successfully!';
-
-            // Clear input fields
-            document.getElementById('messageBody').value = '';
-            document.getElementById('extras').value = '';
-        } catch (error) {
-            document.getElementById('result').innerText = 'Error sending message: ' + error.message;
-            console.error('Full error:', error);
         }
-    });
-}
 
-// Function to extract user emails from the existing file content
-function extractUserEmails(content) {
-    const emails = new Set();
-    const messageLines = content.split('\n');
-
-    messageLines.forEach(line => {
-        try {
-            const message = JSON.parse(line);
-            if (message.userEmail) {
-                emails.add(message.userEmail);
-            }
-        } catch (e) {
-            // Ignore lines that cannot be parsed
+        // Function to parse URL parameters
+        function getQueryParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                fileId: params.get('fileId'),
+                userName: params.get('userName'),
+                password: params.get('password')
+            };
         }
-    });
 
-    return emails;
-}
-
-async function checkAndLockFileAccess(fileId, userEmails) {
-    try {
-        // Fetch the file's current permissions
-        const allPermissionsResponse = await gapi.client.drive.permissions.list({
-            fileId: fileId,
-            fields: 'permissions(id,emailAddress)',
-        });
-
-        const allPermissions = allPermissionsResponse.result.permissions || [];
-        console.log('All Permissions:', allPermissions);
-
-        // Check if we have two unique user emails
-        const userEmailSet = new Set(userEmails);
-        if (userEmailSet.size === 2) {
-            // Convert Set back to Array for lockFileAccess function
-            const uniqueEmails = Array.from(userEmailSet);
-
-            // Optional: Check if these users already have the desired permissions
-            const existingEmails = allPermissions.map(permission => permission.emailAddress);
-            if (uniqueEmails.every(email => existingEmails.includes(email))) {
-                console.log('Users already have permissions. No action needed.');
-                return; // Exit if no changes are needed
-            }
-
-            // Lock the file
-            await lockFileAccess(fileId, uniqueEmails);
-            console.log('File locked for users:', uniqueEmails);
-        } else {
-            console.log('Not enough unique emails to lock the file.');
-        }
-    } catch (error) {
-        console.error('Error fetching permissions or locking file:', error);
-        if (error.code === 404) {
-            console.error('File not found. Please check the file ID and permissions.');
-        }
-    }
-}
-
-// Function to change file permissions
-async function changePermissions(fileId, permissions) {
-    const accessToken = localStorage.getItem('accessToken'); // Retrieve the access token from local storage
-
-    const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${accessToken}`, // Use the access token
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(permissions), // Permissions object here
-    });
-
-    const result = await response.json();
-    if (!response.ok) {
-        throw new Error(result.error.message);
-    }
-    console.log('Permissions changed successfully', result);
-}
-
-// Function to lock a file for two specific users
-async function lockFileAccess(fileId, userEmails) {
-    if (userEmails.length !== 2) {
-        throw new Error("Exactly two email addresses are required to lock the file.");
-    }
-
-    const permissions = [
-        {
-            role: 'reader', // Set role as needed
-            type: 'user',
-            emailAddress: userEmails[0],
-        },
-        {
-            role: 'reader',
-            type: 'user',
-            emailAddress: userEmails[1],
-        },
-        {
-            role: 'writer',
-            type: 'user',
-            emailAddress: userEmails[0],
-        },
-        {
-            role: 'writer',
-            type: 'user',
-            emailAddress: userEmails[1],
-        },
-    ];
-
-    try {
-        // Change permissions for both users
-        for (const permission of permissions) {
-            await changePermissions(fileId, permission);
-        }
-        console.log('File locked successfully for users:', userEmails);
-    } catch (error) {
-        console.error('Error locking file:', error);
-    }
-}
-
-        // Ensure the gapi and GIS scripts load correctly
+        // Prefill form inputs if parameters exist in the URL
         window.onload = () => {
             gapiLoaded();
             gisLoaded();
+
+            const { fileId, userName, password } = getQueryParams();
+
+            if (fileId) {
+                document.getElementById('existingFileId').value = fileId;
+                document.getElementById('fileId').value = fileId;
+                document.getElementById('sendMessageForm').style.display = 'block';
+                document.getElementById('messageDisplay').style.display = 'block';
+            }
+
+            if (userName) {
+                document.getElementById('userName').value = decodeURIComponent(userName);
+            }
+
+            if (password) {
+                // Store the password in localStorage for later use
+                localStorage.setItem('encryptionKey', decodeURIComponent(password));
+            }
+
+            if (fileId && password) {
+                loadMessages();
+            }
         };
     </script>
 </body>
