@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Append to Google Drive File</title>
     <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <h1>Append Text to Google Drive File</h1>
@@ -24,28 +25,55 @@
         let CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
         let API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
         let SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        let tokenClient;
 
-        function handleClientLoad() {
-            gapi.load('client:auth2', initClient);
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
         }
 
-        function initClient() {
-            gapi.client.init({
+        async function initializeGapiClient() {
+            await gapi.client.init({
                 apiKey: API_KEY,
-                clientId: CLIENT_ID,
                 discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-                scope: SCOPES
-            }).then(function () {
-                // Sign in when form is submitted
-                document.getElementById('appendForm').addEventListener('submit', function(event) {
-                    event.preventDefault();
-                    handleAuthClick();
-                });
             });
         }
 
-        function handleAuthClick() {
-            gapi.auth2.getAuthInstance().signIn().then(appendTextToFile);
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: '', // Defined later
+            });
+        }
+
+        document.getElementById('appendForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const storedToken = localStorage.getItem('accessToken');
+            if (storedToken) {
+                gapi.client.setToken({ access_token: storedToken });
+                appendTextToFile();
+            } else {
+                requestNewToken();
+            }
+        });
+
+        function requestNewToken() {
+            tokenClient.callback = (response) => {
+                if (response.error) {
+                    document.getElementById('result').innerText = 'Error: ' + response.error;
+                    return;
+                }
+
+                // Store access token in localStorage
+                const accessToken = gapi.client.getToken().access_token;
+                localStorage.setItem('accessToken', accessToken);
+
+                appendTextToFile();
+            };
+
+            // Request token
+            tokenClient.requestAccessToken({prompt: 'consent'});
         }
 
         async function appendTextToFile() {
@@ -76,7 +104,11 @@
             }
         }
 
-        handleClientLoad();
+        // Load the GIS and GAPI libraries
+        window.onload = function() {
+            gapiLoaded();
+            gisLoaded();
+        };
     </script>
 </body>
 </html>
