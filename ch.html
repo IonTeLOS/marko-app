@@ -28,6 +28,9 @@
         <label for="messageBody">Message:</label><br>
         <textarea id="messageBody" name="messageBody" required></textarea><br><br>
 
+        <label for="messageLink">Link (optional):</label><br>
+        <input type="url" id="messageLink" name="messageLink"><br><br>
+
         <label for="extras">Extras (optional JSON):</label><br>
         <textarea id="extras" name="extras"></textarea><br><br>
 
@@ -42,6 +45,8 @@
         let DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
         let SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
         let tokenClient;
+
+        let users = new Set();
 
         function gapiLoaded() {
             gapi.load('client', initializeGapiClient);
@@ -165,6 +170,7 @@
             const userEmail = document.getElementById('userEmail').value;
             const userName = document.getElementById('userName').value;
             const messageBody = document.getElementById('messageBody').value;
+            const messageLink = document.getElementById('messageLink').value;
             let extras;
             try {
                 extras = JSON.parse(document.getElementById('extras').value || '{}');
@@ -178,8 +184,11 @@
                 userEmail: userEmail,
                 userName: userName,
                 messageBody: messageBody,
+                messageLink: messageLink || null,
                 extras: extras
             };
+
+            users.add(userEmail);
 
             requestNewToken(async () => {
                 try {
@@ -203,6 +212,12 @@
                     document.getElementById('result').innerText = 'Message sent successfully!';
                     document.getElementById('messageBody').value = '';
                     document.getElementById('extras').value = '';
+                    document.getElementById('messageLink').value = '';
+
+                    if (users.size === 2) {
+                        lockFileToUsers(fileId);
+                    }
+
                 } catch (error) {
                     document.getElementById('result').innerText = 'Error sending message: ' + error.message;
                     console.error('Full error:', error);
@@ -210,10 +225,38 @@
             });
         }
 
-        window.onload = function() {
-            gapiLoaded();
-            gisLoaded();
-        };
+        async function lockFileToUsers(fileId) {
+            try {
+                const emailArray = Array.from(users);
+
+                // First, remove global write access
+                await gapi.client.drive.permissions.delete({
+                    fileId: fileId,
+                    permissionId: 'anyoneWithLink'
+                });
+
+                // Then, allow only the two users to read and write
+                for (const email of emailArray) {
+                    await gapi.client.drive.permissions.create({
+                        fileId: fileId,
+                        resource: {
+                            role: 'writer',
+                            type: 'user',
+                            emailAddress: email
+                        }
+                    });
+                }
+
+                document.getElementById('result').innerText += '\nFile access locked to the users: ' + emailArray.join(', ');
+
+            } catch (error) {
+                document.getElementById('result').innerText = 'Error locking file access: ' + error.message;
+                console.error('Full error:', error);
+            }
+        }
+
+        gapiLoaded();
+        gisLoaded();
     </script>
 </body>
 </html>
