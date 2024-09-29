@@ -51,8 +51,7 @@
 
             const storedToken = localStorage.getItem('accessToken');
             if (storedToken) {
-                gapi.client.setToken({ access_token: storedToken });
-                appendTextToFile();
+                appendTextToFile(storedToken);
             } else {
                 requestNewToken();
             }
@@ -69,36 +68,51 @@
                 const accessToken = gapi.client.getToken().access_token;
                 localStorage.setItem('accessToken', accessToken);
 
-                appendTextToFile();
+                appendTextToFile(accessToken);
             };
 
             // Request token
             tokenClient.requestAccessToken({prompt: 'consent'});
         }
 
-        async function appendTextToFile() {
+        async function appendTextToFile(accessToken) {
             const fileId = document.getElementById('fileId').value;
             const appendText = document.getElementById('appendText').value;
 
             try {
                 // Fetch existing file content
-                const response = await gapi.client.drive.files.get({
-                    fileId: fileId,
-                    alt: 'media'
+                const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
                 });
-
-                const existingContent = response.body;
+                const existingContent = await fileResponse.text();
                 const updatedContent = existingContent + '\n' + appendText;
 
-                // Write back the updated content
-                await gapi.client.request({
-                    path: `/upload/drive/v3/files/${fileId}`,
+                // Prepare form data for file upload (metadata and updated content)
+                const metadata = {
+                    name: fileId, // You can also set other metadata properties like name, mimeType, etc.
+                };
+
+                const formData = new FormData();
+                formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                formData.append('file', new Blob([updatedContent], { type: 'text/plain' }));
+
+                // Upload updated content
+                const uploadResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, {
                     method: 'PATCH',
-                    params: { uploadType: 'media' },
-                    body: updatedContent
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: formData
                 });
 
-                document.getElementById('result').innerText = 'Text appended successfully!';
+                if (uploadResponse.ok) {
+                    document.getElementById('result').innerText = 'Text appended successfully!';
+                } else {
+                    const errorText = await uploadResponse.text();
+                    document.getElementById('result').innerText = 'Error uploading: ' + errorText;
+                }
             } catch (error) {
                 document.getElementById('result').innerText = 'Error: ' + error.message;
             }
