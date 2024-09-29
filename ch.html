@@ -172,98 +172,123 @@
             });
         }
 
-        async function sendMessage() {
-            const fileId = document.getElementById('fileId').value;
-            const userEmail = document.getElementById('userEmail').value;
-            const userName = document.getElementById('userName').value;
-            const messageBody = document.getElementById('messageBody').value;
-            const messageLink = document.getElementById('messageLink').value;
-            let extras;
-            try {
-                extras = JSON.parse(document.getElementById('extras').value || '{}');
-            } catch (error) {
-                document.getElementById('result').innerText = 'Error parsing extras JSON: ' + error.message;
-                return;
+        let isFileLocked = false; // To track whether the file is locked
+
+async function sendMessage() {
+    const fileId = document.getElementById('fileId').value;
+    const userEmail = document.getElementById('userEmail').value; // Sender's email
+    const userName = document.getElementById('userName').value;
+    const messageBody = document.getElementById('messageBody').value;
+    let extras;
+
+    try {
+        extras = JSON.parse(document.getElementById('extras').value || '{}');
+    } catch (error) {
+        document.getElementById('result').innerText = 'Error parsing extras JSON: ' + error.message;
+        return;
+    }
+
+    const message = {
+        timestamp: new Date().toISOString(),
+        userEmail: userEmail,
+        userName: userName,
+        messageBody: messageBody,
+        extras: extras
+    };
+
+    requestNewToken(async () => {
+        try {
+            // Fetch existing file content
+            const fileResponse = await gapi.client.drive.files.get({
+                fileId: fileId,
+                alt: 'media'
+            });
+
+            const existingContent = fileResponse.body;
+
+            // Parse existing content to extract user emails
+            const userEmails = extractUserEmails(existingContent);
+            userEmails.add(userEmail); // Add the new sender's email
+
+            // Check if there are two unique user emails and lock the file
+            if (!isFileLocked && userEmails.size >= 2) {
+                await lockFileAccess(fileId, Array.from(userEmails));
+                isFileLocked = true; // Locking happens only once
             }
 
-            const message = {
-                timestamp: new Date().toISOString(),
-                userEmail: userEmail,
-                userName: userName,
-                messageBody: messageBody,
-                messageLink: messageLink || null,
-                extras: extras
-            };
+            // Update file content
+            const updatedContent = existingContent + JSON.stringify(message) + '\n';
+            await gapi.client.request({
+                path: '/upload/drive/v3/files/' + fileId,
+                method: 'PATCH',
+                params: { uploadType: 'media' },
+                body: updatedContent
+            });
 
-            users.add(userEmail);
+            document.getElementById('result').innerText = 'Message sent successfully!';
 
-            requestNewToken(async () => {
-                try {
-                    const fileResponse = await gapi.client.drive.files.get({
-                        fileId: fileId,
-                        alt: 'media'
-                    });
-                    
-                    const existingContent = fileResponse.body;
-                    const updatedContent = existingContent + JSON.stringify(message) + '\n';
+            // Clear input fields
+            document.getElementById('messageBody').value = '';
+            document.getElementById('extras').value = '';
+        } catch (error) {
+            document.getElementById('result').innerText = 'Error sending message: ' + error.message;
+            console.error('Full error:', error);
+        }
+    });
+}
 
-                    // Update file content
-                    await gapi.client.request({
-                        path: '/upload/drive/v3/files/' + fileId,
-                        method: 'PATCH',
-                        params: {uploadType: 'media'},
-                        body: updatedContent
-                    });
+// Function to extract user emails from the existing file content
+function extractUserEmails(content) {
+    const emails = new Set();
+    const messageLines = content.split('\n');
 
-                    document.getElementById('result').innerText = 'Message sent successfully!';
-                    document.getElementById('messageBody').value = '';
-                    document.getElementById('extras').value = '';
-                    document.getElementById('messageLink').value = '';
+    messageLines.forEach(line => {
+        try {
+            const message = JSON.parse(line);
+            if (message.userEmail) {
+                emails.add(message.userEmail);
+            }
+        } catch (e) {
+            // Ignore lines that cannot be parsed
+        }
+    });
 
-                    if (users.size >= 2) {
-                        await lockFileAccess(fileId, Array.from(users));
-                    }
-                } catch (error) {
-                    document.getElementById('result').innerText = 'Error sending message: ' + error.message;
-                }
+    return emails;
+}
+
+async function lockFileAccess(fileId, userEmails) {
+    // Remove existing permissions for users other than the locked users
+    const allPermissions = await gapi.client.drive.permissions.list({
+        fileId: fileId,
+        fields: 'permissions(id,emailAddress)',
+    });
+
+    const lockedEmailsSet = new Set(userEmails);
+    
+    for (const permission of allPermissions.permissions) {
+        if (!lockedEmailsSet.has(permission.emailAddress)) {
+            await gapi.client.drive.permissions.delete({
+                fileId: fileId,
+                permissionId: permission.id,
             });
         }
+    }
 
-        async function lockFileAccess(fileId, emailArray) {
-            try {
-                // Remove all permissions first
-                const permissionsResponse = await gapi.client.drive.permissions.list({
-                    fileId: fileId,
-                    fields: 'permissions(id, emailAddress)'
-                });
-                const permissions = permissionsResponse.result.permissions;
+    // Add permissions for the locked users
+    for (const email of userEmails) {
+        await gapi.client.drive.permissions.create({
+            fileId: fileId,
+            resource: {
+                type: 'user',
+                role: 'writer',
+                emailAddress: email,
+            },
+            fields: 'id',
+        });
+    }
 
-                for (const permission of permissions) {
-                    await gapi.client.drive.permissions.delete({
-                        fileId: fileId,
-                        permissionId: permission.id
-                    });
-                }
-
-                // Add write permissions for the specified users
-                for (const email of emailArray) {
-                    await gapi.client.drive.permissions.create({
-                        fileId: fileId,
-                        resource: {
-                            role: 'writer',
-                            type: 'user',
-                            emailAddress: email
-                        }
-                    });
-                }
-
-                document.getElementById('result').innerText += '\nFile access locked to the users: ' + emailArray.join(', ');
-
-            } catch (error) {
-                document.getElementById('result').innerText = 'Error locking file access: ' + error.message;
-                console.error('Full error:', error);
-            }
-        }
+    console.log('File access locked for users:', userEmails);
+}
 
         // Ensure the gapi and GIS scripts load correctly
         window.onload = () => {
