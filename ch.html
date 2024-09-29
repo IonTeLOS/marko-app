@@ -258,18 +258,20 @@ function extractUserEmails(content) {
 
 async function lockFileAccess(fileId, userEmails) {
     try {
-        const allPermissions = await gapi.client.drive.permissions.list({
+        const allPermissionsResponse = await gapi.client.drive.permissions.list({
             fileId: fileId,
             fields: 'permissions(id,emailAddress)',
         });
 
+        // Access the permissions array from the result
+        const allPermissions = allPermissionsResponse.result.permissions;
         console.log('All Permissions:', allPermissions);
 
-        if (Array.isArray(allPermissions.permissions)) {
+        if (Array.isArray(allPermissions)) {
             const lockedEmailsSet = new Set(userEmails);
             
             // Remove existing permissions for users other than the locked users
-            for (const permission of allPermissions.permissions) {
+            for (const permission of allPermissions) {
                 if (!lockedEmailsSet.has(permission.emailAddress)) {
                     await gapi.client.drive.permissions.delete({
                         fileId: fileId,
@@ -293,13 +295,12 @@ async function lockFileAccess(fileId, userEmails) {
 
             console.log('File access locked for users:', userEmails);
         } else {
-            console.error('No permissions found or invalid response format:', allPermissions);
+            console.error('No permissions found or invalid response format:', allPermissionsResponse);
         }
     } catch (error) {
         console.error('Error locking file access:', error);
     }
 }
-
 
         // Ensure the gapi and GIS scripts load correctly
         window.onload = () => {
