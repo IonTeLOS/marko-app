@@ -5,7 +5,7 @@
             "download_url": "https://teloslinux.org/updates/ai.exe"
         },
         "linux": {
-            "download_url": "https://github.com/IonTeLOS/iontelos.github.io/raw/refs/heads/main/updates/ai"
+            "download_url": "https://github.com/IonTeLOS/sum/releases/download/initial/sum"
         },
         "darwin": {
             "download_url": ""
