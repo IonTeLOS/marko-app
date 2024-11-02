@@ -1,0 +1,36 @@
+{
+  "suggested_apps": [
+    {
+      "app_name": "abiword",
+      "description": "AbiWord is a free word processing program.",
+      "icon_url": "https://icons.iconarchive.com/icons/papirus-team/papirus-apps/512/abiword-icon.png",
+      "version": "3.0.5",
+      "category": "Productivity",
+      "size": "79 MB"
+    },
+    {
+      "app_name": "GIMP",
+      "description": "GIMP is a cross-platform image editor.",
+      "icon_url": "https://icons.iconarchive.com/icons/papirus-team/papirus-apps/512/gimp-icon.png",
+      "version": "2.10.28",
+      "category": "Graphics",
+      "size": "250 MB"
+    },
+    {
+      "app_name": "vlc",
+      "description": "A free and open-source multimedia player.",
+      "icon_url": "https://icons.iconarchive.com/icons/papirus-team/papirus-apps/512/vlc-icon.png",
+      "version": "3.0.11",
+      "category": "Media",
+      "size": "38 MB"
+    },
+    {
+      "app_name": "Inkscape",
+      "description": "A free and open-source vector graphics editor.",
+      "icon_url": "https://icons.iconarchive.com/icons/papirus-team/papirus-apps/512/inkscape-icon.png",
+      "version": "1.1",
+      "category": "Graphics",
+      "size": "103 MB"
+    }
+  ]
+}
