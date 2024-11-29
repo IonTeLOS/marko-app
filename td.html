@@ -318,6 +318,13 @@
          * Create a new message exchange file with enhanced security
          */
         async function createNewFileHandler() {
+            // Check if authorized; if not, request authorization
+            if (!accessToken) {
+                appendPre('Authorization required. Please authorize the application.');
+                authorize();
+                return;
+            }
+
             // Prompt user for their name
             const userName = prompt("Enter your name:");
             if (!userName) {
@@ -383,6 +390,13 @@
          * Use an existing file
          */
         async function useExistingFile() {
+            // Check if authorized; if not, request authorization
+            if (!accessToken) {
+                appendPre('Authorization required. Please authorize the application.');
+                authorize();
+                return;
+            }
+
             const fileId = document.getElementById('existingFileId').value.trim();
             if (!fileId) {
                 appendPre('Please enter a valid File ID.');
@@ -410,6 +424,13 @@
          * Send an encrypted message
          */
         async function sendMessage() {
+            // Check if authorized; if not, request authorization
+            if (!accessToken) {
+                appendPre('Authorization required. Please authorize the application.');
+                authorize();
+                return;
+            }
+
             const fileId = document.getElementById('fileId').value;
             const userEmail = document.getElementById('userEmail').value;
             const userName = document.getElementById('userName').value;
@@ -477,6 +498,13 @@
          * Load and decrypt messages from the file
          */
         async function loadMessages() {
+            // Check if authorized; if not, request authorization
+            if (!accessToken) {
+                appendPre('Authorization required. Please authorize the application.');
+                authorize();
+                return;
+            }
+
             const fileId = document.getElementById('fileId').value;
             const encryptionKey = localStorage.getItem('encryptionKey');
 
