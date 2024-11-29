@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Google Drive JSON Writer with GIS</title>
@@ -7,204 +7,12 @@
     <script src="https://apis.google.com/js/api.js"></script>
     <!-- Load the Google Identity Services library -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script>
-        // Replace with your client ID from Google Cloud Console
-        const CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
-
-        // Discovery doc URL for Google Drive API
-        const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
-
-        // Authorization scopes required by the API; full access to Drive
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-
-        let tokenClient;
-        let accessToken = null;
-        let authorizeButton;
-        let signoutButton;
-
-        /**
-         * Load the API client and initialize token client.
-         */
-        function handleClientLoad() {
-            gapi.load('client', initializeGapiClient);
-        }
-
-        /**
-         * Initialize the GAPI client with API key and discovery docs.
-         */
-        async function initializeGapiClient() {
-            await gapi.client.init({
-                discoveryDocs: DISCOVERY_DOCS,
-            });
-            initializeTokenClient();
-        }
-
-        /**
-         * Initialize the Google Identity Services token client.
-         */
-        function initializeTokenClient() {
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: (tokenResponse) => {
-                    if (tokenResponse.error) {
-                        appendPre(`Error obtaining access token: ${tokenResponse.error}`);
-                        return;
-                    }
-                    accessToken = tokenResponse.access_token;
-                    appendPre('Authorization successful.');
-                    checkAndWriteFile();
-                },
-            });
-        }
-
-        /**
-         * Handles the authorization button click.
-         */
-        function handleAuthClick() {
-            tokenClient.requestAccessToken({prompt: 'consent'});
-        }
-
-        /**
-         * Handles the sign-out button click.
-         */
-        function handleSignoutClick() {
-            if (accessToken) {
-                google.accounts.oauth2.revoke(accessToken, () => {
-                    accessToken = null;
-                    appendPre('User signed out.');
-                    authorizeButton.style.display = 'block';
-                    signoutButton.style.display = 'none';
-                });
-            }
-        }
-
-        /**
-         * Appends a message to the content pre element.
-         * @param {string} message The message to append.
-         */
-        function appendPre(message) {
-            const pre = document.getElementById('content');
-            const textContent = document.createTextNode(message + '\n');
-            pre.appendChild(textContent);
-        }
-
-        /**
-         * Checks if 'testdrive.json' exists in Drive. If exists, updates it; otherwise, creates it.
-         */
-        function checkAndWriteFile() {
-            const fileName = 'testdrive.json';
-
-            gapi.client.drive.files.list({
-                'q': `name='${fileName}' and trashed=false`,
-                'fields': 'files(id, name)',
-                'pageSize': 10
-            }).then(function(response) {
-                const files = response.result.files;
-                if (files && files.length > 0) {
-                    // File exists, update it
-                    const fileId = files[0].id;
-                    appendPre(`File '${fileName}' found (ID: ${fileId}). Updating...`);
-                    updateFile(fileId);
-                } else {
-                    // File does not exist, create it
-                    appendPre(`File '${fileName}' not found. Creating...`);
-                    createFile(fileName);
-                }
-            }, function(error) {
-                appendPre('Error finding file: ' + JSON.stringify(error));
-            });
-        }
-
-        /**
-         * Creates a new file with the given name and writes JSON content to it.
-         * @param {string} fileName Name of the file to create.
-         */
-        function createFile(fileName) {
-            const fileContent = generateJSONContent();
-            const file = new Blob([JSON.stringify(fileContent, null, 2)], {type: 'application/json'});
-
-            const metadata = {
-                'name': fileName,
-                'mimeType': 'application/json'
-            };
-
-            const form = new FormData();
-            form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
-            form.append('file', file);
-
-            fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
-                method: 'POST',
-                headers: new Headers({'Authorization': 'Bearer ' + accessToken}),
-                body: form,
-            }).then((response) => response.json())
-            .then(function(val) {
-                appendPre(`File created with ID: ${val.id}`);
-            })
-            .catch(function(error) {
-                appendPre('Error creating file: ' + JSON.stringify(error));
-            });
-        }
-
-        /**
-         * Updates an existing file with new JSON content.
-         * @param {string} fileId ID of the file to update.
-         */
-        function updateFile(fileId) {
-            const fileContent = generateJSONContent();
-            const file = new Blob([JSON.stringify(fileContent, null, 2)], {type: 'application/json'});
-
-            fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
-                method: 'PATCH',
-                headers: new Headers({
-                    'Authorization': 'Bearer ' + accessToken,
-                    'Content-Type': 'application/json'
-                }),
-                body: JSON.stringify(fileContent),
-            }).then((response) => response.json())
-            .then(function(val) {
-                appendPre(`File updated successfully.`);
-            })
-            .catch(function(error) {
-                appendPre('Error updating file: ' + JSON.stringify(error));
-            });
-        }
-
-        /**
-         * Generates the JSON content to be written to the file.
-         * @returns {Object} JSON object with datetime, message, specialfield, specialvalue.
-         */
-        function generateJSONContent() {
-            return {
-                datetime: new Date().toISOString(),
-                message: "Hello, Google Drive!",
-                specialfield: "exampleField",
-                specialvalue: "exampleValue"
-            };
-        }
-
-        // Initialize the application once the DOM is fully loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            authorizeButton = document.getElementById('authorize_button');
-            signoutButton = document.getElementById('signout_button');
-
-            authorizeButton.onclick = () => {
-                handleAuthClick();
-                authorizeButton.style.display = 'none';
-                signoutButton.style.display = 'block';
-            };
-
-            signoutButton.onclick = handleSignoutClick;
-
-            handleClientLoad();
-        });
-    </script>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 40px;
         }
-        #authorize_button, #signout_button {
+        button {
             padding: 10px 20px;
             font-size: 16px;
             margin: 5px;
@@ -222,14 +30,318 @@
             max-height: 400px;
             overflow-y: auto;
         }
+        .spinning {
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .input-group input {
+            padding: 8px;
+            width: 100%;
+            box-sizing: border-box;
+        }
     </style>
 </head>
 <body>
     <h1>Google Drive JSON Writer with GIS</h1>
+
+    <!-- Authorization Buttons -->
     <button id="authorize_button">Authorize</button>
     <button id="signout_button">Sign Out</button>
+
+    <!-- Message Input -->
+    <div class="input-group">
+        <label for="message_input">Enter your message:</label>
+        <input type="text" id="message_input" placeholder="Your custom message here">
+    </div>
+
+    <!-- Action Buttons -->
+    <button id="saveToDrive">Save to Google Drive</button>
+    <button id="makePublic">Make File Public</button>
+
+    <!-- Content Display -->
     <pre id="content"></pre>
+
+    <script>
+        // Your existing constants
+        const CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email';
+        const FILE_NAME = 'bookmarksMarko.json';
+        const PUBLIC_FILE = 'publicMarkos.json';  
+        const COMMON_FILE = "commonMarko";  
+        const APP_ID = 'marko';
+
+        let tokenClient;
+        let accessToken = null;
+        let loggedInUserEmail;
+
+        /**
+         * Initialize the Google Identity Services and GAPI client
+         */
+        async function initializeGoogleIdentity() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: (tokenResponse) => {
+                    if (tokenResponse && tokenResponse.access_token) {
+                        accessToken = tokenResponse.access_token;
+                        localStorage.setItem('accessToken', accessToken);
+                        console.log('Authorization successful.');
+                        appendPre('Authorization successful.');
+                    } else {
+                        console.error('Authorization failed:', tokenResponse);
+                        appendPre('Authorization failed.');
+                    }
+                },
+            });
+
+            // Load the GAPI client
+            gapi.load('client', async () => {
+                await gapi.client.init({
+                    apiKey: API_KEY,
+                    discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
+                });
+                console.log('GAPI client initialized.');
+            });
+        }
+
+        /**
+         * Handle authorization button click
+         */
+        function authorize() {
+            tokenClient.requestAccessToken({prompt: 'consent'});
+        }
+
+        /**
+         * Handle sign-out button click
+         */
+        function signOut() {
+            if (accessToken) {
+                google.accounts.oauth2.revoke(accessToken, () => {
+                    accessToken = null;
+                    localStorage.removeItem('accessToken');
+                    appendPre('User signed out.');
+                    document.getElementById('authorize_button').style.display = 'block';
+                    document.getElementById('signout_button').style.display = 'none';
+                });
+            }
+        }
+
+        /**
+         * Append messages to the content pre element
+         * @param {string} message 
+         */
+        function appendPre(message) {
+            const pre = document.getElementById('content');
+            const textContent = document.createTextNode(message + '\n');
+            pre.appendChild(textContent);
+        }
+
+        /**
+         * Find existing file in Google Drive
+         * @returns {Promise<Object>}
+         */
+        function findExistingFile() {
+            const query = `name='${FILE_NAME}' and trashed=false and properties has { key='appId' and value='${APP_ID}' }`;
+            return gapi.client.drive.files.list({
+                'q': query,
+                'fields': 'files(id, name)',
+                'pageSize': 10
+            }).then(response => {
+                const files = response.result.files;
+                if (files && files.length > 0) {
+                    console.log('File found:', files[0]);
+                    appendPre(`File '${FILE_NAME}' found. ID: ${files[0].id}`);
+                    return files[0].id;
+                } else {
+                    console.log('No existing file found.');
+                    appendPre(`No existing file named '${FILE_NAME}' found.`);
+                    return null;
+                }
+            }).catch(error => {
+                console.error('Error finding file:', error);
+                appendPre(`Error finding file: ${error.message}`);
+                throw error;
+            });
+        }
+
+        /**
+         * Create a new file in Google Drive
+         * @param {string} content 
+         * @returns {Promise<Object>}
+         */
+        function createNewFile(content) {
+            const metadata = {
+                'name': FILE_NAME,
+                'mimeType': 'application/json',
+                'properties': {
+                    'appId': APP_ID
+                }
+            };
+            const file = new Blob([content], {type: 'application/json'});
+
+            const form = new FormData();
+            form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
+            form.append('file', file);
+
+            return fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+                method: 'POST',
+                headers: new Headers({'Authorization': 'Bearer ' + accessToken}),
+                body: form,
+            }).then(response => response.json())
+              .then(data => {
+                  console.log('File created:', data);
+                  appendPre(`File created with ID: ${data.id}`);
+                  return data.id;
+              }).catch(error => {
+                  console.error('Error creating file:', error);
+                  appendPre(`Error creating file: ${error.message}`);
+                  throw error;
+              });
+        }
+
+        /**
+         * Update an existing file in Google Drive
+         * @param {string} fileId 
+         * @param {string} content 
+         * @returns {Promise<Object>}
+         */
+        function updateFile(fileId, content) {
+            const file = new Blob([content], {type: 'application/json'});
+
+            return fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+                method: 'PATCH',
+                headers: new Headers({
+                    'Authorization': 'Bearer ' + accessToken,
+                    'Content-Type': 'application/json'
+                }),
+                body: content,
+            }).then(response => response.json())
+              .then(data => {
+                  console.log('File updated:', data);
+                  appendPre('File updated successfully.');
+                  return data;
+              }).catch(error => {
+                  console.error('Error updating file:', error);
+                  appendPre(`Error updating file: ${error.message}`);
+                  throw error;
+              });
+        }
+
+        /**
+         * Make the file globally readable
+         * @param {string} fileId 
+         * @returns {Promise<void>}
+         */
+        function makeFilePublic(fileId) {
+            const permission = {
+                'role': 'reader',
+                'type': 'anyone'
+            };
+
+            return gapi.client.drive.permissions.create({
+                fileId: fileId,
+                resource: permission,
+                fields: 'id',
+            }).then(response => {
+                console.log('Permission granted:', response);
+                appendPre('File is now publicly readable.');
+            }).catch(error => {
+                console.error('Error making file public:', error);
+                appendPre(`Error making file public: ${error.message}`);
+                throw error;
+            });
+        }
+
+        /**
+         * Save data to Google Drive
+         */
+        async function saveToGoogleDrive() {
+            const message = document.getElementById('message_input').value.trim();
+            if (!message) {
+                alert('Please enter a message before saving.');
+                return;
+            }
+
+            const bookmarksJson = {
+                datetime: new Date().toISOString(),
+                message: message,
+                specialfield: "exampleField",
+                specialvalue: "exampleValue"
+            };
+
+            const content = JSON.stringify(bookmarksJson, null, 2);
+
+            appendPre('Starting save operation...');
+            try {
+                let fileId = await findExistingFile();
+                if (fileId) {
+                    await updateFile(fileId, content);
+                } else {
+                    fileId = await createNewFile(content);
+                }
+                alert('Bookmarks saved to Google Drive successfully.');
+            } catch (error) {
+                console.error('Error saving to Google Drive:', error);
+                alert('Failed to save bookmarks to Google Drive.');
+            }
+        }
+
+        /**
+         * Make the file public
+         */
+        async function handleMakePublic() {
+            appendPre('Attempting to make file public...');
+            try {
+                const fileId = await findExistingFile();
+                if (fileId) {
+                    await makeFilePublic(fileId);
+                    alert('File is now publicly readable.');
+                } else {
+                    alert('No existing file found to make public.');
+                }
+            } catch (error) {
+                console.error('Error making file public:', error);
+                alert('Failed to make file public.');
+            }
+        }
+
+        /**
+         * Initialize everything once the DOM is loaded
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeGoogleIdentity();
+
+            // Set up button event listeners
+            document.getElementById('authorize_button').addEventListener('click', () => {
+                authorize();
+                document.getElementById('authorize_button').style.display = 'none';
+                document.getElementById('signout_button').style.display = 'block';
+            });
+
+            document.getElementById('signout_button').addEventListener('click', signOut);
+            document.getElementById('saveToDrive').addEventListener('click', saveToGoogleDrive);
+            document.getElementById('makePublic').addEventListener('click', handleMakePublic);
+
+            // Check if user is already authorized
+            const storedToken = localStorage.getItem('accessToken');
+            if (storedToken) {
+                accessToken = storedToken;
+                document.getElementById('authorize_button').style.display = 'none';
+                document.getElementById('signout_button').style.display = 'block';
+                appendPre('Already authorized.');
+            }
+        });
+    </script>
 </body>
 </html>
-
-
