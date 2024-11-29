@@ -2,12 +2,14 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Google Drive JSON Writer</title>
+    <title>Google Drive JSON Writer with GIS</title>
+    <!-- Load the Google APIs client library -->
     <script src="https://apis.google.com/js/api.js"></script>
+    <!-- Load the Google Identity Services library -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
         // Replace with your client ID from Google Cloud Console
         const CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
-        const API_KEY = ''; // Not required for OAuth 2.0, can be left empty
 
         // Discovery doc URL for Google Drive API
         const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
@@ -15,70 +17,71 @@
         // Authorization scopes required by the API; full access to Drive
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
+        let tokenClient;
+        let accessToken = null;
         let authorizeButton;
         let signoutButton;
 
         /**
-         * On load, called to load the auth2 library and API client library.
+         * Load the API client and initialize token client.
          */
         function handleClientLoad() {
-            gapi.load('client:auth2', initClient);
+            gapi.load('client', initializeGapiClient);
         }
 
         /**
-         * Initializes the API client library and sets up sign-in state listeners.
+         * Initialize the GAPI client with API key and discovery docs.
          */
-        function initClient() {
-            gapi.client.init({
-                apiKey: API_KEY,
-                clientId: CLIENT_ID,
+        async function initializeGapiClient() {
+            await gapi.client.init({
                 discoveryDocs: DISCOVERY_DOCS,
-                scope: SCOPES
-            }).then(function () {
-                // Listen for sign-in state changes.
-                gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+            });
+            initializeTokenClient();
+        }
 
-                // Handle the initial sign-in state.
-                updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
-                authorizeButton.onclick = handleAuthClick;
-                signoutButton.onclick = handleSignoutClick;
-            }, function(error) {
-                appendPre(JSON.stringify(error, null, 2));
+        /**
+         * Initialize the Google Identity Services token client.
+         */
+        function initializeTokenClient() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: (tokenResponse) => {
+                    if (tokenResponse.error) {
+                        appendPre(`Error obtaining access token: ${tokenResponse.error}`);
+                        return;
+                    }
+                    accessToken = tokenResponse.access_token;
+                    appendPre('Authorization successful.');
+                    checkAndWriteFile();
+                },
             });
         }
 
         /**
-         * Called when the signed in status changes, to update the UI appropriately.
+         * Handles the authorization button click.
          */
-        function updateSigninStatus(isSignedIn) {
-            if (isSignedIn) {
-                authorizeButton.style.display = 'none';
-                signoutButton.style.display = 'block';
-                // After sign-in, proceed to check/create/write the file
-                checkAndWriteFile();
-            } else {
-                authorizeButton.style.display = 'block';
-                signoutButton.style.display = 'none';
+        function handleAuthClick() {
+            tokenClient.requestAccessToken({prompt: 'consent'});
+        }
+
+        /**
+         * Handles the sign-out button click.
+         */
+        function handleSignoutClick() {
+            if (accessToken) {
+                google.accounts.oauth2.revoke(accessToken, () => {
+                    accessToken = null;
+                    appendPre('User signed out.');
+                    authorizeButton.style.display = 'block';
+                    signoutButton.style.display = 'none';
+                });
             }
         }
 
         /**
-         * Sign in the user upon button click.
-         */
-        function handleAuthClick(event) {
-            gapi.auth2.getAuthInstance().signIn();
-        }
-
-        /**
-         * Sign out the user upon button click.
-         */
-        function handleSignoutClick(event) {
-            gapi.auth2.getAuthInstance().signOut();
-        }
-
-        /**
-         * Appends a pre element to the body containing the given message as its text node.
-         * @param {string} message Text to be appended.
+         * Appends a message to the content pre element.
+         * @param {string} message The message to append.
          */
         function appendPre(message) {
             const pre = document.getElementById('content');
@@ -92,16 +95,16 @@
         function checkAndWriteFile() {
             const fileName = 'testdrive.json';
 
-            // Search for the file by name
             gapi.client.drive.files.list({
                 'q': `name='${fileName}' and trashed=false`,
-                'fields': 'files(id, name)'
+                'fields': 'files(id, name)',
+                'pageSize': 10
             }).then(function(response) {
                 const files = response.result.files;
                 if (files && files.length > 0) {
                     // File exists, update it
                     const fileId = files[0].id;
-                    appendPre(`File '${fileName}' found. Updating...`);
+                    appendPre(`File '${fileName}' found (ID: ${fileId}). Updating...`);
                     updateFile(fileId);
                 } else {
                     // File does not exist, create it
@@ -126,7 +129,6 @@
                 'mimeType': 'application/json'
             };
 
-            const accessToken = gapi.auth.getToken().access_token; // Get the access token
             const form = new FormData();
             form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
             form.append('file', file);
@@ -152,14 +154,13 @@
             const fileContent = generateJSONContent();
             const file = new Blob([JSON.stringify(fileContent, null, 2)], {type: 'application/json'});
 
-            const accessToken = gapi.auth.getToken().access_token; // Get the access token
-            const form = new FormData();
-            form.append('file', file);
-
             fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
                 method: 'PATCH',
-                headers: new Headers({'Authorization': 'Bearer ' + accessToken}),
-                body: file,
+                headers: new Headers({
+                    'Authorization': 'Bearer ' + accessToken,
+                    'Content-Type': 'application/json'
+                }),
+                body: JSON.stringify(fileContent),
             }).then((response) => response.json())
             .then(function(val) {
                 appendPre(`File updated successfully.`);
@@ -182,10 +183,18 @@
             };
         }
 
-        // Load the API and make an API call.  Display the results on the screen.
+        // Initialize the application once the DOM is fully loaded
         document.addEventListener('DOMContentLoaded', function() {
             authorizeButton = document.getElementById('authorize_button');
             signoutButton = document.getElementById('signout_button');
+
+            authorizeButton.onclick = () => {
+                handleAuthClick();
+                authorizeButton.style.display = 'none';
+                signoutButton.style.display = 'block';
+            };
+
+            signoutButton.onclick = handleSignoutClick;
 
             handleClientLoad();
         });
@@ -199,6 +208,7 @@
             padding: 10px 20px;
             font-size: 16px;
             margin: 5px;
+            cursor: pointer;
         }
         #signout_button {
             display: none;
@@ -215,9 +225,11 @@
     </style>
 </head>
 <body>
-    <h1>Google Drive JSON Writer</h1>
+    <h1>Google Drive JSON Writer with GIS</h1>
     <button id="authorize_button">Authorize</button>
     <button id="signout_button">Sign Out</button>
     <pre id="content"></pre>
 </body>
 </html>
+
+
