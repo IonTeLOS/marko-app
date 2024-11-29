@@ -87,456 +87,478 @@
 
     <p id="result"></p>
 
-    <script>
-        // Replace with your actual Client ID and API Key
-        const CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
-        const API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
+<script>
+    // Replace with your actual Client ID and API Key
+    const CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
+    const API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
 
-        // Scopes required for the application
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
+    // Scopes required for the application
+    const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
 
-        // File configurations
-        const FILE_NAME = 'bookmarksMarko.json';
-        const APP_ID = 'marko';
+    // File configurations
+    const FILE_NAME = 'bookmarksMarko.json';
+    const APP_ID = 'marko';
 
-        let tokenClient;
-        let accessToken = null;
+    let tokenClient;
+    let accessToken = null;
 
-        /**
-         * Initialize the Google Identity Services and GAPI client
-         */
-        async function initializeGoogleIdentity() {
-            // Initialize the token client
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: (tokenResponse) => {
-                    if (tokenResponse && tokenResponse.access_token) {
-                        accessToken = tokenResponse.access_token;
-                        localStorage.setItem('accessToken', accessToken);
-                        console.log('Authorization successful.');
-                        appendPre('Authorization successful.');
-                        document.getElementById('createFile').disabled = false;
-                        document.getElementById('useExistingFile').disabled = false;
-                        document.getElementById('signout_button').style.display = 'block';
-                    } else {
-                        console.error('Authorization failed:', tokenResponse);
-                        appendPre('Authorization failed.');
-                    }
-                },
-            });
-
-            // Load the GAPI client
-            await new Promise((resolve) => {
-                gapi.load('client', async () => {
-                    try {
-                        await gapi.client.init({
-                            apiKey: API_KEY,
-                            discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
-                        });
-                        console.log('GAPI client initialized.');
-                        appendPre('GAPI client initialized.');
-                        resolve();
-                    } catch (error) {
-                        console.error('Error initializing GAPI client:', error);
-                        appendPre('Error initializing GAPI client.');
-                        resolve(); // Resolve to continue even if GAPI fails
-                    }
-                });
-            });
-
-            // Check if token is already stored
-            const storedToken = localStorage.getItem('accessToken');
-            if (storedToken) {
-                accessToken = storedToken;
-                document.getElementById('signout_button').style.display = 'block';
-                appendPre('Already authorized.');
-                // Optionally, auto-load file operations or prompt user
-            }
-        }
-
-        /**
-         * Handle authorization button click
-         */
-        function authorize() {
-            if (!tokenClient) {
-                console.error('Token client not initialized.');
-                appendPre('Token client not initialized.');
-                return;
-            }
-            tokenClient.requestAccessToken({prompt: 'consent'});
-        }
-
-        /**
-         * Handle sign-out button click
-         */
-        function signOut() {
-            if (accessToken) {
-                google.accounts.oauth2.revoke(accessToken, () => {
-                    accessToken = null;
-                    localStorage.removeItem('accessToken');
-                    appendPre('User signed out.');
-                    document.getElementById('createFile').disabled = true;
-                    document.getElementById('useExistingFile').disabled = true;
-                    document.getElementById('signout_button').style.display = 'none';
-                });
-            }
-        }
-
-        /**
-         * Append messages to the result paragraph
-         * @param {string} message 
-         */
-        function appendPre(message) {
-            const pre = document.getElementById('result');
-            const textContent = document.createTextNode(message + '\n');
-            pre.appendChild(textContent);
-        }
-
-        /**
-         * Derive an encryption key using PBKDF2
-         * @param {string} passphrase 
-         * @param {string} salt 
-         * @returns {string}
-         */
-        function deriveKey(passphrase, salt) {
-            return CryptoJS.PBKDF2(passphrase, CryptoJS.enc.Hex.parse(salt), {
-                keySize: 256 / 32,
-                iterations: 1000
-            }).toString();
-        }
-
-        /**
-         * Find existing file in Google Drive
-         * @returns {Promise<string|null>} Returns file ID if found, else null
-         */
-        async function findExistingFile() {
-            const query = `name='${FILE_NAME}' and trashed=false and properties has { key='appId' and value='${APP_ID}' }`;
-            try {
-                const response = await gapi.client.drive.files.list({
-                    'q': query,
-                    'fields': 'files(id, name)',
-                    'pageSize': 10
-                });
-                const files = response.result.files;
-                if (files && files.length > 0) {
-                    console.log('File found:', files[0]);
-                    appendPre(`File '${FILE_NAME}' found. ID: ${files[0].id}`);
-                    return files[0].id;
+    /**
+     * Initialize the Google Identity Services and GAPI client
+     */
+    async function initializeGoogleIdentity() {
+        // Initialize the token client
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: SCOPES,
+            callback: (tokenResponse) => {
+                if (tokenResponse && tokenResponse.access_token) {
+                    accessToken = tokenResponse.access_token;
+                    localStorage.setItem('accessToken', accessToken);
+                    console.log('Authorization successful.');
+                    appendPre('Authorization successful.');
+                    enableFileOperations();
                 } else {
-                    console.log('No existing file found.');
-                    appendPre(`No existing file named '${FILE_NAME}' found.`);
-                    return null;
+                    console.error('Authorization failed:', tokenResponse);
+                    appendPre('Authorization failed.');
                 }
-            } catch (error) {
-                console.error('Error finding file:', error);
-                appendPre(`Error finding file: ${error.message}`);
+            },
+        });
+
+        // Load the GAPI client
+        await new Promise((resolve) => {
+            gapi.load('client', async () => {
+                try {
+                    await gapi.client.init({
+                        apiKey: API_KEY,
+                        discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
+                    });
+                    console.log('GAPI client initialized.');
+                    appendPre('GAPI client initialized.');
+                    resolve();
+                } catch (error) {
+                    console.error('Error initializing GAPI client:', error);
+                    appendPre('Error initializing GAPI client.');
+                    resolve(); // Resolve to continue even if GAPI fails
+                }
+            });
+        });
+
+        // Check if token is already stored
+        const storedToken = localStorage.getItem('accessToken');
+        if (storedToken) {
+            accessToken = storedToken;
+            appendPre('Already authorized.');
+            enableFileOperations();
+        }
+    }
+
+    /**
+     * Enable file operation buttons after authorization
+     */
+    function enableFileOperations() {
+        document.getElementById('createFile').disabled = false;
+        document.getElementById('useExistingFile').disabled = false;
+        document.getElementById('signout_button').style.display = 'block';
+    }
+
+    /**
+     * Handle authorization button click
+     */
+    function authorize() {
+        if (!tokenClient) {
+            console.error('Token client not initialized.');
+            appendPre('Token client not initialized.');
+            return;
+        }
+        tokenClient.requestAccessToken({prompt: 'consent'});
+    }
+
+    /**
+     * Handle sign-out button click
+     */
+    function signOut() {
+        if (accessToken) {
+            google.accounts.oauth2.revoke(accessToken, () => {
+                accessToken = null;
+                localStorage.removeItem('accessToken');
+                appendPre('User signed out.');
+                disableFileOperations();
+            });
+        }
+    }
+
+    /**
+     * Disable file operation buttons after sign-out
+     */
+    function disableFileOperations() {
+        document.getElementById('createFile').disabled = true;
+        document.getElementById('useExistingFile').disabled = true;
+        document.getElementById('signout_button').style.display = 'none';
+    }
+
+    /**
+     * Append messages to the result paragraph
+     * @param {string} message 
+     */
+    function appendPre(message) {
+        const pre = document.getElementById('result');
+        const textContent = document.createTextNode(message + '\n');
+        pre.appendChild(textContent);
+    }
+
+    /**
+     * Derive an encryption key using PBKDF2
+     * @param {string} passphrase 
+     * @param {string} salt 
+     * @returns {string}
+     */
+    function deriveKey(passphrase, salt) {
+        return CryptoJS.PBKDF2(passphrase, CryptoJS.enc.Hex.parse(salt), {
+            keySize: 256 / 32,
+            iterations: 1000
+        }).toString();
+    }
+
+    /**
+     * Find existing file in Google Drive
+     * @returns {Promise<string|null>} Returns file ID if found, else null
+     */
+    async function findExistingFile() {
+        const query = `name='${FILE_NAME}' and trashed=false and properties has { key='appId' and value='${APP_ID}' }`;
+        try {
+            const response = await gapi.client.drive.files.list({
+                'q': query,
+                'fields': 'files(id, name)',
+                'pageSize': 10
+            });
+            const files = response.result.files;
+            if (files && files.length > 0) {
+                console.log('File found:', files[0]);
+                appendPre(`File '${FILE_NAME}' found. ID: ${files[0].id}`);
+                return files[0].id;
+            } else {
+                console.log('No existing file found.');
+                appendPre(`No existing file named '${FILE_NAME}' found.`);
                 return null;
             }
+        } catch (error) {
+            console.error('Error finding file:', error);
+            appendPre(`Error finding file: ${error.message}`);
+            return null;
         }
+    }
 
-        /**
-         * Create a new file in Google Drive
-         * @param {string} content 
-         * @returns {Promise<string>} Returns file ID upon creation
-         */
-        async function createNewFile(content) {
-            const metadata = {
-                'name': FILE_NAME,
-                'mimeType': 'text/plain',
-                'properties': {
-                    'appId': APP_ID
-                }
-            };
-            const file = new Blob([content], {type: 'text/plain'});
-
-            const form = new FormData();
-            form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
-            form.append('file', file);
-
-            try {
-                const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
-                    method: 'POST',
-                    headers: new Headers({'Authorization': 'Bearer ' + accessToken}),
-                    body: form,
-                });
-                const data = await response.json();
-                if (data.id) {
-                    console.log('File created:', data);
-                    appendPre(`File created with ID: ${data.id}`);
-                    return data.id;
-                } else {
-                    throw new Error('Failed to create file.');
-                }
-            } catch (error) {
-                console.error('Error creating file:', error);
-                appendPre(`Error creating file: ${error.message}`);
-                return null;
+    /**
+     * Create a new file in Google Drive
+     * @param {string} content 
+     * @returns {Promise<string>} Returns file ID upon creation
+     */
+    async function createNewFile(content) {
+        const metadata = {
+            'name': FILE_NAME,
+            'mimeType': 'text/plain',
+            'properties': {
+                'appId': APP_ID
             }
+        };
+        const file = new Blob([content], {type: 'text/plain'});
+
+        const form = new FormData();
+        form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
+        form.append('file', file);
+
+        try {
+            const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+                method: 'POST',
+                headers: new Headers({'Authorization': 'Bearer ' + accessToken}),
+                body: form,
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error.message || 'Failed to create file.');
+            }
+            const data = await response.json();
+            if (data.id) {
+                console.log('File created:', data);
+                appendPre(`File created with ID: ${data.id}`);
+                return data.id;
+            } else {
+                throw new Error('Failed to create file.');
+            }
+        } catch (error) {
+            console.error('Error creating file:', error);
+            appendPre(`Error creating file: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Make the file globally readable
+     * @param {string} fileId 
+     * @returns {Promise<void>}
+     */
+    function setFilePubliclyReadable(fileId) {
+        return gapi.client.drive.permissions.create({
+            fileId: fileId,
+            resource: {
+                role: 'reader',
+                type: 'anyone'
+            }
+        }).then(response => {
+            console.log('Permission granted:', response);
+            appendPre('File is now publicly readable.');
+        }).catch(error => {
+            console.error('Error making file public:', error);
+            appendPre(`Error making file public: ${error.message}`);
+            throw error;
+        });
+    }
+
+    /**
+     * Create a new message exchange file with enhanced security
+     */
+    async function createNewFileHandler() {
+        // Prompt user for their name
+        const userName = prompt("Enter your name:");
+        if (!userName) {
+            appendPre('Name is required to create a file.');
+            return;
         }
 
-        /**
-         * Make the file globally readable
-         * @param {string} fileId 
-         * @returns {Promise<void>}
-         */
-        function setFilePubliclyReadable(fileId) {
-            return gapi.client.drive.permissions.create({
+        // Prompt the user to enter a passphrase instead of generating and passing via URL
+        const passphrase = prompt("Enter a passphrase for encrypting messages:");
+        if (!passphrase) {
+            appendPre('Passphrase is required to create the file.');
+            return;
+        }
+
+        // Derive an encryption key from the passphrase
+        const salt = CryptoJS.lib.WordArray.random(128 / 8).toString();
+        const encryptionKey = deriveKey(passphrase, salt);
+        localStorage.setItem('encryptionKey', encryptionKey);
+
+        // Initialize file content with a header and salt
+        const header = "Encrypted Message Exchange File - Each line is an encrypted JSON object representing a message.\nSalt:" + salt + "\n";
+
+        // Create the file
+        const fileId = await createNewFile(header);
+        if (!fileId) return;
+
+        // Set file permissions to writer (if necessary)
+        try {
+            await gapi.client.drive.permissions.create({
                 fileId: fileId,
                 resource: {
-                    role: 'reader',
+                    role: 'writer',
                     type: 'anyone'
                 }
-            }).then(response => {
-                console.log('Permission granted:', response);
-                appendPre('File is now publicly readable.');
-            }).catch(error => {
-                console.error('Error making file public:', error);
-                appendPre(`Error making file public: ${error.message}`);
-                throw error;
             });
+            appendPre('Permissions set to allow anyone to write to the file.');
+        } catch (error) {
+            console.error('Error setting permissions:', error);
+            appendPre(`Error setting permissions: ${error.message}`);
         }
 
-        /**
-         * Create a new message exchange file with enhanced security
-         */
-        async function createNewFileHandler() {
-            // Prompt user for their name
-            const userName = prompt("Enter your name:");
-            if (!userName) {
-                appendPre('Name is required to create a file.');
-                return;
-            }
+        // Make the file publicly readable
+        await setFilePubliclyReadable(fileId);
 
-            // Prompt the user to enter a passphrase instead of generating and passing via URL
-            const passphrase = prompt("Enter a passphrase for encrypting messages:");
-            if (!passphrase) {
-                appendPre('Passphrase is required to create the file.');
-                return;
-            }
+        // Securely share the file ID (without including the passphrase)
+        const url = `${window.location.origin}${window.location.pathname}?fileId=${fileId}`;
+        navigator.clipboard.writeText(url).then(() => {
+            appendPre('New encrypted message exchange file created successfully! URL copied to clipboard.');
+        }).catch(err => {
+            appendPre('Error copying URL to clipboard: ' + err);
+        });
 
-            // Derive an encryption key from the passphrase
-            const salt = CryptoJS.lib.WordArray.random(128 / 8).toString();
-            const encryptionKey = deriveKey(passphrase, salt);
-            localStorage.setItem('encryptionKey', encryptionKey);
+        // Display the messaging interface
+        document.getElementById('sendMessageForm').style.display = 'block';
+        document.getElementById('messageDisplay').style.display = 'block';
+        document.getElementById('fileId').value = fileId;
+        document.getElementById('userName').value = userName;
+        await loadMessages();
+    }
 
-            // Initialize file content with a header and salt
-            const header = "Encrypted Message Exchange File - Each line is an encrypted JSON object representing a message.\nSalt:" + salt + "\n";
-            
-            // Create the file
-            const fileId = await createNewFile(header);
-            if (!fileId) return;
+    /**
+     * Use an existing file
+     */
+    async function useExistingFile() {
+        const fileId = document.getElementById('existingFileId').value.trim();
+        if (!fileId) {
+            appendPre('Please enter a valid File ID.');
+            return;
+        }
 
-            // Set file permissions to writer (if necessary)
-            try {
-                await gapi.client.drive.permissions.create({
-                    fileId: fileId,
-                    resource: {
-                        role: 'writer',
-                        type: 'anyone'
-                    }
-                });
-                appendPre('Permissions set to allow anyone to write to the file.');
-            } catch (error) {
-                console.error('Error setting permissions:', error);
-                appendPre(`Error setting permissions: ${error.message}`);
-            }
-
-            // Make the file publicly readable
-            await setFilePubliclyReadable(fileId);
-
-            // Securely share the file ID (without including the passphrase)
-            const url = `${window.location.origin}${window.location.pathname}?fileId=${fileId}`;
-            navigator.clipboard.writeText(url).then(() => {
-                appendPre('New encrypted message exchange file created successfully! URL copied to clipboard.');
-            }).catch(err => {
-                appendPre('Error copying URL to clipboard: ' + err);
+        try {
+            await gapi.client.drive.files.get({
+                fileId: fileId,
+                fields: 'id, name'
             });
 
-            // Display the messaging interface
+            appendPre(`Using existing file with ID: ${fileId}`);
             document.getElementById('sendMessageForm').style.display = 'block';
             document.getElementById('messageDisplay').style.display = 'block';
             document.getElementById('fileId').value = fileId;
-            document.getElementById('userName').value = userName;
             await loadMessages();
+        } catch (error) {
+            appendPre(`Error accessing file: ${error.message}`);
+            console.error('Error accessing file:', error);
+        }
+    }
+
+    /**
+     * Send an encrypted message
+     */
+    async function sendMessage() {
+        const fileId = document.getElementById('fileId').value;
+        const userEmail = document.getElementById('userEmail').value;
+        const userName = document.getElementById('userName').value;
+        const messageBody = document.getElementById('messageBody').value.trim();
+
+        if (!messageBody) {
+            appendPre('Message body cannot be empty.');
+            return;
         }
 
-        /**
-         * Use an existing file
-         */
-        async function useExistingFile() {
-            const fileId = document.getElementById('existingFileId').value.trim();
-            if (!fileId) {
-                appendPre('Please enter a valid File ID.');
-                return;
-            }
-
-            try {
-                await gapi.client.drive.files.get({
-                    fileId: fileId,
-                    fields: 'id, name'
-                });
-
-                appendPre(`Using existing file with ID: ${fileId}`);
-                document.getElementById('sendMessageForm').style.display = 'block';
-                document.getElementById('messageDisplay').style.display = 'block';
-                document.getElementById('fileId').value = fileId;
-                await loadMessages();
-            } catch (error) {
-                appendPre(`Error accessing file: ${error.message}`);
-                console.error('Error accessing file:', error);
-            }
+        const encryptionKey = localStorage.getItem('encryptionKey');
+        if (!encryptionKey) {
+            appendPre('Encryption key not found. Please ensure you have authorized and set up the file correctly.');
+            return;
         }
 
-        /**
-         * Send an encrypted message
-         */
-        async function sendMessage() {
-            const fileId = document.getElementById('fileId').value;
-            const userEmail = document.getElementById('userEmail').value;
-            const userName = document.getElementById('userName').value;
-            const messageBody = document.getElementById('messageBody').value.trim();
+        const message = {
+            timestamp: new Date().toISOString(),
+            userEmail: userEmail,
+            userName: userName,
+            messageBody: messageBody
+        };
 
-            if (!messageBody) {
-                appendPre('Message body cannot be empty.');
-                return;
+        // Encrypt the message
+        const encryptedMessage = CryptoJS.AES.encrypt(JSON.stringify(message), encryptionKey).toString();
+
+        try {
+            // Fetch existing file content
+            const fileResponse = await gapi.client.drive.files.get({
+                fileId: fileId,
+                alt: 'media'
+            });
+
+            let existingContent = fileResponse.body;
+            if (!existingContent.endsWith('\n')) {
+                existingContent += '\n';
             }
 
-            const encryptionKey = localStorage.getItem('encryptionKey');
-            if (!encryptionKey) {
-                appendPre('Encryption key not found. Please ensure you have authorized and set up the file correctly.');
-                return;
-            }
+            // Append the encrypted message
+            const updatedContent = existingContent + encryptedMessage + '\n';
 
-            const message = {
-                timestamp: new Date().toISOString(),
-                userEmail: userEmail,
-                userName: userName,
-                messageBody: messageBody
-            };
+            // Update the file content
+            const updateResponse = await gapi.client.request({
+                path: `/upload/drive/v3/files/${fileId}`,
+                method: 'PATCH',
+                params: { uploadType: 'media' },
+                headers: {
+                    'Content-Type': 'text/plain'
+                },
+                body: updatedContent
+            });
 
-            // Encrypt the message
-            const encryptedMessage = CryptoJS.AES.encrypt(JSON.stringify(message), encryptionKey).toString();
-
-            try {
-                // Fetch existing file content
-                const fileResponse = await gapi.client.drive.files.get({
-                    fileId: fileId,
-                    alt: 'media'
-                });
-
-                let existingContent = fileResponse.body;
-                if (!existingContent.endsWith('\n')) {
-                    existingContent += '\n';
-                }
-
-                // Append the encrypted message
-                const updatedContent = existingContent + encryptedMessage + '\n';
-
-                // Update the file content
-                await gapi.client.request({
-                    path: `/upload/drive/v3/files/${fileId}`,
-                    method: 'PATCH',
-                    params: { uploadType: 'media' },
-                    headers: {
-                        'Content-Type': 'text/plain'
-                    },
-                    body: updatedContent
-                });
-
+            if (updateResponse.status === 200) {
                 appendPre('Message sent successfully!');
                 document.getElementById('messageBody').value = '';
                 await loadMessages();
-            } catch (error) {
-                appendPre(`Error sending message: ${error.message}`);
-                console.error('Full error:', error);
+            } else {
+                throw new Error('Failed to update file.');
             }
+        } catch (error) {
+            appendPre(`Error sending message: ${error.message}`);
+            console.error('Full error:', error);
+        }
+    }
+
+    /**
+     * Load and decrypt messages from the file
+     */
+    async function loadMessages() {
+        const fileId = document.getElementById('fileId').value;
+        const encryptionKey = localStorage.getItem('encryptionKey');
+
+        if (!fileId || !encryptionKey) {
+            appendPre('File ID or encryption key missing.');
+            return;
         }
 
-        /**
-         * Load and decrypt messages from the file
-         */
-        async function loadMessages() {
-            const fileId = document.getElementById('fileId').value;
-            const encryptionKey = localStorage.getItem('encryptionKey');
-
-            if (!fileId || !encryptionKey) {
-                appendPre('File ID or encryption key missing.');
-                return;
-            }
-
-            try {
-                const fileResponse = await gapi.client.drive.files.get({
-                    fileId: fileId,
-                    alt: 'media'
-                });
-
-                const content = fileResponse.body;
-                const lines = content.split('\n');
-                const messagesContainer = document.getElementById('messages');
-                messagesContainer.innerHTML = '';
-
-                lines.forEach(line => {
-                    if (line.trim() !== '') {
-                        try {
-                            const decryptedBytes = CryptoJS.AES.decrypt(line, encryptionKey);
-                            const decryptedText = decryptedBytes.toString(CryptoJS.enc.Utf8);
-                            const decryptedMessage = JSON.parse(decryptedText);
-
-                            const messageElement = document.createElement('div');
-                            messageElement.innerHTML = `
-                                <p><strong>${decryptedMessage.userName}</strong> (${decryptedMessage.userEmail}) - ${new Date(decryptedMessage.timestamp).toLocaleString()}</p>
-                                <p>${decryptedMessage.messageBody}</p>
-                                <hr>
-                            `;
-                            messagesContainer.appendChild(messageElement);
-                        } catch (error) {
-                            console.error('Error decrypting message:', error);
-                            // Optionally, display a notice about failed decryption
-                        }
-                    }
-                });
-            } catch (error) {
-                appendPre(`Error loading messages: ${error.message}`);
-                console.error('Error loading messages:', error);
-            }
-        }
-
-        /**
-         * Parse query parameters from the URL
-         */
-        function getQueryParams() {
-            const params = new URLSearchParams(window.location.search);
-            return {
-                fileId: params.get('fileId')
-            };
-        }
-
-        /**
-         * Initialize the application on window load
-         */
-        window.onload = () => {
-            initializeGoogleIdentity();
-
-            const { fileId } = getQueryParams();
-
-            if (fileId) {
-                document.getElementById('existingFileId').value = fileId;
-                document.getElementById('fileId').value = fileId;
-                document.getElementById('sendMessageForm').style.display = 'block';
-                document.getElementById('messageDisplay').style.display = 'block';
-                loadMessages();
-            }
-
-            // Set up button event listeners
-            document.getElementById('createFile').addEventListener('click', createNewFileHandler);
-            document.getElementById('useExistingFile').addEventListener('click', useExistingFile);
-            document.getElementById('sendMessageForm').addEventListener('submit', function(event) {
-                event.preventDefault();
-                sendMessage();
+        try {
+            const fileResponse = await gapi.client.drive.files.get({
+                fileId: fileId,
+                alt: 'media'
             });
-            document.getElementById('signout_button').addEventListener('click', signOut);
+
+            const content = fileResponse.body;
+            const lines = content.split('\n');
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.innerHTML = '';
+
+            lines.forEach(line => {
+                if (line.trim() !== '') {
+                    try {
+                        const decryptedBytes = CryptoJS.AES.decrypt(line, encryptionKey);
+                        const decryptedText = decryptedBytes.toString(CryptoJS.enc.Utf8);
+                        const decryptedMessage = JSON.parse(decryptedText);
+
+                        const messageElement = document.createElement('div');
+                        messageElement.innerHTML = `
+                            <p><strong>${decryptedMessage.userName}</strong> (${decryptedMessage.userEmail}) - ${new Date(decryptedMessage.timestamp).toLocaleString()}</p>
+                            <p>${decryptedMessage.messageBody}</p>
+                            <hr>
+                        `;
+                        messagesContainer.appendChild(messageElement);
+                    } catch (error) {
+                        console.error('Error decrypting message:', error);
+                        // Optionally, display a notice about failed decryption
+                    }
+                }
+            });
+        } catch (error) {
+            appendPre(`Error loading messages: ${error.message}`);
+            console.error('Error loading messages:', error);
+        }
+    }
+
+    /**
+     * Parse query parameters from the URL
+     */
+    function getQueryParams() {
+        const params = new URLSearchParams(window.location.search);
+        return {
+            fileId: params.get('fileId')
         };
-    </script>
+    }
+
+    /**
+     * Initialize the application on window load
+     */
+    window.onload = () => {
+        initializeGoogleIdentity();
+
+        const { fileId } = getQueryParams();
+
+        if (fileId) {
+            document.getElementById('existingFileId').value = fileId;
+            document.getElementById('fileId').value = fileId;
+            document.getElementById('sendMessageForm').style.display = 'block';
+            document.getElementById('messageDisplay').style.display = 'block';
+            loadMessages();
+        }
+
+        // Set up button event listeners
+        document.getElementById('createFile').addEventListener('click', createNewFileHandler);
+        document.getElementById('useExistingFile').addEventListener('click', useExistingFile);
+        document.getElementById('sendMessageForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            sendMessage();
+        });
+        document.getElementById('signout_button').addEventListener('click', signOut);
+    };
+</script>
+
 </body>
 </html>
