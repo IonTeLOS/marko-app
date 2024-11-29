@@ -58,12 +58,14 @@
 </head>
 <body>
     <h1>Encrypted Message Exchange via Google Drive</h1>
-    <div id="fileOperations">
-        <button id="createFile">Create New Message Exchange File</button>
-        <input type="text" id="existingFileId" placeholder="Enter existing File ID">
-        <button id="useExistingFile">Use Existing File</button>
-        <button id="signout_button">Sign Out</button>
-    </div>
+<div id="fileOperations">
+    <button id="createFile">Create New Message Exchange File</button>
+    <input type="text" id="existingFileId" placeholder="Enter existing File ID">
+    <button id="useExistingFile">Use Existing File</button>
+    <!-- Added Sign Out Button -->
+    <button id="signout_button" style="display:none;">Sign Out</button>
+</div>
+
     <form id="sendMessageForm">
         <h2>Send Message</h2>
         <label for="fileId">File ID:</label>
@@ -250,39 +252,35 @@
     }
 
     /**
-     * Create a new file in Google Drive
+     * Create a new file in Google Drive using gapi.client.drive.files.create
      * @param {string} content 
-     * @returns {Promise<string>} Returns file ID upon creation
+     * @returns {Promise<string|null>} Returns file ID upon creation
      */
     async function createNewFile(content) {
-        const metadata = {
-            'name': FILE_NAME,
-            'mimeType': 'text/plain',
-            'properties': {
-                'appId': APP_ID
-            }
-        };
-        const file = new Blob([content], {type: 'text/plain'});
-
-        const form = new FormData();
-        form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
-        form.append('file', file);
-
         try {
-            const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
-                method: 'POST',
-                headers: new Headers({'Authorization': 'Bearer ' + accessToken}),
-                body: form,
+            const fileMetadata = {
+                'name': FILE_NAME,
+                'mimeType': 'text/plain',
+                'properties': {
+                    'appId': APP_ID
+                }
+            };
+
+            const media = {
+                mimeType: 'text/plain',
+                body: content
+            };
+
+            const response = await gapi.client.drive.files.create({
+                resource: fileMetadata,
+                media: media,
+                fields: 'id'
             });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error.message || 'Failed to create file.');
-            }
-            const data = await response.json();
-            if (data.id) {
-                console.log('File created:', data);
-                appendPre(`File created with ID: ${data.id}`);
-                return data.id;
+
+            if (response.status === 200 && response.result.id) {
+                console.log('File created:', response.result);
+                appendPre(`File created with ID: ${response.result.id}`);
+                return response.result.id;
             } else {
                 throw new Error('Failed to create file.');
             }
@@ -294,25 +292,27 @@
     }
 
     /**
-     * Make the file globally readable
+     * Make the file globally readable using gapi.client.drive.permissions.create
      * @param {string} fileId 
      * @returns {Promise<void>}
      */
-    function setFilePubliclyReadable(fileId) {
-        return gapi.client.drive.permissions.create({
-            fileId: fileId,
-            resource: {
-                role: 'reader',
-                type: 'anyone'
-            }
-        }).then(response => {
+    async function setFilePubliclyReadable(fileId) {
+        try {
+            const response = await gapi.client.drive.permissions.create({
+                fileId: fileId,
+                resource: {
+                    role: 'reader',
+                    type: 'anyone'
+                },
+                fields: 'id'
+            });
             console.log('Permission granted:', response);
             appendPre('File is now publicly readable.');
-        }).catch(error => {
+        } catch (error) {
             console.error('Error making file public:', error);
             appendPre(`Error making file public: ${error.message}`);
             throw error;
-        });
+        }
     }
 
     /**
@@ -345,14 +345,15 @@
         const fileId = await createNewFile(header);
         if (!fileId) return;
 
-        // Set file permissions to writer (if necessary)
+        // Set file permissions to writer (allow anyone to write)
         try {
             await gapi.client.drive.permissions.create({
                 fileId: fileId,
                 resource: {
                     role: 'writer',
                     type: 'anyone'
-                }
+                },
+                fields: 'id'
             });
             appendPre('Permissions set to allow anyone to write to the file.');
         } catch (error) {
@@ -451,15 +452,13 @@
             // Append the encrypted message
             const updatedContent = existingContent + encryptedMessage + '\n';
 
-            // Update the file content
-            const updateResponse = await gapi.client.request({
-                path: `/upload/drive/v3/files/${fileId}`,
-                method: 'PATCH',
-                params: { uploadType: 'media' },
-                headers: {
-                    'Content-Type': 'text/plain'
-                },
-                body: updatedContent
+            // Update the file content using gapi.client.drive.files.update
+            const updateResponse = await gapi.client.drive.files.update({
+                fileId: fileId,
+                media: {
+                    mimeType: 'text/plain',
+                    body: updatedContent
+                }
             });
 
             if (updateResponse.status === 200) {
@@ -560,6 +559,7 @@
         document.getElementById('signout_button').addEventListener('click', signOut);
     };
 </script>
+
 
 </body>
 </html>
