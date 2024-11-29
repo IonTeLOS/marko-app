@@ -184,13 +184,26 @@
         }
 
         /**
-         * Append messages to the content pre element
+         * Append messages to the result paragraph
          * @param {string} message 
          */
         function appendPre(message) {
             const pre = document.getElementById('result');
             const textContent = document.createTextNode(message + '\n');
             pre.appendChild(textContent);
+        }
+
+        /**
+         * Derive an encryption key using PBKDF2
+         * @param {string} passphrase 
+         * @param {string} salt 
+         * @returns {string}
+         */
+        function deriveKey(passphrase, salt) {
+            return CryptoJS.PBKDF2(passphrase, CryptoJS.enc.Hex.parse(salt), {
+                keySize: 256 / 32,
+                iterations: 1000
+            }).toString();
         }
 
         /**
@@ -263,48 +276,29 @@
         }
 
         /**
-         * Use an existing file
+         * Make the file globally readable
+         * @param {string} fileId 
+         * @returns {Promise<void>}
          */
-        async function useExistingFile() {
-            const fileId = document.getElementById('existingFileId').value.trim();
-            if (!fileId) {
-                appendPre('Please enter a valid File ID.');
-                return;
-            }
-
-            try {
-                const response = await gapi.client.drive.files.get({
-                    fileId: fileId,
-                    fields: 'id, name'
-                });
-                console.log('Using existing file:', response.result);
-                appendPre(`Using existing file with ID: ${fileId}`);
-                document.getElementById('sendMessageForm').style.display = 'block';
-                document.getElementById('messageDisplay').style.display = 'block';
-                document.getElementById('fileId').value = fileId;
-                await loadMessages();
-            } catch (error) {
-                console.error('Error accessing file:', error);
-                appendPre(`Error accessing file: ${error.message}`);
-            }
+        function setFilePubliclyReadable(fileId) {
+            return gapi.client.drive.permissions.create({
+                fileId: fileId,
+                resource: {
+                    role: 'reader',
+                    type: 'anyone'
+                }
+            }).then(response => {
+                console.log('Permission granted:', response);
+                appendPre('File is now publicly readable.');
+            }).catch(error => {
+                console.error('Error making file public:', error);
+                appendPre(`Error making file public: ${error.message}`);
+                throw error;
+            });
         }
 
         /**
-         * Generate a random password for encryption
-         * @param {number} length 
-         * @returns {string}
-         */
-        function generatePassword(length = 16) {
-            const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-            let password = '';
-            for (let i = 0, n = charset.length; i < length; ++i) {
-                password += charset.charAt(Math.floor(Math.random() * n));
-            }
-            return password;
-        }
-
-        /**
-         * Create a new message exchange file
+         * Create a new message exchange file with enhanced security
          */
         async function createNewFileHandler() {
             // Prompt user for their name
@@ -314,18 +308,26 @@
                 return;
             }
 
-            // Generate a random encryption key
-            const encryptionKey = generatePassword();
+            // Prompt the user to enter a passphrase instead of generating and passing via URL
+            const passphrase = prompt("Enter a passphrase for encrypting messages:");
+            if (!passphrase) {
+                appendPre('Passphrase is required to create the file.');
+                return;
+            }
+
+            // Derive an encryption key from the passphrase
+            const salt = CryptoJS.lib.WordArray.random(128 / 8).toString();
+            const encryptionKey = deriveKey(passphrase, salt);
             localStorage.setItem('encryptionKey', encryptionKey);
 
-            // Initialize file content with a header
-            const header = "Encrypted Message Exchange File - Each line is an encrypted JSON object representing a message.\n";
+            // Initialize file content with a header and salt
+            const header = "Encrypted Message Exchange File - Each line is an encrypted JSON object representing a message.\nSalt:" + salt + "\n";
             
             // Create the file
             const fileId = await createNewFile(header);
             if (!fileId) return;
 
-            // Set permissions to allow writing by anyone (optional, based on security requirements)
+            // Set file permissions to writer (if necessary)
             try {
                 await gapi.client.drive.permissions.create({
                     fileId: fileId,
@@ -340,7 +342,10 @@
                 appendPre(`Error setting permissions: ${error.message}`);
             }
 
-            // Construct a secure URL to share with others
+            // Make the file publicly readable
+            await setFilePubliclyReadable(fileId);
+
+            // Securely share the file ID (without including the passphrase)
             const url = `${window.location.origin}${window.location.pathname}?fileId=${fileId}`;
             navigator.clipboard.writeText(url).then(() => {
                 appendPre('New encrypted message exchange file created successfully! URL copied to clipboard.');
@@ -357,7 +362,34 @@
         }
 
         /**
-         * Handle the form submission to send a message
+         * Use an existing file
+         */
+        async function useExistingFile() {
+            const fileId = document.getElementById('existingFileId').value.trim();
+            if (!fileId) {
+                appendPre('Please enter a valid File ID.');
+                return;
+            }
+
+            try {
+                await gapi.client.drive.files.get({
+                    fileId: fileId,
+                    fields: 'id, name'
+                });
+
+                appendPre(`Using existing file with ID: ${fileId}`);
+                document.getElementById('sendMessageForm').style.display = 'block';
+                document.getElementById('messageDisplay').style.display = 'block';
+                document.getElementById('fileId').value = fileId;
+                await loadMessages();
+            } catch (error) {
+                appendPre(`Error accessing file: ${error.message}`);
+                console.error('Error accessing file:', error);
+            }
+        }
+
+        /**
+         * Send an encrypted message
          */
         async function sendMessage() {
             const fileId = document.getElementById('fileId').value;
@@ -416,8 +448,8 @@
                 document.getElementById('messageBody').value = '';
                 await loadMessages();
             } catch (error) {
-                console.error('Error sending message:', error);
                 appendPre(`Error sending message: ${error.message}`);
+                console.error('Full error:', error);
             }
         }
 
@@ -465,8 +497,8 @@
                     }
                 });
             } catch (error) {
-                console.error('Error loading messages:', error);
                 appendPre(`Error loading messages: ${error.message}`);
+                console.error('Error loading messages:', error);
             }
         }
 
