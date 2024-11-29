@@ -72,23 +72,25 @@
     <pre id="content"></pre>
 
     <script>
-        // Your existing constants
+        // Replace with your actual Client ID and API Key
         const CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
         const API_KEY = 'AIzaSyAbf0IPLaP6Cbbx3NnFlfzcWQ-zxIc5S8E';
+
+        // Scopes required for the application
         const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email';
+
+        // File configurations
         const FILE_NAME = 'bookmarksMarko.json';
-        const PUBLIC_FILE = 'publicMarkos.json';  
-        const COMMON_FILE = "commonMarko";  
         const APP_ID = 'marko';
 
         let tokenClient;
         let accessToken = null;
-        let loggedInUserEmail;
 
         /**
          * Initialize the Google Identity Services and GAPI client
          */
         async function initializeGoogleIdentity() {
+            // Initialize the token client
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
                 scope: SCOPES,
@@ -98,6 +100,8 @@
                         localStorage.setItem('accessToken', accessToken);
                         console.log('Authorization successful.');
                         appendPre('Authorization successful.');
+                        document.getElementById('authorize_button').style.display = 'none';
+                        document.getElementById('signout_button').style.display = 'block';
                     } else {
                         console.error('Authorization failed:', tokenResponse);
                         appendPre('Authorization failed.');
@@ -106,12 +110,22 @@
             });
 
             // Load the GAPI client
-            gapi.load('client', async () => {
-                await gapi.client.init({
-                    apiKey: API_KEY,
-                    discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
+            await new Promise((resolve) => {
+                gapi.load('client', async () => {
+                    try {
+                        await gapi.client.init({
+                            apiKey: API_KEY,
+                            discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
+                        });
+                        console.log('GAPI client initialized.');
+                        appendPre('GAPI client initialized.');
+                        resolve();
+                    } catch (error) {
+                        console.error('Error initializing GAPI client:', error);
+                        appendPre('Error initializing GAPI client.');
+                        resolve(); // Resolve to continue even if GAPI fails
+                    }
                 });
-                console.log('GAPI client initialized.');
             });
         }
 
@@ -119,6 +133,11 @@
          * Handle authorization button click
          */
         function authorize() {
+            if (!tokenClient) {
+                console.error('Token client not initialized.');
+                appendPre('Token client not initialized.');
+                return;
+            }
             tokenClient.requestAccessToken({prompt: 'consent'});
         }
 
@@ -149,7 +168,7 @@
 
         /**
          * Find existing file in Google Drive
-         * @returns {Promise<Object>}
+         * @returns {Promise<string|null>} Returns file ID if found, else null
          */
         function findExistingFile() {
             const query = `name='${FILE_NAME}' and trashed=false and properties has { key='appId' and value='${APP_ID}' }`;
@@ -178,7 +197,7 @@
         /**
          * Create a new file in Google Drive
          * @param {string} content 
-         * @returns {Promise<Object>}
+         * @returns {Promise<string>} Returns file ID upon creation
          */
         function createNewFile(content) {
             const metadata = {
@@ -325,8 +344,7 @@
             // Set up button event listeners
             document.getElementById('authorize_button').addEventListener('click', () => {
                 authorize();
-                document.getElementById('authorize_button').style.display = 'none';
-                document.getElementById('signout_button').style.display = 'block';
+                // The callback in tokenClient will handle button visibility
             });
 
             document.getElementById('signout_button').addEventListener('click', signOut);
