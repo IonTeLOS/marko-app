@@ -264,14 +264,14 @@ if ('serviceWorker' in navigator) {
         // ====================== Messaging Functions ======================
 
         // Function to send a message to a topic
-        const sendMessageToTopic = async (topic, title, body) => {
+        const sendMessageToTopic = async (topic, title, body, data = {}) => {
             const url = 'https://us-central1-marko-be9a9.cloudfunctions.net/handleTopic';
             const message = {
                 action: 'send',
                 topic: topic,
                 title: title,
                 body: body,
-                data: data,
+                data: data, // Include the data object as expected by the Cloud Function
             };
 
             try {
@@ -284,7 +284,8 @@ if ('serviceWorker' in navigator) {
                 });
 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
                 }
 
                 const result = await response.text();
