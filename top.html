@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FCM Topic Subscription</title>
+    <title>FCM Topic Subscription and Messaging</title>
     <!-- Firebase App (the core Firebase SDK) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <!-- Firebase Messaging -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
+    <!-- LocalForage for storing topics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js" integrity="sha512-L0H9zVIZWjljA2Zb3HmZLCB9iCJX0h1yrdEO+kKPUkmHnDJoY25xZ8RK+gVtkL9qgi3mxFCqR76kEjOXaq/8hw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -36,30 +38,87 @@
             margin-top: 10px;
             color: red;
         }
+        .section {
+            margin-top: 30px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            background-color: #fafafa;
+        }
+        .section h2 {
+            margin-top: 0;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            margin-top: 15px;
+            padding: 10px 15px;
+            background-color: #007bff;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
     </style>
 </head>
 <body>
-    <h1>Firebase Cloud Messaging - Topic Subscription</h1>
-    <p>Enter a topic name to subscribe:</p>
-    <input type="text" id="topicInput" placeholder="Enter topic name">
-    <button id="subscribeButton">Subscribe</button>
-    <div id="status"></div>
-    <div id="error"></div>
-    <h2>Received Messages:</h2>
-    <div id="messages"></div>
+    <h1>Firebase Cloud Messaging - Topic Subscription and Messaging</h1>
+
+    <!-- Subscription Section -->
+    <div class="section">
+        <h2>Subscribe to a Topic</h2>
+        <p>Enter a topic name to subscribe:</p>
+        <input type="text" id="topicInput" placeholder="Enter topic name">
+        <button id="subscribeButton">Subscribe</button>
+        <div id="status"></div>
+        <div id="error"></div>
+    </div>
+
+    <!-- Messaging Section -->
+    <div class="section">
+        <h2>Send a Message to a Topic</h2>
+        <label for="topicSelect">Select a Topic:</label>
+        <select id="topicSelect">
+            <option value="" disabled selected>Select a topic</option>
+        </select>
+
+        <label for="messageTitle">Message Title:</label>
+        <input type="text" id="messageTitle" placeholder="Enter message title">
+
+        <label for="messageBody">Message Body:</label>
+        <textarea id="messageBody" rows="4" placeholder="Enter message body"></textarea>
+
+        <button id="sendMessageButton">Send Message</button>
+        <div id="sendStatus"></div>
+        <div id="sendError"></div>
+    </div>
+
+    <!-- Received Messages Section -->
+    <div class="section">
+        <h2>Received Messages:</h2>
+        <div id="messages"></div>
+    </div>
 
     <script>
         // ====================== Firebase Configuration ======================
-        // TODO: Replace the following with your app's Firebase project configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyD96IBVqGKVEdmXIVCYL_7kvlBhJNSD1Ww",
-  authDomain: "marko-be9a9.firebaseapp.com",
-  databaseURL: "https://marko-be9a9-default-rtdb.firebaseio.com",
-  projectId: "marko-be9a9",
-  storageBucket: "marko-be9a9.appspot.com",
-  messagingSenderId: "7036670175",
-  appId: "1:7036670175:web:99992356716578ea13996a"
-};
+        const firebaseConfig = {
+            apiKey: "AIzaSyD96IBVqGKVEdmXIVCYL_7kvlBhJNSD1Ww",
+            authDomain: "marko-be9a9.firebaseapp.com",
+            databaseURL: "https://marko-be9a9-default-rtdb.firebaseio.com",
+            projectId: "marko-be9a9",
+            storageBucket: "marko-be9a9.appspot.com",
+            messagingSenderId: "7036670175",
+            appId: "1:7036670175:web:99992356716578ea13996a"
+        };
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
@@ -68,28 +127,36 @@ const firebaseConfig = {
         const messaging = firebase.messaging();
 
         // Register service worker
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-    scope: '/'
-  }).then(function(registration) {
-    console.log('Service Worker registered with scope:', registration.scope);
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+                scope: '/'
+            }).then(function(registration) {
+                console.log('Service Worker registered with scope:', registration.scope);
+                messaging.useServiceWorker(registration);
 
-    navigator.serviceWorker.addEventListener('message', (event) => {
-      if (event.data && event.data.action === 'open_url') {
-        const url = event.data.url;
-        // Handle the URL as needed in your application
-        console.log('Received URL to open:', url);
-        window.location.href = url; // Navigate to the URL
-      }
-    });
-  }).catch(function(error) {
-    console.error('Service Worker registration failed:', error);
-  });
-}
+                // Optional: Listen for messages from the service worker
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    if (event.data && event.data.action === 'open_url') {
+                        const url = event.data.url;
+                        console.log('Received URL to open:', url);
+                        window.location.href = url; // Navigate to the URL
+                    }
+                });
+            }).catch(function(error) {
+                console.error('Service Worker registration failed:', error);
+            });
+        }
+
+        // ====================== LocalForage Configuration ======================
+        // Configure LocalForage
+        localforage.config({
+            name: 'FCMApp',
+            storeName: 'topics'
+        });
 
         // ====================== Subscription Functions ======================
 
-        // Your existing subscribeToTopic function
+        // Existing subscribeToTopic function
         const subscribeToTopicFunc = async (token, topic) => {
             const url = 'https://us-central1-marko-be9a9.cloudfunctions.net/handleTopic';
             const data = {
@@ -120,7 +187,7 @@ if ('serviceWorker' in navigator) {
             }
         };
 
-        // Your existing subscribeTopic function
+        // Existing subscribeTopic function with LocalForage integration
         const subscribeTopic = async (topic) => {
             const token = localStorage.getItem('fcmt');
             if (token) {
@@ -129,6 +196,11 @@ if ('serviceWorker' in navigator) {
                     console.log('Successfully subscribed to topic:', result);
                     document.getElementById('status').innerText = `Successfully subscribed to topic "${topic}".`;
                     document.getElementById('error').innerText = '';
+
+                    // Store the topic in LocalForage
+                    await storeTopic(topic);
+                    // Update the topics dropdown
+                    await populateTopicsDropdown();
                 } catch (error) {
                     console.error('Failed to subscribe to topic:', error);
                     document.getElementById('error').innerText = `Failed to subscribe to topic "${topic}".`;
@@ -138,6 +210,81 @@ if ('serviceWorker' in navigator) {
                 console.error('Failed to get FCM token');
                 document.getElementById('error').innerText = 'Failed to get FCM token.';
                 document.getElementById('status').innerText = '';
+            }
+        };
+
+        // Function to store a topic in LocalForage
+        const storeTopic = async (topic) => {
+            try {
+                // Get current topics
+                let topics = await localforage.getItem('subscribedTopics');
+                if (!topics) {
+                    topics = [];
+                }
+
+                // Avoid duplicates
+                if (!topics.includes(topic)) {
+                    topics.push(topic);
+                    await localforage.setItem('subscribedTopics', topics);
+                    console.log(`Stored topic: ${topic}`);
+                }
+            } catch (error) {
+                console.error('Error storing topic:', error);
+            }
+        };
+
+        // Function to populate the topics dropdown
+        const populateTopicsDropdown = async () => {
+            const topicSelect = document.getElementById('topicSelect');
+            // Clear existing options except the first
+            topicSelect.innerHTML = '<option value="" disabled selected>Select a topic</option>';
+
+            try {
+                const topics = await localforage.getItem('subscribedTopics');
+                if (topics && Array.isArray(topics)) {
+                    topics.forEach((topic) => {
+                        const option = document.createElement('option');
+                        option.value = topic;
+                        option.textContent = topic;
+                        topicSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error populating topics dropdown:', error);
+            }
+        };
+
+        // ====================== Messaging Functions ======================
+
+        // Function to send a message to a topic
+        const sendMessageToTopic = async (topic, title, body) => {
+            const url = 'https://us-central1-marko-be9a9.cloudfunctions.net/handleTopic';
+            const data = {
+                action: 'send',
+                topic: topic,
+                title: title,
+                body: body
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.text();
+                console.log(result);
+                return result;
+            } catch (error) {
+                console.error('Error sending message to topic:', error);
+                throw error;
             }
         };
 
@@ -210,8 +357,41 @@ if ('serviceWorker' in navigator) {
             }
         });
 
+        // Event listener for send message button
+        document.getElementById('sendMessageButton').addEventListener('click', async () => {
+            const topicSelect = document.getElementById('topicSelect');
+            const selectedTopic = topicSelect.value;
+            const title = document.getElementById('messageTitle').value.trim();
+            const body = document.getElementById('messageBody').value.trim();
+
+            if (!selectedTopic) {
+                alert('Please select a topic to send the message.');
+                return;
+            }
+
+            if (!body) {
+                alert('Please enter a message body.');
+                return;
+            }
+
+            // Title is optional; provide a default if not entered
+            const messageTitle = title || 'Notification';
+
+            try {
+                const result = await sendMessageToTopic(selectedTopic, messageTitle, body);
+                console.log('Message sent:', result);
+                document.getElementById('sendStatus').innerText = `Message sent to topic "${selectedTopic}".`;
+                document.getElementById('sendError').innerText = '';
+            } catch (error) {
+                console.error('Failed to send message:', error);
+                document.getElementById('sendError').innerText = `Failed to send message to topic "${selectedTopic}".`;
+                document.getElementById('sendStatus').innerText = '';
+            }
+        });
+
         // Initialize
         requestPermission();
+        populateTopicsDropdown();
     </script>
 </body>
 </html>
