@@ -367,47 +367,46 @@ if ('serviceWorker' in navigator) {
         });
 
          // Event listener for send message button
-        document.getElementById('sendMessageButton').addEventListener('click', async () => {
-            const topicSelect = document.getElementById('topicSelect');
-            const selectedTopic = topicSelect.value;
-            const title = document.getElementById('messageTitle').value.trim();
-            const body = document.getElementById('messageBody').value.trim();
-            const icon = document.getElementById('messageIcon').value.trim(); // Capture icon URL
-            const urlInput = document.getElementById('messageURL').value.trim(); // Capture URL
+// Event listener for send message button
+document.getElementById('sendMessageButton').addEventListener('click', async () => {
+    const topicSelect = document.getElementById('topicSelect');
+    const selectedTopic = topicSelect.value;
+    const title = document.getElementById('messageTitle').value.trim();
+    const body = document.getElementById('messageBody').value.trim();
+    const icon = document.getElementById('messageIcon').value.trim(); // Capture icon URL
+    const urlInput = document.getElementById('messageURL').value.trim(); // Capture URL
 
-            if (!selectedTopic) {
-                alert('Please select a topic to send the message.');
-                return;
-            }
+    if (!selectedTopic) {
+        alert('Please select a topic to send the message.');
+        return;
+    }
 
-            if (!body) {
-                alert('Please enter a message body.');
-                return;
-            }
+    if (!body) {
+        alert('Please enter a message body.');
+        return;
+    }
 
-            // Prepare data object
-            const data = {};
-            if (icon) {
-                data.icon = icon;
-            }
-            if (urlInput) {
-                data.url = urlInput;
-            }
+    // Prepare data object with default values
+    const data = {
+        icon: icon || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/refs/heads/main/appLogo_192.png', // Provide a default icon URL
+        url: urlInput || 'https://marko-app.netlify.app' // Provide a default URL if needed
+    };
 
-            // Title is optional; provide a default if not entered
-            const messageTitle = title || 'Notification';
+    // Title is optional; provide a default if not entered
+    const messageTitle = title || 'Notification';
 
-            try {
-                const result = await sendMessageToTopic(selectedTopic, messageTitle, body, data);
-                console.log('Message sent:', result);
-                document.getElementById('sendStatus').innerText = `Message sent to topic "${selectedTopic}".`;
-                document.getElementById('sendError').innerText = '';
-            } catch (error) {
-                console.error('Failed to send message:', error);
-                document.getElementById('sendError').innerText = `Failed to send message to topic "${selectedTopic}". Error: ${error.message}`;
-                document.getElementById('sendStatus').innerText = '';
-            }
-        });
+    try {
+        const result = await sendMessageToTopic(selectedTopic, messageTitle, body, data);
+        console.log('Message sent:', result);
+        document.getElementById('sendStatus').innerText = `Message sent to topic "${selectedTopic}".`;
+        document.getElementById('sendError').innerText = '';
+    } catch (error) {
+        console.error('Failed to send message:', error);
+        document.getElementById('sendError').innerText = `Failed to send message to topic "${selectedTopic}". Error: ${error.message}`;
+        document.getElementById('sendStatus').innerText = '';
+    }
+});
+
         
         // Initialize
         requestPermission();
