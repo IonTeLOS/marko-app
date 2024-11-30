@@ -147,13 +147,18 @@
          * @returns {ArrayBuffer}
          */
         function base64ToArrayBuffer(base64) {
-            const binary = window.atob(base64);
-            const len = binary.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) {
-                bytes[i] = binary.charCodeAt(i);
+            try {
+                const binary = window.atob(base64);
+                const len = binary.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                return bytes.buffer;
+            } catch (error) {
+                console.error('Invalid Base64 string:', error);
+                throw new Error('Invalid Base64 string.');
             }
-            return bytes.buffer;
         }
 
         /**
@@ -236,6 +241,10 @@
         async function decryptMessage(key, encryptedData) {
             try {
                 const parsedData = JSON.parse(encryptedData);
+                if (!parsedData.iv || !parsedData.ciphertext) {
+                    throw new Error("Invalid encrypted data format.");
+                }
+
                 const iv = new Uint8Array(base64ToArrayBuffer(parsedData.iv));
                 const ciphertext = base64ToArrayBuffer(parsedData.ciphertext);
 
@@ -493,6 +502,7 @@
 
             // Encrypt the message body
             const encryptedBody = await encryptMessage(key, body); // JSON string
+            console.log('Encrypted Message:', encryptedBody); // Log encrypted message
 
             // Prepare the data payload with the encrypted message
             const encryptedData = {
@@ -621,7 +631,19 @@
             const messageElement = document.createElement('div');
             messageElement.className = 'message';
 
-            console.log('Received ntfy.sh message:', data);
+            console.log('Received ntfy.sh message:', data); // Log received message
+
+            // Check if 'message' field exists
+            if (!data.message) {
+                console.error('No message field in ntfy.sh data.');
+                messageElement.innerHTML = `
+                    <strong>ntfy.sh Title:</strong> ${data.title || 'No Title'}<br>
+                    <strong>ntfy.sh Body:</strong> ${data.message || 'No Body'}<br>
+                    <em>Missing message field.</em>
+                `;
+                messagesDiv.prepend(messageElement);
+                return;
+            }
 
             // Retrieve the encryption key for the topic
             const exportedKey = await localforage.getItem(`topic_${topic}`);
