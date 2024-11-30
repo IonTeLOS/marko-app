@@ -263,12 +263,12 @@ if ('serviceWorker' in navigator) {
         // Function to send a message to a topic
         const sendMessageToTopic = async (topic, title, body) => {
             const url = 'https://us-central1-marko-be9a9.cloudfunctions.net/handleTopic';
-            const data = {
+            const message = {
                 action: 'send',
                 topic: topic,
                 title: title,
                 body: body,
-                icon: icon,
+                icon: data.icon,
             };
 
             try {
@@ -277,7 +277,7 @@ if ('serviceWorker' in navigator) {
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(message)
                 });
 
                 if (!response.ok) {
