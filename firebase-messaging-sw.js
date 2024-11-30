@@ -21,15 +21,19 @@ firebase.initializeApp(firebaseConfig);
 // Initialize Firebase Messaging
 const messaging = firebase.messaging();
 
-// Background message handler
+// ====================== Background Message Handler ======================
+
 messaging.onBackgroundMessage(function(payload) {
     console.log('[firebase-messaging-sw.js] Received background message ', payload);
 
     // Initialize variables with default values
-    let notificationTitle = 'Background Message Title';
+    let notificationTitle = 'New Message';
     let notificationBody = 'Background Message body.';
-    let notificationIcon = '/default-icon.png'; // Default icon
-    let notificationUrl = '/'; // Default URL
+    let notificationIcon = '/default-icon.png'; // Temporary default icon
+    let notificationUrl = '/'; // Temporary default URL
+
+    // Variable to hold the topic
+    let topic = 'default';
 
     // Function to log current state
     const logNotificationDetails = () => {
@@ -38,6 +42,7 @@ messaging.onBackgroundMessage(function(payload) {
         console.log('Body:', notificationBody);
         console.log('Icon:', notificationIcon);
         console.log('URL:', notificationUrl);
+        console.log('Topic:', topic);
     };
 
     // 1. Extract from payload.notification
@@ -72,6 +77,9 @@ messaging.onBackgroundMessage(function(payload) {
             if (messageData.click) {
                 notificationUrl = messageData.click;
             }
+            if (messageData.topic) {
+                topic = messageData.topic;
+            }
         } catch (e) {
             console.error('Error parsing payload.data.message:', e);
             // Fallback to default title and body
@@ -83,6 +91,21 @@ messaging.onBackgroundMessage(function(payload) {
         notificationUrl = payload.data.click_action;
     } else if (payload.data && payload.data.click) {
         notificationUrl = payload.data.click;
+    }
+
+    // 4. Extract topic from payload.data.topic if not already extracted
+    if (payload.data && payload.data.topic) {
+        topic = payload.data.topic;
+    }
+
+    // 5. Set default icon if not provided or empty
+    if (!notificationIcon || notificationIcon.trim() === '') {
+        notificationIcon = 'https://raw.githubusercontent.com/IonTeLOS/marko-app/refs/heads/main/appLogo_192.png';
+    }
+
+    // 6. Set default URL if not provided or empty
+    if (!notificationUrl || notificationUrl.trim() === '') {
+        notificationUrl = `https://marko-app.netlify.app/top?room=${encodeURIComponent(topic)}`;
     }
 
     // Log the extracted notification details
@@ -100,7 +123,8 @@ messaging.onBackgroundMessage(function(payload) {
     self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// Handle notification click
+// ====================== Notification Click Handler ======================
+
 self.addEventListener('notificationclick', function(event) {
     console.log('[firebase-messaging-sw.js] Notification click Received.');
 
@@ -131,6 +155,7 @@ self.addEventListener('notificationclick', function(event) {
         })
     );
 });
+
 
 
 /*
