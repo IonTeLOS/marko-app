@@ -191,14 +191,10 @@
             }
             if (data.icon) {
                 payload.icon = data.icon;
-            } else {
-                payload.icon = 'https://raw.githubusercontent.com/IonTeLOS/marko-app/refs/heads/main/triskelion_black.svg';
-            }
+            } 
             if (data.url) {
                 payload.click = data.url;
-            } else {
-                payload.click = `https://marko-app.netlify.app/top?${encodeURIComponent(topic)}`;
-            }
+            } 
 
             try {
                 const response = await fetch(ntfyUrl, {
@@ -445,8 +441,8 @@
             const selectedTopic = topicSelect.value;
             const title = document.getElementById('messageTitle').value.trim();
             const body = document.getElementById('messageBody').value.trim();
-            const icon = document.getElementById('messageIcon').value.trim(); // Capture icon URL
-            const urlInput = document.getElementById('messageURL').value.trim(); // Capture URL
+            let icon = document.getElementById('messageIcon').value.trim(); // Capture icon URL
+            let urlInput = document.getElementById('messageURL').value.trim(); // Capture URL
 
             if (!selectedTopic) {
                 alert('Please select a topic to send the message.');
@@ -458,6 +454,13 @@
                 return;
             }
 
+            if (icon) === '' {
+               icon = 'https://raw.githubusercontent.com/IonTeLOS/marko-app/refs/heads/main/triskelion_black.svg';
+            }
+
+            if (urlInput) === '' {
+                urlInput = `https://marko-app.netlify.app/top?${encodeURIComponent(topic)}`;
+            }
             // Prepare data object with optional fields
             const data = {
                 priority: 3, // Default priority
