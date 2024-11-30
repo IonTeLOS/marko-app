@@ -25,26 +25,70 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage(function(payload) {
     console.log('[firebase-messaging-sw.js] Received background message ', payload);
 
-    // Extract notification details from payload.notification or payload.data
-    const notificationTitle = 
-        (payload.notification && payload.notification.title) ||
-        (payload.data && payload.data.title) ||
-        'Background Message Title';
+    // Initialize variables with default values
+    let notificationTitle = 'Background Message Title';
+    let notificationBody = 'Background Message body.';
+    let notificationIcon = '/default-icon.png'; // Default icon
+    let notificationUrl = '/'; // Default URL
 
-    const notificationBody = 
-        (payload.notification && payload.notification.body) ||
-        (payload.data && payload.data.body) ||
-        'Background Message body.';
+    // Check if payload.data exists
+    if (payload.data) {
+        // Check if payload.data.message exists and is a valid JSON string
+        if (payload.data.message) {
+            try {
+                // Parse the JSON string in payload.data.message
+                const messageData = JSON.parse(payload.data.message);
 
-    const notificationIcon = 
-        (payload.notification && payload.notification.icon) ||
-        (payload.data && payload.data.icon) ||
-        '/default-icon.png'; // Default icon if none provided
+                // Extract title and message from parsed data
+                if (messageData.title) {
+                    notificationTitle = messageData.title;
+                }
 
-    const notificationUrl = 
-        (payload.data && payload.data.url) ||
-        (payload.notification && payload.notification.click_action) ||
-        '/'; // Default URL if none provided
+                if (messageData.message) {
+                    notificationBody = messageData.message;
+                }
+
+                // Optional: Extract icon if provided
+                if (messageData.icon) {
+                    notificationIcon = messageData.icon;
+                }
+
+                // Optional: Extract click URL if provided
+                if (messageData.click) {
+                    notificationUrl = messageData.click;
+                }
+
+                // Optional: Handle priority if needed
+                // Note: FCM handles priority differently; ntfy.sh may not use this directly
+                // You can map it to notification options if desired
+
+            } catch (e) {
+                console.error('Error parsing payload.data.message:', e);
+                // Fallback to default title and body
+            }
+        }
+
+        // Alternatively, you can extract title and body directly from data fields if they exist
+        if (payload.data.title && !notificationTitle) {
+            notificationTitle = payload.data.title;
+        }
+
+        if (payload.data.body && !notificationBody) {
+            notificationBody = payload.data.body;
+        }
+
+        // Extract icon from data.icon if available and not already set
+        if (payload.data.icon && !notificationIcon) {
+            notificationIcon = payload.data.icon;
+        }
+
+        // Extract click action from data.click_action or data.click if available
+        if (payload.data.click_action) {
+            notificationUrl = payload.data.click_action;
+        } else if (payload.data.click) {
+            notificationUrl = payload.data.click;
+        }
+    }
 
     const notificationOptions = {
         body: notificationBody,
@@ -52,7 +96,7 @@ messaging.onBackgroundMessage(function(payload) {
         data: {
             url: notificationUrl, // URL to open on notification click
         },
-        // Optionally, you can add more options here (e.g., actions)
+        // Optional: Add more options like actions here
     };
 
     self.registration.showNotification(notificationTitle, notificationOptions);
@@ -68,7 +112,10 @@ self.addEventListener('notificationclick', function(event) {
     const url = event.notification.data && event.notification.data.url ? event.notification.data.url : '/';
 
     event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+        clients.matchAll({
+            type: 'window',
+            includeUncontrolled: true
+        }).then((windowClients) => {
             // Check if there's already a window/tab open with the target URL
             for (let client of windowClients) {
                 if (client.url === url && 'focus' in client) {
@@ -82,6 +129,7 @@ self.addEventListener('notificationclick', function(event) {
         })
     );
 });
+
 /*
 // firebase-messaging-sw.js
 
