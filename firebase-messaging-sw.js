@@ -31,64 +31,62 @@ messaging.onBackgroundMessage(function(payload) {
     let notificationIcon = '/default-icon.png'; // Default icon
     let notificationUrl = '/'; // Default URL
 
-    // Check if payload.data exists
-    if (payload.data) {
-        // Check if payload.data.message exists and is a valid JSON string
-        if (payload.data.message) {
-            try {
-                // Parse the JSON string in payload.data.message
-                const messageData = JSON.parse(payload.data.message);
+    // Function to log current state
+    const logNotificationDetails = () => {
+        console.log('Notification Details:');
+        console.log('Title:', notificationTitle);
+        console.log('Body:', notificationBody);
+        console.log('Icon:', notificationIcon);
+        console.log('URL:', notificationUrl);
+    };
 
-                // Extract title and message from parsed data
-                if (messageData.title) {
-                    notificationTitle = messageData.title;
-                }
-
-                if (messageData.message) {
-                    notificationBody = messageData.message;
-                }
-
-                // Optional: Extract icon if provided
-                if (messageData.icon) {
-                    notificationIcon = messageData.icon;
-                }
-
-                // Optional: Extract click URL if provided
-                if (messageData.click) {
-                    notificationUrl = messageData.click;
-                }
-
-                // Optional: Handle priority if needed
-                // Note: FCM handles priority differently; ntfy.sh may not use this directly
-                // You can map it to notification options if desired
-
-            } catch (e) {
-                console.error('Error parsing payload.data.message:', e);
-                // Fallback to default title and body
-            }
+    // 1. Extract from payload.notification
+    if (payload.notification) {
+        if (payload.notification.title) {
+            notificationTitle = payload.notification.title;
         }
-
-        // Alternatively, you can extract title and body directly from data fields if they exist
-        if (payload.data.title && !notificationTitle) {
-            notificationTitle = payload.data.title;
+        if (payload.notification.body) {
+            notificationBody = payload.notification.body;
         }
-
-        if (payload.data.body && !notificationBody) {
-            notificationBody = payload.data.body;
+        if (payload.notification.icon) {
+            notificationIcon = payload.notification.icon;
         }
-
-        // Extract icon from data.icon if available and not already set
-        if (payload.data.icon && !notificationIcon) {
-            notificationIcon = payload.data.icon;
-        }
-
-        // Extract click action from data.click_action or data.click if available
-        if (payload.data.click_action) {
-            notificationUrl = payload.data.click_action;
-        } else if (payload.data.click) {
-            notificationUrl = payload.data.click;
+        if (payload.notification.click_action) {
+            notificationUrl = payload.notification.click_action;
         }
     }
+
+    // 2. Extract from payload.data.message
+    if (payload.data && payload.data.message) {
+        try {
+            const messageData = JSON.parse(payload.data.message);
+            if (messageData.title) {
+                notificationTitle = messageData.title;
+            }
+            if (messageData.message) {
+                notificationBody = messageData.message;
+            }
+            if (messageData.icon) {
+                notificationIcon = messageData.icon;
+            }
+            if (messageData.click) {
+                notificationUrl = messageData.click;
+            }
+        } catch (e) {
+            console.error('Error parsing payload.data.message:', e);
+            // Fallback to default title and body
+        }
+    }
+
+    // 3. Extract from payload.data.click_action or payload.data.click
+    if (payload.data && payload.data.click_action) {
+        notificationUrl = payload.data.click_action;
+    } else if (payload.data && payload.data.click) {
+        notificationUrl = payload.data.click;
+    }
+
+    // Log the extracted notification details
+    logNotificationDetails();
 
     const notificationOptions = {
         body: notificationBody,
@@ -96,7 +94,7 @@ messaging.onBackgroundMessage(function(payload) {
         data: {
             url: notificationUrl, // URL to open on notification click
         },
-        // Optional: Add more options like actions here
+        // Optionally, add more options here (e.g., actions)
     };
 
     self.registration.showNotification(notificationTitle, notificationOptions);
@@ -111,6 +109,8 @@ self.addEventListener('notificationclick', function(event) {
     // Extract the URL from the notification data
     const url = event.notification.data && event.notification.data.url ? event.notification.data.url : '/';
 
+    console.log('Opening URL:', url);
+
     event.waitUntil(
         clients.matchAll({
             type: 'window',
@@ -119,16 +119,19 @@ self.addEventListener('notificationclick', function(event) {
             // Check if there's already a window/tab open with the target URL
             for (let client of windowClients) {
                 if (client.url === url && 'focus' in client) {
+                    console.log('Focusing existing client:', client.url);
                     return client.focus();
                 }
             }
             // If not, open a new window/tab with the URL
             if (clients.openWindow) {
+                console.log('Opening new window/tab with URL:', url);
                 return clients.openWindow(url);
             }
         })
     );
 });
+
 
 /*
 // firebase-messaging-sw.js
