@@ -186,6 +186,866 @@
             return arrayBufferToBase64(raw);
         }
 
+        /**
+         * Import a CryptoKey from Base64 string
+         * @param {string} base64
+         * @returns {Promise<CryptoKey>}
+         */
+        async function importKey(base64) {
+            if (!base64 || typeof base64 !== 'string') {
+                throw new Error('Invalid key: must be a non-empty Base64 string');
+            }
+
+            try {
+                const raw = base64ToArrayBuffer(base64);
+                
+                // Check key length (AES-GCM requires 128, 192, or 256-bit keys)
+                if (raw.byteLength * 8 !== 256) {
+                    throw new Error(`Invalid key length. Expected 256-bit key, got ${raw.byteLength * 8} bits.`);
+                }
+
+                return await crypto.subtle.importKey(
+                    "raw",
+                    raw,
+                    {
+                        name: "AES-GCM",
+                    },
+                    true,
+                    ["encrypt", "decrypt"]
+                );
+            } catch (error) {
+                console.error('Key import failed:', {
+                    errorName: error.name,
+                    errorMessage: error.message,
+                    base64Key: base64
+                });
+                throw new Error(`Key import failed: ${error.message}`);
+            }
+        }
+
+        /**
+         * Encrypt a plaintext message using AES-GCM
+         * @param {CryptoKey} key
+         * @param {string} plaintext
+         * @returns {Promise<string>} JSON string with Base64-encoded IV and ciphertext
+         */
+        async function encryptMessage(key, plaintext) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(plaintext);
+            const iv = crypto.getRandomValues(new Uint8Array(12)); // 96-bit IV
+
+            const ciphertext = await crypto.subtle.encrypt(
+                {
+                    name: "AES-GCM",
+                    iv: iv
+                },
+                key,
+                data
+            );
+
+            const encryptedData = {
+                iv: arrayBufferToBase64(iv),
+                ciphertext: arrayBufferToBase64(ciphertext)
+            };
+
+            console.log('Encryption Output:', encryptedData); // Log encrypted data
+
+            return JSON.stringify(encryptedData);
+        }
+
+        /**
+         * Decrypt a ciphertext message using AES-GCM
+         * @param {CryptoKey} key
+         * @param {string} encryptedData JSON string with Base64-encoded IV and ciphertext
+         * @returns {Promise<string>} Decrypted plaintext
+         */
+        async function decryptMessage(key, encryptedData) {
+            try {
+                // Validate input
+                if (!encryptedData || typeof encryptedData !== 'string') {
+                    throw new Error("Invalid encrypted data: must be a non-empty string");
+                }
+
+                let parsedData;
+                try {
+                    parsedData = JSON.parse(encryptedData);
+                    console.log('Parsed Data:', parsedData);
+                } catch (parseError) {
+                    console.error('Failed to parse encrypted data:', parseError);
+                    throw new Error("Invalid encrypted data format: not a valid JSON string");
+                }
+
+                // Check if 'iv' and 'ciphertext' are present
+                if (!parsedData.iv || !parsedData.ciphertext) {
+                    console.warn('Encrypted data missing iv or ciphertext, attempting to parse nested message...');
+                    // Attempt to parse nested JSON if 'message' field exists
+                    if (parsedData.message) {
+                        try {
+                            parsedData = JSON.parse(parsedData.message);
+                            console.log('Parsed Nested Data:', parsedData);
+                        } catch (nestedParseError) {
+                            console.error('Failed to parse nested encrypted data:', nestedParseError);
+                            throw new Error("Invalid encrypted data format: missing iv or ciphertext");
+                        }
+
+                        if (!parsedData.iv || !parsedData.ciphertext) {
+                            throw new Error("Invalid encrypted data: missing iv or ciphertext after nested parsing");
+                        }
+                    } else {
+                        throw new Error("Invalid encrypted data: missing iv or ciphertext");
+                    }
+                }
+
+                // Decode Base64 strings to ArrayBuffer
+                const iv = base64ToArrayBuffer(parsedData.iv);
+                const ciphertext = base64ToArrayBuffer(parsedData.ciphertext);
+
+                // Decrypt the ciphertext
+                const decrypted = await crypto.subtle.decrypt(
+                    {
+                        name: "AES-GCM",
+                        iv: iv
+                    },
+                    key,
+                    ciphertext
+                );
+
+                const decoder = new TextDecoder();
+                const plaintext = decoder.decode(decrypted);
+                console.log('Decrypted Plaintext:', plaintext);
+                return plaintext;
+            } catch (error) {
+                console.error('Decryption failed:', {
+                    errorName: error.name,
+                    errorMessage: error.message,
+                    encryptedData: encryptedData
+                });
+                throw new Error(`Decryption failed: ${error.message}`);
+            }
+        }
+
+        // ====================== Firebase Configuration ======================
+        const firebaseConfig = {
+            apiKey: "AIzaSyD96IBVqGKVEdmXIVCYL_7kvlBhJNSD1Ww",
+            authDomain: "marko-be9a9.firebaseapp.com",
+            databaseURL: "https://marko-be9a9-default-rtdb.firebaseio.com",
+            projectId: "marko-be9a9",
+            storageBucket: "marko-be9a9.appspot.com",
+            messagingSenderId: "7036670175",
+            appId: "1:7036670175:web:99992356716578ea13996a"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+
+        // Initialize Firebase Messaging
+        const messaging = firebase.messaging();
+
+        // ====================== LocalForage Configuration ======================
+        // Configure LocalForage
+        localforage.config({
+            name: 'FCMApp',
+            storeName: 'topics'
+        });
+
+        // ====================== Subscription Functions ======================
+
+        /**
+         * Function to send subscription to Firebase topic via Cloud Function
+         * @param {string} token - FCM token
+         * @param {string} topic - Topic name
+         * @returns {Promise<string>}
+         */
+        const subscribeToFirebaseTopic = async (token, topic) => {
+            const url = 'https://us-central1-marko-be9a9.cloudfunctions.net/handleTopic';
+            const data = {
+                action: 'subscribe',
+                token: token,
+                topic: topic
+            };
+        
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+        
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+        
+                const result = await response.text();
+                console.log(result);
+                return result;
+            } catch (error) {
+                console.error('Error subscribing to Firebase topic:', error);
+                throw error;
+            }
+        };
+
+        /**
+         * Function to subscribe to a topic with encryption
+         * @param {string} topic - Topic name
+         * @returns {Promise<void>}
+         */
+        const subscribeTopic = async (topic) => {
+            const token = localStorage.getItem('fcmt');
+            if (token) {
+                try {
+                    // Subscribe to Firebase topic
+                    const result = await subscribeToFirebaseTopic(token, topic);
+                    console.log('Successfully subscribed to Firebase topic:', result);
+                    document.getElementById('status').innerText = `Successfully subscribed to Firebase topic "${topic}".`;
+                    document.getElementById('error').innerText = '';
+
+                    // Start listening to ntfy.sh SSE for this topic
+                    startSSEForTopic(topic);
+                } catch (error) {
+                    console.error('Failed to subscribe to Firebase topic:', error);
+                    document.getElementById('error').innerText = `Failed to subscribe to topic "${topic}".`;
+                    document.getElementById('status').innerText = '';
+                }
+            } else {
+                console.error('Failed to get FCM token');
+                document.getElementById('error').innerText = 'Failed to get FCM token.';
+                document.getElementById('status').innerText = '';
+            }
+        };
+
+        /**
+         * Function to create a new topic with encryption
+         * @param {string} topic - Topic name
+         * @returns {Promise<void>}
+         */
+        const createTopic = async (topic) => {
+            if (!topic) {
+                alert('Please enter a valid topic name.');
+                return;
+            }
+
+            try {
+                // Generate encryption key
+                const key = await generateKey();
+                const exportedKey = await exportKey(key); // Base64 string
+
+                // Store the topic and key in LocalForage
+                await localforage.setItem(`topic_${topic}`, exportedKey);
+                console.log(`Stored topic "${topic}" with encryption key.`);
+                document.getElementById('createStatus').innerText = `Topic "${topic}" created and subscribed successfully.`;
+
+                // Subscribe to the topic
+                await subscribeTopic(topic);
+
+                // Generate invite link
+                const inviteLink = `https://marko-app.netlify.app/top?addTopic=true&topic=${encodeURIComponent(topic)}&key=${encodeURIComponent(exportedKey)}`;
+
+                // Copy invite link to clipboard
+                await navigator.clipboard.writeText(inviteLink);
+                console.log('Invite link copied to clipboard:', inviteLink);
+
+                // Inform the user
+                alert(`Invite link copied to clipboard:\n${inviteLink}`);
+
+                // Optionally, you can display the invite link on the page
+                // document.getElementById('createStatus').innerHTML += `<br>Invite Link: <a href="${inviteLink}" target="_blank">${inviteLink}</a>`;
+            } catch (error) {
+                console.error('Error creating topic:', error);
+                document.getElementById('createError').innerText = `Failed to create topic "${topic}". Error: ${error.message}`;
+                document.getElementById('createStatus').innerText = '';
+            }
+        };
+
+        /**
+         * Function to populate the topics dropdown
+         * @returns {Promise<void>}
+         */
+        const populateTopicsDropdown = async () => {
+            const topicSelect = document.getElementById('topicSelect');
+            // Clear existing options except the first
+            topicSelect.innerHTML = '<option value="" disabled selected>Select a topic</option>';
+
+            try {
+                const keys = await localforage.keys();
+                const topicKeys = keys.filter(key => key.startsWith('topic_'));
+
+                for (const key of topicKeys) {
+                    const topic = key.replace('topic_', '');
+                    const option = document.createElement('option');
+                    option.value = topic;
+                    option.textContent = topic;
+                    topicSelect.appendChild(option);
+                }
+            } catch (error) {
+                console.error('Error populating topics dropdown:', error);
+            }
+        };
+
+        // ====================== SSE Functions for ntfy.sh ======================
+
+        // Object to hold EventSource instances for each topic
+        const sseConnections = {};
+
+        /**
+         * Function to start SSE for a specific topic
+         * @param {string} topic - Topic name
+         */
+        const startSSEForTopic = (topic) => {
+            if (sseConnections[topic]) {
+                // Already connected
+                return;
+            }
+
+            const sseUrl = `https://notify.pchat.xyz/${encodeURIComponent(topic)}/sse`;
+            const eventSource = new EventSource(sseUrl);
+
+            eventSource.onmessage = async (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('Received ntfy.sh message:', data);
+                    await displayNtfyMessage(topic, data);
+                } catch (error) {
+                    console.error('Error parsing SSE message:', error);
+                }
+            };
+
+            eventSource.onerror = (error) => {
+                console.error(`SSE connection error for topic "${topic}":`, error);
+                eventSource.close();
+                delete sseConnections[topic];
+            };
+
+            sseConnections[topic] = eventSource;
+            console.log(`Started SSE for topic: ${topic}`);
+        };
+
+        /**
+         * Function to listen to all subscribed topics via SSE
+         * @returns {Promise<void>}
+         */
+        const listenToAllTopics = async () => {
+            try {
+                const keys = await localforage.keys();
+                const topicKeys = keys.filter(key => key.startsWith('topic_'));
+
+                for (const key of topicKeys) {
+                    const topic = key.replace('topic_', '');
+                    startSSEForTopic(topic);
+                }
+            } catch (error) {
+                console.error('Error retrieving subscribed topics for SSE:', error);
+            }
+        };
+
+        // ====================== Messaging Functions ======================
+
+        /**
+         * Function to send a message to ntfy.sh topic with encryption
+         * @param {string} topic - Topic name
+         * @param {string} title - Message title
+         * @param {string} body - Message body
+         * @param {object} data - Additional data (priority, tags, icon, url)
+         * @returns {Promise<string>}
+         */
+        const sendEncryptedMessageToNtfy = async (topic, title, body, data = {}) => {
+            // Retrieve the encryption key for the topic
+            const exportedKey = await localforage.getItem(`topic_${topic}`);
+            if (!exportedKey) {
+                throw new Error(`No encryption key found for topic "${topic}".`);
+            }
+
+            // Import the encryption key
+            const key = await importKey(exportedKey);
+
+            // Encrypt the message body
+            const encryptedBody = await encryptMessage(key, body); // JSON string
+            console.log('Encrypted Message:', encryptedBody); // Log encrypted message
+
+            // Prepare the data payload with the encrypted message
+            const encryptedData = {
+                message: encryptedBody, // Encrypted JSON string
+                title: title || 'Encrypted Notification'
+            };
+
+            // Add optional headers if provided
+            if (data.priority) {
+                encryptedData.priority = data.priority; // 1-5
+            }
+            if (data.tags) {
+                encryptedData.tags = data.tags.join(','); // Array to comma-separated string
+            }
+            if (data.icon) {
+                encryptedData.icon = data.icon;
+            } 
+            if (data.url) {
+                encryptedData.click = data.url;
+            } 
+
+            console.log('Payload to be sent to ntfy.sh:', encryptedData); // Log payload
+
+            // Send the encrypted message to ntfy.sh
+            try {
+                const ntfyUrl = `https://notify.pchat.xyz/${encodeURIComponent(topic)}`;
+                const response = await fetch(ntfyUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // Add headers conditionally
+                        ...(encryptedData.title && { 'Title': encryptedData.title }),
+                        ...(encryptedData.priority && { 'Priority': encryptedData.priority }),
+                        ...(encryptedData.tags && { 'Tags': encryptedData.tags }),
+                        ...(encryptedData.icon && { 'Icon': encryptedData.icon }),
+                        ...(encryptedData.click && { 'Click': encryptedData.click })
+                    },
+                    body: JSON.stringify(encryptedData)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                }
+
+                const result = await response.text();
+                console.log('ntfy.sh Response:', result);
+                return result;
+            } catch (error) {
+                console.error('Error sending message to ntfy.sh:', error);
+                throw error;
+            }
+        };
+
+        // ====================== Notification Permission and Token Handling ======================
+
+        /**
+         * Request permission to send notifications
+         */
+        function requestPermission() {
+            console.log('Requesting notification permission...');
+            Notification.requestPermission().then((permission) => {
+                if (permission === 'granted') {
+                    console.log('Notification permission granted.');
+                    getToken();
+                } else {
+                    console.log('Unable to get permission to notify.');
+                    document.getElementById('error').innerText = 'Notification permission denied.';
+                }
+            });
+        }
+
+        /**
+         * Get FCM token and store it in localStorage
+         */
+        function getToken() {
+            messaging.getToken({ vapidKey: 'BNbpZ8MoJQ0OvODtVFtqBmiH81lNdGMSU87ISkIMoRGCVN2gHdxnemVqfW1MlAzO5qQqTi_I_QdKo7qpdyFq3tw' }) // Replace with your VAPID key if needed
+                .then((currentToken) => {
+                    if (currentToken) {
+                        console.log('FCM Token:', currentToken);
+                        localStorage.setItem('fcmt', currentToken);
+                        // Optionally, send the token to your server if needed
+                    } else {
+                        console.log('No registration token available. Request permission to generate one.');
+                        document.getElementById('error').innerText = 'No registration token available. Request permission to generate one.';
+                    }
+                })
+                .catch((err) => {
+                    console.error('An error occurred while retrieving token:', err);
+                    document.getElementById('error').innerText = 'Error retrieving FCM token.';
+                });
+        }
+
+        /**
+         * Handle incoming FCM messages when app is in foreground
+         */
+        messaging.onMessage(async (payload) => {
+            console.log('Message received via FCM: ', payload);
+            await displayFCMMessage(payload);
+        });
+
+        /**
+         * Function to display FCM message on the page
+         * @param {object} payload - FCM message payload
+         */
+        async function displayFCMMessage(payload) {
+            const messagesDiv = document.getElementById('messages');
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message';
+            const title = payload.notification && payload.notification.title ? payload.notification.title : 'No Title';
+            const body = payload.notification && payload.notification.body ? payload.notification.body : 'No Body';
+            const data = payload.data ? JSON.stringify(payload.data) : 'No Data';
+            messageElement.innerHTML = `
+                <strong>FCM Title:</strong> ${title}<br>
+                <strong>FCM Body:</strong> ${body}<br>
+                <strong>FCM Data:</strong> ${data}
+            `;
+            messagesDiv.prepend(messageElement);
+        }
+
+        /**
+         * Function to display and decrypt ntfy.sh message on the page
+         * @param {string} topic - Topic name
+         * @param {object} data - ntfy.sh message data
+         */
+        async function displayNtfyMessage(topic, data) {
+            const messagesDiv = document.getElementById('messages');
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message';
+
+            console.log('Received ntfy.sh message:', data); // Log received message
+
+            // Check if 'message' field exists
+            if (!data.message) {
+                console.error('No message field in ntfy.sh data.');
+                messageElement.innerHTML = `
+                    <strong>ntfy.sh Title:</strong> ${data.title || 'No Title'}<br>
+                    <strong>ntfy.sh Body:</strong> ${data.message || 'No Body'}<br>
+                    <em>Missing message field.</em>
+                `;
+                messagesDiv.prepend(messageElement);
+                return;
+            }
+
+            // Log the message to be decrypted
+            console.log('Encrypted Message:', data.message);
+
+            // Retrieve the encryption key for the topic
+            const exportedKey = await localforage.getItem(`topic_${topic}`);
+            if (!exportedKey) {
+                console.error(`No encryption key found for topic "${topic}". Cannot decrypt message.`);
+                messageElement.innerHTML = `
+                    <strong>ntfy.sh Title:</strong> ${data.title || 'No Title'}<br>
+                    <strong>ntfy.sh Body:</strong> ${data.message || 'No Body'}<br>
+                    <em>Unable to decrypt message: No encryption key found for topic "${topic}".</em>
+                `;
+                messagesDiv.prepend(messageElement);
+                return;
+            }
+
+            try {
+                // Import the encryption key
+                const key = await importKey(exportedKey);
+
+                // Decrypt the message
+                const decryptedMessage = await decryptMessage(key, data.message);
+
+                // Display the decrypted message
+                const icon = data.icon || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/refs/heads/main/appLogo_192.png';
+                const url = data.click || `https://marko-app.netlify.app/top?room=${encodeURIComponent(topic)}`;
+
+                messageElement.innerHTML = `
+                    <strong>ntfy.sh Title:</strong> ${data.title || 'No Title'}<br>
+                    <strong>ntfy.sh Body:</strong> ${decryptedMessage}<br>
+                    <strong>ntfy.sh Icon:</strong> <img src="${icon}" alt="Icon" width="50"><br>
+                    <strong>ntfy.sh URL:</strong> <a href="${url}" target="_blank">${url}</a>
+                `;
+            } catch (error) {
+                console.error('Error decrypting ntfy.sh message:', error);
+                messageElement.innerHTML = `
+                    <strong>ntfy.sh Title:</strong> ${data.title || 'No Title'}<br>
+                    <strong>ntfy.sh Body:</strong> ${data.message || 'No Body'}<br>
+                    <em>Error decrypting message.</em>
+                `;
+            }
+
+            messagesDiv.prepend(messageElement);
+        }
+
+        // ====================== Event Listeners ======================
+
+        /**
+         * Event listener for subscribe button
+         */
+        document.getElementById('subscribeButton').addEventListener('click', () => {
+            const topic = document.getElementById('topicInput').value.trim();
+            if (topic) {
+                subscribeTopic(topic);
+            } else {
+                alert('Please enter a valid topic name.');
+            }
+        });
+
+        /**
+         * Event listener for create topic button
+         */
+        document.getElementById('createTopicButton').addEventListener('click', async () => {
+            const topic = document.getElementById('createTopicInput').value.trim();
+            if (topic) {
+                await createTopic(topic);
+            } else {
+                alert('Please enter a valid topic name.');
+            }
+        });
+
+        /**
+         * Event listener for send message button
+         */
+        document.getElementById('sendMessageButton').addEventListener('click', async () => {
+            const topicSelect = document.getElementById('topicSelect');
+            const selectedTopic = topicSelect.value;
+            const title = document.getElementById('messageTitle').value.trim();
+            const body = document.getElementById('messageBody').value.trim();
+            let icon = document.getElementById('messageIcon').value.trim(); // Capture icon URL
+            let urlInput = document.getElementById('messageURL').value.trim(); // Capture URL
+
+            if (!selectedTopic) {
+                alert('Please select a topic to send the message.');
+                return;
+            }
+
+            if (!body) {
+                alert('Please enter a message body.');
+                return;
+            }
+
+            // Set default icon if empty
+            if (!icon) {
+                icon = 'https://raw.githubusercontent.com/IonTeLOS/marko-app/refs/heads/main/appLogo_192.png';
+            }
+
+            // Set default URL if empty, using the topic
+            if (!urlInput) {
+                urlInput = `https://marko-app.netlify.app/top?room=${encodeURIComponent(selectedTopic)}`;
+            }
+
+            // Prepare data object with optional fields
+            const data = {
+                priority: 3, // Default priority
+                tags: [], // Array of tags (can be extended to allow user input)
+                icon: icon, // Icon URL
+                url: urlInput // Click URL
+            };
+
+            // Title is optional; provide a default if not entered
+            const messageTitle = title || 'Encrypted Message';
+
+            try {
+                const result = await sendEncryptedMessageToNtfy(selectedTopic, messageTitle, body, data);
+                console.log('Message sent:', result);
+                document.getElementById('sendStatus').innerText = `Encrypted message sent to topic "${selectedTopic}".`;
+                document.getElementById('sendError').innerText = '';
+            } catch (error) {
+                console.error('Failed to send encrypted message:', error);
+                document.getElementById('sendError').innerText = `Failed to send message to topic "${selectedTopic}". Error: ${error.message}`;
+                document.getElementById('sendStatus').innerText = '';
+            }
+        });
+
+        // ====================== Initialization ======================
+
+        /**
+         * Function to parse URL parameters and handle invite links
+         */
+        const handleInviteLink = async () => {
+            const params = new URLSearchParams(window.location.search);
+            const addTopic = params.get('addTopic');
+            const topic = params.get('topic');
+            const key = params.get('key');
+
+            if (addTopic === 'true' && topic && key) {
+                try {
+                    // Check if the topic already exists
+                    const existingKey = await localforage.getItem(`topic_${topic}`);
+                    if (existingKey) {
+                        alert(`Topic "${topic}" is already subscribed.`);
+                        return;
+                    }
+
+                    // Validate the key format (should be Base64)
+                    try {
+                        atob(key); // Attempt to decode to validate
+                    } catch (e) {
+                        throw new Error('Invalid encryption key format.');
+                    }
+
+                    // Store the topic and key in LocalForage
+                    await localforage.setItem(`topic_${topic}`, key);
+                    console.log(`Stored topic "${topic}" with encryption key from invite link.`);
+                    alert(`Topic "${topic}" added successfully from invite link.`);
+
+                    // Subscribe to the topic
+                    await subscribeTopic(topic);
+
+                    // Optionally, you can remove the URL parameters after processing
+                    const url = new URL(window.location);
+                    url.searchParams.delete('addTopic');
+                    url.searchParams.delete('topic');
+                    url.searchParams.delete('key');
+                    window.history.replaceState({}, document.title, url.toString());
+                } catch (error) {
+                    console.error('Error handling invite link:', error);
+                    alert(`Failed to add topic from invite link. Error: ${error.message}`);
+                }
+            }
+        };
+
+        /**
+         * Initialize subscriptions and SSE listeners
+         */
+        (async () => {
+            await listenToAllTopics();
+            await handleInviteLink();
+        })();
+
+        // Request notification permission on page load
+        requestPermission();
+        populateTopicsDropdown();
+    </script>
+</body>
+</html>
+
+            color: green;
+        }
+        #error, #sendError, #createError {
+            margin-top: 10px;
+            color: red;
+        }
+        .section {
+            margin-top: 30px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            background-color: #fafafa;
+        }
+        .section h2 {
+            margin-top: 0;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            margin-top: 15px;
+            padding: 10px 15px;
+            background-color: #007bff;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>FCM & ntfy.sh Topic Subscription and Messaging</h1>
+
+    <!-- Subscription Section -->
+    <div class="section">
+        <h2>Subscribe to a Topic</h2>
+        <p>Enter a topic name to subscribe:</p>
+        <input type="text" id="topicInput" placeholder="Enter topic name">
+        <button id="subscribeButton">Subscribe</button>
+        <div id="status"></div>
+        <div id="error"></div>
+    </div>
+
+    <!-- Create Topic Section -->
+    <div class="section">
+        <h2>Create a New Topic</h2>
+        <p>Enter a unique topic name to create and subscribe with encryption:</p>
+        <input type="text" id="createTopicInput" placeholder="Enter new topic name">
+        <button id="createTopicButton">Create Topic</button>
+        <div id="createStatus"></div>
+        <div id="createError"></div>
+    </div>
+
+    <!-- Messaging Section -->
+    <div class="section">
+        <h2>Send a Message to a Topic</h2>
+        <label for="topicSelect">Select a Topic:</label>
+        <select id="topicSelect">
+            <option value="" disabled selected>Select a topic</option>
+        </select>
+
+        <label for="messageTitle">Message Title:</label>
+        <input type="text" id="messageTitle" placeholder="Enter message title">
+
+        <label for="messageBody">Message Body:</label>
+        <textarea id="messageBody" rows="4" placeholder="Enter message body"></textarea>
+
+        <label for="messageIcon">Icon URL (optional):</label>
+        <input type="text" id="messageIcon" placeholder="Enter icon URL">
+        
+        <label for="messageURL">URL to Open on Click (optional):</label>
+        <input type="text" id="messageURL" placeholder="Enter URL">
+
+        <button id="sendMessageButton">Send Message</button>
+        <div id="sendStatus"></div>
+        <div id="sendError"></div>
+    </div>
+
+    <!-- Received Messages Section -->
+    <div class="section">
+        <h2>Received Messages:</h2>
+        <div id="messages"></div>
+    </div>
+
+    <script>
+        // ====================== Utility Functions ======================
+
+        /**
+         * Convert ArrayBuffer to Base64 string
+         * @param {ArrayBuffer} buffer
+         * @returns {string}
+         */
+        function arrayBufferToBase64(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            bytes.forEach((b) => binary += String.fromCharCode(b));
+            return window.btoa(binary);
+        }
+
+        /**
+         * Convert Base64 string to ArrayBuffer
+         * @param {string} base64
+         * @returns {ArrayBuffer}
+         */
+        function base64ToArrayBuffer(base64) {
+            try {
+                const binary = window.atob(base64);
+                const len = binary.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                return bytes.buffer;
+            } catch (error) {
+                console.error('Invalid Base64 string:', error);
+                throw new Error('Invalid Base64 string.');
+            }
+        }
+
+        /**
+         * Generate a random encryption key (AES-GCM 256-bit)
+         * @returns {Promise<CryptoKey>}
+         */
+        async function generateKey() {
+            return await crypto.subtle.generateKey(
+                {
+                    name: "AES-GCM",
+                    length: 256,
+                },
+                true,
+                ["encrypt", "decrypt"]
+            );
+        }
+
+        /**
+         * Export a CryptoKey to Base64 string
+         * @param {CryptoKey} key
+         * @returns {Promise<string>}
+         */
+        async function exportKey(key) {
+            const raw = await crypto.subtle.exportKey("raw", key);
+            return arrayBufferToBase64(raw);
+        }
+
 /**
  * Import a CryptoKey from Base64 string
  * @param {string} base64
