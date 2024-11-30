@@ -36,7 +36,7 @@
             margin-top: 10px;
             color: green;
         }
-        #error, #sendError {
+        #error, #sendError, #createError {
             margin-top: 10px;
             color: red;
         }
@@ -203,7 +203,7 @@
          * Encrypt a plaintext message using AES-GCM
          * @param {CryptoKey} key
          * @param {string} plaintext
-         * @returns {Promise<string>} Base64-encoded IV:ciphertext
+         * @returns {Promise<string>} JSON string with Base64-encoded IV and ciphertext
          */
         async function encryptMessage(key, plaintext) {
             const encoder = new TextEncoder();
@@ -219,31 +219,41 @@
                 data
             );
 
-            return `${arrayBufferToBase64(iv)}:${arrayBufferToBase64(ciphertext)}`;
+            const encryptedData = {
+                iv: arrayBufferToBase64(iv),
+                ciphertext: arrayBufferToBase64(ciphertext)
+            };
+
+            return JSON.stringify(encryptedData);
         }
 
         /**
          * Decrypt a ciphertext message using AES-GCM
          * @param {CryptoKey} key
-         * @param {string} encryptedData Base64-encoded IV:ciphertext
+         * @param {string} encryptedData JSON string with Base64-encoded IV and ciphertext
          * @returns {Promise<string>} Decrypted plaintext
          */
         async function decryptMessage(key, encryptedData) {
-            const [ivBase64, ciphertextBase64] = encryptedData.split(':');
-            const iv = new Uint8Array(base64ToArrayBuffer(ivBase64));
-            const ciphertext = base64ToArrayBuffer(ciphertextBase64);
+            try {
+                const parsedData = JSON.parse(encryptedData);
+                const iv = new Uint8Array(base64ToArrayBuffer(parsedData.iv));
+                const ciphertext = base64ToArrayBuffer(parsedData.ciphertext);
 
-            const decrypted = await crypto.subtle.decrypt(
-                {
-                    name: "AES-GCM",
-                    iv: iv
-                },
-                key,
-                ciphertext
-            );
+                const decrypted = await crypto.subtle.decrypt(
+                    {
+                        name: "AES-GCM",
+                        iv: iv
+                    },
+                    key,
+                    ciphertext
+                );
 
-            const decoder = new TextDecoder();
-            return decoder.decode(decrypted);
+                const decoder = new TextDecoder();
+                return decoder.decode(decrypted);
+            } catch (error) {
+                console.error('Decryption failed:', error);
+                throw new Error('Failed to decrypt message.');
+            }
         }
 
         // ====================== Firebase Configuration ======================
@@ -304,64 +314,6 @@
                 return result;
             } catch (error) {
                 console.error('Error subscribing to Firebase topic:', error);
-                throw error;
-            }
-        };
-
-        /**
-         * Function to send message to ntfy.sh topic
-         * @param {string} topic - Topic name
-         * @param {string} title - Message title
-         * @param {string} body - Message body
-         * @param {object} data - Additional data (priority, tags, icon, url)
-         * @returns {Promise<string>}
-         */
-        const sendMessageToNtfy = async (topic, title, body, data = {}) => {
-            const ntfyUrl = `https://notify.pchat.xyz/${encodeURIComponent(topic)}`;
-            const payload = {
-                message: body,
-                title: title || 'Notification'
-            };
-        
-            // Add optional headers if provided
-            if (data.priority) {
-                payload.priority = data.priority; // 1-5
-            }
-            if (data.tags) {
-                payload.tags = data.tags.join(','); // Array to comma-separated string
-            }
-            if (data.icon) {
-                payload.icon = data.icon;
-            } 
-            if (data.url) {
-                payload.click = data.url;
-            } 
-        
-            try {
-                const response = await fetch(ntfyUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        // Add headers conditionally
-                        ...(payload.title && { 'Title': payload.title }),
-                        ...(payload.priority && { 'Priority': payload.priority }),
-                        ...(payload.tags && { 'Tags': payload.tags }),
-                        ...(payload.icon && { 'Icon': payload.icon }),
-                        ...(payload.click && { 'Click': payload.click })
-                    },
-                    body: JSON.stringify(payload)
-                });
-        
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-                }
-        
-                const result = await response.text();
-                console.log('ntfy.sh Response:', result);
-                return result;
-            } catch (error) {
-                console.error('Error sending message to ntfy.sh:', error);
                 throw error;
             }
         };
@@ -439,30 +391,6 @@
         };
 
         /**
-         * Function to store a topic in LocalForage (legacy function if needed)
-         * @param {string} topic - Topic name
-         * @returns {Promise<void>}
-         */
-        const storeTopicLegacy = async (topic) => {
-            try {
-                // Get current topics
-                let topics = await localforage.getItem('subscribedTopics');
-                if (!topics) {
-                    topics = [];
-                }
-
-                // Avoid duplicates
-                if (!topics.includes(topic)) {
-                    topics.push(topic);
-                    await localforage.setItem('subscribedTopics', topics);
-                    console.log(`Stored topic: ${topic}`);
-                }
-            } catch (error) {
-                console.error('Error storing topic:', error);
-            }
-        };
-
-        /**
          * Function to populate the topics dropdown
          * @returns {Promise<void>}
          */
@@ -508,6 +436,7 @@
             eventSource.onmessage = async (event) => {
                 try {
                     const data = JSON.parse(event.data);
+                    console.log('Received ntfy.sh message:', data);
                     await displayNtfyMessage(topic, data);
                 } catch (error) {
                     console.error('Error parsing SSE message:', error);
@@ -563,11 +492,11 @@
             const key = await importKey(exportedKey);
 
             // Encrypt the message body
-            const encryptedBody = await encryptMessage(key, body);
+            const encryptedBody = await encryptMessage(key, body); // JSON string
 
             // Prepare the data payload with the encrypted message
             const encryptedData = {
-                message: encryptedBody,
+                message: encryptedBody, // Encrypted JSON string
                 title: title || 'Encrypted Notification'
             };
 
@@ -611,7 +540,7 @@
                 console.log('ntfy.sh Response:', result);
                 return result;
             } catch (error) {
-                console.error('Error sending encrypted message to ntfy.sh:', error);
+                console.error('Error sending message to ntfy.sh:', error);
                 throw error;
             }
         };
@@ -691,6 +620,8 @@
             const messagesDiv = document.getElementById('messages');
             const messageElement = document.createElement('div');
             messageElement.className = 'message';
+
+            console.log('Received ntfy.sh message:', data);
 
             // Retrieve the encryption key for the topic
             const exportedKey = await localforage.getItem(`topic_${topic}`);
@@ -834,6 +765,13 @@
                         return;
                     }
 
+                    // Validate the key format (should be Base64)
+                    try {
+                        atob(key); // Attempt to decode to validate
+                    } catch (e) {
+                        throw new Error('Invalid encryption key format.');
+                    }
+
                     // Store the topic and key in LocalForage
                     await localforage.setItem(`topic_${topic}`, key);
                     console.log(`Stored topic "${topic}" with encryption key from invite link.`);
@@ -869,4 +807,3 @@
     </script>
 </body>
 </html>
-
