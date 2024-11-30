@@ -191,18 +191,37 @@
          * @param {string} base64
          * @returns {Promise<CryptoKey>}
          */
-        async function importKey(base64) {
-            const raw = base64ToArrayBuffer(base64);
-            return await crypto.subtle.importKey(
-                "raw",
-                raw,
-                {
-                    name: "AES-GCM",
-                },
-                true,
-                ["encrypt", "decrypt"]
-            );
+async function importKey(base64) {
+    if (!base64 || typeof base64 !== 'string') {
+        throw new Error('Invalid key: must be a non-empty Base64 string');
+    }
+
+    try {
+        const raw = base64ToArrayBuffer(base64);
+        
+        // Check key length (AES-GCM requires 128, 192, or 256-bit keys)
+        if (raw.byteLength * 8 !== 256) {
+            throw new Error(`Invalid key length. Expected 256-bit key, got ${raw.byteLength * 8} bits.`);
         }
+
+        return await crypto.subtle.importKey(
+            "raw",
+            raw,
+            {
+                name: "AES-GCM",
+            },
+            true,
+            ["encrypt", "decrypt"]
+        );
+    } catch (error) {
+        console.error('Key import failed:', {
+            errorName: error.name,
+            errorMessage: error.message,
+            base64Key: base64
+        });
+        throw new Error(`Key import failed: ${error.message}`);
+    }
+}
 
         /**
          * Encrypt a plaintext message using AES-GCM
@@ -238,32 +257,48 @@
          * @param {string} encryptedData JSON string with Base64-encoded IV and ciphertext
          * @returns {Promise<string>} Decrypted plaintext
          */
-        async function decryptMessage(key, encryptedData) {
-            try {
-                const parsedData = JSON.parse(encryptedData);
-                if (!parsedData.iv || !parsedData.ciphertext) {
-                    throw new Error("Invalid encrypted data format.");
-                }
-
-                const iv = new Uint8Array(base64ToArrayBuffer(parsedData.iv));
-                const ciphertext = base64ToArrayBuffer(parsedData.ciphertext);
-
-                const decrypted = await crypto.subtle.decrypt(
-                    {
-                        name: "AES-GCM",
-                        iv: iv
-                    },
-                    key,
-                    ciphertext
-                );
-
-                const decoder = new TextDecoder();
-                return decoder.decode(decrypted);
-            } catch (error) {
-                console.error('Decryption failed:', error);
-                throw new Error('Failed to decrypt message.');
-            }
+async function decryptMessage(key, encryptedData) {
+    try {
+        // Validate input
+        if (!encryptedData || typeof encryptedData !== 'string') {
+            throw new Error("Invalid encrypted data: must be a non-empty string");
         }
+
+        let parsedData;
+        try {
+            parsedData = JSON.parse(encryptedData);
+        } catch (parseError) {
+            console.error('Failed to parse encrypted data:', parseError);
+            throw new Error("Invalid encrypted data format: not a valid JSON string");
+        }
+
+        if (!parsedData.iv || !parsedData.ciphertext) {
+            throw new Error("Invalid encrypted data: missing iv or ciphertext");
+        }
+
+        const iv = base64ToArrayBuffer(parsedData.iv);
+        const ciphertext = base64ToArrayBuffer(parsedData.ciphertext);
+
+        const decrypted = await crypto.subtle.decrypt(
+            {
+                name: "AES-GCM",
+                iv: iv
+            },
+            key,
+            ciphertext
+        );
+
+        const decoder = new TextDecoder();
+        return decoder.decode(decrypted);
+    } catch (error) {
+        console.error('Decryption failed:', {
+            errorName: error.name,
+            errorMessage: error.message,
+            encryptedData: encryptedData
+        });
+        throw new Error(`Decryption failed: ${error.message}`);
+    }
+}
 
         // ====================== Firebase Configuration ======================
         const firebaseConfig = {
