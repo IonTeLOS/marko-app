@@ -24,6 +24,91 @@ const messaging = firebase.messaging();
 // Background message handler
 messaging.onBackgroundMessage(function(payload) {
     console.log('[firebase-messaging-sw.js] Received background message ', payload);
+
+    // Extract notification details from payload.notification or payload.data
+    const notificationTitle = 
+        (payload.notification && payload.notification.title) ||
+        (payload.data && payload.data.title) ||
+        'Background Message Title';
+
+    const notificationBody = 
+        (payload.notification && payload.notification.body) ||
+        (payload.data && payload.data.body) ||
+        'Background Message body.';
+
+    const notificationIcon = 
+        (payload.notification && payload.notification.icon) ||
+        (payload.data && payload.data.icon) ||
+        '/default-icon.png'; // Default icon if none provided
+
+    const notificationUrl = 
+        (payload.data && payload.data.url) ||
+        (payload.notification && payload.notification.click_action) ||
+        '/'; // Default URL if none provided
+
+    const notificationOptions = {
+        body: notificationBody,
+        icon: notificationIcon,
+        data: {
+            url: notificationUrl, // URL to open on notification click
+        },
+        // Optionally, you can add more options here (e.g., actions)
+    };
+
+    self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+// Handle notification click
+self.addEventListener('notificationclick', function(event) {
+    console.log('[firebase-messaging-sw.js] Notification click Received.');
+
+    event.notification.close();
+
+    // Extract the URL from the notification data
+    const url = event.notification.data && event.notification.data.url ? event.notification.data.url : '/';
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+            // Check if there's already a window/tab open with the target URL
+            for (let client of windowClients) {
+                if (client.url === url && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            // If not, open a new window/tab with the URL
+            if (clients.openWindow) {
+                return clients.openWindow(url);
+            }
+        })
+    );
+});
+/*
+// firebase-messaging-sw.js
+
+// Import Firebase scripts
+importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
+
+// ====================== Firebase Configuration ======================
+const firebaseConfig = {
+    apiKey: "AIzaSyD96IBVqGKVEdmXIVCYL_7kvlBhJNSD1Ww",
+    authDomain: "marko-be9a9.firebaseapp.com",
+    databaseURL: "https://marko-be9a9-default-rtdb.firebaseio.com",
+    projectId: "marko-be9a9",
+    storageBucket: "marko-be9a9.appspot.com",
+    messagingSenderId: "7036670175",
+    appId: "1:7036670175:web:99992356716578ea13996a"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+
+// Initialize Firebase Messaging
+const messaging = firebase.messaging();
+
+// Background message handler
+messaging.onBackgroundMessage(function(payload) {
+    console.log('[firebase-messaging-sw.js] Received background message ', payload);
     // Customize notification here
     const notificationTitle = payload.notification && payload.notification.title ? payload.notification.title : 'Background Message Title';
     const notificationOptions = {
