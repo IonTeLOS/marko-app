@@ -186,11 +186,11 @@
             return arrayBufferToBase64(raw);
         }
 
-        /**
-         * Import a CryptoKey from Base64 string
-         * @param {string} base64
-         * @returns {Promise<CryptoKey>}
-         */
+/**
+ * Import a CryptoKey from Base64 string
+ * @param {string} base64
+ * @returns {Promise<CryptoKey>}
+ */
 async function importKey(base64) {
     if (!base64 || typeof base64 !== 'string') {
         throw new Error('Invalid key: must be a non-empty Base64 string');
@@ -223,40 +223,42 @@ async function importKey(base64) {
     }
 }
 
-        /**
-         * Encrypt a plaintext message using AES-GCM
-         * @param {CryptoKey} key
-         * @param {string} plaintext
-         * @returns {Promise<string>} JSON string with Base64-encoded IV and ciphertext
-         */
-        async function encryptMessage(key, plaintext) {
-            const encoder = new TextEncoder();
-            const data = encoder.encode(plaintext);
-            const iv = crypto.getRandomValues(new Uint8Array(12)); // 96-bit IV
+/**
+ * Encrypt a plaintext message using AES-GCM
+ * @param {CryptoKey} key
+ * @param {string} plaintext
+ * @returns {Promise<string>} JSON string with Base64-encoded IV and ciphertext
+ */
+async function encryptMessage(key, plaintext) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(plaintext);
+    const iv = crypto.getRandomValues(new Uint8Array(12)); // 96-bit IV
 
-            const ciphertext = await crypto.subtle.encrypt(
-                {
-                    name: "AES-GCM",
-                    iv: iv
-                },
-                key,
-                data
-            );
+    const ciphertext = await crypto.subtle.encrypt(
+        {
+            name: "AES-GCM",
+            iv: iv
+        },
+        key,
+        data
+    );
 
-            const encryptedData = {
-                iv: arrayBufferToBase64(iv),
-                ciphertext: arrayBufferToBase64(ciphertext)
-            };
+    const encryptedData = {
+        iv: arrayBufferToBase64(iv),
+        ciphertext: arrayBufferToBase64(ciphertext)
+    };
 
-            return JSON.stringify(encryptedData);
-        }
+    console.log('Encryption Output:', encryptedData); // Log encrypted data
 
-        /**
-         * Decrypt a ciphertext message using AES-GCM
-         * @param {CryptoKey} key
-         * @param {string} encryptedData JSON string with Base64-encoded IV and ciphertext
-         * @returns {Promise<string>} Decrypted plaintext
-         */
+    return JSON.stringify(encryptedData);
+}
+
+/**
+ * Decrypt a ciphertext message using AES-GCM
+ * @param {CryptoKey} key
+ * @param {string} encryptedData JSON string with Base64-encoded IV and ciphertext
+ * @returns {Promise<string>} Decrypted plaintext
+ */
 async function decryptMessage(key, encryptedData) {
     try {
         // Validate input
@@ -267,18 +269,38 @@ async function decryptMessage(key, encryptedData) {
         let parsedData;
         try {
             parsedData = JSON.parse(encryptedData);
+            console.log('Parsed Data:', parsedData);
         } catch (parseError) {
             console.error('Failed to parse encrypted data:', parseError);
             throw new Error("Invalid encrypted data format: not a valid JSON string");
         }
 
+        // Check if 'iv' and 'ciphertext' are present
         if (!parsedData.iv || !parsedData.ciphertext) {
-            throw new Error("Invalid encrypted data: missing iv or ciphertext");
+            console.warn('Encrypted data missing iv or ciphertext, attempting to parse nested message...');
+            // Attempt to parse nested JSON if 'message' field exists
+            if (parsedData.message) {
+                try {
+                    parsedData = JSON.parse(parsedData.message);
+                    console.log('Parsed Nested Data:', parsedData);
+                } catch (nestedParseError) {
+                    console.error('Failed to parse nested encrypted data:', nestedParseError);
+                    throw new Error("Invalid encrypted data format: missing iv or ciphertext");
+                }
+
+                if (!parsedData.iv || !parsedData.ciphertext) {
+                    throw new Error("Invalid encrypted data: missing iv or ciphertext after nested parsing");
+                }
+            } else {
+                throw new Error("Invalid encrypted data: missing iv or ciphertext");
+            }
         }
 
+        // Decode Base64 strings to ArrayBuffer
         const iv = base64ToArrayBuffer(parsedData.iv);
         const ciphertext = base64ToArrayBuffer(parsedData.ciphertext);
 
+        // Decrypt the ciphertext
         const decrypted = await crypto.subtle.decrypt(
             {
                 name: "AES-GCM",
@@ -289,7 +311,9 @@ async function decryptMessage(key, encryptedData) {
         );
 
         const decoder = new TextDecoder();
-        return decoder.decode(decrypted);
+        const plaintext = decoder.decode(decrypted);
+        console.log('Decrypted Plaintext:', plaintext);
+        return plaintext;
     } catch (error) {
         console.error('Decryption failed:', {
             errorName: error.name,
@@ -299,6 +323,7 @@ async function decryptMessage(key, encryptedData) {
         throw new Error(`Decryption failed: ${error.message}`);
     }
 }
+
 
         // ====================== Firebase Configuration ======================
         const firebaseConfig = {
@@ -517,78 +542,80 @@ async function decryptMessage(key, encryptedData) {
 
         // ====================== Messaging Functions ======================
 
-        /**
-         * Function to send a message to ntfy.sh topic with encryption
-         * @param {string} topic - Topic name
-         * @param {string} title - Message title
-         * @param {string} body - Message body
-         * @param {object} data - Additional data (priority, tags, icon, url)
-         * @returns {Promise<string>}
-         */
-        const sendEncryptedMessageToNtfy = async (topic, title, body, data = {}) => {
-            // Retrieve the encryption key for the topic
-            const exportedKey = await localforage.getItem(`topic_${topic}`);
-            if (!exportedKey) {
-                throw new Error(`No encryption key found for topic "${topic}".`);
-            }
+       /**
+ * Function to send a message to ntfy.sh topic with encryption
+ * @param {string} topic - Topic name
+ * @param {string} title - Message title
+ * @param {string} body - Message body
+ * @param {object} data - Additional data (priority, tags, icon, url)
+ * @returns {Promise<string>}
+ */
+const sendEncryptedMessageToNtfy = async (topic, title, body, data = {}) => {
+    // Retrieve the encryption key for the topic
+    const exportedKey = await localforage.getItem(`topic_${topic}`);
+    if (!exportedKey) {
+        throw new Error(`No encryption key found for topic "${topic}".`);
+    }
 
-            // Import the encryption key
-            const key = await importKey(exportedKey);
+    // Import the encryption key
+    const key = await importKey(exportedKey);
 
-            // Encrypt the message body
-            const encryptedBody = await encryptMessage(key, body); // JSON string
-            console.log('Encrypted Message:', encryptedBody); // Log encrypted message
+    // Encrypt the message body
+    const encryptedBody = await encryptMessage(key, body); // JSON string
+    console.log('Encrypted Message:', encryptedBody); // Log encrypted message
 
-            // Prepare the data payload with the encrypted message
-            const encryptedData = {
-                message: encryptedBody, // Encrypted JSON string
-                title: title || 'Encrypted Notification'
-            };
+    // Prepare the data payload with the encrypted message
+    const encryptedData = {
+        message: encryptedBody, // Encrypted JSON string
+        title: title || 'Encrypted Notification'
+    };
 
-            // Add optional headers if provided
-            if (data.priority) {
-                encryptedData.priority = data.priority; // 1-5
-            }
-            if (data.tags) {
-                encryptedData.tags = data.tags.join(','); // Array to comma-separated string
-            }
-            if (data.icon) {
-                encryptedData.icon = data.icon;
-            } 
-            if (data.url) {
-                encryptedData.click = data.url;
-            } 
+    // Add optional headers if provided
+    if (data.priority) {
+        encryptedData.priority = data.priority; // 1-5
+    }
+    if (data.tags) {
+        encryptedData.tags = data.tags.join(','); // Array to comma-separated string
+    }
+    if (data.icon) {
+        encryptedData.icon = data.icon;
+    } 
+    if (data.url) {
+        encryptedData.click = data.url;
+    } 
 
-            // Send the encrypted message to ntfy.sh
-            try {
-                const ntfyUrl = `https://notify.pchat.xyz/${encodeURIComponent(topic)}`;
-                const response = await fetch(ntfyUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        // Add headers conditionally
-                        ...(encryptedData.title && { 'Title': encryptedData.title }),
-                        ...(encryptedData.priority && { 'Priority': encryptedData.priority }),
-                        ...(encryptedData.tags && { 'Tags': encryptedData.tags }),
-                        ...(encryptedData.icon && { 'Icon': encryptedData.icon }),
-                        ...(encryptedData.click && { 'Click': encryptedData.click })
-                    },
-                    body: JSON.stringify(encryptedData)
-                });
+    console.log('Payload to be sent to ntfy.sh:', encryptedData); // Log payload
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-                }
+    // Send the encrypted message to ntfy.sh
+    try {
+        const ntfyUrl = `https://notify.pchat.xyz/${encodeURIComponent(topic)}`;
+        const response = await fetch(ntfyUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                // Add headers conditionally
+                ...(encryptedData.title && { 'Title': encryptedData.title }),
+                ...(encryptedData.priority && { 'Priority': encryptedData.priority }),
+                ...(encryptedData.tags && { 'Tags': encryptedData.tags }),
+                ...(encryptedData.icon && { 'Icon': encryptedData.icon }),
+                ...(encryptedData.click && { 'Click': encryptedData.click })
+            },
+            body: JSON.stringify(encryptedData)
+        });
 
-                const result = await response.text();
-                console.log('ntfy.sh Response:', result);
-                return result;
-            } catch (error) {
-                console.error('Error sending message to ntfy.sh:', error);
-                throw error;
-            }
-        };
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        }
+
+        const result = await response.text();
+        console.log('ntfy.sh Response:', result);
+        return result;
+    } catch (error) {
+        console.error('Error sending message to ntfy.sh:', error);
+        throw error;
+    }
+};
 
         // ====================== Notification Permission and Token Handling ======================
 
@@ -656,29 +683,75 @@ async function decryptMessage(key, encryptedData) {
             messagesDiv.prepend(messageElement);
         }
 
-        /**
-         * Function to display and decrypt ntfy.sh message on the page
-         * @param {string} topic - Topic name
-         * @param {object} data - ntfy.sh message data
-         */
-        async function displayNtfyMessage(topic, data) {
-            const messagesDiv = document.getElementById('messages');
-            const messageElement = document.createElement('div');
-            messageElement.className = 'message';
+       /**
+ * Function to display and decrypt ntfy.sh message on the page
+ * @param {string} topic - Topic name
+ * @param {object} data - ntfy.sh message data
+ */
+async function displayNtfyMessage(topic, data) {
+    const messagesDiv = document.getElementById('messages');
+    const messageElement = document.createElement('div');
+    messageElement.className = 'message';
 
-            console.log('Received ntfy.sh message:', data); // Log received message
+    console.log('Received ntfy.sh message:', data); // Log received message
 
-            // Check if 'message' field exists
-            if (!data.message) {
-                console.error('No message field in ntfy.sh data.');
-                messageElement.innerHTML = `
-                    <strong>ntfy.sh Title:</strong> ${data.title || 'No Title'}<br>
-                    <strong>ntfy.sh Body:</strong> ${data.message || 'No Body'}<br>
-                    <em>Missing message field.</em>
-                `;
-                messagesDiv.prepend(messageElement);
-                return;
-            }
+    // Check if 'message' field exists
+    if (!data.message) {
+        console.error('No message field in ntfy.sh data.');
+        messageElement.innerHTML = `
+            <strong>ntfy.sh Title:</strong> ${data.title || 'No Title'}<br>
+            <strong>ntfy.sh Body:</strong> ${data.message || 'No Body'}<br>
+            <em>Missing message field.</em>
+        `;
+        messagesDiv.prepend(messageElement);
+        return;
+    }
+
+    // Log the message to be decrypted
+    console.log('Encrypted Message:', data.message);
+
+    // Retrieve the encryption key for the topic
+    const exportedKey = await localforage.getItem(`topic_${topic}`);
+    if (!exportedKey) {
+        console.error(`No encryption key found for topic "${topic}". Cannot decrypt message.`);
+        messageElement.innerHTML = `
+            <strong>ntfy.sh Title:</strong> ${data.title || 'No Title'}<br>
+            <strong>ntfy.sh Body:</strong> ${data.message || 'No Body'}<br>
+            <em>Unable to decrypt message: No encryption key found for topic "${topic}".</em>
+        `;
+        messagesDiv.prepend(messageElement);
+        return;
+    }
+
+    try {
+        // Import the encryption key
+        const key = await importKey(exportedKey);
+
+        // Decrypt the message
+        const decryptedMessage = await decryptMessage(key, data.message);
+
+        // Display the decrypted message
+        const icon = data.icon || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/refs/heads/main/appLogo_192.png';
+        const url = data.click || `https://marko-app.netlify.app/top?room=${encodeURIComponent(topic)}`;
+
+        messageElement.innerHTML = `
+            <strong>ntfy.sh Title:</strong> ${data.title || 'No Title'}<br>
+            <strong>ntfy.sh Body:</strong> ${decryptedMessage}<br>
+            <strong>ntfy.sh Icon:</strong> <img src="${icon}" alt="Icon" width="50"><br>
+            <strong>ntfy.sh URL:</strong> <a href="${url}" target="_blank">${url}</a>
+        `;
+    } catch (error) {
+        console.error('Error decrypting ntfy.sh message:', error);
+        messageElement.innerHTML = `
+            <strong>ntfy.sh Title:</strong> ${data.title || 'No Title'}<br>
+            <strong>ntfy.sh Body:</strong> ${data.message || 'No Body'}<br>
+            <em>Error decrypting message.</em>
+        `;
+    }
+
+    messagesDiv.prepend(messageElement);
+}
+
 
             // Retrieve the encryption key for the topic
             const exportedKey = await localforage.getItem(`topic_${topic}`);
