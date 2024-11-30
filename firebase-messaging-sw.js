@@ -1,3 +1,58 @@
+// firebase-messaging-sw.js
+
+// Import Firebase scripts
+importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
+
+// ====================== Firebase Configuration ======================
+const firebaseConfig = {
+    apiKey: "AIzaSyD96IBVqGKVEdmXIVCYL_7kvlBhJNSD1Ww",
+    authDomain: "marko-be9a9.firebaseapp.com",
+    databaseURL: "https://marko-be9a9-default-rtdb.firebaseio.com",
+    projectId: "marko-be9a9",
+    storageBucket: "marko-be9a9.appspot.com",
+    messagingSenderId: "7036670175",
+    appId: "1:7036670175:web:99992356716578ea13996a"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+
+// Initialize Firebase Messaging
+const messaging = firebase.messaging();
+
+// Background message handler
+messaging.onBackgroundMessage(function(payload) {
+    console.log('[firebase-messaging-sw.js] Received background message ', payload);
+    // Customize notification here
+    const notificationTitle = payload.notification && payload.notification.title ? payload.notification.title : 'Background Message Title';
+    const notificationOptions = {
+        body: payload.notification && payload.notification.body ? payload.notification.body : 'Background Message body.',
+        icon: payload.icon || '/default-icon.png', // Use the 'icon' field or default
+        data: {
+            url: payload.url || '/', // Pass the 'url' field to notification data
+        },
+    };
+
+    self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+// Handle notification click
+self.addEventListener('notificationclick', function(event) {
+    console.log('[firebase-messaging-sw.js] Notification click Received.');
+
+    event.notification.close();
+
+    // Extract the URL from the notification data
+    const url = event.notification.data && event.notification.data.url ? event.notification.data.url : '/';
+
+    event.waitUntil(
+        clients.openWindow(url)
+    );
+});
+
+/*
+
 importScripts('https://www.gstatic.com/firebasejs/8.6.2/firebase-app.js');
 importScripts('https://www.gstatic.com/firebasejs/8.6.2/firebase-messaging.js');
 importScripts('https://cdnjs.cloudflare.com/ajax/libs/localforage/1.9.0/localforage.min.js');
