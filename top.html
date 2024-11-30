@@ -190,10 +190,10 @@
                 payload.tags = data.tags.join(','); // Array to comma-separated string
             }
             if (data.icon) {
-                payload.icon = data.icon;
+                payload.icon = data.icon || 'https://raw.githubusercontent.com/IonTeLOS/marko-app/refs/heads/main/triskelion_black.svg';
             }
             if (data.url) {
-                payload.click = data.url;
+                payload.click = data.url || `https://marko-app.netlify.app/top?${encodeURIComponent(topic)}`;
             }
 
             try {
