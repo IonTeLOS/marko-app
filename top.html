@@ -159,7 +159,7 @@ if ('serviceWorker' in navigator) {
 
         // Get FCM token and store it in localStorage
         function getToken() {
-            messaging.getToken({ vapidKey: 'YOUR_PUBLIC_VAPID_KEY' }) // Replace with your VAPID key if needed
+            messaging.getToken({ vapidKey: 'BNbpZ8MoJQ0OvODtVFtqBmiH81lNdGMSU87ISkIMoRGCVN2gHdxnemVqfW1MlAzO5qQqTi_I_QdKo7qpdyFq3tw' }) // Replace with your VAPID key if needed
                 .then((currentToken) => {
                     if (currentToken) {
                         console.log('FCM Token:', currentToken);
