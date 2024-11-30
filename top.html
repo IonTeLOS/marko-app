@@ -99,6 +99,9 @@
         <label for="messageBody">Message Body:</label>
         <textarea id="messageBody" rows="4" placeholder="Enter message body"></textarea>
 
+        <label for="messageIcon">Icon URL (optional):</label>
+        <input type="text" id="messageIcon" placeholder="Enter icon URL">
+        
         <button id="sendMessageButton">Send Message</button>
         <div id="sendStatus"></div>
         <div id="sendError"></div>
@@ -264,7 +267,8 @@ if ('serviceWorker' in navigator) {
                 action: 'send',
                 topic: topic,
                 title: title,
-                body: body
+                body: body,
+                data: data,
             };
 
             try {
@@ -364,6 +368,7 @@ if ('serviceWorker' in navigator) {
             const selectedTopic = topicSelect.value;
             const title = document.getElementById('messageTitle').value.trim();
             const body = document.getElementById('messageBody').value.trim();
+            const icon = document.getElementById('messageIcon').value.trim(); // Capture icon URL
 
             if (!selectedTopic) {
                 alert('Please select a topic to send the message.');
@@ -375,6 +380,10 @@ if ('serviceWorker' in navigator) {
                 return;
             }
 
+            const data = {};
+            if (icon) {
+                data.icon = icon;
+            }
             // Title is optional; provide a default if not entered
             const messageTitle = title || 'Notification';
 
