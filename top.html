@@ -127,25 +127,24 @@
         const messaging = firebase.messaging();
 
         // Register service worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-                scope: '/'
-            }).then(function(registration) {
-                console.log('Service Worker registered with scope:', registration.scope);
-                messaging.useServiceWorker(registration);
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+    scope: '/'
+  }).then(function(registration) {
+    console.log('Service Worker registered with scope:', registration.scope);
 
-                // Optional: Listen for messages from the service worker
-                navigator.serviceWorker.addEventListener('message', (event) => {
-                    if (event.data && event.data.action === 'open_url') {
-                        const url = event.data.url;
-                        console.log('Received URL to open:', url);
-                        window.location.href = url; // Navigate to the URL
-                    }
-                });
-            }).catch(function(error) {
-                console.error('Service Worker registration failed:', error);
-            });
-        }
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data && event.data.action === 'open_url') {
+        const url = event.data.url;
+        // Handle the URL as needed in your application
+        console.log('Received URL to open:', url);
+        window.location.href = url; // Navigate to the URL
+      }
+    });
+  }).catch(function(error) {
+    console.error('Service Worker registration failed:', error);
+  });
+}
 
         // ====================== LocalForage Configuration ======================
         // Configure LocalForage
