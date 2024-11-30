@@ -102,6 +102,9 @@
         <label for="messageIcon">Icon URL (optional):</label>
         <input type="text" id="messageIcon" placeholder="Enter icon URL">
         
+        <label for="messageURL">URL (optional):</label>
+        <input type="text" id="messageURL" placeholder="Enter URL">
+
         <button id="sendMessageButton">Send Message</button>
         <div id="sendStatus"></div>
         <div id="sendError"></div>
@@ -268,7 +271,7 @@ if ('serviceWorker' in navigator) {
                 topic: topic,
                 title: title,
                 body: body,
-                icon: data.icon,
+                data: data,
             };
 
             try {
@@ -369,7 +372,8 @@ if ('serviceWorker' in navigator) {
             const title = document.getElementById('messageTitle').value.trim();
             const body = document.getElementById('messageBody').value.trim();
             const icon = document.getElementById('messageIcon').value.trim(); // Capture icon URL
-
+            const urlInput = document.getElementById('messageURL').value.trim(); // Capture URL (if implemented)
+       
             if (!selectedTopic) {
                 alert('Please select a topic to send the message.');
                 return;
@@ -384,11 +388,14 @@ if ('serviceWorker' in navigator) {
             if (icon) {
                 data.icon = icon;
             }
+            if (urlInput) {
+                data.url = urlInput;
+            }
             // Title is optional; provide a default if not entered
             const messageTitle = title || 'Notification';
 
             try {
-                const result = await sendMessageToTopic(selectedTopic, messageTitle, body);
+                const result = await sendMessageToTopic(selectedTopic, messageTitle, body, data);
                 console.log('Message sent:', result);
                 document.getElementById('sendStatus').innerText = `Message sent to topic "${selectedTopic}".`;
                 document.getElementById('sendError').innerText = '';
