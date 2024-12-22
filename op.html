@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <!-- Materialize CSS -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
+  />
+  <!-- Material Icons -->
+  <link
+    href="https://fonts.googleapis.com/icon?family=Material+Icons"
+    rel="stylesheet"
+  />
+  <!-- Monaco Editor Loader -->
+  <script src="https://unpkg.com/monaco-editor/min/vs/loader.js"></script>
+
+  <style>
+    /* Remove default margins/padding for full-window usage */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      box-sizing: border-box;
+    }
+
+    /*
+      CSS variables so top bar, tabs, and dropdown color 
+      can switch with the Monaco theme 
+    */
+    :root {
+      --topbar-bg: #2b2b2b;
+      --topbar-text: #ffffff;
+      --tab-bg: #3a3a3a;
+      --tab-text: #ffffff;
+      --active-tab-bg: #444444;
+      --active-tab-text: #ffffff;
+      --border-color: #444444;
+      --dropdown-bg: #3a3a3a;
+      --dropdown-text: #ffffff;
+    }
+
+    /* Possibly suppress "ResizeObserver loop limit" errors */
+    window.addEventListener('error', (e) => {
+      if (e.message && e.message.includes('ResizeObserver loop limit exceeded')) {
+        e.stopImmediatePropagation();
+      }
+    });
+
+    /* ======= SINGLE-ROW TOP BAR ======= */
+    #topBar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 70px;
+      background-color: var(--topbar-bg);
+      color: var(--topbar-text);
+
+      /* One row: “Wedit” on the left, controls on the right */
+      display: flex;
+      align-items: center;   /* vertically center everything */
+      justify-content: space-between; /* space between left & right */
+
+      padding: 0 10px;
+      box-sizing: border-box;
+      z-index: 999;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    /* "Wedit" on the left, matching button height/line-height */
+    #pageTitle {
+      font-weight: bold;
+      font-size: 1.5rem;
+      line-height: 36px;       /* match .btn’s typical line-height so it aligns */
+      margin: 0;               /* no extra margin */
+      color: var(--topbar-text);
+      text-decoration: none;
+      /* Could also do: height: 36px; display: flex; align-items: center; etc. */
+    }
+    #pageTitle:hover {
+      text-decoration: underline;
+    }
+
+    /* Right side: row of buttons, etc. */
+    #controls {
+      display: flex;
+      align-items: center; /* so they line up horizontally with Wedit */
+      gap: 8px;
+      flex-wrap: wrap;     /* if screen is narrow, controls can wrap */
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Hidden real file input; label is the clickable Materialize button */
+    #fileInput {
+      display: none;
+    }
+
+    /* Match <select> to .btn height & theme color */
+    select.browser-default {
+      background-color: var(--dropdown-bg);
+      color: var(--dropdown-text);
+      border: 1px solid var(--border-color);
+      height: 36px; /* same as .btn min-height in Materialize */
+      line-height: 36px;
+      padding: 0 5px;
+      border-radius: 4px;
+    }
+    select.browser-default option {
+      color: #000; /* fallback, overridden in high-contrast if needed */
+    }
+
+    /* ======= TABS BAR ======= */
+    #tabContainer {
+      position: fixed;
+      top: 70px; /* below top bar */
+      left: 0;
+      right: 0;
+      height: 40px;
+      background-color: var(--tab-bg);
+      box-sizing: border-box;
+      overflow-x: auto;
+      white-space: nowrap;
+      z-index: 998;
+      padding: 0 10px;
+      border: none;
+
+      /* Thin horizontal scrollbar */
+      scrollbar-width: thin; /* Firefox */
+      scrollbar-color: #888 transparent;
+    }
+    /* WebKit-based (Chrome, Safari, Edge) */
+    #tabContainer::-webkit-scrollbar {
+      height: 6px;
+    }
+    #tabContainer::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 3px;
+    }
+    #tabContainer::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    /* Tab element */
+    .tab {
+      cursor: pointer;
+      display: inline-block;
+      padding: 5px 10px;
+      margin-top: 5px;
+      margin-right: 5px;
+      border: 1px solid var(--border-color);
+      border-top: none; /* remove top line => no "double line" with container */
+      border-radius: 4px 4px 0 0;
+      background-color: var(--tab-bg);
+      color: var(--tab-text);
+      position: relative;
+      user-select: none; /* for dragging without text selection */
+    }
+    .active-tab {
+      background-color: var(--active-tab-bg);
+      color: var(--active-tab-text);
+      font-weight: bold;
+    }
+    /* Close button on non-pinned tabs */
+    .close-button {
+      margin-left: 8px;
+      color: red;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    .close-button:hover {
+      color: darkred;
+    }
+
+    /* Editor container below the tabs */
+    #editorContainer {
+      position: absolute;
+      top: 110px; /* 70px top bar + 40px tabs bar */
+      left: 0;
+      right: 0;
+      bottom: 0;
+      box-sizing: border-box;
+    }
+
+    /* Additional row for theme & font */
+    .settings-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+    }
+
+    /* Right corner: "Lang: plaintext" + icon */
+    #langIcon {
+      margin-left: 5px;
+      font-weight: bold;
+      font-size: 1rem;
+      color: var(--topbar-text);
+    }
+
+    /* Simple context menu for tabs */
+    .context-menu {
+      position: absolute;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      min-width: 120px;
+      z-index: 2000;
+      display: none;
+    }
+    .context-menu li {
+      list-style: none;
+      padding: 5px 10px;
+      cursor: pointer;
+      margin: 0;
+    }
+    .context-menu li:hover {
+      background-color: #eee;
+    }
+  </style>
+
+  <script>
+    /********************************************************
+     * MONACO + APP LOGIC
+     ********************************************************/
+    require.config({ paths: { vs: 'https://unpkg.com/monaco-editor/min/vs' } });
+
+    let editor;
+    // For each tab: { model, fileName, pinned, viewState }
+    let models = {};
+    let currentModelId = null;
+
+    // Minimal text-based icons for language
+    const languageIcons = {
+      javascript: 'JS',
+      python: 'Py',
+      java: 'J',
+      csharp: 'C#',
+      html: 'HTML',
+      css: 'CSS',
+      json: 'JSON',
+      markdown: 'Md',
+      xml: 'XML',
+      sql: 'SQL',
+      typescript: 'TS',
+      ruby: 'Rb',
+      php: 'PHP',
+      go: 'Go',
+      c: 'C',
+      cpp: 'C++',
+      vue: 'V',
+      shell: 'Sh',
+      dart: 'Dt',
+      scss: 'Sc',
+      plaintext: 'T'
+    };
+
+    /* Basic extension-based detection */
+    function detectLanguageByName(fileName) {
+      const extMap = {
+        js: 'javascript',
+        py: 'python',
+        java: 'java',
+        cs: 'csharp',
+        html: 'html',
+        css: 'css',
+        json: 'json',
+        md: 'markdown',
+        xml: 'xml',
+        sql: 'sql',
+        ts: 'typescript',
+        rb: 'ruby',
+        php: 'php',
+        go: 'go',
+        c: 'c',
+        cpp: 'cpp',
+        vue: 'vue',
+        sh: 'shell',
+        dart: 'dart',
+        scss: 'scss'
+      };
+      const ext = fileName.split('.').pop().toLowerCase();
+      return extMap[ext] || 'plaintext';
+    }
+
+    /* Optional naive content-based detection */
+    function detectLanguageFromContent(text) {
+      const t = text.toLowerCase();
+      if (t.includes('#include') || t.match(/\bint\s+main\b/)) return 'c';
+      if (t.includes('console.log')) return 'javascript';
+      if (t.includes('public class')) return 'java';
+      if (t.includes('def ') || (t.includes('import ') && t.includes('sys'))) return 'python';
+      // ...
+      return 'plaintext';
+    }
+
+    /* Combine ext-based + content-based detection */
+    function finalLanguageCheck(fileName, content) {
+      const byExt = detectLanguageByName(fileName);
+      if (byExt !== 'plaintext') return byExt;
+      return detectLanguageFromContent(content);
+    }
+
+    /* THEME SYNC WITHOUT insertRule */
+    let hcStyleTag = null; /* We'll create <style> if needed */
+    function applyAppTheme(theme) {
+      // Remove high-contrast style if we previously added it
+      if (hcStyleTag) {
+        hcStyleTag.remove();
+        hcStyleTag = null;
+      }
+
+      switch (theme) {
+        case 'vs-dark':
+          document.documentElement.style.setProperty('--topbar-bg', '#2b2b2b');
+          document.documentElement.style.setProperty('--topbar-text', '#ffffff');
+          document.documentElement.style.setProperty('--tab-bg', '#3a3a3a');
+          document.documentElement.style.setProperty('--tab-text', '#ffffff');
+          document.documentElement.style.setProperty('--active-tab-bg', '#444444');
+          document.documentElement.style.setProperty('--active-tab-text', '#ffffff');
+          document.documentElement.style.setProperty('--border-color', '#444444');
+          document.documentElement.style.setProperty('--dropdown-bg', '#3a3a3a');
+          document.documentElement.style.setProperty('--dropdown-text', '#ffffff');
+          break;
+        case 'hc-black':
+          document.documentElement.style.setProperty('--topbar-bg', '#000000');
+          document.documentElement.style.setProperty('--topbar-text', '#ffffff');
+          document.documentElement.style.setProperty('--tab-bg', '#111111');
+          document.documentElement.style.setProperty('--tab-text', '#ffffff');
+          document.documentElement.style.setProperty('--active-tab-bg', '#222222');
+          document.documentElement.style.setProperty('--active-tab-text', '#ffffff');
+          document.documentElement.style.setProperty('--border-color', '#888888');
+          document.documentElement.style.setProperty('--dropdown-bg', '#111111');
+          document.documentElement.style.setProperty('--dropdown-text', '#ffffff');
+
+          /* Instead of insertRule, we create a <style> tag */
+          hcStyleTag = document.createElement('style');
+          hcStyleTag.innerHTML = `
+            select.browser-default option {
+              background-color: #111 !important;
+              color: #fff !important;
+            }
+          `;
+          document.head.appendChild(hcStyleTag);
+          break;
+        default: // 'vs' => light
+          document.documentElement.style.setProperty('--topbar-bg', '#f5f5f5');
+          document.documentElement.style.setProperty('--topbar-text', '#000000');
+          document.documentElement.style.setProperty('--tab-bg', '#eeeeee');
+          document.documentElement.style.setProperty('--tab-text', '#000000');
+          document.documentElement.style.setProperty('--active-tab-bg', '#dddddd');
+          document.documentElement.style.setProperty('--active-tab-text', '#000000');
+          document.documentElement.style.setProperty('--border-color', '#cccccc');
+          document.documentElement.style.setProperty('--dropdown-bg', '#eeeeee');
+          document.documentElement.style.setProperty('--dropdown-text', '#000000');
+          break;
+      }
+    }
+
+    /* Initialize Monaco Editor */
+    function initializeEditor() {
+      require(['vs/editor/editor.main'], () => {
+        editor = monaco.editor.create(document.getElementById('editorContainer'), {
+          value: '',
+          language: 'plaintext',
+          theme: 'vs-dark',
+          automaticLayout: true,
+          minimap: { enabled: true },
+          renderWhitespace: 'selection',
+          fontSize: 14
+        });
+
+        // Basic shortcuts
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
+          editor.getAction('actions.find').run();
+        });
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH, () => {
+          editor.getAction('editor.action.startFindReplaceAction').run();
+        });
+
+        applyAppTheme('vs-dark'); // Start in dark
+
+        // Create pinned tab
+        createPinnedTab();
+
+        // Periodic language check
+        setInterval(periodicLanguageDetection, 2000);
+      });
+    }
+
+    /* Pinned notes tab */
+    function createPinnedTab() {
+      const suffix = Math.random().toString(36).substring(2, 6);
+      const name = 'notes-' + suffix + '.txt';
+      addNewTab(name, '// Your pinned notes here...', true);
+    }
+
+    function periodicLanguageDetection() {
+      if (!currentModelId || !models[currentModelId]) return;
+      const info = models[currentModelId];
+      const guess = finalLanguageCheck(info.fileName, info.model.getValue());
+      if (guess !== info.model.getLanguageId()) {
+        monaco.editor.setModelLanguage(info.model, guess);
+        updateLanguageDisplay(guess);
+      }
+    }
+
+    /* Add new tab with model */
+    function addNewTab(fileName, content, pinned=false) {
+      const modelId = fileName + '_' + Date.now();
+      const guessLang = finalLanguageCheck(fileName, content);
+
+      const monacoModel = monaco.editor.createModel(content, guessLang, monaco.Uri.parse(modelId));
+      models[modelId] = {
+        model: monacoModel,
+        fileName: fileName,
+        pinned: pinned,
+        viewState: null
+      };
+
+      // Tab element
+      const tabEl = document.createElement('div');
+      tabEl.className = 'tab';
+      tabEl.id = 'tab-' + modelId;
+      tabEl.onclick = () => switchTab(modelId);
+
+      // Draggable
+      tabEl.draggable = true;
+      tabEl.addEventListener('dragstart', onTabDragStart);
+      tabEl.addEventListener('dragover', onTabDragOver);
+      tabEl.addEventListener('drop', onTabDrop);
+
+      // Context menu
+      tabEl.addEventListener('contextmenu', (ev) => {
+        ev.preventDefault();
+        showTabContextMenu(ev, modelId);
+      });
+
+      // Label
+      const labelSpan = document.createElement('span');
+      labelSpan.innerText = fileName;
+      tabEl.appendChild(labelSpan);
+
+      // Close button if not pinned
+      if (!pinned) {
+        const closeBtn = document.createElement('span');
+        closeBtn.innerText = 'x';
+        closeBtn.className = 'close-button';
+        closeBtn.onclick = (e) => {
+          e.stopPropagation();
+          closeTab(modelId);
+        };
+        tabEl.appendChild(closeBtn);
+      }
+
+      document.getElementById('tabContainer').appendChild(tabEl);
+      switchTab(modelId);
+    }
+
+    /* Switch tab */
+    function switchTab(modelId) {
+      if (currentModelId && models[currentModelId]) {
+        models[currentModelId].viewState = editor.saveViewState();
+      }
+      currentModelId = modelId;
+      const info = models[modelId];
+      editor.setModel(info.model);
+      if (info.viewState) {
+        editor.restoreViewState(info.viewState);
+      }
+      updateLanguageDisplay(info.model.getLanguageId());
+
+      // Mark active
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active-tab'));
+      const activeTab = document.getElementById('tab-' + modelId);
+      if (activeTab) {
+        activeTab.classList.add('active-tab');
+      }
+    }
+
+    /* Close tab */
+    function closeTab(modelId) {
+      if (!confirm('Are you sure you want to close this tab?')) return;
+      const tabEl = document.getElementById('tab-' + modelId);
+      if (tabEl) tabEl.remove();
+      delete models[modelId];
+
+      if (currentModelId === modelId) {
+        const keys = Object.keys(models);
+        if (keys.length) switchTab(keys[0]);
+        else {
+          editor.setValue('');
+          currentModelId = null;
+          updateLanguageDisplay('plaintext');
+        }
+      }
+    }
+
+    /* Drag+drop reordering */
+    let draggedTabId = null;
+    function onTabDragStart(e) {
+      draggedTabId = e.target.id;
+      e.dataTransfer.effectAllowed = 'move';
+    }
+    function onTabDragOver(e) {
+      e.preventDefault();
+    }
+    function onTabDrop(e) {
+      e.preventDefault();
+      const targetTab = e.target.closest('.tab');
+      if (!targetTab || targetTab.id === draggedTabId) return;
+      const container = document.getElementById('tabContainer');
+      const draggedTab = document.getElementById(draggedTabId);
+
+      if (e.clientX < targetTab.getBoundingClientRect().left + targetTab.offsetWidth / 2) {
+        container.insertBefore(draggedTab, targetTab);
+      } else {
+        container.insertBefore(draggedTab, targetTab.nextSibling);
+      }
+    }
+
+    /* Context menu: rename, close, close others */
+    let contextMenuEl = null;
+    function showTabContextMenu(e, modelId) {
+      const info = models[modelId];
+      if (!contextMenuEl) {
+        contextMenuEl = document.createElement('div');
+        contextMenuEl.classList.add('context-menu');
+        document.body.appendChild(contextMenuEl);
+      }
+      const pinned = info.pinned;
+      const menuHtml = `
+        <ul style="margin:0;padding:0;">
+          <li data-action="rename">Rename</li>
+          ${!pinned ? '<li data-action="close">Close</li>' : ''}
+          ${!pinned ? '<li data-action="closeOthers">Close Others</li>' : ''}
+        </ul>
+      `;
+      contextMenuEl.innerHTML = menuHtml;
+      contextMenuEl.style.left = e.pageX + 'px';
+      contextMenuEl.style.top = e.pageY + 'px';
+      contextMenuEl.style.display = 'block';
+
+      contextMenuEl.querySelectorAll('li').forEach(li => {
+        li.onclick = () => {
+          const action = li.getAttribute('data-action');
+          contextMenuEl.style.display = 'none';
+          if (action === 'rename') renameTab(modelId);
+          else if (action === 'close') closeTab(modelId);
+          else if (action === 'closeOthers') closeOthers(modelId);
+        };
+      });
+    }
+    document.addEventListener('click', () => {
+      if (contextMenuEl) contextMenuEl.style.display = 'none';
+    });
+
+    function renameTab(modelId) {
+      const info = models[modelId];
+      const oldName = info.fileName;
+      const newName = prompt('Enter new file name', oldName);
+      if (!newName || !newName.trim()) return;
+      info.fileName = newName.trim();
+
+      // Update label
+      const tabEl = document.getElementById('tab-' + modelId);
+      const span = tabEl.querySelector('span');
+      span.innerText = info.fileName;
+
+      // Possibly re-detect language
+      const newLang = finalLanguageCheck(info.fileName, info.model.getValue());
+      if (newLang !== info.model.getLanguageId()) {
+        monaco.editor.setModelLanguage(info.model, newLang);
+        if (modelId === currentModelId) updateLanguageDisplay(newLang);
+      }
+    }
+
+    function closeOthers(modelId) {
+      const keys = Object.keys(models);
+      keys.forEach(k => {
+        if (k !== modelId) {
+          const pinned = models[k].pinned;
+          if (!pinned) closeTab(k);
+        }
+      });
+    }
+
+    /* Update "Lang: X" + icon on top bar */
+    function updateLanguageDisplay(lang) {
+      const icon = languageIcons[lang] || 'T';
+      document.getElementById('languageDisplay').innerText = lang;
+      document.getElementById('langIcon').innerText = icon;
+    }
+
+    /* File open/save logic */
+    function setupFileOpen() {
+      document.getElementById('fileInput').onchange = (evt) => {
+        const f = evt.target.files[0];
+        if (!f) return;
+        const rd = new FileReader();
+        rd.onload = e => {
+          addNewTab(f.name, e.target.result);
+        };
+        rd.readAsText(f);
+        evt.target.value = '';
+      };
+    }
+    function setupFileSave() {
+      document.getElementById('saveButton').onclick = () => {
+        if (!currentModelId || !models[currentModelId]) return;
+        const info = models[currentModelId];
+        const text = info.model.getValue();
+
+        let newName = prompt('Enter file name', info.fileName) || info.fileName;
+        newName = newName.trim();
+        info.fileName = newName;
+
+        // Update tab label
+        const tabEl = document.getElementById('tab-' + currentModelId);
+        if (tabEl) {
+          const sp = tabEl.querySelector('span');
+          sp.innerText = info.fileName;
+        }
+
+        // Possibly re-detect language
+        const guess = finalLanguageCheck(info.fileName, text);
+        if (guess !== info.model.getLanguageId()) {
+          monaco.editor.setModelLanguage(info.model, guess);
+          updateLanguageDisplay(guess);
+        }
+
+        // Download
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = info.fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+    }
+
+    /* Prompt on page unload about unsaved changes */
+    window.addEventListener('beforeunload', (e) => {
+      e.preventDefault();
+      e.returnValue = ''; // triggers browser confirm
+    });
+
+    /* DOM ready => init everything */
+    window.addEventListener('DOMContentLoaded', () => {
+      initializeEditor();
+      setupFileOpen();
+      setupFileSave();
+
+      // Undo/Redo
+      document.getElementById('undoButton').onclick = () => {
+        editor.trigger('', 'undo', null);
+      };
+      document.getElementById('redoButton').onclick = () => {
+        editor.trigger('', 'redo', null);
+      };
+
+      // Theme & Font
+      document.getElementById('themeSelector').onchange = (e) => {
+        const newTheme = e.target.value;
+        monaco.editor.setTheme(newTheme);
+        applyAppTheme(newTheme);
+      };
+      document.getElementById('fontFamilySelector').onchange = (e) => {
+        editor.updateOptions({ fontFamily: e.target.value });
+      };
+
+      // New tab
+      document.getElementById('newTabButton').onclick = () => {
+        const suffix = Math.random().toString(36).substring(2, 6);
+        addNewTab(`untitled-${suffix}.txt`, '// New tab content...');
+      };
+    });
+  </script>
+</head>
+<body>
+  <!-- Single-row top bar: Wedit on left, everything else on right -->
+  <div id="topBar">
+    <!-- Left side: Title link -->
+    <a
+      id="pageTitle"
+      href="https://github.com/YourUser/YourRepo"
+      target="_blank"
+    >
+      Wedit
+    </a>
+
+    <!-- Right side: row of controls, aligned with Wedit -->
+    <div id="controls">
+      <!-- New Tab -->
+      <button id="newTabButton" class="btn waves-effect waves-light">
+        <i class="material-icons">add</i>
+      </button>
+
+      <!-- Open File -->
+      <label for="fileInput" class="btn waves-effect waves-light">
+        <i class="material-icons">file_open</i>
+      </label>
+      <input type="file" id="fileInput" />
+
+      <!-- Save -->
+      <button id="saveButton" class="btn waves-effect waves-light">
+        <i class="material-icons">save</i>
+      </button>
+
+      <!-- Find -->
+      <button
+        class="btn waves-effect waves-light"
+        onclick="editor.getAction('actions.find').run()"
+      >
+        <i class="material-icons">search</i>
+      </button>
+
+      <!-- Replace -->
+      <button
+        class="btn waves-effect waves-light"
+        onclick="editor.getAction('editor.action.startFindReplaceAction').run()"
+      >
+        <i class="material-icons">find_replace</i>
+      </button>
+
+      <!-- Undo -->
+      <button id="undoButton" class="btn waves-effect waves-light">
+        <i class="material-icons">undo</i>
+      </button>
+
+      <!-- Redo -->
+      <button id="redoButton" class="btn waves-effect waves-light">
+        <i class="material-icons">redo</i>
+      </button>
+
+      <!-- Theme & Font -->
+      <div class="settings-row">
+        <select id="themeSelector" class="browser-default">
+          <option value="vs-dark" selected>Dark</option>
+          <option value="vs">Light</option>
+          <option value="hc-black">High Contrast</option>
+        </select>
+
+        <select id="fontFamilySelector" class="browser-default">
+          <option value="Consolas" selected>Consolas</option>
+          <option value="Monaco">Monaco</option>
+          <option value="Courier New">Courier New</option>
+          <option value="Arial">Arial</option>
+          <option value="JetBrains Mono">JetBrains Mono</option>
+          <option value="Ubuntu Mono">Ubuntu Mono</option>
+        </select>
+      </div>
+
+      <!-- Language Display (aligned on same row) -->
+      <div class="settings-row" style="margin-left: 20px;">
+        <span>Lang: <b id="languageDisplay">plaintext</b></span>
+        <span id="langIcon">T</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs container (scrollable) -->
+  <div id="tabContainer"></div>
+
+  <!-- Editor container fills the rest -->
+  <div id="editorContainer"></div>
+
+  <!-- Context menu placeholder -->
+  <div id="contextMenu" class="context-menu"></div>
+
+  <!-- Materialize JS -->
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"
+  ></script>
+</body>
+</html>
