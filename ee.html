@@ -151,7 +151,7 @@
 
   <script>
     const CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
-    const SCOPES = 'https://www.googleapis.com/auth/drive';
+    const SCOPES = 'https://www.googleapis.com/auth/drive.file';
     let tokenClient;
     let currentUser = null;
 
@@ -286,15 +286,13 @@ async function updateFile(accessToken) {
         },
         body: combinedBase64
       });
-// Construct a key-value pair as a JSON string
-const cookieValue = JSON.stringify({ fileid: fileId, key: keyBase64 });
 
-// Set the Secure cookie with SameSite and no expiration
-setSecureCookie('file_key_pair', cookieValue, {
-  secure: true,              // Send only over HTTPS
-  sameSite: 'Strict',        // Prevent cross-site access
-  path: '/',                 // Make cookie available across the site
-  expires: new Date('Fri, 31 Dec 9999 23:59:59 GMT') // Indefinite expiration
+const cookieName = encodeURIComponent(fileId);
+setSecureCookie(cookieName, keyBase64, {
+  secure: true,
+  sameSite: 'Strict',
+  path: '/',
+  expires: new Date('Fri, 31 Dec 2099 23:59:59 GMT')
 });
       
       if (!updateResponse.ok) {
@@ -324,7 +322,20 @@ function setSecureCookie(name, value, options = {}) {
   // Set the cookie
   document.cookie = cookieString;
 } 
+    
+function getSecureCookie(fileId) {
+  const cookieName = encodeURIComponent(fileId); // Encode the fileId to ensure it's a valid cookie name
+  const cookies = document.cookie.split('; '); // Split all cookies into an array
 
+  for (const cookie of cookies) {
+    const [name, value] = cookie.split('=');
+    if (name === cookieName) {
+      return decodeURIComponent(value); // Decode the cookie value and return it
+    }
+  }
+  console.log(`No cookie found for file ID ${fileId}.`);
+  return null; // Return null if the cookie is not found
+}
     // When the user clicks the Update File button, request an access token,
     // then update the file using that token.
     document.getElementById('updateFile').addEventListener('click', () => {
