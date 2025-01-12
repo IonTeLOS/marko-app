@@ -286,7 +286,17 @@ async function updateFile(accessToken) {
         },
         body: combinedBase64
       });
+// Construct a key-value pair as a JSON string
+const cookieValue = JSON.stringify({ fileid: fileId, key: keyBase64 });
 
+// Set the Secure cookie with SameSite and no expiration
+setSecureCookie('file_key_pair', cookieValue, {
+  secure: true,              // Send only over HTTPS
+  sameSite: 'Strict',        // Prevent cross-site access
+  path: '/',                 // Make cookie available across the site
+  expires: new Date('Fri, 31 Dec 9999 23:59:59 GMT') // Indefinite expiration
+});
+      
       if (!updateResponse.ok) {
         throw new Error(`Failed to update file: ${updateResponse.statusText}`);
       }
@@ -299,6 +309,21 @@ async function updateFile(accessToken) {
       alert(`Error: ${err.message}`);
     }
   }
+
+function setSecureCookie(name, value, options = {}) {
+  // Construct the cookie string
+  let cookieString = `${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
+
+  // Append optional attributes
+  if (options.secure) cookieString += '; Secure'; // Send only over HTTPS
+  if (options.sameSite) cookieString += `; SameSite=${options.sameSite}`; // SameSite attribute
+  if (options.path) cookieString += `; Path=${options.path}`; // Cookie path (default: "/")
+  if (options.expires) cookieString += `; Expires=${options.expires.toUTCString()}`; // Expiration
+  if (options.maxAge) cookieString += `; Max-Age=${options.maxAge}`; // Alternative to Expires
+
+  // Set the cookie
+  document.cookie = cookieString;
+} 
 
     // When the user clicks the Update File button, request an access token,
     // then update the file using that token.
