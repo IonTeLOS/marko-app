@@ -44,24 +44,77 @@
             display: none;
             width: 100%;
         }
+        #userInfo {
+            display: none;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        #userInfo img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 12px;
+            vertical-align: middle;
+        }
+        #userInfo .details {
+            display: inline-block;
+            vertical-align: middle;
+        }
+        #userInfo .name {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        #userInfo .email {
+            color: #666;
+            font-size: 0.9em;
+        }
+        #signOut {
+            background: transparent;
+            border: 1px solid #dadce0;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 16px;
+            vertical-align: middle;
+        }
+        #signOut:hover {
+            background: #f1f3f4;
+        }
+        #signInContainer {
+            display: block;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Google Sign-in button -->
-        <div id="g_id_onload"
-             data-client_id="371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com"
-             data-context="signin"
-             data-callback="handleCredentialResponse"
-             data-auto_prompt="false">
+        <div id="userInfo">
+            <img id="userPhoto" alt="Profile photo">
+            <div class="details">
+                <div class="name" id="userName"></div>
+                <div class="email" id="userEmail"></div>
+            </div>
+            <button id="signOut">Sign Out</button>
         </div>
-        <div class="g_id_signin"
-             data-type="standard"
-             data-size="large"
-             data-theme="outline"
-             data-text="sign_in_with"
-             data-shape="rectangular"
-             data-logo_alignment="left">
+
+        <div id="signInContainer">
+            <div id="g_id_onload"
+                 data-client_id="371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com"
+                 data-context="signin"
+                 data-auto_select="true"
+                 data-callback="handleCredentialResponse"
+                 data-auto_prompt="false"
+                 data-skip_prompt_cookie="credential">
+            </div>
+            <div class="g_id_signin"
+                 data-type="standard"
+                 data-size="large"
+                 data-theme="outline"
+                 data-text="sign_in_with"
+                 data-shape="rectangular"
+                 data-logo_alignment="left">
+            </div>
         </div>
         
         <div class="controls">
@@ -76,6 +129,7 @@
         const CLIENT_ID = '371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
         let tokenClient;
+        let currentUser = null;
 
         window.onload = function () {
             tokenClient = google.accounts.oauth2.initTokenClient({
@@ -86,29 +140,45 @@
                         console.error('Token Error:', tokenResponse);
                         return;
                     }
-                    console.log('Token received:', tokenResponse);
                     createFile(tokenResponse.access_token);
                 },
+                error_callback: (error) => {
+                    console.error('Token Error:', error);
+                }
+            });
+
+            // Check if user is already signed in
+            google.accounts.id.initialize({
+                client_id: CLIENT_ID,
+                callback: handleCredentialResponse,
+                auto_select: true
             });
         };
 
         function handleCredentialResponse(response) {
-            console.log('Signin response:', response);
+            // Decode the credential to get user info
+            const credential = JSON.parse(atob(response.credential.split('.')[1]));
+            currentUser = credential;
+            
+            // Update UI with user info
+            document.getElementById('userPhoto').src = credential.picture;
+            document.getElementById('userName').textContent = credential.name;
+            document.getElementById('userEmail').textContent = credential.email;
+            
+            // Show/hide appropriate elements
+            document.getElementById('userInfo').style.display = 'block';
+            document.getElementById('signInContainer').style.display = 'none';
             document.querySelector('.controls').style.display = 'block';
             document.getElementById('createFile').style.display = 'block';
         }
 
         async function createFile(accessToken) {
             try {
-                console.log('Starting file creation with token:', accessToken);
-                
-                // First create an empty file
                 const fileMetadata = {
                     name: 'test.txt',
                     mimeType: 'text/plain'
                 };
 
-                console.log('Creating file with metadata:', fileMetadata);
                 const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
                     method: 'POST',
                     headers: {
@@ -119,18 +189,14 @@
                 });
 
                 if (!createResponse.ok) {
-                    const errorText = await createResponse.text();
-                    console.error('File creation failed:', createResponse.status, errorText);
-                    throw new Error(`Failed to create file: ${createResponse.status} ${errorText}`);
+                    throw new Error(`Failed to create file: ${createResponse.statusText}`);
                 }
 
                 const file = await createResponse.json();
-                console.log('File created:', file);
                 const fileId = file.id;
 
                 // Update file content
                 const content = document.getElementById('fileContent').value || 'test';
-                console.log('Updating file content:', content);
                 const updateResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
                     method: 'PATCH',
                     headers: {
@@ -141,15 +207,10 @@
                 });
 
                 if (!updateResponse.ok) {
-                    const errorText = await updateResponse.text();
-                    console.error('Content update failed:', updateResponse.status, errorText);
-                    throw new Error(`Failed to update file: ${updateResponse.status} ${errorText}`);
+                    throw new Error(`Failed to update file: ${updateResponse.statusText}`);
                 }
 
-                console.log('Content updated successfully');
-
                 // Make file universally writable
-                console.log('Setting permissions for file:', fileId);
                 const permissionResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
                     method: 'POST',
                     headers: {
@@ -163,26 +224,32 @@
                 });
 
                 if (!permissionResponse.ok) {
-                    const errorText = await permissionResponse.text();
-                    console.error('Permission setting failed:', permissionResponse.status, errorText);
-                    throw new Error(`Failed to set permissions: ${permissionResponse.status} ${errorText}`);
+                    throw new Error(`Failed to set permissions: ${permissionResponse.statusText}`);
                 }
 
-                console.log('Permissions set successfully');
-
-                // Display the file ID
                 const fileIdDiv = document.getElementById('fileId');
                 fileIdDiv.style.display = 'block';
                 fileIdDiv.innerHTML = `File created successfully! ID: ${fileId}`;
             } catch (err) {
-                console.error('Detailed error:', err);
+                console.error('Error:', err);
                 alert(`Error: ${err.message}`);
             }
         }
 
         document.getElementById('createFile').addEventListener('click', () => {
-            console.log('Create file button clicked');
             tokenClient.requestAccessToken({ prompt: '' });
+        });
+
+        document.getElementById('signOut').addEventListener('click', () => {
+            google.accounts.id.disableAutoSelect();
+            google.accounts.id.revoke(currentUser.email, () => {
+                document.getElementById('userInfo').style.display = 'none';
+                document.getElementById('signInContainer').style.display = 'block';
+                document.querySelector('.controls').style.display = 'none';
+                document.getElementById('fileId').style.display = 'none';
+                currentUser = null;
+                location.reload();
+            });
         });
     </script>
 </body>
