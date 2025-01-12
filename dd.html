@@ -48,6 +48,22 @@
 </head>
 <body>
     <div class="container">
+        <!-- Google Sign-in button -->
+        <div id="g_id_onload"
+             data-client_id="371617464258-ntrqn44lfo1lpi294hmc5ebad5b9ok5a.apps.googleusercontent.com"
+             data-context="signin"
+             data-callback="handleCredentialResponse"
+             data-auto_prompt="false">
+        </div>
+        <div class="g_id_signin"
+             data-type="standard"
+             data-size="large"
+             data-theme="outline"
+             data-text="sign_in_with"
+             data-shape="rectangular"
+             data-logo_alignment="left">
+        </div>
+        
         <div class="controls">
             <input type="text" id="fileContent" placeholder="Enter text to write to file">
             <button id="createFile">Create File</button>
@@ -65,34 +81,34 @@
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
                 scope: SCOPES,
-                callback: async (tokenResponse) => {
+                callback: (tokenResponse) => {
                     if (tokenResponse.error !== undefined) {
-                        throw tokenResponse;
+                        console.error('Token Error:', tokenResponse);
+                        return;
                     }
-                    
-                    // Show the create file button after successful token acquisition
-                    document.querySelector('.controls').style.display = 'block';
-                    document.getElementById('createFile').style.display = 'block';
-                    
-                    // If we were called from the Create File button, create the file
-                    if (tokenResponse.from_button_click) {
-                        await createFile(tokenResponse.access_token);
-                    }
+                    console.log('Token received:', tokenResponse);
+                    createFile(tokenResponse.access_token);
                 },
             });
-
-            // Trigger sign-in immediately
-            tokenClient.requestAccessToken({ prompt: 'consent' });
         };
+
+        function handleCredentialResponse(response) {
+            console.log('Signin response:', response);
+            document.querySelector('.controls').style.display = 'block';
+            document.getElementById('createFile').style.display = 'block';
+        }
 
         async function createFile(accessToken) {
             try {
+                console.log('Starting file creation with token:', accessToken);
+                
                 // First create an empty file
                 const fileMetadata = {
                     name: 'test.txt',
                     mimeType: 'text/plain'
                 };
 
+                console.log('Creating file with metadata:', fileMetadata);
                 const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
                     method: 'POST',
                     headers: {
@@ -103,14 +119,18 @@
                 });
 
                 if (!createResponse.ok) {
-                    throw new Error(`Failed to create file: ${createResponse.statusText}`);
+                    const errorText = await createResponse.text();
+                    console.error('File creation failed:', createResponse.status, errorText);
+                    throw new Error(`Failed to create file: ${createResponse.status} ${errorText}`);
                 }
 
                 const file = await createResponse.json();
+                console.log('File created:', file);
                 const fileId = file.id;
 
                 // Update file content
                 const content = document.getElementById('fileContent').value || 'test';
+                console.log('Updating file content:', content);
                 const updateResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
                     method: 'PATCH',
                     headers: {
@@ -121,10 +141,15 @@
                 });
 
                 if (!updateResponse.ok) {
-                    throw new Error(`Failed to update file: ${updateResponse.statusText}`);
+                    const errorText = await updateResponse.text();
+                    console.error('Content update failed:', updateResponse.status, errorText);
+                    throw new Error(`Failed to update file: ${updateResponse.status} ${errorText}`);
                 }
 
+                console.log('Content updated successfully');
+
                 // Make file universally writable
+                console.log('Setting permissions for file:', fileId);
                 const permissionResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
                     method: 'POST',
                     headers: {
@@ -138,21 +163,25 @@
                 });
 
                 if (!permissionResponse.ok) {
-                    throw new Error(`Failed to set permissions: ${permissionResponse.statusText}`);
+                    const errorText = await permissionResponse.text();
+                    console.error('Permission setting failed:', permissionResponse.status, errorText);
+                    throw new Error(`Failed to set permissions: ${permissionResponse.status} ${errorText}`);
                 }
+
+                console.log('Permissions set successfully');
 
                 // Display the file ID
                 const fileIdDiv = document.getElementById('fileId');
                 fileIdDiv.style.display = 'block';
                 fileIdDiv.innerHTML = `File created successfully! ID: ${fileId}`;
             } catch (err) {
-                console.error('Error:', err);
-                alert('An error occurred. Check the console for details.');
+                console.error('Detailed error:', err);
+                alert(`Error: ${err.message}`);
             }
         }
 
         document.getElementById('createFile').addEventListener('click', () => {
-            // Request a new access token when creating file
+            console.log('Create file button clicked');
             tokenClient.requestAccessToken({ prompt: '' });
         });
     </script>
