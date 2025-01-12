@@ -245,55 +245,60 @@
     }
 
     // Function to update file content for the specified file ID.
-    async function updateFile(accessToken) {
-      const fileId = document.getElementById('fileIdInput').value.trim();
-      if (!fileId) {
-        alert('Please enter a valid File ID.');
-        return;
-      }
-      const plainContent = document.getElementById('fileContentInput').value || 'test';
-
-      try {
-        // Generate an encryption key
-        const key = await generateKey();
-        // Encrypt the plaintext content
-        const { cipherText, iv } = await encryptText(plainContent, key);
-
-        // Export the key as raw data and convert to Base64 for display
-        const rawKey = await crypto.subtle.exportKey("raw", key);
-        const keyBase64 = bufferToBase64(rawKey);
-
-        // (Optional) You might also want to include the IV with the ciphertext.
-        // For this example, we'll Base64-encode only the ciphertext.
-        const cipherBase64 = bufferToBase64(cipherText);
-
-        // Show the exported key on the page so the user can save it for decryption.
-        const keyDisplay = document.getElementById('keyDisplay');
-        keyDisplay.style.display = 'block';
-        keyDisplay.innerHTML = `<strong>Encryption Key (Base64):</strong> ${keyBase64}`;
-
-        // Update the file with the encrypted content (Base64 string).
-        const updateResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'text/plain'
-          },
-          body: cipherBase64
-        });
-
-        if (!updateResponse.ok) {
-          throw new Error(`Failed to update file: ${updateResponse.statusText}`);
-        }
-
-        const statusDiv = document.getElementById('updateStatus');
-        statusDiv.style.display = 'block';
-        statusDiv.innerHTML = `File updated successfully with encrypted content! File ID: ${fileId}`;
-      } catch (err) {
-        console.error('Error:', err);
-        alert(`Error: ${err.message}`);
-      }
+async function updateFile(accessToken) {
+    const fileId = document.getElementById('fileIdInput').value.trim();
+    if (!fileId) {
+      alert('Please enter a valid File ID.');
+      return;
     }
+    const plainContent = document.getElementById('fileContentInput').value || 'test';
+
+    try {
+      // Generate an encryption key
+      const key = await generateKey();
+      // Encrypt the plaintext content
+      const { cipherText, iv } = await encryptText(plainContent, key);
+
+      // Export the key as raw data and convert to Base64 for display
+      const rawKey = await crypto.subtle.exportKey("raw", key);
+      const keyBase64 = bufferToBase64(rawKey);
+
+      // Concatenate the IV and cipherText into one ArrayBuffer.
+      const ivArray = new Uint8Array(iv);
+      const cipherArray = new Uint8Array(cipherText);
+      const combined = new Uint8Array(ivArray.length + cipherArray.length);
+      combined.set(ivArray, 0);
+      combined.set(cipherArray, ivArray.length);
+      // Convert the combined ArrayBuffer to a Base64 string.
+      const combinedBase64 = bufferToBase64(combined.buffer);
+
+      // Show the exported key on the page so the user can save it for decryption.
+      const keyDisplay = document.getElementById('keyDisplay');
+      keyDisplay.style.display = 'block';
+      keyDisplay.innerHTML = `<strong>Encryption Key (Base64):</strong> ${keyBase64}`;
+
+      // Update the file with the encrypted content (Base64 string that now includes IV).
+      const updateResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'text/plain'
+        },
+        body: combinedBase64
+      });
+
+      if (!updateResponse.ok) {
+        throw new Error(`Failed to update file: ${updateResponse.statusText}`);
+      }
+
+      const statusDiv = document.getElementById('updateStatus');
+      statusDiv.style.display = 'block';
+      statusDiv.innerHTML = `File updated successfully with encrypted content! File ID: ${fileId}`;
+    } catch (err) {
+      console.error('Error:', err);
+      alert(`Error: ${err.message}`);
+    }
+  }
 
     // When the user clicks the Update File button, request an access token,
     // then update the file using that token.
