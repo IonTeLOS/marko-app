@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Google Drive File Updater</title>
+  <title>Google Drive File Updater with Encryption</title>
   <script src="https://accounts.google.com/gsi/client"></script>
   <style>
     body {
@@ -44,7 +44,7 @@
     button:hover {
       background-color: #1557b0;
     }
-    #updateStatus {
+    #updateStatus, #keyDisplay {
       word-break: break-all;
       padding: 10px;
       background-color: #f0f0f0;
@@ -145,6 +145,8 @@
     
     <!-- Status Message -->
     <div id="updateStatus"></div>
+    <!-- Display the exported encryption key -->
+    <div id="keyDisplay"></div>
   </div>
 
   <script>
@@ -152,6 +154,57 @@
     const SCOPES = 'https://www.googleapis.com/auth/drive';
     let tokenClient;
     let currentUser = null;
+
+    // Utility functions for encryption
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    /**
+     * Generates an AES-GCM CryptoKey.
+     */
+    async function generateKey() {
+      return crypto.subtle.generateKey(
+        {
+          name: "AES-GCM",
+          length: 256
+        },
+        true, // extractable (so we can display it)
+        ["encrypt", "decrypt"]
+      );
+    }
+
+    /**
+     * Encrypts the provided text using AES-GCM.
+     * @param {string} plainText - The text to encrypt.
+     * @param {CryptoKey} key - The CryptoKey to use.
+     * @returns {Promise<{cipherText: ArrayBuffer, iv: Uint8Array}>}
+     */
+    async function encryptText(plainText, key) {
+      // Generate a random 12-byte IV
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const data = encoder.encode(plainText);
+      const cipherText = await crypto.subtle.encrypt(
+        {
+          name: "AES-GCM",
+          iv: iv
+        },
+        key,
+        data
+      );
+      return { cipherText, iv };
+    }
+
+    /**
+     * Converts an ArrayBuffer to a Base64 string.
+     * @param {ArrayBuffer} buffer - The ArrayBuffer to convert.
+     * @returns {string}
+     */
+    function bufferToBase64(buffer) {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      bytes.forEach((b) => binary += String.fromCharCode(b));
+      return window.btoa(binary);
+    }
 
     window.onload = function () {
       // Initialize token client for managing OAuth2 tokens.
@@ -179,51 +232,63 @@
       });
     };
 
-    // Called after a successful sign in. Decodes JWT to retrieve user info
+    // Called after a successful sign in; decodes the JWT to retrieve user info.
     function handleCredentialResponse(response) {
       const credential = JSON.parse(atob(response.credential.split('.')[1]));
       currentUser = credential;
-
-      // Update the UI with user info.
       document.getElementById('userPhoto').src = credential.picture;
       document.getElementById('userName').textContent = credential.name;
       document.getElementById('userEmail').textContent = credential.email;
-
-      // Adjust visible elements.
       document.getElementById('userInfo').style.display = 'block';
       document.getElementById('signInContainer').style.display = 'none';
       document.querySelector('.controls').style.display = 'block';
     }
 
-    // Function to update file content for the specified fileId.
+    // Function to update file content for the specified file ID.
     async function updateFile(accessToken) {
       const fileId = document.getElementById('fileIdInput').value.trim();
       if (!fileId) {
         alert('Please enter a valid File ID.');
         return;
       }
-      const content = document.getElementById('fileContentInput').value || 'test';
+      const plainContent = document.getElementById('fileContentInput').value || 'test';
 
       try {
+        // Generate an encryption key
+        const key = await generateKey();
+        // Encrypt the plaintext content
+        const { cipherText, iv } = await encryptText(plainContent, key);
+
+        // Export the key as raw data and convert to Base64 for display
+        const rawKey = await crypto.subtle.exportKey("raw", key);
+        const keyBase64 = bufferToBase64(rawKey);
+
+        // (Optional) You might also want to include the IV with the ciphertext.
+        // For this example, we'll Base64-encode only the ciphertext.
+        const cipherBase64 = bufferToBase64(cipherText);
+
+        // Show the exported key on the page so the user can save it for decryption.
+        const keyDisplay = document.getElementById('keyDisplay');
+        keyDisplay.style.display = 'block';
+        keyDisplay.innerHTML = `<strong>Encryption Key (Base64):</strong> ${keyBase64}`;
+
+        // Update the file with the encrypted content (Base64 string).
         const updateResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
           method: 'PATCH',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'text/plain'
           },
-          body: content
+          body: cipherBase64
         });
 
         if (!updateResponse.ok) {
           throw new Error(`Failed to update file: ${updateResponse.statusText}`);
         }
 
-        // Optionally, you may choose to process the JSON response.
-        const result = await updateResponse.json();
-        
         const statusDiv = document.getElementById('updateStatus');
         statusDiv.style.display = 'block';
-        statusDiv.innerHTML = `File updated successfully! File ID: ${fileId}`;
+        statusDiv.innerHTML = `File updated successfully with encrypted content! File ID: ${fileId}`;
       } catch (err) {
         console.error('Error:', err);
         alert(`Error: ${err.message}`);
@@ -236,7 +301,7 @@
       tokenClient.requestAccessToken({ prompt: '' });
     });
 
-    // Sign out functionality
+    // Sign out functionality.
     document.getElementById('signOut').addEventListener('click', () => {
       google.accounts.id.disableAutoSelect();
       google.accounts.id.revoke(currentUser.email, () => {
@@ -244,6 +309,7 @@
         document.getElementById('signInContainer').style.display = 'block';
         document.querySelector('.controls').style.display = 'none';
         document.getElementById('updateStatus').style.display = 'none';
+        document.getElementById('keyDisplay').style.display = 'none';
         currentUser = null;
         location.reload();
       });
