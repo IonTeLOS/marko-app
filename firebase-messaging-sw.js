@@ -28,20 +28,38 @@ const handleNotification = async (payload, isWebPush = false) => {
     let notificationBody = 'You have a new message';
     let notificationIcon = 'https://raw.githubusercontent.com/IonTeLOS/marko-app/refs/heads/main/appLogo_192.png';
     let notificationUrl = '/';
+    let buttonUrl = '/';
     let topic = 'default';
 
     if (isWebPush) {
         // Handle WebPush format
         try {
-            const data = typeof payload.data === 'string' ? JSON.parse(payload.data) : payload.data;
+            // Parse the payload if it's a string
+            let parsedData;
+            if (typeof payload === 'string') {
+                parsedData = JSON.parse(payload);
+            } else if (payload instanceof PushMessageData) {
+                parsedData = payload.json();
+            } else {
+                parsedData = payload;
+            }
+
+            // Log the parsed data for debugging
+            console.log('Parsed WebPush data:', parsedData);
+
+            // Extract data - handling both direct properties and nested data object
+            const data = parsedData.data || parsedData;
             
             notificationTitle = data.title || notificationTitle;
             notificationBody = data.message || data.body || notificationBody;
             notificationIcon = data.icon || notificationIcon;
             notificationUrl = data.url || data.click_action || notificationUrl;
+            buttonUrl = data.buttonUrl || data.button_url || notificationUrl;
             topic = data.topic || topic;
+
         } catch (e) {
             console.error('Error parsing WebPush payload:', e);
+            console.log('Raw payload:', payload);
         }
     } else {
         // Handle Firebase format (existing logic)
@@ -59,24 +77,12 @@ const handleNotification = async (payload, isWebPush = false) => {
                 notificationBody = messageData.message || notificationBody;
                 notificationIcon = messageData.icon || notificationIcon;
                 notificationUrl = messageData.click || notificationUrl;
+                buttonUrl = messageData.buttonUrl || buttonUrl;
                 topic = messageData.topic || topic;
             } catch (e) {
                 console.error('Error parsing payload.data.message:', e);
             }
         }
-
-        notificationUrl = payload.data?.click_action || payload.data?.click || notificationUrl;
-        topic = payload.data?.topic || topic;
-    }
-
-    // Set default icon if not provided or empty
-    if (!notificationIcon || notificationIcon.trim() === '') {
-        notificationIcon = 'https://raw.githubusercontent.com/IonTeLOS/marko-app/refs/heads/main/appLogo_192.png';
-    }
-
-    // Set default URL if not provided or empty
-    if (!notificationUrl || notificationUrl.trim() === '') {
-        notificationUrl = `https://marko-app.netlify.app/top?room=${encodeURIComponent(topic)}`;
     }
 
     // Log the final notification details
@@ -85,6 +91,7 @@ const handleNotification = async (payload, isWebPush = false) => {
         body: notificationBody,
         icon: notificationIcon,
         url: notificationUrl,
+        buttonUrl: buttonUrl,
         topic
     });
 
@@ -93,6 +100,7 @@ const handleNotification = async (payload, isWebPush = false) => {
         icon: notificationIcon,
         data: {
             url: notificationUrl,
+            buttonUrl: buttonUrl,
             topic: topic
         },
         requireInteraction: true,
@@ -100,10 +108,6 @@ const handleNotification = async (payload, isWebPush = false) => {
             {
                 action: 'open',
                 title: 'Open'
-            },
-            {
-                action: 'close',
-                title: 'Close'
             }
         ]
     };
@@ -117,34 +121,38 @@ messaging.onBackgroundMessage(payload => handleNotification(payload, false));
 // Handle WebPush messages
 self.addEventListener('push', event => {
     if (event.data) {
-        const payload = event.data.json();
-        event.waitUntil(handleNotification(payload, true));
+        event.waitUntil(handleNotification(event.data, true));
     }
 });
 
-self.addEventListener('notificationclick', function(event) {
+// Unified notification click handler
+self.addEventListener('notificationclick', event => {
+    console.log('Notification clicked:', event);
     event.notification.close();
 
-    // Get the URL based on whether it was the main notification or button click
+    const notificationData = event.notification.data || {};
     let urlToOpen;
+
     if (event.action === 'open') {
-        urlToOpen = event.notification.data.buttonUrl;
+        urlToOpen = notificationData.buttonUrl || '/';
     } else {
-        urlToOpen = event.notification.data.url;
+        urlToOpen = notificationData.url || '/';
     }
+
+    console.log('Opening URL:', urlToOpen);
 
     event.waitUntil(
         clients.matchAll({
             type: 'window',
             includeUncontrolled: true
-        }).then((windowClients) => {
-            // Check if there's already a window/tab open with the target URL
+        }).then(windowClients => {
+            // Try to focus an existing window
             for (let client of windowClients) {
                 if (client.url === urlToOpen && 'focus' in client) {
                     return client.focus();
                 }
             }
-            // If not, open a new window/tab with the URL
+            // If no existing window, open a new one
             if (clients.openWindow) {
                 return clients.openWindow(urlToOpen);
             }
