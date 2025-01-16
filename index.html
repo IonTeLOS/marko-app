@@ -2361,7 +2361,7 @@ async function createTopic(topic, friendlyName = generateFriendlyName()) {
 }
 
 
-  async function createWebPushUrl() {
+async function createWebPushUrl() {
   // Register service worker if not already registered
   if (!navigator.serviceWorker.controller) {
     await navigator.serviceWorker.register('/firebase-messaging-sw.js');
@@ -2379,20 +2379,33 @@ async function createTopic(topic, friendlyName = generateFriendlyName()) {
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array('BNbpZ8MoJQ0OvODtVFtqBmiH81lNdGMSU87ISkIMoRGCVN2gHdxnemVqfW1MlAzO5qQqTi_I_QdKo7qpdyFq3tw')
   };
-      const pushSubscription = await registration.pushManager.subscribe(subscribeOptions);
 
-// Extract the endpoint URL and keys from the push subscription
-const endpointUrl = pushSubscription.endpoint;
-const p256dhKey = pushSubscription.getKey('p256dh');
-const authKey = pushSubscription.getKey('auth');
+  const pushSubscription = await registration.pushManager.subscribe(subscribeOptions);
 
-console.log('Web Push URL:', endpointUrl);
-console.log('p256dh Key:', p256dhKey);
-console.log('Auth Key:', authKey);
+  // Extract the endpoint URL and keys from the push subscription
+  const endpointUrl = pushSubscription.endpoint;
+  const p256dhKey = pushSubscription.getKey('p256dh');
+  const authKey = pushSubscription.getKey('auth');
 
+  // Convert ArrayBuffer to base64 string
+  function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    let binary = '';
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
 
+  const p256dhBase64 = arrayBufferToBase64(p256dhKey);
+  const authBase64 = arrayBufferToBase64(authKey);
+
+  console.log('Web Push URL:', endpointUrl);
+  console.log('p256dh Key (base64):', p256dhBase64);
+  console.log('Auth Key (base64):', authBase64);
 /*
-  // You can now send this endpoint URL to your server for storing
+  // Send these details to your server
   fetch('/save-push-subscription', {
     method: 'POST',
     headers: {
@@ -2401,13 +2414,14 @@ console.log('Auth Key:', authKey);
     body: JSON.stringify({
       endpoint: endpointUrl,
       keys: {
-        p256dh: pushSubscription.getKeys('p256dh'),
-        auth: pushSubscription.getKeys('auth')
+        p256dh: p256dhBase64,
+        auth: authBase64
       }
     })
   });
-    */
+  */
 }
+
 createWebPushUrl();
 // Helper function to convert base64 string to Uint8Array
 function urlBase64ToUint8Array(base64String) {
