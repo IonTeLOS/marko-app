@@ -1704,7 +1704,7 @@ onMessage(messaging, async (payload) => {
       if (permission === 'granted') {
         console.log('Notification permission granted.');
         // Get the token using the VAPID key
-        getToken(messaging, { vapidKey: 'BNbpZ8MoJQ0OvODtVFtqBmiH81lNdGMSU87ISkIMoRGCVN2gHdxnemVqfW1MlAzO5qQqTi_I_QdKo7qpdyFq3tw' }).then((fcmToken) => {
+        getToken(messaging, { vapidKey: 'BKavZlYkOUk1vg3Hg7DGsmjMh17kDpqZ2NoQ-L7vXdaUkYfbdvb1Ue3ix3t12FL5VivhtekrRVjBRGLXPqvdVgA' }).then((fcmToken) => {
           if (fcmToken) {
             console.log('FCM Token:', fcmToken);
             // Send the token to your server and save it in localStorage
@@ -2373,6 +2373,13 @@ async function createWebPushUrl() {
   if (!registration) {
     throw new Error('Service worker not registered');
   }
+    if (existingSubscription) {
+      // If the existing subscription uses a different applicationServerKey, unsubscribe
+      if (existingSubscription.options.applicationServerKey !== urlBase64ToUint8Array('BKavZlYkOUk1vg3Hg7DGsmjMh17kDpqZ2NoQ-L7vXdaUkYfbdvb1Ue3ix3t12FL5VivhtekrRVjBRGLXPqvdVgA')) {
+        console.log('Unsubscribing from existing subscription...');
+        await existingSubscription.unsubscribe();
+      }
+    }
 
   // Subscribe to push notifications
   const subscribeOptions = {
