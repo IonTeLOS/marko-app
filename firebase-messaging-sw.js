@@ -17,139 +17,136 @@ const firebaseConfig = {
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
-
-// Initialize Firebase Messaging
 const messaging = firebase.messaging();
 
-// ====================== Background Message Handler ======================
-
-messaging.onBackgroundMessage(function(payload) {
-    console.log('[firebase-messaging-sw.js] Received background message ', payload);
+// Unified notification handler for both Firebase and WebPush
+const handleNotification = async (payload, isWebPush = false) => {
+    console.log(`Received ${isWebPush ? 'WebPush' : 'Firebase'} notification:`, payload);
 
     // Initialize variables with default values
     let notificationTitle = 'New Message';
-    let notificationBody = 'Background Message body.';
-    let notificationIcon = '/default-icon.png'; // Temporary default icon
-    let notificationUrl = '/'; // Temporary default URL
-
-    // Variable to hold the topic
+    let notificationBody = 'You have a new message';
+    let notificationIcon = 'https://raw.githubusercontent.com/IonTeLOS/marko-app/refs/heads/main/appLogo_192.png';
+    let notificationUrl = '/';
     let topic = 'default';
 
-    // Function to log current state
-    const logNotificationDetails = () => {
-        console.log('Notification Details:');
-        console.log('Title:', notificationTitle);
-        console.log('Body:', notificationBody);
-        console.log('Icon:', notificationIcon);
-        console.log('URL:', notificationUrl);
-        console.log('Topic:', topic);
-    };
-
-    // 1. Extract from payload.notification
-    if (payload.notification) {
-        if (payload.notification.title) {
-            notificationTitle = payload.notification.title;
-        }
-        if (payload.notification.body) {
-            notificationBody = payload.notification.body;
-        }
-        if (payload.notification.icon) {
-            notificationIcon = payload.notification.icon;
-        }
-        if (payload.notification.click_action) {
-            notificationUrl = payload.notification.click_action;
-        }
-    }
-
-    // 2. Extract from payload.data.message
-    if (payload.data && payload.data.message) {
+    if (isWebPush) {
+        // Handle WebPush format
         try {
-            const messageData = JSON.parse(payload.data.message);
-            if (messageData.title) {
-                notificationTitle = messageData.title;
-            }
-            if (messageData.message) {
-                notificationBody = messageData.message;
-            }
-            if (messageData.icon) {
-                notificationIcon = messageData.icon;
-            }
-            if (messageData.click) {
-                notificationUrl = messageData.click;
-            }
-            if (messageData.topic) {
-                topic = messageData.topic;
-            }
+            const data = typeof payload.data === 'string' ? JSON.parse(payload.data) : payload.data;
+            
+            notificationTitle = data.title || notificationTitle;
+            notificationBody = data.message || data.body || notificationBody;
+            notificationIcon = data.icon || notificationIcon;
+            notificationUrl = data.url || data.click_action || notificationUrl;
+            topic = data.topic || topic;
         } catch (e) {
-            console.error('Error parsing payload.data.message:', e);
-            // Fallback to default title and body
+            console.error('Error parsing WebPush payload:', e);
         }
+    } else {
+        // Handle Firebase format (existing logic)
+        if (payload.notification) {
+            notificationTitle = payload.notification.title || notificationTitle;
+            notificationBody = payload.notification.body || notificationBody;
+            notificationIcon = payload.notification.icon || notificationIcon;
+            notificationUrl = payload.notification.click_action || notificationUrl;
+        }
+
+        if (payload.data && payload.data.message) {
+            try {
+                const messageData = JSON.parse(payload.data.message);
+                notificationTitle = messageData.title || notificationTitle;
+                notificationBody = messageData.message || notificationBody;
+                notificationIcon = messageData.icon || notificationIcon;
+                notificationUrl = messageData.click || notificationUrl;
+                topic = messageData.topic || topic;
+            } catch (e) {
+                console.error('Error parsing payload.data.message:', e);
+            }
+        }
+
+        notificationUrl = payload.data?.click_action || payload.data?.click || notificationUrl;
+        topic = payload.data?.topic || topic;
     }
 
-    // 3. Extract from payload.data.click_action or payload.data.click
-    if (payload.data && payload.data.click_action) {
-        notificationUrl = payload.data.click_action;
-    } else if (payload.data && payload.data.click) {
-        notificationUrl = payload.data.click;
-    }
-
-    // 4. Extract topic from payload.data.topic if not already extracted
-    if (payload.data && payload.data.topic) {
-        topic = payload.data.topic;
-    }
-
-    // 5. Set default icon if not provided or empty
+    // Set default icon if not provided or empty
     if (!notificationIcon || notificationIcon.trim() === '') {
         notificationIcon = 'https://raw.githubusercontent.com/IonTeLOS/marko-app/refs/heads/main/appLogo_192.png';
     }
 
-    // 6. Set default URL if not provided or empty
+    // Set default URL if not provided or empty
     if (!notificationUrl || notificationUrl.trim() === '') {
         notificationUrl = `https://marko-app.netlify.app/top?room=${encodeURIComponent(topic)}`;
     }
 
-    // Log the extracted notification details
-    logNotificationDetails();
+    // Log the final notification details
+    console.log('Final Notification Details:', {
+        title: notificationTitle,
+        body: notificationBody,
+        icon: notificationIcon,
+        url: notificationUrl,
+        topic
+    });
 
     const notificationOptions = {
         body: notificationBody,
         icon: notificationIcon,
         data: {
-            url: notificationUrl, // URL to open on notification click
+            url: notificationUrl,
+            topic: topic
         },
-        // Optionally, add more options here (e.g., actions)
+        requireInteraction: true,
+        actions: [
+            {
+                action: 'open',
+                title: 'Open'
+            },
+            {
+                action: 'close',
+                title: 'Close'
+            }
+        ]
     };
 
-    self.registration.showNotification(notificationTitle, notificationOptions);
+    return self.registration.showNotification(notificationTitle, notificationOptions);
+};
+
+// Handle Firebase background messages
+messaging.onBackgroundMessage(payload => handleNotification(payload, false));
+
+// Handle WebPush messages
+self.addEventListener('push', event => {
+    if (event.data) {
+        const payload = event.data.json();
+        event.waitUntil(handleNotification(payload, true));
+    }
 });
 
-// ====================== Notification Click Handler ======================
-
-self.addEventListener('notificationclick', function(event) {
-    console.log('[firebase-messaging-sw.js] Notification click Received.');
-
+// Unified notification click handler
+self.addEventListener('notificationclick', event => {
+    console.log('Notification clicked:', event);
     event.notification.close();
 
-    // Extract the URL from the notification data
-    const url = event.notification.data && event.notification.data.url ? event.notification.data.url : '/';
+    const url = event.notification.data?.url || '/';
+    const actionType = event.action || 'open';
 
-    console.log('Opening URL:', url);
+    if (actionType === 'close') {
+        return;
+    }
 
     event.waitUntil(
         clients.matchAll({
             type: 'window',
             includeUncontrolled: true
-        }).then((windowClients) => {
-            // Check if there's already a window/tab open with the target URL
+        }).then(windowClients => {
+            // Try to focus an existing window
             for (let client of windowClients) {
                 if (client.url === url && 'focus' in client) {
-                    console.log('Focusing existing client:', client.url);
                     return client.focus();
                 }
             }
-            // If not, open a new window/tab with the URL
+            // If no existing window, open a new one
             if (clients.openWindow) {
-                console.log('Opening new window/tab with URL:', url);
                 return clients.openWindow(url);
             }
         })
