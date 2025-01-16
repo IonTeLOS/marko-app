@@ -2379,13 +2379,18 @@ async function createTopic(topic, friendlyName = generateFriendlyName()) {
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array('BNbpZ8MoJQ0OvODtVFtqBmiH81lNdGMSU87ISkIMoRGCVN2gHdxnemVqfW1MlAzO5qQqTi_I_QdKo7qpdyFq3tw')
   };
+      const pushSubscription = await registration.pushManager.subscribe(subscribeOptions);
 
-  const pushSubscription = await registration.pushManager.subscribe(subscribeOptions);
+// Extract the endpoint URL and keys from the push subscription
+const endpointUrl = pushSubscription.endpoint;
+const p256dhKey = pushSubscription.getKey('p256dh');
+const authKey = pushSubscription.getKey('auth');
 
-  // Extract the endpoint URL from the push subscription
-  const endpointUrl = pushSubscription.endpoint;
+console.log('Web Push URL:', endpointUrl);
+console.log('p256dh Key:', p256dhKey);
+console.log('Auth Key:', authKey);
 
-  console.log('Web Push URL:', endpointUrl);
+
 /*
   // You can now send this endpoint URL to your server for storing
   fetch('/save-push-subscription', {
