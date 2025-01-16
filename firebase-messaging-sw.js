@@ -122,32 +122,31 @@ self.addEventListener('push', event => {
     }
 });
 
-// Unified notification click handler
-self.addEventListener('notificationclick', event => {
-    console.log('Notification clicked:', event);
+self.addEventListener('notificationclick', function(event) {
     event.notification.close();
 
-    const url = event.notification.data?.url || '/';
-    const actionType = event.action || 'open';
-
-    if (actionType === 'close') {
-        return;
+    // Get the URL based on whether it was the main notification or button click
+    let urlToOpen;
+    if (event.action === 'open') {
+        urlToOpen = event.notification.data.buttonUrl;
+    } else {
+        urlToOpen = event.notification.data.url;
     }
 
     event.waitUntil(
         clients.matchAll({
             type: 'window',
             includeUncontrolled: true
-        }).then(windowClients => {
-            // Try to focus an existing window
+        }).then((windowClients) => {
+            // Check if there's already a window/tab open with the target URL
             for (let client of windowClients) {
-                if (client.url === url && 'focus' in client) {
+                if (client.url === urlToOpen && 'focus' in client) {
                     return client.focus();
                 }
             }
-            // If no existing window, open a new one
+            // If not, open a new window/tab with the URL
             if (clients.openWindow) {
-                return clients.openWindow(url);
+                return clients.openWindow(urlToOpen);
             }
         })
     );
