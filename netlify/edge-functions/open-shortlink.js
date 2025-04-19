@@ -162,6 +162,7 @@ export default async (request, context) => {
      data-ad-client="ca-pub-9467807666922856"
      data-ad-slot="3780294456"
      data-ad-format="auto"
+     data‑adtest="on"
      data-full-width-responsive="true"></ins>
 <script>
      (adsbygoogle = window.adsbygoogle || []).push({});
@@ -179,6 +180,7 @@ export default async (request, context) => {
          data-ad-client="${adClient}"
          data-ad-slot="${adSlot}"
          data-ad-format="auto"
+         data‑adtest="on"
          data-full-width-responsive="true"></ins>
     <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
   </div>
