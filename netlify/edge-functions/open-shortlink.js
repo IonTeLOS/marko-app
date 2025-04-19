@@ -136,16 +136,17 @@ export default async (request, context) => {
   <!-- Google AdSense snippet -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}" crossorigin="anonymous"></script>
 </head>
-<body style="margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
-  <div id="ad" style="width:320px;max-width:100%;margin-bottom:1rem;">
+<body style="margin:0;padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;">
+  <div id="ad" style="width:320px;height:100px;margin-bottom:1rem;background:#f9f9f9;border:1px solid #eee;overflow:hidden;">
     <ins class="adsbygoogle"
-         style="display:block;width:100%;height:100px;"
+         style="display:block;width:320px;height:100px;"
          data-ad-client="${ADSENSE_CLIENT}"
          data-ad-slot="${ADSENSE_SLOT}"
-         data-ad-format="auto"
-         data-full-width-responsive="true"
+         data-ad-format="rectangle"
          data-adtest="on"></ins>
-    <script>(adsbygoogle=window.adsbygoogle||[]).push({});</script>
+    <script>
+      (adsbygoogle = window.adsbygoogle || []).push({});
+    </script>
   </div>
   <p style="font-family:sans-serif;font-size:1rem;">Redirecting in <span id="count">5</span> seconds...</p>
   <script>
@@ -156,12 +157,15 @@ export default async (request, context) => {
       el.textContent = count;
       if (count <= 0) {
         clearInterval(timer);
-        const w = window.open('${secondaryUrl}', '_blank','noopener,noreferrer');
-        if (w) w.blur();
-        window.focus();
+        // First redirect to primary URL
         window.location.href = '${primaryUrl}';
+        // Then open secondary URL in background tab
+        setTimeout(() => {
+          const secondaryWindow = window.open('${secondaryUrl}', '_blank', 'noopener,noreferrer');
+          if (secondaryWindow) secondaryWindow.blur();
+        }, 500);
       }
-    },1000);
+    }, 1000);
   </script>
 </body>
 </html>`;
