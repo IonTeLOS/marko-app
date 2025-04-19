@@ -141,24 +141,25 @@ export default async (request, context) => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Redirecting...</title>
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}" crossorigin="anonymous"></script>
+  <!-- Google AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9467807666922856" crossorigin="anonymous"></script>
+  <!-- NETLIFY -->
+  <ins class="adsbygoogle"
+       style="display:block"
+       data-ad-client="ca-pub-9467807666922856"
+       data-ad-slot="3780294456"
+       data-ad-format="auto"
+       data-full-width-responsive="true"
+       data-adtest="on"></ins>
+  <script>
+       (adsbygoogle = window.adsbygoogle || []).push({});
+  </script>
   <style>
     body { margin:0; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; }
-    #ad { width:320px; max-width:100%; margin-bottom:1rem; }
     p    { font-family:sans-serif; font-size:1rem; }
   </style>
 </head>
 <body>
-  <div id="ad">
-    <ins class="adsbygoogle"
-         style="display:block; width:100%;"
-         data-ad-client="${ADSENSE_CLIENT}"
-         data-ad-slot="${ADSENSE_SLOT}"
-         data-ad-format="auto"
-         data-full-width-responsive="true"
-         data-adtest="on"></ins>
-    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-  </div>
   <p>Redirecting in <span id="count">5</span> seconds...</p>
   <script>
     let count = 5;
