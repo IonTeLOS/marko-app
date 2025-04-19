@@ -368,11 +368,17 @@ export default async (request, context) => {
       pauseBtn.querySelector('i').textContent = isPaused ? 'play_arrow' : 'pause';
     });
     
-    // Show modal when skip is clicked
-    skipBtn.addEventListener('click', () => {
-      clearInterval(timerInterval);
-      modal.style.display = 'flex';
-    });
+// Show modal on desktop, otherwise skip straight to primary
+skipBtn.addEventListener('click', () => {
+  clearInterval(timerInterval);
+  const isDesktop = window.matchMedia('(min-width: 768px)').matches;
+  if (isDesktop) {
+    modal.style.display = 'flex';
+  } else {
+    redirectToPrimary();
+  }
+});
+
     
     // Modal button handlers
     openSecondaryBtn.addEventListener('click', () => {
