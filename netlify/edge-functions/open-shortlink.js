@@ -261,7 +261,7 @@ export default async (request, context) => {
   <div class="ad-container">
     <!-- AdSense Ad -->
     <ins class="adsbygoogle"
-         style="display:block;"
+         style="display:block; width: 100%; max-width: 728px;"
          data-ad-client="${ADSENSE_CLIENT}"
          data-ad-slot="${ADSENSE_SLOT}"
          data-ad-format="auto"
@@ -331,26 +331,13 @@ export default async (request, context) => {
     const openSecondaryBtn = document.getElementById('openSecondary');
     const closeModalBtn = document.getElementById('closeModal');
     
-    // Try to load the AdSense ad
-    try {
-      (adsbygoogle = window.adsbygoogle || []).push({
-        onerror: function() {
-          handleAdFailure();
-        },
-        onload: function() {
-          adLoaded = true;
-        }
-      });
-      
-      // Set a timeout to check if ad loaded
-      setTimeout(() => {
-        if (!adLoaded && !adFailed) {
-          handleAdFailure();
-        }
-      }, 2000);
-    } catch (e) {
-      handleAdFailure();
-    }
+window.onload = function() {
+  try {
+    (adsbygoogle = window.adsbygoogle || []).push({});
+  } catch(e) {
+    handleAdFailure();
+  }
+};
     
     // Handle ad loading failure
     function handleAdFailure() {
