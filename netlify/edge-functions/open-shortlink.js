@@ -1,6 +1,6 @@
 // Netlify Edge Function — Redirect handler with authenticated Firebase access
 // Uses a hidden Firebase Auth user to read & delete shortlink entries securely.
-// Also injects an interstitial ad before opening a secondary ad URL in a new tab and redirecting to the primary URL.
+// Also injects an interstitial ad before opening a secondary ad URL in a background tab and redirecting to the primary URL.
 
 export default async (request, context) => {
   const { pathname, searchParams } = new URL(request.url);
@@ -48,40 +48,35 @@ export default async (request, context) => {
     return context.next();
   }
 
-  const custom404   = "https://marko-app.netlify.app/404.html";
-  const code        = pathname.replace("/o/", "");
-  const dbUrl       = `https://marko-be9a9-default-rtdb.firebaseio.com/shortlink/${code}.json`;
+  const custom404 = "https://marko-app.netlify.app/404.html";
+  const code      = pathname.replace("/o/", "");
+  const dbUrl     = `https://marko-be9a9-default-rtdb.firebaseio.com/shortlink/${code}.json`;
 
   try {
+    // Fetch and validate data
     const resp = await fbFetch(dbUrl);
     if (!resp.ok) {
       console.error("Error fetching data from Firebase:", await resp.text());
       return new Response("Internal Server Error", { status: 500 });
     }
     const data = await resp.json();
-
-    // Not found or missing redirectPath → 404
     if (!data || !data.redirectPath) {
       return Response.redirect(custom404, 302);
     }
 
-    const now         = new Date();
+    const now = new Date();
     const expiresDate = new Date(data.expires);
 
-    // Expired → delete & 404
+    // Expiry, one-time, direct logic
     if (expiresDate < now) {
       await fbFetch(dbUrl, { method: "DELETE" });
       return Response.redirect(custom404, 302);
     }
-
-    // One-time use → delete & redirect
-    if (data.once === true) {
+    if (data.once) {
       await fbFetch(dbUrl, { method: "DELETE" });
       return Response.redirect(data.redirectPath, 301);
     }
-
-    // Direct access → redirect immediately
-    if (data.na === true) {
+    if (data.na) {
       return Response.redirect(data.redirectPath, 301);
     }
 
@@ -90,26 +85,23 @@ export default async (request, context) => {
       const provided = searchParams.get("password");
       const userLang = (request.headers.get('accept-language') || 'en').split(',')[0].split('-')[0];
       const translations = {
-        en: { title: "Password Required", label: "Enter password", button: "Submit", error: "Incorrect password. Please try again." },
-        es: { title: "Contraseña Requerida", label: "Ingrese la contraseña", button: "Enviar", error: "Contraseña incorrecta. Inténtelo de nuevo." },
-        fr: { title: "Mot de Passe Requis", label: "Entrez le mot de passe", button: "Soumettre", error: "Mot de passe incorrect. Veuillez réessayer." },
-        de: { title: "Passwort Erforderlich", label: "Passwort eingeben", button: "Einreichen", error: "Falsches Passwort. Bitte versuchen Sie es erneut." }
-        // add other translations as needed
+        en: { title: "Password Required", label: "Enter password", button: "Submit", error: "Incorrect password. Please try again." }
+        // add other locales as needed
       };
       const t = translations[userLang] || translations.en;
 
       if (!provided || provided !== data.password) {
-        const message = !provided ? '' : t.error;
+        const message = provided && provided !== data.password ? t.error : '';
         const html = `<!DOCTYPE html>
 <html lang="${userLang}">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${t.title}</title>
   <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;700&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
   <style>
-    body{display:flex;justify-content:center;align-items:center;height:100vh;background:#f5f5f5;font-family:'Fira Sans',sans-serif;margin:0}
+    body{display:flex;justify-content:center;align-items:center;height:100vh;background:#f5f5f5;margin:0;font-family:'Fira Sans',sans-serif}
     .container{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1);text-align:center;max-width:400px;width:100%}
     .container h1{margin-bottom:1.5rem}
     .container p{color:red;margin-bottom:1rem}
@@ -132,7 +124,7 @@ export default async (request, context) => {
       }
     }
 
-    // Interstitial ad & dual redirect
+    // Build interstitial ad + dual redirect page
     const primaryUrl   = data.redirectPath;
     const secondaryUrl = data.secondUrl || 'https://google.com';
     const adHtml = `<!DOCTYPE html>
@@ -141,38 +133,35 @@ export default async (request, context) => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Redirecting...</title>
-  <!-- Google AdSense -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9467807666922856" crossorigin="anonymous"></script>
-  <!-- NETLIFY -->
-  <ins class="adsbygoogle"
-       style="display:block"
-       data-ad-client="ca-pub-9467807666922856"
-       data-ad-slot="3780294456"
-       data-ad-format="auto"
-       data-full-width-responsive="true"
-       data-adtest="on"></ins>
-  <script>
-       (adsbygoogle = window.adsbygoogle || []).push({});
-  </script>
-  <style>
-    body { margin:0; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; }
-    p    { font-family:sans-serif; font-size:1rem; }
-  </style>
+  <!-- Google AdSense snippet -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}" crossorigin="anonymous"></script>
 </head>
-<body>
-  <p>Redirecting in <span id="count">30</span> seconds...</p>
+<body style="margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
+  <div id="ad" style="width:320px;max-width:100%;margin-bottom:1rem;">
+    <ins class="adsbygoogle"
+         style="display:block;width:100%;height:100px;"
+         data-ad-client="${ADSENSE_CLIENT}"
+         data-ad-slot="${ADSENSE_SLOT}"
+         data-ad-format="auto"
+         data-full-width-responsive="true"
+         data-adtest="on"></ins>
+    <script>(adsbygoogle=window.adsbygoogle||[]).push({});</script>
+  </div>
+  <p style="font-family:sans-serif;font-size:1rem;">Redirecting in <span id="count">5</span> seconds...</p>
   <script>
-    let count = 30;
+    let count = 5;
     const el = document.getElementById('count');
     const timer = setInterval(() => {
       count--;
       el.textContent = count;
       if (count <= 0) {
         clearInterval(timer);
-        window.open('${secondaryUrl}', '_blank');
+        const w = window.open('${secondaryUrl}', '_blank','noopener,noreferrer');
+        if (w) w.blur();
+        window.focus();
         window.location.href = '${primaryUrl}';
       }
-    }, 1000);
+    },1000);
   </script>
 </body>
 </html>`;
