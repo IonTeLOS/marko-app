@@ -1,6 +1,6 @@
 // Netlify Edge Function — Redirect handler with authenticated Firebase access
 // Uses a hidden Firebase Auth user to read & delete shortlink entries securely.
-// Also injects an interstitial ad before opening a secondary ad URL in a background tab and redirecting to the primary URL.
+// Also injects an interstitial ad before redirecting to the primary URL, with option to skip.
 
 export default async (request, context) => {
   const { pathname, searchParams } = new URL(request.url);
@@ -124,7 +124,7 @@ export default async (request, context) => {
       }
     }
 
-    // Build interstitial ad + dual redirect page
+    // Build interstitial ad + control buttons
     const primaryUrl   = data.redirectPath;
     const secondaryUrl = data.secondUrl || 'https://google.com';
     const adHtml = `<!DOCTYPE html>
@@ -133,6 +133,8 @@ export default async (request, context) => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Redirecting...</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -154,45 +156,146 @@ export default async (request, context) => {
       justify-content: center;
       align-items: center;
       overflow: hidden;
+      border-radius: 4px;
     }
     .countdown {
       text-align: center;
       font-size: 18px;
-      margin-top: 20px;
+      margin-top: 10px;
+      margin-bottom: 20px;
+    }
+    .control-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    .btn-floating i {
+      line-height: 40px;
+    }
+    .progress {
+      width: 100%;
+      max-width: 300px;
+      margin: 0 auto;
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+    }
+    .progress .determinate {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      background-color: #26a69a;
+      transition: width 0.3s linear;
+    }
+    #progress-indicator {
+      height: 6px;
+      margin-bottom: 10px;
+    }
+    .hidden {
+      display: none;
     }
   </style>
 </head>
 <body>
-  <h2>You will be redirected shortly</h2>
+  <h4 class="center-align">You will be redirected shortly</h4>
   
   <div class="ad-container">
-    <!-- Alternative ad content -->
+    <!-- Ad Placeholder -->
     <div style="text-align: center; width: 100%;">
       <p style="margin: 0; padding: 10px;">Advertisement</p>
     </div>
   </div>
 
+  <div class="progress" id="progress-indicator">
+    <div class="determinate" style="width: 0%"></div>
+  </div>
+
   <div class="countdown">
-    Redirecting in <span id="count">5</span> seconds...
+    Redirecting in <span id="count">10</span> seconds...
+  </div>
+
+  <div class="control-buttons">
+    <button id="pause-btn" class="btn-floating waves-effect waves-light blue">
+      <i class="material-icons">pause</i>
+    </button>
+    <button id="skip-btn" class="btn-floating waves-effect waves-light green">
+      <i class="material-icons">skip_next</i>
+    </button>
   </div>
 
   <script>
-    let count = 5;
-    const el = document.getElementById('count');
-    const timer = setInterval(() => {
-      count--;
-      el.textContent = count;
-      if (count <= 0) {
-        clearInterval(timer);
-        // First redirect to primary URL
-        window.location.href = '${primaryUrl}';
-        // Then open secondary URL in background tab
-        setTimeout(() => {
-          const secondaryWindow = window.open('${secondaryUrl}', '_blank', 'noopener,noreferrer');
-          if (secondaryWindow) secondaryWindow.blur();
-        }, 500);
+    // Store URLs and setup state
+    const primaryUrl = '${primaryUrl}';
+    const secondaryUrl = '${secondaryUrl}';
+    let isPaused = false;
+    let countdownComplete = false;
+    let totalTime = 10; // seconds
+    let remainingTime = totalTime;
+    
+    // Get DOM elements
+    const countEl = document.getElementById('count');
+    const pauseBtn = document.getElementById('pause-btn');
+    const skipBtn = document.getElementById('skip-btn');
+    const progressBar = document.querySelector('.determinate');
+    
+    // Set up the timer
+    const updateTimer = () => {
+      if (isPaused) return;
+      
+      remainingTime--;
+      countEl.textContent = remainingTime;
+      
+      // Update progress bar
+      const progressPercent = ((totalTime - remainingTime) / totalTime) * 100;
+      progressBar.style.width = progressPercent + '%';
+      
+      if (remainingTime <= 0) {
+        clearInterval(timerInterval);
+        countdownComplete = true;
+        redirectToPrimary();
       }
-    }, 1000);
+    };
+    
+    // Control buttons functionality
+    pauseBtn.addEventListener('click', () => {
+      isPaused = !isPaused;
+      pauseBtn.querySelector('i').textContent = isPaused ? 'play_arrow' : 'pause';
+    });
+    
+    skipBtn.addEventListener('click', () => {
+      clearInterval(timerInterval);
+      redirectToPrimary();
+    });
+    
+    // Handle redirect to primary URL
+    function redirectToPrimary() {
+      // For desktop browsers
+      if (!isMobileDevice()) {
+        try {
+          // Save secondary URL to localStorage
+          localStorage.setItem('secondaryUrl', secondaryUrl);
+          // Attach a one-time event listener to run when primary page loads
+          // This will be handled by code you'd add to your sites
+        } catch (e) {
+          console.error("Local storage error:", e);
+        }
+      }
+      
+      // Direct redirect to primary URL
+      window.location.href = primaryUrl;
+    }
+    
+    // Detect if user is on mobile
+    function isMobileDevice() {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+    
+    // Start the countdown
+    const timerInterval = setInterval(updateTimer, 1000);
+    
+    // Update progress bar on load
+    progressBar.style.width = '0%';
   </script>
 </body>
 </html>`;
