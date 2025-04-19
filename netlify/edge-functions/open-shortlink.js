@@ -133,22 +133,49 @@ export default async (request, context) => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Redirecting...</title>
-  <!-- Google AdSense snippet -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}" crossorigin="anonymous"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .ad-container {
+      width: 100%;
+      max-width: 728px;
+      margin: 0 auto 20px;
+      min-height: 90px;
+      background-color: #f5f5f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+    .countdown {
+      text-align: center;
+      font-size: 18px;
+      margin-top: 20px;
+    }
+  </style>
 </head>
-<body style="margin:0;padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;">
-  <div id="ad" style="width:320px;height:100px;margin-bottom:1rem;background:#f9f9f9;border:1px solid #eee;overflow:hidden;">
-    <ins class="adsbygoogle"
-         style="display:block;width:320px;height:100px;"
-         data-ad-client="${ADSENSE_CLIENT}"
-         data-ad-slot="${ADSENSE_SLOT}"
-         data-ad-format="rectangle"
-         data-adtest="on"></ins>
-    <script>
-      (adsbygoogle = window.adsbygoogle || []).push({});
-    </script>
+<body>
+  <h2>You will be redirected shortly</h2>
+  
+  <div class="ad-container">
+    <!-- Alternative ad content -->
+    <div style="text-align: center; width: 100%;">
+      <p style="margin: 0; padding: 10px;">Advertisement</p>
+    </div>
   </div>
-  <p style="font-family:sans-serif;font-size:1rem;">Redirecting in <span id="count">5</span> seconds...</p>
+
+  <div class="countdown">
+    Redirecting in <span id="count">5</span> seconds...
+  </div>
+
   <script>
     let count = 5;
     const el = document.getElementById('count');
