@@ -42,7 +42,7 @@ export default async (request, context) => {
   }
 
   // ────────────────────────────────────────────────────────────
-  // 1. Routing: only handle /o/:code
+  // 1. Routing
   // ────────────────────────────────────────────────────────────
   if (!pathname.startsWith("/o/")) {
     return context.next();
@@ -83,28 +83,39 @@ export default async (request, context) => {
     // Password protection
     if (data.password) {
       const provided = searchParams.get("password");
-      const t = {
-        title: "Password Required",
-        label: "Enter password",
-        button: "Submit",
-        error: "Incorrect password."
+      const userLang = (request.headers.get('accept-language') || 'en').split(',')[0].split('-')[0];
+      const translations = {
+        en: { title: "Password Required", label: "Enter password", button: "Submit", error: "Incorrect password. Please try again." }
+        // add other locales as needed
       };
+      const t = translations[userLang] || translations.en;
+
       if (!provided || provided !== data.password) {
-        const msg = provided && provided !== data.password ? t.error : "";
+        const message = provided && provided !== data.password ? t.error : '';
         const html = `<!DOCTYPE html>
-<html lang="en">
+<html lang="${userLang}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${t.title}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+  <style>
+    body{display:flex;justify-content:center;align-items:center;height:100vh;background:#f5f5f5;margin:0;font-family:'Fira Sans',sans-serif}
+    .container{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1);text-align:center;max-width:400px;width:100%}
+    .container h1{margin-bottom:1.5rem}
+    .container p{color:red;margin-bottom:1rem}
+    .container input{width:100%;padding:.75rem;margin-bottom:1rem}
+    .container button{width:100%;padding:.75rem}
+  </style>
 </head>
-<body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;">
-  <div>
+<body>
+  <div class="container">
     <h1>${t.title}</h1>
-    ${msg ? `<p style="color:red;">${msg}</p>` : ""}
+    ${message ? `<p>${message}</p>` : ''}
     <form method="GET">
-      <input type="password" name="password" placeholder="${t.label}" required />
-      <button type="submit">${t.button}</button>
+      <input type="password" name="password" placeholder="${t.label}" required>
+      <button class="btn waves-effect waves-light" type="submit">${t.button}</button>
     </form>
   </div>
 </body>
@@ -113,127 +124,287 @@ export default async (request, context) => {
       }
     }
 
-    // Final: show ad + controls + 30s countdown
+    // Build interstitial ad + control buttons
     const primaryUrl   = data.redirectPath;
-    const secondaryUrl = data.secondUrl || "https://google.com";
+    const secondaryUrl = data.secondUrl || 'https://google.com';
     const adHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Redirecting...</title>
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}" crossorigin="anonymous"></script>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
   <style>
     body {
+      font-family: 'Roboto', Arial, sans-serif;
       margin: 0;
       padding: 20px;
-      font-family: sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
+      min-height: 100vh;
     }
     .ad-container {
       width: 100%;
       max-width: 728px;
-      margin-bottom: 20px;
+      margin: 0 auto 20px;
+      min-height: 90px;
+      background-color: #f5f5f5;
       display: flex;
       justify-content: center;
       align-items: center;
-      background: #f5f5f5;
-    }
-    .ad-container ins {
-      display: block;
-      width: 100%;
-      height: auto;
-    }
-    .progress {
-      width: 100%;
-      max-width: 300px;
-      height: 6px;
-      background: #e0e0e0;
-      border-radius: 3px;
       overflow: hidden;
-      margin-bottom: 20px;
-    }
-    .determinate {
-      height: 100%;
-      background: #26a69a;
-      width: 0%;
-      transition: width 0.3s linear;
+      border-radius: 4px;
     }
     .countdown {
       text-align: center;
       font-size: 18px;
+      margin-top: 10px;
       margin-bottom: 20px;
     }
-    .controls {
+    .control-buttons {
       display: flex;
       gap: 10px;
+      margin-top: 15px;
     }
-    .controls button {
-      padding: 0 12px;
-      font-size: 14px;
+    .btn-floating i {
+      line-height: 40px;
+    }
+    .progress {
+      width: 100%;
+      max-width: 300px;
+      margin: 0 auto;
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+    }
+    .progress .determinate {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      background-color: #26a69a;
+      transition: width 0.3s linear;
+    }
+    #progress-indicator {
+      height: 6px;
+      margin-bottom: 10px;
+    }
+    .hidden {
+      display: none;
+    }
+    .btn-tooltip {
+      position: relative;
+    }
+    .tooltip-text {
+      visibility: hidden;
+      width: 120px;
+      background-color: rgba(0,0,0,0.8);
+      color: #fff;
+      text-align: center;
+      border-radius: 6px;
+      padding: 5px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      margin-left: -60px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      font-size: 12px;
+    }
+    .btn-tooltip:hover .tooltip-text {
+      visibility: visible;
+      opacity: 1;
+    }
+    .ad-placeholder {
+      text-align: center;
+      width: 100%;
+      padding: 20px;
+      display: none;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.7);
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background-color: #fff;
+      margin: auto;
+      padding: 20px;
+      border-radius: 4px;
+      max-width: 500px;
+      text-align: center;
+    }
+    .modal-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 15px;
     }
   </style>
+  <!-- Google AdSense snippet -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}" crossorigin="anonymous"></script>
 </head>
 <body>
-  <h2>You will be redirected shortly</h2>
+  <h4 class="center-align">You will be redirected shortly</h4>
+  
   <div class="ad-container">
+    <!-- AdSense Ad -->
     <ins class="adsbygoogle"
+         style="display:block;width:728px;height:90px"
          data-ad-client="${ADSENSE_CLIENT}"
          data-ad-slot="${ADSENSE_SLOT}"
-         data-ad-format="auto"
-         data-full-width-responsive="true"
-         data-adtest="on"></ins>
+         data-ad-format="horizontal"></ins>
+    
+    <!-- Fallback content if ad fails to load -->
+    <div class="ad-placeholder">
+      <p>Advertisement</p>
+    </div>
   </div>
-  <div class="progress">
-    <div class="determinate"></div>
+
+  <div class="progress" id="progress-indicator">
+    <div class="determinate" style="width: 0%"></div>
   </div>
+
   <div class="countdown">
-    Redirecting in <span id="count">30</span> seconds...
+    Redirecting in <span id="count">10</span> seconds...
   </div>
-  <div class="controls">
-    <button id="pause">Pause</button>
-    <button id="skip">Skip</button>
+
+  <div class="control-buttons">
+    <div class="btn-tooltip">
+      <button id="pause-btn" class="btn-floating waves-effect waves-light blue">
+        <i class="material-icons">pause</i>
+      </button>
+      <span class="tooltip-text">Pause/Resume</span>
+    </div>
+    <div class="btn-tooltip">
+      <button id="skip-btn" class="btn-floating waves-effect waves-light green">
+        <i class="material-icons">skip_next</i>
+      </button>
+      <span class="tooltip-text">Skip & Continue</span>
+    </div>
   </div>
+  
+  <!-- Modal for secondary URL -->
+  <div id="secondaryModal" class="modal">
+    <div class="modal-content">
+      <h5>Would you like to visit our sponsor?</h5>
+      <p>Your main destination will open automatically.</p>
+      <div class="modal-buttons">
+        <button id="openSecondary" class="btn waves-effect waves-light blue">Yes, visit sponsor</button>
+        <button id="closeModal" class="btn waves-effect waves-light grey">No thanks</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    (adsbygoogle = window.adsbygoogle || []).push({});
-    let paused = false, total = 30, rem = total;
+    // Store URLs and setup state
+    const primaryUrl = '${primaryUrl}';
+    const secondaryUrl = '${secondaryUrl}';
+    let isPaused = false;
+    let countdownComplete = false;
+    let totalTime = 10; // seconds
+    let remainingTime = totalTime;
+    let adLoaded = false;
+    let adFailed = false;
+    
+    // Get DOM elements
     const countEl = document.getElementById('count');
-    const det = document.querySelector('.determinate');
-    const interval = setInterval(() => {
-      if (!paused) {
-        rem--;
-        det.style.width = ((total - rem) / total * 100) + '%';
-        countEl.textContent = rem;
-        if (rem <= 0) {
-          clearInterval(interval);
-          redirect();
-        }
-      }
-    }, 1000);
-    document.getElementById('pause').onclick = () => { paused = !paused; };
-    document.getElementById('skip').onclick = (e) => {
-      e.preventDefault();
-      const popup = window.open(secondaryUrl, '_blank', 'noopener,noreferrer');
-      if (popup) popup.blur();
-      window.focus();
-      clearInterval(interval);
-      setTimeout(() => window.location.href = primaryUrl, 100);
-    };
-    function redirect() {
+    const pauseBtn = document.getElementById('pause-btn');
+    const skipBtn = document.getElementById('skip-btn');
+    const progressBar = document.querySelector('.determinate');
+    const adElement = document.querySelector('.adsbygoogle');
+    const adPlaceholder = document.querySelector('.ad-placeholder');
+    const modal = document.getElementById('secondaryModal');
+    const openSecondaryBtn = document.getElementById('openSecondary');
+    const closeModalBtn = document.getElementById('closeModal');
+    
+    window.onload = function() {
       try {
-        const popup = window.open(secondaryUrl, '_blank', 'noopener,noreferrer');
-        if (popup) popup.blur();
-        window.focus();
-      } catch {}
+        (adsbygoogle = window.adsbygoogle || []).push({});
+      } catch(e) {
+        handleAdFailure();
+      }
+    };
+    
+    // Handle ad loading failure
+    function handleAdFailure() {
+      adFailed = true;
+      adElement.style.display = 'none';
+      adPlaceholder.style.display = 'block';
+    }
+    
+    // Set up the timer
+    const updateTimer = () => {
+      if (isPaused) return;
+      
+      remainingTime--;
+      countEl.textContent = remainingTime;
+      
+      // Update progress bar
+      const progressPercent = ((totalTime - remainingTime) / totalTime) * 100;
+      progressBar.style.width = progressPercent + '%';
+      
+      if (remainingTime <= 0) {
+        clearInterval(timerInterval);
+        countdownComplete = true;
+        redirectToPrimary();
+      }
+    };
+    
+    // Control buttons functionality
+    pauseBtn.addEventListener('click', () => {
+      isPaused = !isPaused;
+      pauseBtn.querySelector('i').textContent = isPaused ? 'play_arrow' : 'pause';
+    });
+    
+    // Show modal when skip is clicked
+    skipBtn.addEventListener('click', () => {
+      clearInterval(timerInterval);
+      modal.style.display = 'flex';
+    });
+    
+    // Modal button handlers
+    openSecondaryBtn.addEventListener('click', () => {
+      // First redirect the current page to the primary URL
+      window.location.href = primaryUrl;
+      
+      // Then try to open the secondary URL
+      // This will happen after the redirect has started, so the main page gets focus
+      setTimeout(() => {
+        window.open(secondaryUrl, '_blank');
+      }, 100);
+    });
+    
+    closeModalBtn.addEventListener('click', () => {
+      modal.style.display = 'none';
+      redirectToPrimary();
+    });
+    
+    // Handle redirect to primary URL
+    function redirectToPrimary() {
       window.location.href = primaryUrl;
     }
+    
+    // Start the countdown
+    const timerInterval = setInterval(updateTimer, 1000);
+    
+    // Update progress bar on load
+    progressBar.style.width = '0%';
   </script>
 </body>
 </html>`;
+
     return new Response(adHtml, { headers: { "Content-Type": "text/html" } });
 
   } catch (err) {
