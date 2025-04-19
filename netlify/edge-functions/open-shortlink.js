@@ -126,7 +126,7 @@ export default async (request, context) => {
 
     // Build interstitial ad + control buttons
     const primaryUrl   = data.redirectPath;
-    const secondaryUrl = data.secondUrl || 'https://tovima.gr';
+    const secondaryUrl = data.secondUrl || 'https://google.com';
     const adHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -225,6 +225,32 @@ export default async (request, context) => {
       padding: 20px;
       display: none;
     }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.7);
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background-color: #fff;
+      margin: auto;
+      padding: 20px;
+      border-radius: 4px;
+      max-width: 500px;
+      text-align: center;
+    }
+    .modal-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 15px;
+    }
   </style>
   <!-- Google AdSense snippet -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}" crossorigin="anonymous"></script>
@@ -268,6 +294,18 @@ export default async (request, context) => {
       <span class="tooltip-text">Skip & Continue</span>
     </div>
   </div>
+  
+  <!-- Modal for secondary URL -->
+  <div id="secondaryModal" class="modal">
+    <div class="modal-content">
+      <h5>Would you like to visit our sponsor?</h5>
+      <p>Your main destination will open automatically.</p>
+      <div class="modal-buttons">
+        <button id="openSecondary" class="btn waves-effect waves-light blue">Yes, visit sponsor</button>
+        <button id="closeModal" class="btn waves-effect waves-light grey">No thanks</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     // Store URLs and setup state
@@ -279,7 +317,6 @@ export default async (request, context) => {
     let remainingTime = totalTime;
     let adLoaded = false;
     let adFailed = false;
-    let currentWindow = window;
     
     // Get DOM elements
     const countEl = document.getElementById('count');
@@ -288,6 +325,9 @@ export default async (request, context) => {
     const progressBar = document.querySelector('.determinate');
     const adElement = document.querySelector('.adsbygoogle');
     const adPlaceholder = document.querySelector('.ad-placeholder');
+    const modal = document.getElementById('secondaryModal');
+    const openSecondaryBtn = document.getElementById('openSecondary');
+    const closeModalBtn = document.getElementById('closeModal');
     
     // Try to load the AdSense ad
     try {
@@ -341,25 +381,31 @@ export default async (request, context) => {
       pauseBtn.querySelector('i').textContent = isPaused ? 'play_arrow' : 'pause';
     });
     
-    // Modified skip button handler to ensure focus on primary URL
+    // Show modal when skip is clicked
     skipBtn.addEventListener('click', () => {
       clearInterval(timerInterval);
+      modal.style.display = 'flex';
+    });
+    
+    // Modal button handlers
+    openSecondaryBtn.addEventListener('click', () => {
+      // First redirect the current page to the primary URL
+      window.location.href = primaryUrl;
       
-      // First open the secondary URL in a new tab
-      const secondaryWindow = window.open(secondaryUrl, '_blank');
-      
-      // Then redirect to primary URL in the current window with a slight delay
-      // to ensure this window receives focus after the new tab opens
+      // Then try to open the secondary URL
+      // This will happen after the redirect has started, so the main page gets focus
       setTimeout(() => {
-        window.focus(); // Try to focus back to this window
-        window.location.href = primaryUrl;
+        window.open(secondaryUrl, '_blank');
       }, 100);
     });
     
-    // Handle redirect to primary URL when timer completes
+    closeModalBtn.addEventListener('click', () => {
+      modal.style.display = 'none';
+      redirectToPrimary();
+    });
+    
+    // Handle redirect to primary URL
     function redirectToPrimary() {
-      // Add focus to ensure this window has focus
-      window.focus();
       window.location.href = primaryUrl;
     }
     
@@ -368,21 +414,6 @@ export default async (request, context) => {
     
     // Update progress bar on load
     progressBar.style.width = '0%';
-    
-    // Set focus to the current window when page loads
-    window.addEventListener('load', () => {
-      window.focus();
-    });
-    
-    // Try to keep focus on this window
-    window.addEventListener('blur', () => {
-      // If countdown isn't complete, try to refocus
-      if (!countdownComplete) {
-        setTimeout(() => {
-          window.focus();
-        }, 300);
-      }
-    });
   </script>
 </body>
 </html>`;
