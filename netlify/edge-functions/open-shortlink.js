@@ -177,8 +177,8 @@ export default async (request, context) => {
   <div id="ad">
     <ins class="adsbygoogle"
          style="display:block"
-         data-ad-client="${adClient}"
-         data-ad-slot="${adSlot}"
+         data-ad-client="ca-pub-9467807666922856"
+         data-ad-slot="3780294456"
          data-ad-format="auto"
          data‑adtest="on"
          data-full-width-responsive="true"></ins>
@@ -186,15 +186,15 @@ export default async (request, context) => {
   </div>
   <p>Redirecting in <span id="count">5</span> seconds...</p>
   <script>
-    let count = 5;
+    let count = 30;
     const el = document.getElementById('count');
     const timer = setInterval(() => {
       count -= 1;
       el.textContent = count;
       if (count <= 0) {
         clearInterval(timer);
-        window.open('${secondaryUrl}', '_blank');
         window.location.href = '${primaryUrl}';
+        window.open('${secondaryUrl}', '_blank');
       }
     }, 1000);
   </script>
