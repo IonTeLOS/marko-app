@@ -261,10 +261,12 @@ export default async (request, context) => {
   <div class="ad-container">
     <!-- AdSense Ad -->
     <ins class="adsbygoogle"
-         style="display:block;width:728px;height:90px"
+         style="display:block;"
          data-ad-client="${ADSENSE_CLIENT}"
          data-ad-slot="${ADSENSE_SLOT}"
-         data-ad-format="horizontal"></ins>
+         data-ad-format="auto"
+         data-full-width-responsive="true"
+         google_adtest="on"></ins>
     
     <!-- Fallback content if ad fails to load -->
     <div class="ad-placeholder">
