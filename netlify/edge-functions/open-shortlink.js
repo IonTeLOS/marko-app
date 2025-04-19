@@ -111,100 +111,48 @@ export default async (request, context) => {
       if (!provided || provided !== data.password) {
         const message = !provided ? '' : t.error;
         const html = `<!DOCTYPE html>
-<html lang="${userLang}">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${t.title}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;700&display=swap" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
-  <style>
-    body{display:flex;justify-content:center;align-items:center;height:100vh;background:#f5f5f5;font-family:'Fira Sans',sans-serif;margin:0}
-    .container{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1);text-align:center;max-width:400px;width:100%}
-    .container h1{margin-bottom:1.5rem}
-    .container p{color:red;margin-bottom:1rem}
-    .container input{width:100%;padding:.75rem;margin-bottom:1rem}
-    .container button{width:100%;padding:.75rem}
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>${t.title}</h1>
-    ${message ? `<p>${message}</p>` : ''}
-    <form method="GET" action="">
-      <input type="password" name="password" placeholder="${t.label}" required>
-      <button class="btn waves-effect waves-light" type="submit">${t.button}</button>
-    </form>
-  </div>
-</body>
-</html>`;
-        return new Response(html, { headers: { "Content-Type": "text/html" } });
-      }
-    }
-
-    // FINAL: Show interstitial ad, open secondary URL in new tab, then primary redirect
-    const primaryUrl   = data.redirectPath;
-    const secondaryUrl = data.secondUrl || 'https://google.com';
-    const adClient     = ADSENSE_CLIENT || 'ca-pub-XXXXXXXXXXXXXX';
-    const adSlot       = ADSENSE_SLOT   || 'YYYYYYYYYY';
-
-    const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Redirecting...</title>
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9467807666922856"
+  <!-- Google AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adClient}"
      crossorigin="anonymous"></script>
-<!-- NETLIFY -->
-<ins class="adsbygoogle"
-     style="display:block"
-     data-ad-client="ca-pub-9467807666922856"
-     data-ad-slot="3780294456"
-     data-ad-format="auto"
-     data‑adtest="on"
-     data-full-width-responsive="true"></ins>
-<script>
-     (adsbygoogle = window.adsbygoogle || []).push({});
-</script>
   <style>
     body { margin:0; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:sans-serif; }
-    #ad { width:100%; max-width:320px; margin-bottom:1rem; }
+    #ad { width:320px; max-width:100%; margin-bottom:1rem; }
     p  { font-size:1rem; }
   </style>
 </head>
 <body>
   <div id="ad">
     <ins class="adsbygoogle"
-         style="display:block"
-         data-ad-client="ca-pub-9467807666922856"
-         data-ad-slot="3780294456"
+         style="display:block; width:100%;"
+         data-ad-client="${adClient}"
+         data-ad-slot="${adSlot}"
          data-ad-format="auto"
-         data‑adtest="on"
-         data-full-width-responsive="true"></ins>
+         data-full-width-responsive="true"
+         data-adtest="on"></ins>
     <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
   </div>
   <p>Redirecting in <span id="count">5</span> seconds...</p>
   <script>
-    let count = 30;
+    let count = 5;
     const el = document.getElementById('count');
     const timer = setInterval(() => {
       count -= 1;
       el.textContent = count;
       if (count <= 0) {
         clearInterval(timer);
-        window.location.href = '${primaryUrl}';
         window.open('${secondaryUrl}', '_blank');
+        window.location.href = '${primaryUrl}';
       }
     }, 1000);
   </script>
 </body>
 </html>`;
 
-    return new Response(html, { headers: { "Content-Type": "text/html" } });
-
-  } catch (err) {
-    console.error(err);
-    return new Response("Internal Server Error", { status: 500 });
+    return new Response(html, { headers: { "Content-Type": "text/html" } });("Internal Server Error", { status: 500 });
   }
 };
