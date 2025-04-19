@@ -1,15 +1,18 @@
 // Netlify Edge Function — Redirect handler with authenticated Firebase access
 // Uses a hidden Firebase Auth user to read & delete shortlink entries securely.
+// Also injects an interstitial ad before opening a secondary ad URL in a new tab and redirecting to the primary URL.
 
 export default async (request, context) => {
   const { pathname, searchParams } = new URL(request.url);
 
   // ────────────────────────────────────────────────────────────
-  // 0. Firebase Auth helper (ID‑token cache)
+  // 0. Env and Firebase Auth helper
   // ────────────────────────────────────────────────────────────
-  const API_KEY       = Deno.env.get("FIREBASE_API_KEY");
-  const SERVICE_EMAIL = Deno.env.get("FIREBASE_SERVICE_EMAIL");
-  const SERVICE_PASS  = Deno.env.get("FIREBASE_SERVICE_PASSWORD");
+  const API_KEY        = Deno.env.get("FIREBASE_API_KEY");
+  const SERVICE_EMAIL  = Deno.env.get("FIREBASE_SERVICE_EMAIL");
+  const SERVICE_PASS   = Deno.env.get("FIREBASE_SERVICE_PASSWORD");
+  const ADSENSE_CLIENT = Deno.env.get("ADSENSE_CLIENT_ID");    // e.g. "ca-pub-XXXXXXXXXXXXXXXX"
+  const ADSENSE_SLOT   = Deno.env.get("ADSENSE_SLOT_ID");      // your ad slot ID
   if (!API_KEY || !SERVICE_EMAIL || !SERVICE_PASS) {
     return new Response("Server mis‑configuration — missing Firebase env vars", { status: 500 });
   }
@@ -20,11 +23,7 @@ export default async (request, context) => {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: SERVICE_EMAIL,
-          password: SERVICE_PASS,
-          returnSecureToken: true
-        })
+        body: JSON.stringify({ email: SERVICE_EMAIL, password: SERVICE_PASS, returnSecureToken: true })
       }
     );
     if (!resp.ok) throw new Error("Failed to sign in service user");
@@ -44,48 +43,44 @@ export default async (request, context) => {
   // ────────────────────────────────────────────────────────────
   // 1. Routing
   // ────────────────────────────────────────────────────────────
-  const customPageUrl = "https://marko-app.netlify.app/404.html";
   if (!pathname.startsWith("/o/")) {
     return context.next();
   }
-
-  // Extract short code and build DB URL
-  const shortCode = pathname.replace("/o/", "");
-  const DEFAULT_DB_ROOT = "https://marko-be9a9-default-rtdb.firebaseio.com/shortlink/";
-  const dbUrl = `${DEFAULT_DB_ROOT}${shortCode}.json`;
+  const custom404 = "https://marko-app.netlify.app/404.html";
+  const code      = pathname.replace("/o/", "");
+  const dbUrl     = `https://marko-be9a9-default-rtdb.firebaseio.com/shortlink/${code}.json`;
 
   try {
-    // Read entry
-    const response = await fbFetch(dbUrl);
-    if (!response.ok) {
-      console.error("Error fetching data from Firebase:", await response.text());
+    const resp = await fbFetch(dbUrl);
+    if (!resp.ok) {
+      console.error("Error fetching data from Firebase:", await resp.text());
       return new Response("Internal Server Error", { status: 500 });
     }
-    const data = await response.json();
+    const data = await resp.json();
 
     // Not found or missing redirectPath → 404
     if (!data || !data.redirectPath) {
-      return Response.redirect(customPageUrl, 302);
+      return Response.redirect(custom404, 302);
     }
 
-    const currentDate = new Date();
+    const now = new Date();
     const expiresDate = new Date(data.expires);
 
     // Expired → delete & 404
-    if (expiresDate < currentDate) {
+    if (expiresDate < now) {
       console.log("Link has expired.");
       await fbFetch(dbUrl, { method: "DELETE" });
-      return Response.redirect(customPageUrl, 302);
+      return Response.redirect(custom404, 302);
     }
 
-    // One‑time use → delete & redirect
+    // One-time use → delete & redirect
     if (data.once === true) {
       console.log("Link is one-time use.");
       await fbFetch(dbUrl, { method: "DELETE" });
       return Response.redirect(data.redirectPath, 301);
     }
 
-    // Direct access flag
+    // Direct access flag (`na`) → redirect immediately
     if (data.na === true) {
       console.log("Link is directly accessible.");
       return Response.redirect(data.redirectPath, 301);
@@ -93,7 +88,7 @@ export default async (request, context) => {
 
     // Password protection
     if (data.password) {
-      const providedPassword = searchParams.get("password");
+      const provided = searchParams.get("password");
       const userLang = (request.headers.get('accept-language') || 'en').split(',')[0].split('-')[0];
       const translations = {
         en: { title: "Password Required", label: "Enter password", button: "Submit", error: "Incorrect password. Please try again." },
@@ -112,26 +107,92 @@ export default async (request, context) => {
       };
       const t = translations[userLang] || translations.en;
 
-      // Initial prompt or error
-      if (!providedPassword) {
-        const html = `<!DOCTYPE html><html lang="${userLang}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${t.title}</title><link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;700&display=swap" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet"><style>body{display:flex;justify-content:center;align-items:center;height:100vh;background:#f5f5f5;font-family:'Fira Sans',sans-serif;margin:0}.container{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1);text-align:center;max-width:400px;width:100%}.container h1{margin-bottom:1.5rem}.container input{width:100%;padding:.75rem;margin-bottom:1rem}.container button{width:100%;padding:.75rem}</style></head><body><div class="container"><h1>${t.title}</h1><form method="GET" action=""><input type="password" name="password" placeholder="${t.label}" required><button class="btn waves-effect waves-light" type="submit">${t.button}</button></form></div></body></html>`;
-        return new Response(html, { headers: { "Content-Type": "text/html" } });
-      }
-      if (providedPassword !== data.password) {
-        const html = `<!DOCTYPE html><html lang="${userLang}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${t.title}</title><link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;700&display=swap" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet"><style>body{display:flex;justify-content:center;align-items:center;height:100vh;background:#f5f5f5;font-family:'Fira Sans',sans-serif;margin:0}.container{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1);text-align:center;max-width:400px;width:100%}.container h1{margin-bottom:1.5rem}.container p{color:red;margin-bottom:1rem}.container input{width:100%;padding:.75rem;margin-bottom:1rem}.container button{width:100%;padding:.75rem}</style></head><body><div class="container"><h1>${t.title}</h1><p>${t.error}</p><form method="GET" action=""><input type="password" name="password" placeholder="${t.label}" required><button class="btn waves-effect waves-light" type="submit">${t.button}</button></form></div></body></html>`;
+      // Prompt or error
+      if (!provided || provided !== data.password) {
+        const message = !provided ? '' : t.error;
+        const html = `<!DOCTYPE html>
+<html lang="${userLang}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${t.title}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+  <style>
+    body{display:flex;justify-content:center;align-items:center;height:100vh;background:#f5f5f5;font-family:'Fira Sans',sans-serif;margin:0}
+    .container{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1);text-align:center;max-width:400px;width:100%}
+    .container h1{margin-bottom:1.5rem}
+    .container p{color:red;margin-bottom:1rem}
+    .container input{width:100%;padding:.75rem;margin-bottom:1rem}
+    .container button{width:100%;padding:.75rem}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>${t.title}</h1>
+    ${message ? `<p>${message}</p>` : ''}
+    <form method="GET" action="">
+      <input type="password" name="password" placeholder="${t.label}" required>
+      <button class="btn waves-effect waves-light" type="submit">${t.button}</button>
+    </form>
+  </div>
+</body>
+</html>`;
         return new Response(html, { headers: { "Content-Type": "text/html" } });
       }
     }
 
-    // Intermediate redirect
-    const intermediatePageUrl = `/a/?target=${encodeURIComponent(data.redirectPath)}`;
-    return Response.redirect(intermediatePageUrl, 301);
+    // FINAL: Show interstitial ad, open secondary URL in new tab, then primary redirect
+    const primaryUrl   = data.redirectPath;
+    const secondaryUrl = data.secondUrl || 'https://google.com';
+    const adClient     = ADSENSE_CLIENT || 'ca-pub-XXXXXXXXXXXXXX';
+    const adSlot       = ADSENSE_SLOT   || 'YYYYYYYYYY';
 
-  } catch (error) {
-    console.error("Error in Firebase redirect handler:", error);
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Redirecting...</title>
+  <!-- Google AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adClient}" crossorigin="anonymous"></script>
+  <style>
+    body { margin:0; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:sans-serif; }
+    #ad { width:100%; max-width:320px; margin-bottom:1rem; }
+    p  { font-size:1rem; }
+  </style>
+</head>
+<body>
+  <div id="ad">
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="${adClient}"
+         data-ad-slot="${adSlot}"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+  </div>
+  <p>Redirecting in <span id="count">5</span> seconds...</p>
+  <script>
+    let count = 5;
+    const el = document.getElementById('count');
+    const timer = setInterval(() => {
+      count -= 1;
+      el.textContent = count;
+      if (count <= 0) {
+        clearInterval(timer);
+        window.open('${secondaryUrl}', '_blank');
+        window.location.href = '${primaryUrl}';
+      }
+    }, 1000);
+  </script>
+</body>
+</html>`;
+
+    return new Response(html, { headers: { "Content-Type": "text/html" } });
+
+  } catch (err) {
+    console.error(err);
     return new Response("Internal Server Error", { status: 500 });
   }
-
-  // Continue with the normal flow for other paths
-  return context.next();
 };
