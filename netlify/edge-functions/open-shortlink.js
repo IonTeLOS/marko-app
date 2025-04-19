@@ -1,6 +1,6 @@
 // Netlify Edge Function — Redirect handler with authenticated Firebase access
 // Uses a hidden Firebase Auth user to read & delete shortlink entries securely.
-// Also injects an interstitial ad before redirecting to the primary URL, with option to skip.
+// Also injects an interstitial ad before redirecting to the primary URL, with skip and pause controls.
 
 export default async (request, context) => {
   const { pathname, searchParams } = new URL(request.url);
@@ -86,17 +86,15 @@ export default async (request, context) => {
       const userLang = (request.headers.get('accept-language') || 'en').split(',')[0].split('-')[0];
       const translations = {
         en: { title: "Password Required", label: "Enter password", button: "Submit", error: "Incorrect password. Please try again." }
-        // add other locales as needed
       };
       const t = translations[userLang] || translations.en;
-
       if (!provided || provided !== data.password) {
         const message = provided && provided !== data.password ? t.error : '';
         const html = `<!DOCTYPE html>
 <html lang="${userLang}">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${t.title}</title>
   <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;700&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
@@ -124,243 +122,92 @@ export default async (request, context) => {
       }
     }
 
-    // Build interstitial ad + control buttons
+    // Build interstitial ad + control buttons + debug countdown
     const primaryUrl   = data.redirectPath;
     const secondaryUrl = data.secondUrl || 'https://google.com';
     const adHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Redirecting...</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
   <style>
-    body {
-      font-family: 'Roboto', Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-    }
-    .ad-container {
-      width: 100%;
-      max-width: 728px;
-      margin: 0 auto 20px;
-      min-height: 90px;
-      background-color: #f5f5f5;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-      border-radius: 4px;
-    }
-    .countdown {
-      text-align: center;
-      font-size: 18px;
-      margin-top: 10px;
-      margin-bottom: 20px;
-    }
-    .control-buttons {
-      display: flex;
-      gap: 10px;
-      margin-top: 15px;
-    }
-    .btn-floating i {
-      line-height: 40px;
-    }
-    .progress {
-      width: 100%;
-      max-width: 300px;
-      margin: 0 auto;
-      border-radius: 2px;
-      overflow: hidden;
-      position: relative;
-    }
-    .progress .determinate {
-      position: absolute;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      background-color: #26a69a;
-      transition: width 0.3s linear;
-    }
-    #progress-indicator {
-      height: 6px;
-      margin-bottom: 10px;
-    }
-    .hidden {
-      display: none;
-    }
-    .btn-tooltip {
-      position: relative;
-    }
-    .tooltip-text {
-      visibility: hidden;
-      width: 120px;
-      background-color: rgba(0,0,0,0.8);
-      color: #fff;
-      text-align: center;
-      border-radius: 6px;
-      padding: 5px;
-      position: absolute;
-      z-index: 1;
-      bottom: 125%;
-      left: 50%;
-      margin-left: -60px;
-      opacity: 0;
-      transition: opacity 0.3s;
-      font-size: 12px;
-    }
-    .btn-tooltip:hover .tooltip-text {
-      visibility: visible;
-      opacity: 1;
-    }
-    .ad-placeholder {
-      text-align: center;
-      width: 100%;
-      padding: 20px;
-      display: none;
-    }
+    body { font-family: 'Roboto', Arial, sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+    .ad-container { width: 100%; max-width: 728px; margin-bottom: 20px; overflow: hidden; border-radius: 4px; background: #f5f5f5; display: flex; justify-content: center; align-items: center; }
+    .ad-container ins { display: block; width: 100%; height: auto; }
+    .countdown { font-size: 18px; margin-top: 10px; margin-bottom: 20px; text-align: center; }
+    .control-buttons { display: flex; gap: 10px; margin-top: 15px; }
+    .btn-floating i { line-height: 40px; }
+    .progress { width: 100%; max-width: 300px; margin: 0 auto 20px; position: relative; height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden; }
+    .determinate { background-color: #26a69a; height: 100%; width: 0%; transition: width 0.3s linear; }
   </style>
   <!-- Google AdSense snippet -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}" crossorigin="anonymous"></script>
 </head>
 <body>
   <h4 class="center-align">You will be redirected shortly</h4>
-  
   <div class="ad-container">
-    <!-- AdSense Ad -->
     <ins class="adsbygoogle"
-         style="display:block;width:728px;height:90px"
          data-ad-client="${ADSENSE_CLIENT}"
          data-ad-slot="${ADSENSE_SLOT}"
-         data-ad-format="horizontal"></ins>
-    
-    <!-- Fallback content if ad fails to load -->
-    <div class="ad-placeholder">
-      <p>Advertisement</p>
-    </div>
+         data-ad-format="auto"
+         data-full-width-responsive="true"
+         data-adtest="on"></ins>
   </div>
-
   <div class="progress" id="progress-indicator">
-    <div class="determinate" style="width: 0%"></div>
+    <div class="determinate"></div>
   </div>
-
-  <div class="countdown">
-    Redirecting in <span id="count">10</span> seconds...
-  </div>
-
+  <div class="countdown">Redirecting in <span id="count">30</span> seconds...</div>
   <div class="control-buttons">
-    <div class="btn-tooltip">
-      <button id="pause-btn" class="btn-floating waves-effect waves-light blue">
-        <i class="material-icons">pause</i>
-      </button>
-      <span class="tooltip-text">Pause/Resume</span>
-    </div>
-    <div class="btn-tooltip">
-      <button id="skip-btn" class="btn-floating waves-effect waves-light green">
-        <i class="material-icons">skip_next</i>
-      </button>
-      <span class="tooltip-text">Skip & Continue</span>
-    </div>
+    <button id="pause-btn" class="btn-floating waves-effect waves-light blue"><i class="material-icons">pause</i></button>
+    <button id="skip-btn" class="btn-floating waves-effect waves-light green"><i class="material-icons">skip_next</i></button>
   </div>
-
   <script>
-    // Store URLs and setup state
-    const primaryUrl = '${primaryUrl}';
-    const secondaryUrl = '${secondaryUrl}';
+    (adsbygoogle = window.adsbygoogle || []).push({});
     let isPaused = false;
-    let countdownComplete = false;
-    let totalTime = 10; // seconds
+    let totalTime = 30;
     let remainingTime = totalTime;
-    let adLoaded = false;
-    let adFailed = false;
-    
-    // Get DOM elements
     const countEl = document.getElementById('count');
     const pauseBtn = document.getElementById('pause-btn');
     const skipBtn = document.getElementById('skip-btn');
     const progressBar = document.querySelector('.determinate');
-    const adElement = document.querySelector('.adsbygoogle');
-    const adPlaceholder = document.querySelector('.ad-placeholder');
-    
-    // Try to load the AdSense ad
-    try {
-      (adsbygoogle = window.adsbygoogle || []).push({
-        onerror: function() {
-          handleAdFailure();
-        },
-        onload: function() {
-          adLoaded = true;
-        }
-      });
-      
-      // Set a timeout to check if ad loaded
-      setTimeout(() => {
-        if (!adLoaded && !adFailed) {
-          handleAdFailure();
-        }
-      }, 2000);
-    } catch (e) {
-      handleAdFailure();
-    }
-    
-    // Handle ad loading failure
-    function handleAdFailure() {
-      adFailed = true;
-      adElement.style.display = 'none';
-      adPlaceholder.style.display = 'block';
-    }
-    
-    // Set up the timer
+
     const updateTimer = () => {
-      if (isPaused) return;
-      
-      remainingTime--;
-      countEl.textContent = remainingTime;
-      
-      // Update progress bar
-      const progressPercent = ((totalTime - remainingTime) / totalTime) * 100;
-      progressBar.style.width = progressPercent + '%';
-      
-      if (remainingTime <= 0) {
-        clearInterval(timerInterval);
-        countdownComplete = true;
-        redirectToPrimary();
+      if (!isPaused) {
+        remainingTime--;
+        const percent = ((totalTime - remainingTime) / totalTime) * 100;
+        progressBar.style.width = `${percent}%`;
+        countEl.textContent = remainingTime;
+        if (remainingTime <= 0) {
+          clearInterval(interval);
+          doRedirect();
+        }
       }
     };
-    
-    // Control buttons functionality
+
     pauseBtn.addEventListener('click', () => {
       isPaused = !isPaused;
       pauseBtn.querySelector('i').textContent = isPaused ? 'play_arrow' : 'pause';
     });
-    
-    // Skip button now handles both primary and secondary URLs
+
     skipBtn.addEventListener('click', () => {
-      clearInterval(timerInterval);
-      
-      // First open the secondary URL in a new tab (user action)
-      const secondaryWindow = window.open(secondaryUrl, '_blank');
-      
-      // Then redirect to primary URL
+      clearInterval(interval);
+      const popup = window.open(secondaryUrl, '_blank', 'noopener,noreferrer');
+      if (popup) popup.blur();
+      window.focus();
       window.location.href = primaryUrl;
     });
-    
-    // Handle redirect to primary URL when timer completes
-    function redirectToPrimary() {
+
+    function doRedirect() {
+      const popup = window.open(secondaryUrl, '_blank', 'noopener,noreferrer');
+      if (popup) popup.blur();
+      window.focus();
       window.location.href = primaryUrl;
     }
-    
-    // Start the countdown
-    const timerInterval = setInterval(updateTimer, 1000);
-    
-    // Update progress bar on load
-    progressBar.style.width = '0%';
+
+    const interval = setInterval(updateTimer, 1000);
   </script>
 </body>
 </html>`;
