@@ -137,7 +137,7 @@ export default async (request, context) => {
   <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Roboto', Arial, sans-serif;
       margin: 0;
       padding: 20px;
       display: flex;
@@ -195,15 +195,54 @@ export default async (request, context) => {
     .hidden {
       display: none;
     }
+    .btn-tooltip {
+      position: relative;
+    }
+    .tooltip-text {
+      visibility: hidden;
+      width: 120px;
+      background-color: rgba(0,0,0,0.8);
+      color: #fff;
+      text-align: center;
+      border-radius: 6px;
+      padding: 5px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      margin-left: -60px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      font-size: 12px;
+    }
+    .btn-tooltip:hover .tooltip-text {
+      visibility: visible;
+      opacity: 1;
+    }
+    .ad-placeholder {
+      text-align: center;
+      width: 100%;
+      padding: 20px;
+      display: none;
+    }
   </style>
+  <!-- Google AdSense snippet -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}" crossorigin="anonymous"></script>
 </head>
 <body>
   <h4 class="center-align">You will be redirected shortly</h4>
   
   <div class="ad-container">
-    <!-- Ad Placeholder -->
-    <div style="text-align: center; width: 100%;">
-      <p style="margin: 0; padding: 10px;">Advertisement</p>
+    <!-- AdSense Ad -->
+    <ins class="adsbygoogle"
+         style="display:block;width:728px;height:90px"
+         data-ad-client="${ADSENSE_CLIENT}"
+         data-ad-slot="${ADSENSE_SLOT}"
+         data-ad-format="horizontal"></ins>
+    
+    <!-- Fallback content if ad fails to load -->
+    <div class="ad-placeholder">
+      <p>Advertisement</p>
     </div>
   </div>
 
@@ -216,12 +255,18 @@ export default async (request, context) => {
   </div>
 
   <div class="control-buttons">
-    <button id="pause-btn" class="btn-floating waves-effect waves-light blue">
-      <i class="material-icons">pause</i>
-    </button>
-    <button id="skip-btn" class="btn-floating waves-effect waves-light green">
-      <i class="material-icons">skip_next</i>
-    </button>
+    <div class="btn-tooltip">
+      <button id="pause-btn" class="btn-floating waves-effect waves-light blue">
+        <i class="material-icons">pause</i>
+      </button>
+      <span class="tooltip-text">Pause/Resume</span>
+    </div>
+    <div class="btn-tooltip">
+      <button id="skip-btn" class="btn-floating waves-effect waves-light green">
+        <i class="material-icons">skip_next</i>
+      </button>
+      <span class="tooltip-text">Skip & Continue</span>
+    </div>
   </div>
 
   <script>
@@ -232,12 +277,44 @@ export default async (request, context) => {
     let countdownComplete = false;
     let totalTime = 10; // seconds
     let remainingTime = totalTime;
+    let adLoaded = false;
+    let adFailed = false;
     
     // Get DOM elements
     const countEl = document.getElementById('count');
     const pauseBtn = document.getElementById('pause-btn');
     const skipBtn = document.getElementById('skip-btn');
     const progressBar = document.querySelector('.determinate');
+    const adElement = document.querySelector('.adsbygoogle');
+    const adPlaceholder = document.querySelector('.ad-placeholder');
+    
+    // Try to load the AdSense ad
+    try {
+      (adsbygoogle = window.adsbygoogle || []).push({
+        onerror: function() {
+          handleAdFailure();
+        },
+        onload: function() {
+          adLoaded = true;
+        }
+      });
+      
+      // Set a timeout to check if ad loaded
+      setTimeout(() => {
+        if (!adLoaded && !adFailed) {
+          handleAdFailure();
+        }
+      }, 2000);
+    } catch (e) {
+      handleAdFailure();
+    }
+    
+    // Handle ad loading failure
+    function handleAdFailure() {
+      adFailed = true;
+      adElement.style.display = 'none';
+      adPlaceholder.style.display = 'block';
+    }
     
     // Set up the timer
     const updateTimer = () => {
@@ -263,32 +340,20 @@ export default async (request, context) => {
       pauseBtn.querySelector('i').textContent = isPaused ? 'play_arrow' : 'pause';
     });
     
+    // Skip button now handles both primary and secondary URLs
     skipBtn.addEventListener('click', () => {
       clearInterval(timerInterval);
-      redirectToPrimary();
+      
+      // First open the secondary URL in a new tab (user action)
+      const secondaryWindow = window.open(secondaryUrl, '_blank');
+      
+      // Then redirect to primary URL
+      window.location.href = primaryUrl;
     });
     
-    // Handle redirect to primary URL
+    // Handle redirect to primary URL when timer completes
     function redirectToPrimary() {
-      // For desktop browsers
-      if (!isMobileDevice()) {
-        try {
-          // Save secondary URL to localStorage
-          localStorage.setItem('secondaryUrl', secondaryUrl);
-          // Attach a one-time event listener to run when primary page loads
-          // This will be handled by code you'd add to your sites
-        } catch (e) {
-          console.error("Local storage error:", e);
-        }
-      }
-      
-      // Direct redirect to primary URL
       window.location.href = primaryUrl;
-    }
-    
-    // Detect if user is on mobile
-    function isMobileDevice() {
-      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
     
     // Start the countdown
