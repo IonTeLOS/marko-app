@@ -154,8 +154,18 @@ export default async (request, context) => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Redirecting...</title>
-  <!-- Google AdSense -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adClient}" crossorigin="anonymous"></script>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9467807666922856"
+     crossorigin="anonymous"></script>
+<!-- NETLIFY -->
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-9467807666922856"
+     data-ad-slot="3780294456"
+     data-ad-format="auto"
+     data-full-width-responsive="true"></ins>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
   <style>
     body { margin:0; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:sans-serif; }
     #ad { width:100%; max-width:320px; margin-bottom:1rem; }
