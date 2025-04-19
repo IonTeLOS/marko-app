@@ -126,7 +126,7 @@ export default async (request, context) => {
 
     // Build interstitial ad + control buttons
     const primaryUrl   = data.redirectPath;
-    const secondaryUrl = data.secondUrl || 'https://google.com';
+    const secondaryUrl = data.secondUrl || 'https://tovima.gr';
     const adHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
