@@ -160,9 +160,9 @@ export default async (request, context) => {
   </style>
 </head>
 <body>
-  <p>Redirecting in <span id="count">5</span> seconds...</p>
+  <p>Redirecting in <span id="count">30</span> seconds...</p>
   <script>
-    let count = 5;
+    let count = 30;
     const el = document.getElementById('count');
     const timer = setInterval(() => {
       count--;
