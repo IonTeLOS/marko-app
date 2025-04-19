@@ -1,22 +1,21 @@
-// netlify/edge-functions/subdomain-redirect.ts
+// netlify/edge-functions/subdomain-redirect.ts   (TypeScript version)
 import type { Config } from '@netlify/edge-functions'
 
 export default async (request: Request) => {
-  const url      = new URL(request.url)
-  const segments = url.hostname.split('.')     // ['xy','something','domain','com']
+  const url   = new URL(request.url)
+  const parts = url.hostname.split('.')        // each hostname label
 
-  /* we only redirect true “sub‑subdomain” requests */
-  if (segments.length < 3 || segments[0] === 'www') return
+  /* need ≥ 4 labels ⇒ xy.something.domain.com, api.foo.bar.co.uk, …  */
+  if (parts.length <= 3 || parts[0] === 'www') return
 
-  const xy       = segments.shift()!           // 'xy'
-  const baseHost = segments.join('.')          // 'something.domain.com'
+  const xy       = parts.shift()!              // 'xy'
+  const baseHost = parts.join('.')             // 'something.domain.com'
 
-  /* 301 →  https://something.domain.com/xy/original/path?qs */
+  /* 301 →  https://something.domain.com/xy/…  */
   return Response.redirect(
     `https://${baseHost}/${xy}${url.pathname}${url.search}`,
     301
   )
 }
 
-/* run on every request */
 export const config: Config = { path: '/*' }
