@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Country & Language Detector</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f7f9fc;
+      color: #333;
+      line-height: 1.6;
+    }
+    .container {
+      background-color: white;
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #2c3e50;
+      margin-top: 0;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 10px;
+    }
+    .result-card {
+      margin-top: 20px;
+      padding: 20px;
+      border-radius: 6px;
+      background-color: #f1f8ff;
+      border-left: 4px solid #3498db;
+    }
+    .result-item {
+      margin-bottom: 15px;
+    }
+    .label {
+      font-weight: bold;
+      color: #7f8c8d;
+    }
+    .value {
+      font-size: 18px;
+      color: #2c3e50;
+    }
+    .flag {
+      font-size: 24px;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+    .details {
+      margin-top: 30px;
+      font-size: 14px;
+      color: #7f8c8d;
+    }
+    @media (max-width: 600px) {
+      .container {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Country & Language Detector</h1>
+    
+    <div class="result-card">
+      <div class="result-item">
+        <div class="label">Browser Language:</div>
+        <div class="value" id="browserLanguage">Detecting...</div>
+      </div>
+      
+      <div class="result-item">
+        <div class="label">Language Name:</div>
+        <div class="value" id="languageName">Detecting...</div>
+      </div>
+      
+      <div class="result-item">
+        <div class="label">Country:</div>
+        <div class="value" id="country">Detecting...</div>
+      </div>
+      
+      <div class="result-item">
+        <div class="label">Direction:</div>
+        <div class="value" id="direction">Detecting...</div>
+      </div>
+    </div>
+    
+    <div class="details">
+      <p>This information is detected using your browser's Internationalization API and navigator.language properties. All detection happens client-side - no data is sent to any server.</p>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Get browser language
+      const browserLanguage = navigator.language || navigator.userLanguage;
+      document.getElementById('browserLanguage').textContent = browserLanguage;
+      
+      // Parse language and country
+      let languageCode, countryCode;
+      
+      if (browserLanguage.includes('-')) {
+        [languageCode, countryCode] = browserLanguage.split('-');
+      } else if (browserLanguage.includes('_')) {
+        [languageCode, countryCode] = browserLanguage.split('_');
+      } else {
+        languageCode = browserLanguage;
+        countryCode = 'Unknown';
+      }
+      
+      // Get language name in the user's language
+      try {
+        const languageDisplay = new Intl.DisplayNames([browserLanguage], { type: 'language' });
+        const languageName = languageDisplay.of(languageCode);
+        document.getElementById('languageName').textContent = languageName;
+      } catch (e) {
+        // Fallback for browsers that don't support Intl.DisplayNames
+        document.getElementById('languageName').textContent = languageCode;
+      }
+      
+      // Get country name if available
+      if (countryCode && countryCode !== 'Unknown') {
+        try {
+          const regionDisplay = new Intl.DisplayNames([browserLanguage], { type: 'region' });
+          const countryName = regionDisplay.of(countryCode.toUpperCase());
+          
+          // Get country flag emoji
+          const countryFlag = countryCode
+            .toUpperCase()
+            .replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
+            
+          document.getElementById('country').innerHTML = `<span class="flag">${countryFlag}</span> ${countryName} (${countryCode.toUpperCase()})`;
+        } catch (e) {
+          document.getElementById('country').textContent = `${countryCode.toUpperCase()} (code only)`;
+        }
+      } else {
+        document.getElementById('country').textContent = 'Not detected';
+      }
+      
+      // Detect text direction
+      try {
+        const rtlLanguages = ['ar', 'he', 'fa', 'ur', 'yi', 'dv'];
+        const isRTL = rtlLanguages.includes(languageCode.toLowerCase());
+        document.getElementById('direction').textContent = isRTL ? 'Right-to-Left (RTL)' : 'Left-to-Right (LTR)';
+      } catch (e) {
+        document.getElementById('direction').textContent = 'Unknown';
+      }
+      
+      // Add more language details if available
+      if (window.Intl) {
+        // Additional details can be added here if needed
+      }
+    });
+  </script>
+</body>
+</html>
