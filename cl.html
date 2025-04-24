@@ -2,218 +2,78 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Timezone-Based Country Detector</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 20px;
-      background-color: #f7f9fc;
-      color: #333;
-      line-height: 1.6;
-    }
-    .container {
-      background-color: white;
-      border-radius: 8px;
-      padding: 30px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    h1 {
-      color: #2c3e50;
-      margin-top: 0;
-      border-bottom: 2px solid #3498db;
-      padding-bottom: 10px;
-    }
-    .result-card {
-      margin-top: 20px;
-      padding: 20px;
-      border-radius: 6px;
-      background-color: #f1f8ff;
-      border-left: 4px solid #3498db;
-    }
-    .result-item {
-      margin-bottom: 15px;
-    }
-    .label {
-      font-weight: bold;
-      color: #7f8c8d;
-    }
-    .value {
-      font-size: 18px;
-      color: #2c3e50;
-    }
-    .flag {
-      font-size: 24px;
-      margin-right: 10px;
-      vertical-align: middle;
-    }
-    .details {
-      margin-top: 30px;
-      font-size: 14px;
-      color: #7f8c8d;
-    }
-    @media (max-width: 600px) {
-      .container {
-        padding: 20px;
-      }
-    }
-  </style>
+  <title>Privacy-First Analytics</title>
+
+  <!-- countries-and-timezones (~9 KB) -->
+  <script
+    src="https://cdn.jsdelivr.net/gh/manuelmhtr/countries-and-timezones@latest/dist/index.min.js"
+    type="text/javascript"
+    crossorigin="anonymous"></script>
 </head>
 <body>
-  <div class="container">
-    <h1>Location & Language Detector</h1>
-    
-    <div class="result-card">
-      <div class="result-item">
-        <div class="label">Timezone:</div>
-        <div class="value" id="timezone">Detecting...</div>
-      </div>
-      
-      <div class="result-item">
-        <div class="label">Local Time:</div>
-        <div class="value" id="localTime">Detecting...</div>
-      </div>
-      
-      <div class="result-item">
-        <div class="label">Probable Country:</div>
-        <div class="value" id="country">Detecting...</div>
-      </div>
-      
-      <div class="result-item">
-        <div class="label">Browser Language:</div>
-        <div class="value" id="browserLanguage">Detecting...</div>
-      </div>
-    </div>
-    
-    <div class="details">
-      <p>This information is detected using your timezone and browser settings. All detection happens client-side - no data is sent to any server.</p>
-      <p><strong>Note:</strong> Country detection via timezone is approximate as some timezones span multiple countries.</p>
-    </div>
-  </div>
-
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      // Timezone and time data
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      document.getElementById('timezone').textContent = timezone || 'Unknown';
-      
-      // Local time formatted according to the user's locale
-      const localTime = new Date().toLocaleString();
-      document.getElementById('localTime').textContent = localTime;
-      
-      // Get browser language
-      const browserLanguage = navigator.language || navigator.userLanguage;
-      
-      try {
-        const languageDisplay = new Intl.DisplayNames([browserLanguage], { type: 'language' });
-        const languageName = languageDisplay.of(browserLanguage.split('-')[0]);
-        document.getElementById('browserLanguage').textContent = `${languageName} (${browserLanguage})`;
-      } catch (e) {
-        document.getElementById('browserLanguage').textContent = browserLanguage;
-      }
-      
-      // Parse timezone to get country
-      if (timezone) {
-        const timezoneCountryMap = {
-          // This is a partial map of timezones to countries - in real world usage you'd want a complete map
-          // Europe
-          'Europe/London': 'GB', 'Europe/Dublin': 'IE', 'Europe/Lisbon': 'PT', 
-          'Europe/Madrid': 'ES', 'Europe/Paris': 'FR', 'Europe/Brussels': 'BE',
-          'Europe/Amsterdam': 'NL', 'Europe/Berlin': 'DE', 'Europe/Rome': 'IT',
-          'Europe/Zurich': 'CH', 'Europe/Vienna': 'AT', 'Europe/Prague': 'CZ',
-          'Europe/Warsaw': 'PL', 'Europe/Budapest': 'HU', 'Europe/Stockholm': 'SE',
-          'Europe/Oslo': 'NO', 'Europe/Copenhagen': 'DK', 'Europe/Helsinki': 'FI',
-          'Europe/Athens': 'GR', 'Europe/Bucharest': 'RO', 'Europe/Sofia': 'BG',
-          'Europe/Moscow': 'RU', 'Europe/Kiev': 'UA', 'Europe/Istanbul': 'TR',
-          
-          // North America
-          'America/New_York': 'US', 'America/Chicago': 'US', 'America/Denver': 'US',
-          'America/Los_Angeles': 'US', 'America/Phoenix': 'US', 'America/Anchorage': 'US',
-          'America/Honolulu': 'US', 'America/Toronto': 'CA', 'America/Vancouver': 'CA',
-          'America/Edmonton': 'CA', 'America/Halifax': 'CA', 'America/Mexico_City': 'MX',
-          
-          // Asia
-          'Asia/Tokyo': 'JP', 'Asia/Seoul': 'KR', 'Asia/Shanghai': 'CN',
-          'Asia/Hong_Kong': 'HK', 'Asia/Singapore': 'SG', 'Asia/Taipei': 'TW',
-          'Asia/Bangkok': 'TH', 'Asia/Manila': 'PH', 'Asia/Jakarta': 'ID',
-          'Asia/Kolkata': 'IN', 'Asia/Dubai': 'AE', 'Asia/Tel_Aviv': 'IL',
-          
-          // Australia & Oceania
-          'Australia/Sydney': 'AU', 'Australia/Melbourne': 'AU', 'Australia/Perth': 'AU',
-          'Australia/Brisbane': 'AU', 'Pacific/Auckland': 'NZ',
-          
-          // South America
-          'America/Sao_Paulo': 'BR', 'America/Argentina/Buenos_Aires': 'AR',
-          'America/Santiago': 'CL', 'America/Lima': 'PE', 'America/Bogota': 'CO',
-          
-          // Africa
-          'Africa/Johannesburg': 'ZA', 'Africa/Cairo': 'EG', 'Africa/Lagos': 'NG',
-          'Africa/Nairobi': 'KE', 'Africa/Casablanca': 'MA'
-        };
-        
-        // Try to get country from timezone
-        let countryCode = null;
-        
-        // First try direct lookup
-        if (timezoneCountryMap[timezone]) {
-          countryCode = timezoneCountryMap[timezone];
-        }
-        // Then try to extract from timezone string
-        else {
-          const parts = timezone.split('/');
-          if (parts.length > 1) {
-            // For unmapped entries, we'll try to extract from common patterns
-            // Many timezone IDs are in format Region/City or Region/Country/City
-            
-            // For some regions, we can infer the country
-            const regionMap = {
-              'America': ['US', 'CA', 'MX', 'BR', 'AR'],
-              'Europe': ['GB', 'DE', 'FR', 'IT', 'ES'],
-              'Asia': ['CN', 'JP', 'IN', 'SG', 'RU'],
-              'Africa': ['ZA', 'EG', 'NG', 'KE'],
-              'Australia': ['AU'],
-              'Pacific': ['NZ', 'FJ']
-            };
-            
-            // Use a basic heuristic - we'll display the most likely countries for the region
-            const region = parts[0];
-            const likelyCountries = regionMap[region];
-            
-            if (likelyCountries && likelyCountries.length > 0) {
-              countryCode = "Likely one of: " + likelyCountries.join(', ');
-            }
-          }
-        }
-        
-        // If we found a country, display it
-        if (countryCode) {
-          try {
-            if (countryCode.includes('Likely')) {
-              document.getElementById('country').textContent = countryCode;
-            } else {
-              const regionDisplay = new Intl.DisplayNames([browserLanguage], { type: 'region' });
-              const countryName = regionDisplay.of(countryCode);
-              
-              // Get country flag emoji
-              const countryFlag = countryCode
-                .toUpperCase()
-                .replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
-                
-              document.getElementById('country').innerHTML = `<span class="flag">${countryFlag}</span> ${countryName} (${countryCode})`;
-            }
-          } catch (e) {
-            document.getElementById('country').textContent = countryCode;
-          }
-        } else {
-          document.getElementById('country').textContent = `Unknown (Timezone: ${timezone})`;
-        }
-      } else {
-        document.getElementById('country').textContent = 'Unable to detect';
-      }
-      
-      // For more accuracy, we could expand this with a more comprehensive timezone database
+    // 1) Part-of-day bucket
+    function getPartOfDay() {
+      const h = new Date().getHours();
+      if (h < 6)   return 'night';
+      if (h < 12)  return 'morning';
+      if (h < 18)  return 'afternoon';
+      return 'evening';
+    }
+
+    // 2) Device type via UA string
+    function getDeviceType(ua) {
+      if (/Mobi|Android|iPhone|iPod/.test(ua)) return 'Mobile';
+      if (/iPad|Tablet/.test(ua))              return 'Tablet';
+      return 'Desktop';
+    }
+
+    // 3) Derive “path” key from hostname + pathname
+    function getPathKey() {
+      // subdomain?
+      const host = window.location.hostname.split('.');
+      const hasSub = host.length > 2;
+      const sub   = hasSub ? host.slice(0, host.length - 2).join('.') : '';
+      // path segments
+      let p = window.location.pathname.split('/').filter(Boolean).join('/');
+      if (!p) p = 'home';
+      return sub ? `${sub}/${p}` : p;
+    }
+
+    // 4) Fire off analytics
+    document.addEventListener('DOMContentLoaded', () => {
+      // timezone → country
+      const tz     = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      const tzInfo = (typeof ct !== 'undefined' && ct.getTimezone)
+        ? ct.getTimezone(tz)
+        : null;
+      const country = (tzInfo && tzInfo.countries.length)
+        ? tzInfo.countries[0]
+        : 'XX';
+
+      // browser language
+      const language = navigator.language || navigator.userLanguage || 'und';
+
+      // device & partOfDay
+      const device    = getDeviceType(navigator.userAgent);
+      const partOfDay = getPartOfDay();
+
+      // our “raw” payload
+      const payload = {
+        path:      getPathKey(),           // e.g. "foo" or "bar/foo"
+        country,                          // e.g. "GR"
+        language,                         // e.g. "en-GB"
+        deviceType: device,               // "Mobile"|"Tablet"|"Desktop"
+        partOfDay,                        // "night"|"morning"|"afternoon"|"evening"
+        ts: { '.sv': 'timestamp' }        // server‐generated timestamp
+      };
+
+      // 🚀 send to RTDB via REST
+      fetch('https://marko-be9a9-default-rtdb.firebaseio.com/shortlink/raw.json', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload)
+      }).catch(console.error);
     });
   </script>
 </body>
