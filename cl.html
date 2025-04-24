@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Country & Language Detector</title>
+  <title>Timezone-Based Country Detector</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -63,95 +63,157 @@
 </head>
 <body>
   <div class="container">
-    <h1>Country & Language Detector</h1>
+    <h1>Location & Language Detector</h1>
     
     <div class="result-card">
       <div class="result-item">
-        <div class="label">Browser Language:</div>
-        <div class="value" id="browserLanguage">Detecting...</div>
+        <div class="label">Timezone:</div>
+        <div class="value" id="timezone">Detecting...</div>
       </div>
       
       <div class="result-item">
-        <div class="label">Language Name:</div>
-        <div class="value" id="languageName">Detecting...</div>
+        <div class="label">Local Time:</div>
+        <div class="value" id="localTime">Detecting...</div>
       </div>
       
       <div class="result-item">
-        <div class="label">Country:</div>
+        <div class="label">Probable Country:</div>
         <div class="value" id="country">Detecting...</div>
       </div>
       
       <div class="result-item">
-        <div class="label">Direction:</div>
-        <div class="value" id="direction">Detecting...</div>
+        <div class="label">Browser Language:</div>
+        <div class="value" id="browserLanguage">Detecting...</div>
       </div>
     </div>
     
     <div class="details">
-      <p>This information is detected using your browser's Internationalization API and navigator.language properties. All detection happens client-side - no data is sent to any server.</p>
+      <p>This information is detected using your timezone and browser settings. All detection happens client-side - no data is sent to any server.</p>
+      <p><strong>Note:</strong> Country detection via timezone is approximate as some timezones span multiple countries.</p>
     </div>
   </div>
 
   <script>
     document.addEventListener('DOMContentLoaded', function() {
+      // Timezone and time data
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      document.getElementById('timezone').textContent = timezone || 'Unknown';
+      
+      // Local time formatted according to the user's locale
+      const localTime = new Date().toLocaleString();
+      document.getElementById('localTime').textContent = localTime;
+      
       // Get browser language
       const browserLanguage = navigator.language || navigator.userLanguage;
-      document.getElementById('browserLanguage').textContent = browserLanguage;
       
-      // Parse language and country
-      let languageCode, countryCode;
-      
-      if (browserLanguage.includes('-')) {
-        [languageCode, countryCode] = browserLanguage.split('-');
-      } else if (browserLanguage.includes('_')) {
-        [languageCode, countryCode] = browserLanguage.split('_');
-      } else {
-        languageCode = browserLanguage;
-        countryCode = 'Unknown';
-      }
-      
-      // Get language name in the user's language
       try {
         const languageDisplay = new Intl.DisplayNames([browserLanguage], { type: 'language' });
-        const languageName = languageDisplay.of(languageCode);
-        document.getElementById('languageName').textContent = languageName;
+        const languageName = languageDisplay.of(browserLanguage.split('-')[0]);
+        document.getElementById('browserLanguage').textContent = `${languageName} (${browserLanguage})`;
       } catch (e) {
-        // Fallback for browsers that don't support Intl.DisplayNames
-        document.getElementById('languageName').textContent = languageCode;
+        document.getElementById('browserLanguage').textContent = browserLanguage;
       }
       
-      // Get country name if available
-      if (countryCode && countryCode !== 'Unknown') {
-        try {
-          const regionDisplay = new Intl.DisplayNames([browserLanguage], { type: 'region' });
-          const countryName = regionDisplay.of(countryCode.toUpperCase());
+      // Parse timezone to get country
+      if (timezone) {
+        const timezoneCountryMap = {
+          // This is a partial map of timezones to countries - in real world usage you'd want a complete map
+          // Europe
+          'Europe/London': 'GB', 'Europe/Dublin': 'IE', 'Europe/Lisbon': 'PT', 
+          'Europe/Madrid': 'ES', 'Europe/Paris': 'FR', 'Europe/Brussels': 'BE',
+          'Europe/Amsterdam': 'NL', 'Europe/Berlin': 'DE', 'Europe/Rome': 'IT',
+          'Europe/Zurich': 'CH', 'Europe/Vienna': 'AT', 'Europe/Prague': 'CZ',
+          'Europe/Warsaw': 'PL', 'Europe/Budapest': 'HU', 'Europe/Stockholm': 'SE',
+          'Europe/Oslo': 'NO', 'Europe/Copenhagen': 'DK', 'Europe/Helsinki': 'FI',
+          'Europe/Athens': 'GR', 'Europe/Bucharest': 'RO', 'Europe/Sofia': 'BG',
+          'Europe/Moscow': 'RU', 'Europe/Kiev': 'UA', 'Europe/Istanbul': 'TR',
           
-          // Get country flag emoji
-          const countryFlag = countryCode
-            .toUpperCase()
-            .replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
+          // North America
+          'America/New_York': 'US', 'America/Chicago': 'US', 'America/Denver': 'US',
+          'America/Los_Angeles': 'US', 'America/Phoenix': 'US', 'America/Anchorage': 'US',
+          'America/Honolulu': 'US', 'America/Toronto': 'CA', 'America/Vancouver': 'CA',
+          'America/Edmonton': 'CA', 'America/Halifax': 'CA', 'America/Mexico_City': 'MX',
+          
+          // Asia
+          'Asia/Tokyo': 'JP', 'Asia/Seoul': 'KR', 'Asia/Shanghai': 'CN',
+          'Asia/Hong_Kong': 'HK', 'Asia/Singapore': 'SG', 'Asia/Taipei': 'TW',
+          'Asia/Bangkok': 'TH', 'Asia/Manila': 'PH', 'Asia/Jakarta': 'ID',
+          'Asia/Kolkata': 'IN', 'Asia/Dubai': 'AE', 'Asia/Tel_Aviv': 'IL',
+          
+          // Australia & Oceania
+          'Australia/Sydney': 'AU', 'Australia/Melbourne': 'AU', 'Australia/Perth': 'AU',
+          'Australia/Brisbane': 'AU', 'Pacific/Auckland': 'NZ',
+          
+          // South America
+          'America/Sao_Paulo': 'BR', 'America/Argentina/Buenos_Aires': 'AR',
+          'America/Santiago': 'CL', 'America/Lima': 'PE', 'America/Bogota': 'CO',
+          
+          // Africa
+          'Africa/Johannesburg': 'ZA', 'Africa/Cairo': 'EG', 'Africa/Lagos': 'NG',
+          'Africa/Nairobi': 'KE', 'Africa/Casablanca': 'MA'
+        };
+        
+        // Try to get country from timezone
+        let countryCode = null;
+        
+        // First try direct lookup
+        if (timezoneCountryMap[timezone]) {
+          countryCode = timezoneCountryMap[timezone];
+        }
+        // Then try to extract from timezone string
+        else {
+          const parts = timezone.split('/');
+          if (parts.length > 1) {
+            // For unmapped entries, we'll try to extract from common patterns
+            // Many timezone IDs are in format Region/City or Region/Country/City
             
-          document.getElementById('country').innerHTML = `<span class="flag">${countryFlag}</span> ${countryName} (${countryCode.toUpperCase()})`;
-        } catch (e) {
-          document.getElementById('country').textContent = `${countryCode.toUpperCase()} (code only)`;
+            // For some regions, we can infer the country
+            const regionMap = {
+              'America': ['US', 'CA', 'MX', 'BR', 'AR'],
+              'Europe': ['GB', 'DE', 'FR', 'IT', 'ES'],
+              'Asia': ['CN', 'JP', 'IN', 'SG', 'RU'],
+              'Africa': ['ZA', 'EG', 'NG', 'KE'],
+              'Australia': ['AU'],
+              'Pacific': ['NZ', 'FJ']
+            };
+            
+            // Use a basic heuristic - we'll display the most likely countries for the region
+            const region = parts[0];
+            const likelyCountries = regionMap[region];
+            
+            if (likelyCountries && likelyCountries.length > 0) {
+              countryCode = "Likely one of: " + likelyCountries.join(', ');
+            }
+          }
+        }
+        
+        // If we found a country, display it
+        if (countryCode) {
+          try {
+            if (countryCode.includes('Likely')) {
+              document.getElementById('country').textContent = countryCode;
+            } else {
+              const regionDisplay = new Intl.DisplayNames([browserLanguage], { type: 'region' });
+              const countryName = regionDisplay.of(countryCode);
+              
+              // Get country flag emoji
+              const countryFlag = countryCode
+                .toUpperCase()
+                .replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
+                
+              document.getElementById('country').innerHTML = `<span class="flag">${countryFlag}</span> ${countryName} (${countryCode})`;
+            }
+          } catch (e) {
+            document.getElementById('country').textContent = countryCode;
+          }
+        } else {
+          document.getElementById('country').textContent = `Unknown (Timezone: ${timezone})`;
         }
       } else {
-        document.getElementById('country').textContent = 'Not detected';
+        document.getElementById('country').textContent = 'Unable to detect';
       }
       
-      // Detect text direction
-      try {
-        const rtlLanguages = ['ar', 'he', 'fa', 'ur', 'yi', 'dv'];
-        const isRTL = rtlLanguages.includes(languageCode.toLowerCase());
-        document.getElementById('direction').textContent = isRTL ? 'Right-to-Left (RTL)' : 'Left-to-Right (LTR)';
-      } catch (e) {
-        document.getElementById('direction').textContent = 'Unknown';
-      }
-      
-      // Add more language details if available
-      if (window.Intl) {
-        // Additional details can be added here if needed
-      }
+      // For more accuracy, we could expand this with a more comprehensive timezone database
     });
   </script>
 </body>
