@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Privacy-First Analytics</title>
-
-  <!-- countries-and-timezones (~9 KB) -->
+  <!-- countries-and-timezones (~9 KB) - kept as fallback -->
   <script
     src="https://cdn.jsdelivr.net/gh/manuelmhtr/countries-and-timezones@latest/dist/index.min.js"
     type="text/javascript"
@@ -12,7 +11,26 @@
 </head>
 <body>
   <script>
-    // 1) Part-of-day bucket
+    /**
+     * Privacy-First Analytics with Cloudflare Trace Integration
+     * 
+     * This module collects minimal, non-identifiable data for analytics purposes:
+     * - Page path (derived from hostname & pathname)
+     * - Country (from Cloudflare trace, with timezone-based fallback)
+     * - Language (from browser)
+     * - Device type (from Cloudflare trace and browser UA)
+     * - Part of day (morning/afternoon/evening/night)
+     * - Timestamp (server-generated)
+     * 
+     * Optional parameters:
+     * - IP address (from Cloudflare trace)
+     * - Browser info (from Cloudflare trace and UA string)
+     */
+
+    /**
+     * Determines part of day based on current hour
+     * @returns {string} 'night', 'morning', 'afternoon', or 'evening'
+     */
     function getPartOfDay() {
       const h = new Date().getHours();
       if (h < 6)   return 'night';
@@ -21,59 +39,169 @@
       return 'evening';
     }
 
-    // 2) Device type via UA string
+    /**
+     * Determines device type from User Agent string
+     * Used as fallback if Cloudflare data is unavailable
+     * @param {string} ua - Browser user agent string
+     * @returns {string} Device type category
+     */
     function getDeviceType(ua) {
       if (/Mobi|Android|iPhone|iPod/.test(ua)) return 'Mobile';
       if (/iPad|Tablet/.test(ua))              return 'Tablet';
       return 'Desktop';
     }
 
-    // 3) Derive “path” key from hostname + pathname
+    /**
+     * Creates a path key from hostname and pathname
+     * Used to determine which collection to write analytics data to
+     * @returns {string} Path key for data storage
+     */
     function getPathKey() {
-      // subdomain?
+      // Handle subdomain if present
       const host = window.location.hostname.split('.');
       const hasSub = host.length > 2;
-      const sub   = hasSub ? host.slice(0, host.length - 2).join('.') : '';
-      // path segments
+      const sub = hasSub ? host.slice(0, host.length - 2).join('.') : '';
+      
+      // Get pathname segments
       let p = window.location.pathname.split('/').filter(Boolean).join('/');
       if (!p) p = 'home';
+      
+      // Combine subdomain (if exists) with path
       return sub ? `${sub}/${p}` : p;
     }
 
-    // 4) Fire off analytics
-    document.addEventListener('DOMContentLoaded', () => {
-      // timezone → country
-      const tz     = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-      const tzInfo = (typeof ct !== 'undefined' && ct.getTimezone)
-        ? ct.getTimezone(tz)
-        : null;
-      const country = (tzInfo && tzInfo.countries.length)
-        ? tzInfo.countries[0]
-        : 'XX';
+    /**
+     * Parse Cloudflare trace response into an object
+     * @param {string} traceText - Raw text response from Cloudflare trace endpoint
+     * @returns {Object} Parsed key-value pairs
+     */
+    function parseCloudflareTrace(traceText) {
+      const trace = {};
+      // Split by new lines and extract key-value pairs
+      traceText.split('\n').forEach(line => {
+        const parts = line.split('=');
+        if (parts.length === 2) {
+          trace[parts[0]] = parts[1];
+        }
+      });
+      return trace;
+    }
 
-      // browser language
+    /**
+     * Get ISO-8601 formatted timestamp for current time
+     * Used as fallback if server timestamp isn't available
+     * @returns {string} ISO-8601 formatted timestamp
+     */
+    function getISOTimestamp() {
+      return new Date().toISOString();
+    }
+
+    /**
+     * Main analytics collection and submission function
+     * @param {Object} options - Optional parameters
+     * @param {boolean} options.includeIP - Whether to include IP address (default: false)
+     * @param {boolean} options.includeBrowser - Whether to include browser info (default: false)
+     * @returns {Promise} Promise that resolves when analytics are submitted
+     */
+    async function collectAndSubmitAnalytics(options = {}) {
+      const { includeIP = false, includeBrowser = false } = options;
+      
+      // Get browser language
       const language = navigator.language || navigator.userLanguage || 'und';
-
-      // device & partOfDay
-      const device    = getDeviceType(navigator.userAgent);
+      
+      // Get part of day
       const partOfDay = getPartOfDay();
+      
+      // Path key for collection name
+      const path = getPathKey();
+      
+      try {
+        // Fetch Cloudflare trace data
+        const traceResponse = await fetch('https://cloudflare.com/cdn-cgi/trace');
+        const traceText = await traceResponse.text();
+        const trace = parseCloudflareTrace(traceText);
+        
+        // Build analytics payload
+        const payload = {
+          path,
+          country: trace.loc || 'XX',       // Cloudflare country code (more accurate)
+          language,
+          deviceType: trace.uag ? trace.uag.split(' ')[0] : getDeviceType(navigator.userAgent),
+          partOfDay,
+          ts: { '.sv': 'timestamp' }        // Server-generated timestamp
+        };
+        
+        // Add optional fields if requested
+        if (includeIP && trace.ip) {
+          payload.ip = trace.ip;
+        }
+        
+        if (includeBrowser) {
+          payload.browser = trace.uag || navigator.userAgent;
+        }
+        
+        // 🚀 Send to RTDB via REST
+        const response = await fetch(`https://marko-be9a9-default-rtdb.firebaseio.com/${path}.json`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        console.log('Analytics submitted successfully');
+        return response;
+      } catch (error) {
+        console.error('Error submitting analytics:', error);
+        
+        // Fallback: still log data even if Cloudflare fetch fails
+        try {
+          // Get timezone → country as fallback
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+          const tzInfo = (typeof ct !== 'undefined' && ct.getTimezone)
+            ? ct.getTimezone(tz)
+            : null;
+          const country = (tzInfo && tzInfo.countries.length)
+            ? tzInfo.countries[0]
+            : 'XX';
+          
+          // Create fallback payload
+          const fallbackPayload = {
+            path,
+            country,
+            language,
+            deviceType: getDeviceType(navigator.userAgent),
+            partOfDay,
+            ts: { '.sv': 'timestamp' }      // Try server timestamp
+          };
+          
+          // Add optional fields with null values
+          if (includeIP) {
+            fallbackPayload.ip = null;
+          }
+          
+          if (includeBrowser) {
+            fallbackPayload.browser = navigator.userAgent;
+          }
+          
+          // 🚀 Try sending fallback data
+          return fetch(`https://marko-be9a9-default-rtdb.firebaseio.com/${path}.json`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(fallbackPayload)
+          });
+        } catch (fallbackError) {
+          console.error('Fallback analytics submission failed:', fallbackError);
+          throw fallbackError;
+        }
+      }
+    }
 
-      // our “raw” payload
-      const payload = {
-        path:      getPathKey(),           // e.g. "foo" or "bar/foo"
-        country,                          // e.g. "GR"
-        language,                         // e.g. "en-GB"
-        deviceType: device,               // "Mobile"|"Tablet"|"Desktop"
-        partOfDay,                        // "night"|"morning"|"afternoon"|"evening"
-        ts: { '.sv': 'timestamp' }        // server‐generated timestamp
-      };
-
-      // 🚀 send to RTDB via REST
-      fetch('https://marko-be9a9-default-rtdb.firebaseio.com/raw.json', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(payload)
-      }).catch(console.error);
+    // Execute analytics collection when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+      // Default usage - no IP or browser info
+      collectAndSubmitAnalytics();
+      
+      // Example with options:
+      // collectAndSubmitAnalytics({ includeIP: true, includeBrowser: true });
     });
   </script>
 </body>
