@@ -141,7 +141,7 @@
         }
         
         // 🚀 Send to RTDB via REST
-        const response = await fetch(`https://marko-be9a9-default-rtdb.firebaseio.com/${path}.json`, {
+        const response = await fetch(`https://marko-be9a9-default-rtdb.firebaseio.com/raw/${path}.json`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
