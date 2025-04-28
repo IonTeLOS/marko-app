@@ -50,6 +50,22 @@
       if (/iPad|Tablet/.test(ua))              return 'Tablet';
       return 'Desktop';
     }
+    
+    /**
+     * Extracts operating system from User Agent string
+     * @param {string} uaString - Browser user agent string
+     * @returns {string} Operating system name
+     */
+    function extractOS(uaString) {
+      // Common OS patterns
+      if (/Windows/.test(uaString)) return 'Windows';
+      if (/Android/.test(uaString)) return 'Android';
+      if (/iPhone|iPad|iPod/.test(uaString)) return 'iOS';
+      if (/Mac OS X/.test(uaString)) return 'MacOS';
+      if (/Linux/.test(uaString)) return 'Linux';
+      if (/CrOS/.test(uaString)) return 'ChromeOS';
+      return 'Unknown';
+    }
 
     /**
      * Creates a path key from hostname and pathname
@@ -62,8 +78,8 @@
       const hasSub = host.length > 2;
       const sub = hasSub ? host.slice(0, host.length - 2).join('.') : '';
       
-      // Get pathname segments
-      let p = window.location.pathname.split('/').filter(Boolean).join('/');
+      // Get pathname segments and replace tildes with forward slashes
+      let p = window.location.pathname.replace(/~/g, '/').split('/').filter(Boolean).join('/');
       if (!p) p = 'home';
       
       // Combine subdomain (if exists) with path
@@ -121,14 +137,28 @@
         const traceText = await traceResponse.text();
         const trace = parseCloudflareTrace(traceText);
         
+        // Extract actual OS from user agent
+        function extractOS(uaString) {
+          // Common OS patterns
+          if (/Windows/.test(uaString)) return 'Windows';
+          if (/Android/.test(uaString)) return 'Android';
+          if (/iPhone|iPad|iPod/.test(uaString)) return 'iOS';
+          if (/Mac OS X/.test(uaString)) return 'MacOS';
+          if (/Linux/.test(uaString)) return 'Linux';
+          if (/CrOS/.test(uaString)) return 'ChromeOS';
+          return 'Unknown';
+        }
+        
         // Build analytics payload
         const payload = {
           path,
           country: trace.loc || 'XX',       // Cloudflare country code (more accurate)
           language,
-          deviceType: trace.uag ? trace.uag.split(' ')[0] : getDeviceType(navigator.userAgent),
+          deviceOS: extractOS(trace.uag || navigator.userAgent),
+          formFactor: getDeviceType(navigator.userAgent),
           partOfDay,
-          ts: { '.sv': 'timestamp' }        // Server-generated timestamp
+          ts: { '.sv': 'timestamp' },       // Server-generated timestamp
+          clientTimestamp: getISOTimestamp() // ISO-8601 client timestamp
         };
         
         // Add optional fields if requested
@@ -141,7 +171,7 @@
         }
         
         // 🚀 Send to RTDB via REST
-        const response = await fetch(`https://marko-be9a9-default-rtdb.firebaseio.com/raw/${path}.json`, {
+        const response = await fetch(`https://marko-be9a9-default-rtdb.firebaseio.com/${path}.json`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -168,9 +198,11 @@
             path,
             country,
             language,
-            deviceType: getDeviceType(navigator.userAgent),
+            deviceOS: extractOS(navigator.userAgent),
+            formFactor: getDeviceType(navigator.userAgent),
             partOfDay,
-            ts: { '.sv': 'timestamp' }      // Try server timestamp
+            ts: { '.sv': 'timestamp' },     // Try server timestamp
+            clientTimestamp: getISOTimestamp() // ISO-8601 client timestamp
           };
           
           // Add optional fields with null values
@@ -198,10 +230,10 @@
     // Execute analytics collection when DOM is loaded
     document.addEventListener('DOMContentLoaded', () => {
       // Default usage - no IP or browser info
-      collectAndSubmitAnalytics();
+      // collectAndSubmitAnalytics();
       
       // Example with options:
-      // collectAndSubmitAnalytics({ includeIP: true, includeBrowser: true });
+      collectAndSubmitAnalytics({ includeIP: true, includeBrowser: true });
     });
   </script>
 </body>
