@@ -12,20 +12,23 @@
 <body>
   <script>
     /**
-     * Privacy-First Analytics with Cloudflare Trace Integration
-     * 
-     * This module collects minimal, non-identifiable data for analytics purposes:
-     * - Page path (derived from hostname & pathname)
-     * - Country (from Cloudflare trace, with timezone-based fallback)
-     * - Language (from browser)
-     * - Device type (from Cloudflare trace and browser UA)
-     * - Part of day (morning/afternoon/evening/night)
-     * - Timestamp (server-generated)
-     * 
-     * Optional parameters:
-     * - IP address (from Cloudflare trace)
-     * - Browser info (from Cloudflare trace and UA string)
-     */
+ * Privacy-First Analytics with Cloudflare Trace Integration
+ * 
+ * This module collects minimal, non-identifiable data for analytics purposes.
+ * Data is structured with short keys to minimize storage requirements:
+ * - p: page path (derived from hostname & pathname)
+ * - c: country code (from Cloudflare trace, with timezone-based fallback)
+ * - l: language code (from browser)
+ * - os: operating system (Windows, Android, iOS, etc.)
+ * - ff: form factor (Mobile, Tablet, Desktop)
+ * - q: quarter/part of day (morning, afternoon, evening, night)
+ * - t: server timestamp
+ * - ct: client ISO-8601 timestamp
+ * 
+ * Optional parameters:
+ * - ip: IP address (from Cloudflare trace)
+ * - ua: User agent string (from Cloudflare trace and browser)
+ */
 
     /**
      * Determines part of day based on current hour
@@ -111,6 +114,10 @@
     function getISOTimestamp() {
       return new Date().toISOString();
     }
+    
+    // Cache DOM selectors and other frequently used values
+    const navigatorUA = navigator.userAgent;
+    const browserLang = navigator.language || navigator.userLanguage || 'und';
 
     /**
      * Main analytics collection and submission function
@@ -123,7 +130,7 @@
       const { includeIP = false, includeBrowser = false } = options;
       
       // Get browser language
-      const language = navigator.language || navigator.userLanguage || 'und';
+      const language = browserLang;
       
       // Get part of day
       const partOfDay = getPartOfDay();
@@ -149,16 +156,16 @@
           return 'Unknown';
         }
         
-        // Build analytics payload
+        // Build analytics payload with shortened key names
         const payload = {
-          path,
-          country: trace.loc || 'XX',       // Cloudflare country code (more accurate)
-          language,
-          deviceOS: extractOS(trace.uag || navigator.userAgent),
-          formFactor: getDeviceType(navigator.userAgent),
-          partOfDay,
-          ts: { '.sv': 'timestamp' },       // Server-generated timestamp
-          clientTimestamp: getISOTimestamp() // ISO-8601 client timestamp
+          p: path,                // path
+          c: trace.loc || 'XX',   // country
+          l: language,            // language
+          os: extractOS(trace.uag || navigatorUA), // deviceOS
+          ff: getDeviceType(navigatorUA),  // formFactor
+          q: partOfDay,           // quarter of day
+          t: { '.sv': 'timestamp' }, // server timestamp
+          ct: getISOTimestamp()   // client timestamp (ISO-8601)
         };
         
         // Add optional fields if requested
@@ -178,7 +185,6 @@
         });
         
         console.log('Analytics submitted successfully');
-        console.log(JSON.stringify(payload));
         return response;
       } catch (error) {
         console.error('Error submitting analytics:', error);
@@ -194,25 +200,25 @@
             ? tzInfo.countries[0]
             : 'XX';
           
-          // Create fallback payload
+          // Create fallback payload with shortened key names
           const fallbackPayload = {
-            path,
-            country,
-            language,
-            deviceOS: extractOS(navigator.userAgent),
-            formFactor: getDeviceType(navigator.userAgent),
-            partOfDay,
-            ts: { '.sv': 'timestamp' },     // Try server timestamp
-            clientTimestamp: getISOTimestamp() // ISO-8601 client timestamp
+            p: path,              // path
+            c: country,           // country
+            l: language,          // language
+            os: extractOS(navigatorUA), // deviceOS
+            ff: getDeviceType(navigatorUA), // formFactor
+            q: partOfDay,         // quarter of day
+            t: { '.sv': 'timestamp' }, // server timestamp
+            ct: getISOTimestamp() // client timestamp (ISO-8601)
           };
           
-          // Add optional fields with null values
+          // Add optional fields with shortened key names
           if (includeIP) {
             fallbackPayload.ip = null;
           }
           
           if (includeBrowser) {
-            fallbackPayload.browser = navigator.userAgent;
+            fallbackPayload.ua = navigatorUA; // userAgent
           }
           
           // 🚀 Try sending fallback data
