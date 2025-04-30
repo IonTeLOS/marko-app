@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Privacy-First Analytics</title>
+  <title>Enhanced Privacy-First Analytics</title>
   <!-- countries-and-timezones (~9 KB) - kept as fallback -->
   <script
     src="https://cdn.jsdelivr.net/gh/manuelmhtr/countries-and-timezones@latest/dist/index.min.js"
@@ -12,7 +12,7 @@
 <body>
   <script>
     /**
- * Privacy-First Analytics with Cloudflare Trace Integration
+ * Enhanced Privacy-First Analytics with Cloudflare Trace Integration
  * 
  * This module collects minimal, non-identifiable data for analytics purposes.
  * Data is structured with short keys to minimize storage requirements:
@@ -24,11 +24,18 @@
  * - q: quarter/part of day (morning, afternoon, evening, night)
  * - t: server timestamp
  * - ct: client ISO-8601 timestamp
+ * - ref: referrer URL (if available)
+ * - hs: HTTP status (from performance API)
+ * - br: browser family (Chrome/Chromium, Safari, Firefox, Other)
  * 
  * Optional parameters:
  * - ip: IP address (from Cloudflare trace)
  * - ua: User agent string (from Cloudflare trace and browser)
  */
+
+    // Initialize analytics data that will be used on page unload
+    let analyticsData = {};
+    let analyticsEndpoint = '';
 
     /**
      * Determines part of day based on current hour
@@ -68,6 +75,34 @@
       if (/Linux/.test(uaString)) return 'Linux';
       if (/CrOS/.test(uaString)) return 'ChromeOS';
       return 'Unknown';
+    }
+
+    /**
+     * Detects browser family from User Agent string
+     * @param {string} uaString - Browser user agent string
+     * @returns {string} Browser family (Chrome, Safari, Firefox, Other)
+     */
+    function detectBrowserFamily(uaString) {
+      if (/Firefox/.test(uaString)) return 'Firefox';
+      if (/Safari/.test(uaString) && !/Chrome/.test(uaString)) return 'Safari';
+      if (/Chrome/.test(uaString) || /Chromium/.test(uaString)) return 'Chrome';
+      return 'Other';
+    }
+
+    /**
+     * Gets HTTP status code from navigation performance entries
+     * @returns {number|null} HTTP status code or null if not available
+     */
+    function getHttpStatus() {
+      try {
+        const navEntries = performance.getEntriesByType('navigation');
+        if (navEntries && navEntries.length > 0) {
+          return navEntries[0].responseStatus;
+        }
+        return null;
+      } catch (e) {
+        return null;
+      }
     }
 
     /**
@@ -118,15 +153,45 @@
     // Cache DOM selectors and other frequently used values
     const navigatorUA = navigator.userAgent;
     const browserLang = navigator.language || navigator.userLanguage || 'und';
+    const referrer = document.referrer || null;
 
     /**
-     * Main analytics collection and submission function
+     * Sends analytics data using sendBeacon API
+     * Falls back to fetch if sendBeacon is not available
+     * @param {string} url - Endpoint URL
+     * @param {Object} data - Analytics data payload
+     * @returns {boolean} Success indicator
+     */
+    function sendAnalyticsBeacon(url, data) {
+      try {
+        if (navigator.sendBeacon) {
+          const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+          return navigator.sendBeacon(url, blob);
+        } else {
+          // Fallback for browsers without sendBeacon support
+          fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+            // Using keepalive to ensure request completes even when page unloads
+            keepalive: true
+          });
+          return true;
+        }
+      } catch (e) {
+        console.error('Error sending analytics beacon:', e);
+        return false;
+      }
+    }
+
+    /**
+     * Main analytics collection and preparation function
      * @param {Object} options - Optional parameters
      * @param {boolean} options.includeIP - Whether to include IP address (default: false)
      * @param {boolean} options.includeBrowser - Whether to include browser info (default: false)
-     * @returns {Promise} Promise that resolves when analytics are submitted
+     * @returns {Promise} Promise that resolves when analytics are collected
      */
-    async function collectAndSubmitAnalytics(options = {}) {
+    async function collectAnalytics(options = {}) {
       const { includeIP = false, includeBrowser = false } = options;
       
       // Get browser language
@@ -138,26 +203,17 @@
       // Path key for collection name
       const path = getPathKey();
       
+      // Set analytics endpoint for later use with sendBeacon
+      analyticsEndpoint = `https://marko-be9a9-default-rtdb.firebaseio.com/raw/${path}.json`;
+      
       try {
         // Fetch Cloudflare trace data
         const traceResponse = await fetch('https://cloudflare.com/cdn-cgi/trace');
         const traceText = await traceResponse.text();
         const trace = parseCloudflareTrace(traceText);
         
-        // Extract actual OS from user agent
-        function extractOS(uaString) {
-          // Common OS patterns
-          if (/Windows/.test(uaString)) return 'Windows';
-          if (/Android/.test(uaString)) return 'Android';
-          if (/iPhone|iPad|iPod/.test(uaString)) return 'iOS';
-          if (/Mac OS X/.test(uaString)) return 'MacOS';
-          if (/Linux/.test(uaString)) return 'Linux';
-          if (/CrOS/.test(uaString)) return 'ChromeOS';
-          return 'Unknown';
-        }
-        
         // Build analytics payload with shortened key names
-        const payload = {
+        analyticsData = {
           p: path,                // path
           c: trace.loc || 'XX',   // country
           l: language,            // language
@@ -165,31 +221,35 @@
           ff: getDeviceType(navigatorUA),  // formFactor
           q: partOfDay,           // quarter of day
           t: { '.sv': 'timestamp' }, // server timestamp
-          ct: getISOTimestamp()   // client timestamp (ISO-8601)
+          ct: getISOTimestamp(),  // client timestamp (ISO-8601)
+          br: detectBrowserFamily(trace.uag || navigatorUA), // browser family
+          hs: getHttpStatus(),    // HTTP status
         };
+        
+        // Add referrer if available
+        if (referrer) {
+          analyticsData.ref = referrer;
+        }
         
         // Add optional fields if requested
         if (includeIP && trace.ip) {
-          payload.ip = trace.ip;
+          analyticsData.ip = trace.ip;
         }
         
         if (includeBrowser) {
-          payload.browser = trace.uag || navigator.userAgent;
+          analyticsData.ua = trace.uag || navigatorUA;
         }
         
-        // 🚀 Send to RTDB via REST
-        const response = await fetch(`https://marko-be9a9-default-rtdb.firebaseio.com/raw/${path}.json`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+        console.log('Analytics data prepared:', analyticsData);
         
-        console.log('Analytics submitted successfully');
-        return response;
+        // Send initial analytics ping
+        await sendInitialAnalytics();
+        
+        return true;
       } catch (error) {
-        console.error('Error submitting analytics:', error);
+        console.error('Error collecting analytics:', error);
         
-        // Fallback: still log data even if Cloudflare fetch fails
+        // Fallback: still prepare data even if Cloudflare fetch fails
         try {
           // Get timezone → country as fallback
           const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
@@ -201,7 +261,7 @@
             : 'XX';
           
           // Create fallback payload with shortened key names
-          const fallbackPayload = {
+          analyticsData = {
             p: path,              // path
             c: country,           // country
             l: language,          // language
@@ -209,38 +269,74 @@
             ff: getDeviceType(navigatorUA), // formFactor
             q: partOfDay,         // quarter of day
             t: { '.sv': 'timestamp' }, // server timestamp
-            ct: getISOTimestamp() // client timestamp (ISO-8601)
+            ct: getISOTimestamp(), // client timestamp (ISO-8601)
+            br: detectBrowserFamily(navigatorUA), // browser family
+            hs: getHttpStatus(),  // HTTP status
           };
+          
+          // Add referrer if available
+          if (referrer) {
+            analyticsData.ref = referrer;
+          }
           
           // Add optional fields with shortened key names
           if (includeIP) {
-            fallbackPayload.ip = null;
+            analyticsData.ip = null;
           }
           
           if (includeBrowser) {
-            fallbackPayload.ua = navigatorUA; // userAgent
+            analyticsData.ua = navigatorUA; // userAgent
           }
           
-          // 🚀 Try sending fallback data
-          return fetch(`https://marko-be9a9-default-rtdb.firebaseio.com/${path}.json`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(fallbackPayload)
-          });
+          console.log('Fallback analytics data prepared:', analyticsData);
+          
+          // Send initial analytics ping
+          await sendInitialAnalytics();
+          
+          return true;
         } catch (fallbackError) {
-          console.error('Fallback analytics submission failed:', fallbackError);
-          throw fallbackError;
+          console.error('Fallback analytics preparation failed:', fallbackError);
+          return false;
         }
+      }
+    }
+    
+    /**
+     * Send initial analytics data using fetch API
+     * This is separate from the beforeunload beacon
+     */
+    async function sendInitialAnalytics() {
+      try {
+        // 🚀 Send to RTDB via REST
+        const response = await fetch(analyticsEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({...analyticsData, initial: true})
+        });
+        
+        console.log('Initial analytics submitted successfully');
+        return response;
+      } catch (e) {
+        console.error('Error sending initial analytics:', e);
       }
     }
 
     // Execute analytics collection when DOM is loaded
     document.addEventListener('DOMContentLoaded', () => {
-      // Default usage - no IP or browser info
-      // collectAndSubmitAnalytics();
+      // Collect analytics data with options
+      collectAnalytics({ includeIP: true, includeBrowser: true });
+    });
+    
+    // Send analytics beacon before page unload
+    window.addEventListener('beforeunload', () => {
+      // Add exit timestamp to analytics data
+      analyticsData.et = getISOTimestamp(); // exit timestamp
       
-      // Example with options:
-      collectAndSubmitAnalytics({ includeIP: true, includeBrowser: true });
+      // Send analytics data using sendBeacon
+      if (analyticsEndpoint && Object.keys(analyticsData).length > 0) {
+        console.log('Sending analytics beacon before unload');
+        sendAnalyticsBeacon(analyticsEndpoint, analyticsData);
+      }
     });
   </script>
 </body>
