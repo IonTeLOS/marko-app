@@ -153,7 +153,7 @@
     // Cache DOM selectors and other frequently used values
     const navigatorUA = navigator.userAgent;
     const browserLang = navigator.language || navigator.userLanguage || 'und';
-    const referrer = request.headers.get('referer') || null;
+    const referrer = document.referrer || null;
 
     /**
      * Sends analytics data using sendBeacon API
