@@ -172,6 +172,7 @@
           // Fallback for browsers without sendBeacon support
           fetch(url, {
             method: 'POST',
+            credentials: 'omit',       // ← explicitly don’t send cookies
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
             // Using keepalive to ensure request completes even when page unloads
