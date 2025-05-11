@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Parameter Redirect</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+            text-align: center;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        #redirect-message {
+            font-size: 18px;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-left: 4px solid #4CAF50;
+        }
+        .fallback {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>URL Parameter Redirect</h1>
+        <div id="redirect-message">Redirecting...</div>
+        <div id="fallback" class="fallback">
+            If you're not redirected automatically, <a href="#" id="fallback-link">click here</a>.
+        </div>
+    </div>
+
+    <script>
+        // Execute immediately when the script loads
+        (function() {
+            // Parse URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const redirectMessageElement = document.getElementById('redirect-message');
+            const fallbackElement = document.getElementById('fallback');
+            const fallbackLink = document.getElementById('fallback-link');
+
+            // Default values
+            const defaultPhone = "555-123-4567";
+            const defaultEmail = "example@example.com";
+            const defaultBtcAddress = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"; // Example Bitcoin address
+            const defaultAppPackage = "com.example.app"; // Example Android package name
+
+            let redirectURL = null;
+            let message = "";
+            let fallbackURL = null;
+
+            // Check for tel parameter
+            if (urlParams.toString().includes('tel')) {
+                let phoneNumber = urlParams.get('tel') || defaultPhone;
+                redirectURL = `tel:${phoneNumber}`;
+                message = `Redirecting to call: ${phoneNumber}`;
+            }
+            // Check for mail parameter
+            else if (urlParams.toString().includes('mail')) {
+                let emailAddress = urlParams.get('mail') || defaultEmail;
+                redirectURL = `mailto:${emailAddress}?subject=Automated Email&body=This email was triggered by a URL parameter redirect.`;
+                message = `Redirecting to email: ${emailAddress}`;
+            }
+            // Check for btc parameter
+            else if (urlParams.toString().includes('btc')) {
+                let btcAddress = urlParams.get('btc') || defaultBtcAddress;
+                redirectURL = `bitcoin:${btcAddress}?amount=0.001&label=Parameter_Redirect_Payment`;
+                message = `Redirecting to Bitcoin payment: ${btcAddress}`;
+            }
+            // Check for Android app deep link
+            else if (urlParams.toString().includes('app')) {
+                let appPackage = urlParams.get('app') || defaultAppPackage;
+                let action = urlParams.get('action') || 'view';
+                let data = urlParams.get('data') || '';
+
+                // Create intent URI for Android
+                // Format: intent://host/path#Intent;scheme=scheme;package=package;action=action;S.browser_fallback_url=fallbackUrl;end
+                redirectURL = `intent://open#Intent;scheme=https;package=${appPackage};action=android.intent.action.${action.toUpperCase()};`;
+
+                // Add data parameter if provided
+                if (data) {
+                    redirectURL += `S.data=${encodeURIComponent(data)};`;
+                }
+
+                // Add fallback for when app isn't installed (Google Play Store link)
+                fallbackURL = `https://play.google.com/store/apps/details?id=${appPackage}`;
+                redirectURL += `S.browser_fallback_url=${encodeURIComponent(fallbackURL)};end`;
+
+                message = `Launching Android app: ${appPackage}`;
+            }
+            // No valid parameters found - show information
+            else {
+                message = `No redirect parameters detected.<br>
+                           Use ?tel= for phone calls<br>
+                           Use ?mail= for email<br>
+                           Use ?btc= for Bitcoin transactions<br>
+                           Use ?app=com.example.app&action=view&data=example for Android app deep links`;
+            }
+
+            // Update the message
+            redirectMessageElement.innerHTML = message;
+
+            // Redirect if we have a URL
+            if (redirectURL) {
+                // Show fallback after 2 seconds (in case redirect fails)
+                setTimeout(function() {
+                    fallbackElement.style.display = 'block';
+                    if (fallbackURL) {
+                        fallbackLink.href = fallbackURL;
+                    } else {
+                        fallbackLink.href = redirectURL;
+                    }
+                }, 2000);
+
+                // Immediate redirect
+                window.location.href = redirectURL;
+            }
+        })();
+    </script>
+</body>
+</html>
