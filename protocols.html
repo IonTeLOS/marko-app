@@ -56,55 +56,61 @@
             const redirectMessageElement = document.getElementById('redirect-message');
             const fallbackElement = document.getElementById('fallback');
             const fallbackLink = document.getElementById('fallback-link');
-
+            
             // Default values
             const defaultPhone = "555-123-4567";
             const defaultEmail = "example@example.com";
             const defaultBtcAddress = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"; // Example Bitcoin address
-            const defaultAppPackage = "com.example.app"; // Example Android package name
-
+            
             let redirectURL = null;
             let message = "";
             let fallbackURL = null;
-
+            
             // Check for tel parameter
             if (urlParams.toString().includes('tel')) {
                 let phoneNumber = urlParams.get('tel') || defaultPhone;
                 redirectURL = `tel:${phoneNumber}`;
                 message = `Redirecting to call: ${phoneNumber}`;
-            }
+            } 
             // Check for mail parameter
             else if (urlParams.toString().includes('mail')) {
                 let emailAddress = urlParams.get('mail') || defaultEmail;
                 redirectURL = `mailto:${emailAddress}?subject=Automated Email&body=This email was triggered by a URL parameter redirect.`;
                 message = `Redirecting to email: ${emailAddress}`;
-            }
+            } 
             // Check for btc parameter
             else if (urlParams.toString().includes('btc')) {
                 let btcAddress = urlParams.get('btc') || defaultBtcAddress;
                 redirectURL = `bitcoin:${btcAddress}?amount=0.001&label=Parameter_Redirect_Payment`;
                 message = `Redirecting to Bitcoin payment: ${btcAddress}`;
             }
-            // Check for Android app deep link
-            else if (urlParams.toString().includes('app')) {
-                let appPackage = urlParams.get('app') || defaultAppPackage;
-                let action = urlParams.get('action') || 'view';
-                let data = urlParams.get('data') || '';
-
-                // Create intent URI for Android
-                // Format: intent://host/path#Intent;scheme=scheme;package=package;action=action;S.browser_fallback_url=fallbackUrl;end
-                redirectURL = `intent://open#Intent;scheme=https;package=${appPackage};action=android.intent.action.${action.toUpperCase()};`;
-
-                // Add data parameter if provided
-                if (data) {
-                    redirectURL += `S.data=${encodeURIComponent(data)};`;
+            // Check for Android app parameter
+            else if (urlParams.toString().includes('android')) {
+                const packageName = urlParams.get('android') || 'com.example.app';
+                const scheme = urlParams.get('scheme') || 'https';
+                const path = urlParams.get('path') || '';
+                const action = urlParams.get('action') || 'android.intent.action.VIEW';
+                
+                // Try multiple approaches for better app launching compatibility
+                
+                // 1. Custom URI scheme if provided - Most direct way to open an app
+                if (scheme !== 'https' && scheme !== 'http') {
+                    redirectURL = `${scheme}://${path}`;
                 }
-
-                // Add fallback for when app isn't installed (Google Play Store link)
-                fallbackURL = `https://play.google.com/store/apps/details?id=${appPackage}`;
-                redirectURL += `S.browser_fallback_url=${encodeURIComponent(fallbackURL)};end`;
-
-                message = `Launching Android app: ${appPackage}`;
+                // 2. Intent URL with package - More reliable for Android
+                else {
+                    // Format: intent://host/path#Intent;scheme=scheme;package=package;action=action;end
+                    redirectURL = `intent://${path}#Intent;scheme=${scheme};package=${packageName};action=${action};end`;
+                }
+                
+                // Fallback to Play Store
+                fallbackURL = `https://play.google.com/store/apps/details?id=${packageName}`;
+                
+                message = `Launching Android app: ${packageName}`;
+                
+                // For advanced deep linking, we use a special approach
+                tryLaunchAndroidApp(redirectURL, fallbackURL);
+                return; // Exit function as we're handling redirect specially
             }
             // No valid parameters found - show information
             else {
@@ -112,28 +118,49 @@
                            Use ?tel= for phone calls<br>
                            Use ?mail= for email<br>
                            Use ?btc= for Bitcoin transactions<br>
-                           Use ?app=com.example.app&action=view&data=example for Android app deep links`;
+                           Use ?android=com.example.app&scheme=myapp&path=profile/123 for Android apps`;
             }
-
+            
             // Update the message
             redirectMessageElement.innerHTML = message;
-
+            
             // Redirect if we have a URL
             if (redirectURL) {
                 // Show fallback after 2 seconds (in case redirect fails)
                 setTimeout(function() {
                     fallbackElement.style.display = 'block';
-                    if (fallbackURL) {
-                        fallbackLink.href = fallbackURL;
-                    } else {
-                        fallbackLink.href = redirectURL;
-                    }
+                    fallbackLink.href = fallbackURL || redirectURL;
                 }, 2000);
-
+                
                 // Immediate redirect
                 window.location.href = redirectURL;
             }
         })();
+        
+        // Special function to try launching Android apps with better fallback handling
+        function tryLaunchAndroidApp(appUrl, storeUrl) {
+            const fallbackElement = document.getElementById('fallback');
+            const fallbackLink = document.getElementById('fallback-link');
+            
+            // Set up fallback link
+            fallbackElement.style.display = 'block';
+            fallbackLink.href = storeUrl;
+            
+            // Try to open the app
+            window.location.href = appUrl;
+            
+            // Set a timeout to check if app launch was successful
+            // If user is still on this page after timeout, they likely don't have the app
+            setTimeout(function() {
+                // Check if we're still on the same page
+                if (document.hidden || document.webkitHidden) {
+                    // App was likely launched successfully
+                } else {
+                    // App wasn't launched, redirect to store
+                    window.location.href = storeUrl;
+                }
+            }, 2500);
+        }
     </script>
 </body>
 </html>
