@@ -291,10 +291,8 @@ const sendMessageToFirebase = async (topic, title, body, data = {}) => {
   const payload = {
     action: 'send',
     topic: topic,
-    notification: {
-      title: title || 'New Message',
-      body: body
-    },
+    title: title || 'New Message',
+    body: body,
     data: { ...data }
   };
 
