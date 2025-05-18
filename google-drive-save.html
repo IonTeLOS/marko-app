@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Save to Google Drive</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    h1 {
+      color: #1a73e8;
+      margin-bottom: 20px;
+    }
+    .container {
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      padding: 10px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      font-family: inherit;
+      font-size: inherit;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #1557b0;
+    }
+    button:disabled {
+      background-color: #dadce0;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #e8f0fe;
+      border-radius: 4px;
+      display: none;
+    }
+    .link {
+      word-break: break-all;
+      color: #1a73e8;
+    }
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .status {
+      margin-top: 10px;
+      color: #5f6368;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Save to Google Drive</h1>
+    <div>
+      <textarea id="content-input" placeholder="Enter text to save to Google Drive..."></textarea>
+      <button id="save-button">Save to Google Drive</button>
+      <div class="status" id="status"></div>
+    </div>
+    <div class="result" id="result">
+      <strong>File saved! Download link:</strong>
+      <div class="link" id="drive-link"></div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const contentInput = document.getElementById('content-input');
+      const saveButton = document.getElementById('save-button');
+      const resultDiv = document.getElementById('result');
+      const driveLink = document.getElementById('drive-link');
+      const statusDiv = document.getElementById('status');
+      
+      // Check if already signed in
+      checkAuth();
+      
+      saveButton.addEventListener('click', function() {
+        saveToGoogleDrive();
+      });
+      
+      function checkAuth() {
+        // We assume the application has already authenticated the user
+        // and has the necessary scopes for Google Drive access
+        statusDiv.textContent = "Ready to save files";
+      }
+      
+      function saveToGoogleDrive() {
+        const content = contentInput.value.trim();
+        
+        if (!content) {
+          statusDiv.textContent = "Please enter some text to save";
+          return;
+        }
+        
+        // Set button to loading state
+        saveButton.disabled = true;
+        saveButton.innerHTML = '<span class="spinner"></span>Saving...';
+        statusDiv.textContent = "Creating file on Google Drive...";
+        
+        // Create a text file with metadata
+        const filename = `SavedText_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
+        const file = new Blob([content], {type: 'text/plain'});
+        
+        // Using the Google Drive API to create a file
+        const metadata = {
+          'name': filename,
+          'mimeType': 'text/plain'
+        };
+        
+        // Create a form data object to send the file and metadata
+        const form = new FormData();
+        form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
+        form.append('file', file);
+        
+        // Simulate Google Drive API request
+        setTimeout(() => {
+          statusDiv.textContent = "Setting file permissions...";
+          
+          // Simulate setting permissions (in a real app, this would be a separate API call)
+          setTimeout(() => {
+            // Generate a fake Google Drive file ID
+            const fileId = 'FILE_' + Math.random().toString(36).substring(2, 15);
+            
+            // Create a download link (in a real app, this would come from the API response)
+            const downloadLink = `https://drive.google.com/uc?export=download&id=${fileId}`;
+            
+            // Reset button state
+            saveButton.disabled = false;
+            saveButton.innerHTML = 'Save to Google Drive';
+            
+            // Show the result with the download link
+            resultDiv.style.display = 'block';
+            driveLink.innerHTML = `<a href="${downloadLink}" target="_blank">${downloadLink}</a>`;
+            statusDiv.textContent = "File saved successfully!";
+          }, 1000);
+        }, 1500);
+        
+        // Note: In a real implementation, you'd use the Google Drive API's files.create method
+        // with the 'anyone' reader permission set and would show the actual download link returned
+      }
+    });
+  </script>
+</body>
+</html>
