@@ -279,7 +279,7 @@ const populateTopicsDropdown = async () => {
 // ====================== Messaging Functions ======================
 
 const sendMessageToFirebase = async (topic, title, body, data = {}) => {
-  const url = '/topic-send'; // Aligned with your Netlify function path
+  const url = '/.netlify/functions/topic-send'; // Aligned with your Netlify function path
 
   const payload = {
     action: 'send',
