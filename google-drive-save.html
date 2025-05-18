@@ -81,44 +81,215 @@
       color: #5f6368;
       font-size: 14px;
     }
+    .login-chip {
+      display: flex;
+      align-items: center;
+      background-color: #fff;
+      border: 1px solid #dadce0;
+      border-radius: 24px;
+      padding: 8px 16px;
+      margin-bottom: 20px;
+      cursor: pointer;
+      width: fit-content;
+      transition: box-shadow 0.3s;
+    }
+    .login-chip:hover {
+      box-shadow: 0 1px 6px rgba(60,64,67,0.28);
+    }
+    .login-chip img {
+      width: 18px;
+      height: 18px;
+      margin-right: 8px;
+    }
+    .login-chip span {
+      color: #3c4043;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .error {
+      background-color: #fce8e6;
+      color: #d93025;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    .user-info {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .user-info img {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Save to Google Drive</h1>
-    <div>
+    
+    <div id="login-container" style="display: none;">
+      <div class="login-chip" id="login-button">
+        <img src="https://www.gstatic.com/images/branding/product/1x/googleg_16dp.png" alt="Google logo">
+        <span>Sign in with Google</span>
+      </div>
+      <div class="status">Sign in to save files to Google Drive</div>
+    </div>
+    
+    <div id="user-container" style="display: none;">
+      <div class="user-info">
+        <img id="user-image" src="" alt="User profile">
+        <div id="user-name"></div>
+      </div>
+    </div>
+    
+    <div id="app-container" style="display: none;">
       <textarea id="content-input" placeholder="Enter text to save to Google Drive..."></textarea>
       <button id="save-button">Save to Google Drive</button>
       <div class="status" id="status"></div>
+      <div id="error" class="error" style="display: none;"></div>
     </div>
+    
     <div class="result" id="result">
       <strong>File saved! Download link:</strong>
       <div class="link" id="drive-link"></div>
     </div>
   </div>
 
+  <!-- Load Google Identity Services and Google API Client -->
+  <script src="https://accounts.google.com/gsi/client"></script>
+  <script async defer src="https://apis.google.com/js/api.js"></script>
+  
   <script>
+    // Google API configuration
+    const CLIENT_ID = '7036670175-ll716p70k0qgfk0q61fmpb0in9k4n95h.apps.googleusercontent.com';  // Replace with your actual client ID
+    const API_KEY = 'AIzaSyD96IBVqGKVEdmXIVCYL_7kvlBhJNSD1Ww';      // Replace with your actual API key
+    const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+    
+    let tokenClient;
+    let accessToken = null;
+    
     document.addEventListener('DOMContentLoaded', function() {
       const contentInput = document.getElementById('content-input');
       const saveButton = document.getElementById('save-button');
       const resultDiv = document.getElementById('result');
       const driveLink = document.getElementById('drive-link');
       const statusDiv = document.getElementById('status');
+      const loginButton = document.getElementById('login-button');
+      const loginContainer = document.getElementById('login-container');
+      const appContainer = document.getElementById('app-container');
+      const userContainer = document.getElementById('user-container');
+      const userName = document.getElementById('user-name');
+      const userImage = document.getElementById('user-image');
+      const errorDiv = document.getElementById('error');
       
-      // Check if already signed in
-      checkAuth();
+      // Initialize the client
+      initializeApp();
       
-      saveButton.addEventListener('click', function() {
-        saveToGoogleDrive();
-      });
-      
-      function checkAuth() {
-        // We assume the application has already authenticated the user
-        // and has the necessary scopes for Google Drive access
-        statusDiv.textContent = "Ready to save files";
+      async function initializeApp() {
+        try {
+          // Initialize Google Identity Services
+          tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: SCOPES,
+            callback: handleTokenResponse
+          });
+          
+          // Load Google API client
+          await loadGoogleApiClient();
+          
+          // Check if the user is already authenticated
+          const storedToken = sessionStorage.getItem('google_access_token');
+          if (storedToken) {
+            accessToken = storedToken;
+            updateUI(true);
+            getUserInfo();
+          } else {
+            updateUI(false);
+          }
+          
+          // Add event listeners
+          loginButton.addEventListener('click', handleAuthClick);
+          saveButton.addEventListener('click', saveToGoogleDrive);
+          
+        } catch (error) {
+          console.error('Error initializing app:', error);
+          showError('Failed to initialize the application.');
+        }
       }
       
-      function saveToGoogleDrive() {
+      function loadGoogleApiClient() {
+        return new Promise((resolve, reject) => {
+          gapi.load('client', async () => {
+            try {
+              await gapi.client.init({
+                apiKey: API_KEY,
+                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+              });
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+          });
+        });
+      }
+      
+      function handleAuthClick() {
+        tokenClient.requestAccessToken({ prompt: 'consent' });
+      }
+      
+      function handleTokenResponse(response) {
+        if (response.error !== undefined) {
+          showError(`Authentication error: ${response.error}`);
+          return;
+        }
+        
+        accessToken = response.access_token;
+        sessionStorage.setItem('google_access_token', accessToken);
+        
+        updateUI(true);
+        getUserInfo();
+      }
+      
+      async function getUserInfo() {
+        try {
+          const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to fetch user info');
+          }
+          
+          const user = await response.json();
+          userName.textContent = user.name || user.email;
+          userImage.src = user.picture || '';
+          statusDiv.textContent = "Ready to save files";
+          
+        } catch (error) {
+          console.error('Error fetching user info:', error);
+          statusDiv.textContent = "Error fetching user info";
+        }
+      }
+      
+      function updateUI(isSignedIn) {
+        if (isSignedIn) {
+          loginContainer.style.display = 'none';
+          appContainer.style.display = 'block';
+          userContainer.style.display = 'block';
+        } else {
+          loginContainer.style.display = 'block';
+          appContainer.style.display = 'none';
+          userContainer.style.display = 'none';
+        }
+      }
+      
+      async function saveToGoogleDrive() {
         const content = contentInput.value.trim();
         
         if (!content) {
@@ -126,51 +297,99 @@
           return;
         }
         
+        // Hide previous results and errors
+        resultDiv.style.display = 'none';
+        errorDiv.style.display = 'none';
+        
         // Set button to loading state
         saveButton.disabled = true;
         saveButton.innerHTML = '<span class="spinner"></span>Saving...';
         statusDiv.textContent = "Creating file on Google Drive...";
         
-        // Create a text file with metadata
-        const filename = `SavedText_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
-        const file = new Blob([content], {type: 'text/plain'});
-        
-        // Using the Google Drive API to create a file
-        const metadata = {
-          'name': filename,
-          'mimeType': 'text/plain'
-        };
-        
-        // Create a form data object to send the file and metadata
-        const form = new FormData();
-        form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
-        form.append('file', file);
-        
-        // Simulate Google Drive API request
-        setTimeout(() => {
+        try {
+          // Create a text file with metadata
+          const filename = `SavedText_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
+          const file = new Blob([content], {type: 'text/plain'});
+          
+          // Create a form for the file upload
+          const form = new FormData();
+          form.append('metadata', new Blob([JSON.stringify({
+            name: filename,
+            mimeType: 'text/plain'
+          })], {type: 'application/json'}));
+          form.append('file', file);
+          
+          // Upload the file using fetch
+          const fileResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            },
+            body: form
+          });
+          
+          if (!fileResponse.ok) {
+            throw new Error('Failed to upload file');
+          }
+          
+          const fileData = await fileResponse.json();
+          const fileId = fileData.id;
+          
           statusDiv.textContent = "Setting file permissions...";
           
-          // Simulate setting permissions (in a real app, this would be a separate API call)
-          setTimeout(() => {
-            // Generate a fake Google Drive file ID
-            const fileId = 'FILE_' + Math.random().toString(36).substring(2, 15);
-            
-            // Create a download link (in a real app, this would come from the API response)
-            const downloadLink = `https://drive.google.com/uc?export=download&id=${fileId}`;
-            
-            // Reset button state
-            saveButton.disabled = false;
-            saveButton.innerHTML = 'Save to Google Drive';
-            
-            // Show the result with the download link
-            resultDiv.style.display = 'block';
-            driveLink.innerHTML = `<a href="${downloadLink}" target="_blank">${downloadLink}</a>`;
-            statusDiv.textContent = "File saved successfully!";
-          }, 1000);
-        }, 1500);
-        
-        // Note: In a real implementation, you'd use the Google Drive API's files.create method
-        // with the 'anyone' reader permission set and would show the actual download link returned
+          // Set file permissions to "anyone with the link can view"
+          const permissionResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              role: 'reader',
+              type: 'anyone'
+            })
+          });
+          
+          if (!permissionResponse.ok) {
+            throw new Error('Failed to set file permissions');
+          }
+          
+          // Get the file details to create the proper download link
+          const linkResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=webContentLink`, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          });
+          
+          if (!linkResponse.ok) {
+            throw new Error('Failed to get file link');
+          }
+          
+          const linkData = await linkResponse.json();
+          
+          // Reset button state
+          saveButton.disabled = false;
+          saveButton.innerHTML = 'Save to Google Drive';
+          
+          // Show the result with the download link
+          resultDiv.style.display = 'block';
+          driveLink.innerHTML = `<a href="${linkData.webContentLink}" target="_blank">${linkData.webContentLink}</a>`;
+          statusDiv.textContent = "File saved successfully!";
+          
+        } catch (error) {
+          console.error('Error saving to Google Drive:', error);
+          showError(`Error saving to Google Drive: ${error.message}`);
+          
+          // Reset button state
+          saveButton.disabled = false;
+          saveButton.innerHTML = 'Save to Google Drive';
+        }
+      }
+      
+      function showError(message) {
+        errorDiv.style.display = 'block';
+        errorDiv.textContent = message;
+        statusDiv.textContent = "An error occurred";
       }
     });
   </script>
