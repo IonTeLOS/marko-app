@@ -278,16 +278,8 @@ const populateTopicsDropdown = async () => {
 
 // ====================== Messaging Functions ======================
 
-/**
- * Function to send a message to Firebase topic
- * @param {string} topic - Topic name
- * @param {string} title - Message title
- * @param {string} body - Message body
- * @param {object} data - Additional data (icon, url)
- * @returns {Promise<string>}
- */
 const sendMessageToFirebase = async (topic, title, body, data = {}) => {
-  const url = '/.netlify/functions/topic-send';  // relative URL to function
+  const url = '/topic-send'; // Aligned with your Netlify function path
 
   const payload = {
     action: 'send',
@@ -297,20 +289,26 @@ const sendMessageToFirebase = async (topic, title, body, data = {}) => {
     data
   };
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
 
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.text();
+    console.log('Firebase message sent:', result);
+    return result;
+  } catch (error) {
+    console.error('Error sending message to Firebase:', error);
+    throw error;
   }
-
-  return await response.json();
 };
-
-
+    
 // ====================== Notification Permission and Token Handling ======================
 
 /**
