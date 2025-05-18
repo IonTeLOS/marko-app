@@ -287,43 +287,37 @@ const populateTopicsDropdown = async () => {
  * @returns {Promise<string>}
  */
 const sendMessageToFirebase = async (topic, title, body, data = {}) => {
-    // You would implement this to send messages via Firebase
-    // This is a placeholder - you'll need to implement this based on your Firebase setup
-    console.log(`Would send message to Firebase topic "${topic}":`, { title, body, data });
+  const url = '/se'; // Netlify function endpoint
+  const payload = {
+    action: 'send',
+    topic: topic,
+    notification: {
+      title: title || 'New Message',
+      body: body
+    },
+    data: { ...data }
+  };
 
-    // Example implementation might use a Cloud Function
-    const url = 'https://us-central1-marko-be9a9.cloudfunctions.net/sendMessageToTopic';  // Replace with your actual endpoint
-    const payload = {
-        topic: topic,
-        notification: {
-            title: title || 'New Message',
-            body: body
-        },
-        data: {
-            ...data
-        }
-    };
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    });
 
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.text();
-        console.log('Firebase message sent:', result);
-        return result;
-    } catch (error) {
-        console.error('Error sending message to Firebase:', error);
-        throw error;
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
+
+    const result = await response.json();
+    console.log('Firebase message sent:', result);
+    return result;
+  } catch (error) {
+    console.error('Error sending message to Firebase:', error);
+    throw error;
+  }
 };
 
 // ====================== Notification Permission and Token Handling ======================
