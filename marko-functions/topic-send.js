@@ -3,13 +3,14 @@ const admin = require('firebase-admin');
 // Parse the JSON from environment variable
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://marko-be9a9-default-rtdb.firebaseio.com"
-});
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    databaseURL: "https://marko-be9a9-default-rtdb.firebaseio.com"
+  });
+}
 
 exports.handler = async (event, context) => {
-  // Handle non-POST requests
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
@@ -49,14 +50,16 @@ exports.handler = async (event, context) => {
           body: JSON.stringify({ message: "Title and body are required for send action" })
         };
       }
-      
+
       const message = {
+        topic,
         notification: {
           title,
           body: messageBody
         },
-        data: data || {},
-        topic
+        data: {
+          ...(data || {})
+        }
       };
 
       await admin.messaging().send(message);
