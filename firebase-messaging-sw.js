@@ -69,9 +69,12 @@ const handleNotification = async (payload, isWebPush = false) => {
         });
     }
 };
+messaging.onBackgroundMessage(payload => {
+  console.log('[firebase-messaging-sw.js] Background message received:', payload);
+});
 
 // Handle Firebase background messages
-messaging.onBackgroundMessage(payload => handleNotification(payload, false));
+// messaging.onBackgroundMessage(payload => handleNotification(payload, false));
 
 // Handle WebPush messages
 self.addEventListener('push', event => {
