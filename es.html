@@ -15,17 +15,22 @@
   <button id="connect">Connect</button>
   <div id="status">Not connected</div>
 
-  <!-- 1) Ethers.js for provider/signer -->
   <script type="module">
+    // 1) Ethers.js from jsDelivr
     import { ethers } from 'https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.esm.min.js';
+    // 2) Reown AppKit via esm.sh to ensure correct ESM/CORS
     import {
       EthersAdapter,
       ReownAppKit,
       BitcoinChain
-    } from 'https://cdn.jsdelivr.net/npm/@reown/appkit-cdn@latest/dist/index.esm.js';
-    import { mainnet, polygon } from 'https://cdn.jsdelivr.net/npm/viem@1.1.0/dist/chains.esm.js';
+    } from 'https://esm.sh/@reown/appkit-cdn@latest';
+    // 3) Chains from viem via esm.sh
+    import {
+      mainnet,
+      polygon
+    } from 'https://esm.sh/viem/chains';
 
-    // 2) Define zkSync Era
+    // 4) Define zkSync Era
     const zkEvmEra = {
       id: 324,
       name: 'zkSync Era',
@@ -36,26 +41,25 @@
       testnet: false
     };
 
-    // 3) Initialize Ethers provider (window.ethereum must be injected by wallet)
+    // 5) Initialize Ethers provider
     const windowProvider = new ethers.providers.Web3Provider(window.ethereum, 'any');
     const sdkChains = [ mainnet, polygon, zkEvmEra, BitcoinChain ];
 
-    // 4) Wrap for AppKit
+    // 6) Wrap provider for AppKit
     const ethersAdapter = new EthersAdapter({
       provider: windowProvider,
       getSigner: () => windowProvider.getSigner()
     });
 
-    // 5) Initialize Reown AppKit
+    // 7) Initialize Reown AppKit
     const appkit = new ReownAppKit({
       projectId: 'c2ad0915b40b1da8a324c6699a8d0793',
       adapters: [ethersAdapter],
       networks: sdkChains
     });
 
-    // 6) Connect logic
+    // 8) Connect logic
     document.getElementById('connect').addEventListener('click', async () => {
-      // Request accounts
       await window.ethereum.request({ method: 'eth_requestAccounts' });
       const session = await appkit.connect({ signInMethods: ['wallet', 'email', 'social'] });
       if (session.connected) {
