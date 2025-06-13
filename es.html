@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reown AppKit + Wagmi Demo</title>
+  <title>Reown AppKit + Ethers Demo (CDN Only)</title>
   <style>
     body { font-family: sans-serif; padding: 2rem; }
     button { padding: 0.5rem 1rem; font-size: 1rem; }
@@ -11,21 +11,21 @@
   </style>
 </head>
 <body>
-  <h1>Connect Wallet / Email / Social</h1>
+  <h1>Connect Wallet / Email / Social (No Bundler)</h1>
   <button id="connect">Connect</button>
   <div id="status">Not connected</div>
 
+  <!-- 1) Ethers.js for provider/signer -->
   <script type="module">
-    // Import Wagmi via jsDelivr +esm to avoid conflicts and ensure proper CORS
-    import { configureChains, createClient, publicProvider } from 'https://cdn.jsdelivr.net/npm/@wagmi/core@2.17.3/+esm';
-    import { InjectedConnector } from 'https://cdn.jsdelivr.net/npm/@wagmi/core@2.17.3/connectors/injected/+esm';
-    import { WalletConnectConnector } from 'https://cdn.jsdelivr.net/npm/@wagmi/core@2.17.3/connectors/walletConnect/+esm';
-    // Import Reown AppKit and BitcoinChain
-    import { EthersAdapter, ReownAppKit, BitcoinChain } from 'https://cdn.jsdelivr.net/npm/@reown/appkit-cdn@latest/dist/index.esm.js';
-    // Import chains from Viem via jsDelivr
-    import { mainnet, polygon } from 'https://cdn.jsdelivr.net/npm/viem@1.1.0/+esm';
+    import { ethers } from 'https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.esm.min.js';
+    import {
+      EthersAdapter,
+      ReownAppKit,
+      BitcoinChain
+    } from 'https://cdn.jsdelivr.net/npm/@reown/appkit-cdn@latest/dist/index.esm.js';
+    import { mainnet, polygon } from 'https://cdn.jsdelivr.net/npm/viem@1.1.0/dist/chains.esm.js';
 
-    // 1. Define zkSync Era (chainId 324) and configure chains
+    // 2) Define zkSync Era
     const zkEvmEra = {
       id: 324,
       name: 'zkSync Era',
@@ -36,39 +36,27 @@
       testnet: false
     };
 
-    const { chains, provider } = configureChains(
-      [ mainnet, polygon, zkEvmEra, BitcoinChain ],
-      [ publicProvider() ]
-    );
+    // 3) Initialize Ethers provider (window.ethereum must be injected by wallet)
+    const windowProvider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+    const sdkChains = [ mainnet, polygon, zkEvmEra, BitcoinChain ];
 
-    // 2. Wagmi client for connector management
-    const client = createClient({
-      autoConnect: true,
-      connectors: [
-        new InjectedConnector({ chains }),
-        new WalletConnectConnector({ chains, options: { projectId: 'YOUR_WALLETCONNECT_PROJECT_ID' } })
-      ],
-      provider
-    });
-
-    // 3. Wrap provider & signer for Reown AppKit
+    // 4) Wrap for AppKit
     const ethersAdapter = new EthersAdapter({
-      provider,
-      getSigner: async () => {
-        const { address } = client.getAccount();
-        return provider.getSigner(address);
-      }
+      provider: windowProvider,
+      getSigner: () => windowProvider.getSigner()
     });
 
-    // 4. Initialize AppKit
+    // 5) Initialize Reown AppKit
     const appkit = new ReownAppKit({
       projectId: 'c2ad0915b40b1da8a324c6699a8d0793',
       adapters: [ethersAdapter],
-      networks: chains
+      networks: sdkChains
     });
 
-    // 5. Connect logic: wallets, email & social
+    // 6) Connect logic
     document.getElementById('connect').addEventListener('click', async () => {
+      // Request accounts
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
       const session = await appkit.connect({ signInMethods: ['wallet', 'email', 'social'] });
       if (session.connected) {
         document.getElementById('status').innerText =
