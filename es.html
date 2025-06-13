@@ -16,13 +16,14 @@
   <div id="status">Not connected</div>
 
   <script type="module">
-import { configureChains, createClient } from 'https://esm.sh/@wagmi/core@2.17.3';
-    import { configureChains, createClient } from 'https://unpkg.com/@wagmi/core@2.17.3/dist/index.esm.js?module';
-    import { publicProvider } from 'https://unpkg.com/@wagmi/core@2.17.3/dist/providers/public/index.esm.js?module';
-    import { InjectedConnector } from 'https://unpkg.com/@wagmi/core@2.17.3/dist/connectors/injected/index.esm.js?module';
-    import { WalletConnectConnector } from 'https://unpkg.com/@wagmi/core@2.17.3/dist/connectors/walletConnect/index.esm.js?module';
-    import { EthersAdapter, ReownAppKit, BitcoinChain } from 'https://unpkg.com/@reown/appkit-cdn@latest/dist/index.esm.js?module';
-    import { mainnet, polygon } from 'https://unpkg.com/viem@1.0.3/dist/chains.esm.js?module';
+    // Import Wagmi via jsDelivr +esm to avoid conflicts and ensure proper CORS
+    import { configureChains, createClient, publicProvider } from 'https://cdn.jsdelivr.net/npm/@wagmi/core@2.17.3/+esm';
+    import { InjectedConnector } from 'https://cdn.jsdelivr.net/npm/@wagmi/core@2.17.3/connectors/injected/+esm';
+    import { WalletConnectConnector } from 'https://cdn.jsdelivr.net/npm/@wagmi/core@2.17.3/connectors/walletConnect/+esm';
+    // Import Reown AppKit and BitcoinChain
+    import { EthersAdapter, ReownAppKit, BitcoinChain } from 'https://cdn.jsdelivr.net/npm/@reown/appkit-cdn@latest/dist/index.esm.js';
+    // Import chains from Viem via jsDelivr
+    import { mainnet, polygon } from 'https://cdn.jsdelivr.net/npm/viem@1.1.0/+esm';
 
     // 1. Define zkSync Era (chainId 324) and configure chains
     const zkEvmEra = {
