@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reown AppKit + Wagmi Demo</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; }
+    button { padding: 0.5rem 1rem; font-size: 1rem; }
+    #status { margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Connect Wallet / Email / Social</h1>
+  <button id="connect">Connect</button>
+  <div id="status">Not connected</div>
+
+  <script type="module">
+    import { configureChains, createClient } from 'https://unpkg.com/@wagmi/core@2.17.3/dist/index.esm.js';
+    import { publicProvider } from 'https://unpkg.com/@wagmi/core@2.17.3/dist/providers/public/index.esm.js';
+    import { InjectedConnector } from 'https://unpkg.com/@wagmi/core@2.17.3/dist/connectors/injected/index.esm.js';
+    import { WalletConnectConnector } from 'https://unpkg.com/@wagmi/core@2.17.3/dist/connectors/walletConnect/index.esm.js';
+    import { EthersAdapter, ReownAppKit, BitcoinChain } from 'https://unpkg.com/@reown/appkit-cdn@latest/dist/index.esm.js';
+    import { mainnet, polygon } from 'https://unpkg.com/viem@latest/dist/chains.esm.js';
+
+    // 1. Define zkSync Era (chainId 324) and configure chains
+    const zkEvmEra = {
+      id: 324,
+      name: 'zkSync Era',
+      network: 'zksync-era',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: { default: { http: ['https://mainnet.era.zksync.io'] } },
+      blockExplorers: { default: { name: 'zkSync Explorer', url: 'https://explorer.zksync.io' } },
+      testnet: false
+    };
+
+    const { chains, provider } = configureChains(
+      [ mainnet, polygon, zkEvmEra, BitcoinChain ],
+      [ publicProvider() ]
+    );
+
+    // 2. Wagmi client for connector management
+    const client = createClient({
+      autoConnect: true,
+      connectors: [
+        new InjectedConnector({ chains }),
+        new WalletConnectConnector({ chains, options: { projectId: 'YOUR_WALLETCONNECT_PROJECT_ID' } })
+      ],
+      provider
+    });
+
+    // 3. Wrap provider & signer for Reown AppKit
+    const ethersAdapter = new EthersAdapter({
+      provider,
+      getSigner: async () => {
+        const { address } = client.getAccount();
+        return provider.getSigner(address);
+      }
+    });
+
+    // 4. Initialize AppKit
+    const appkit = new ReownAppKit({
+      projectId: 'c2ad0915b40b1da8a324c6699a8d0793',
+      adapters: [ethersAdapter],
+      networks: chains
+    });
+
+    // 5. Connect logic: wallets, email & social
+    document.getElementById('connect').addEventListener('click', async () => {
+      const session = await appkit.connect({ signInMethods: ['wallet', 'email', 'social'] });
+      if (session.connected) {
+        document.getElementById('status').innerText =
+          `Connected: ${session.address} (${session.name ?? 'no custom name'})`;
+      } else {
+        document.getElementById('status').innerText = 'Not connected';
+      }
+    });
+  </script>
+</body>
+</html>
