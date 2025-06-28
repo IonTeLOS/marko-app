@@ -40,4 +40,4 @@ function = "hello-world"
 
 [functions.generate-zk-proof]
   # Raise execution timeout to 26 seconds
-  timeout = 26  
+  background = true
