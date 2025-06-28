@@ -501,35 +501,51 @@ class ZKEmailProver {
     }
 
 initializeEventListeners() {
-    const uploadArea   = document.getElementById('uploadArea');
-    const fileInput    = document.getElementById('fileInput');
-    const proveButton  = document.getElementById('proveButton');
+    const uploadArea  = document.getElementById('uploadArea');
+    const fileInput   = document.getElementById('fileInput');
+    const proveButton = document.getElementById('proveButton');
 
     if (!uploadArea || !fileInput || !proveButton) {
         this.log('❌ Required DOM elements not found');
         return;
     }
 
-    // File upload handling (click, drag/drop, change)
-    uploadArea.addEventListener('click', () => {
-        fileInput.value = '';
-        fileInput.click();
+    // Only open file dialog when clicking the dashed box itself,
+    // not when the hidden <input> steals the click.
+    uploadArea.addEventListener('click', (e) => {
+        // e.currentTarget is uploadArea, e.target is the exact element clicked
+        if (e.target === uploadArea) {
+            fileInput.value = '';
+            fileInput.click();
+        }
     });
-    uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
-    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
-    uploadArea.addEventListener('drop', e => {
+
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
         e.preventDefault();
         uploadArea.classList.remove('dragover');
-        if (e.dataTransfer.files.length) this.handleFileSelect(e.dataTransfer.files[0]);
-    });
-    fileInput.addEventListener('change', e => {
-        if (e.target.files.length) this.handleFileSelect(e.target.files[0]);
+        if (e.dataTransfer.files.length) {
+            this.handleFileSelect(e.dataTransfer.files[0]);
+        }
     });
 
-    // Prove button
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length) {
+            this.handleFileSelect(e.target.files[0]);
+        }
+    });
+
     proveButton.addEventListener('click', () => this.generateProof());
 
-    // Cache result buttons so we can enable/disable/update them later
+    // result buttons
     this.downloadBtn = document.getElementById('downloadJson');
     this.copyBtn     = document.getElementById('copyProofId');
     this.viewBtn     = document.getElementById('viewProof');
