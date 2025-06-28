@@ -37,3 +37,7 @@ function = "hello-world"
 
 [dev]
   functions = "marko-functions"      # for `netlify dev`
+
+[functions.generate-zk-proof]
+  # Raise execution timeout to 26 seconds
+  timeout = 26  
