@@ -677,60 +677,61 @@ class ZKEmailProver {
 
 
  async callBackendService() {
-  this.log('🔧 Using backend service for proof generation...');
-  this.updateProgress(70, 'Connecting to backend service...');
+  this.log('🔧 Using ZK Email Registry API for proof generation…');
+  this.updateProgress(70, 'Connecting to registry API…');
 
   try {
     // Base64-encode the raw email text to preserve CRLFs
     const rawText = this.emailContent;
     const emailB64 = btoa(rawText);
 
-    const response = await fetch(this.backendEndpoint, {
+    // Direct POST to ZK Email’s hosted proving service
+    const registryProofUrl = 'https://registry.zkregex.com/v1/proofs';
+    const response = await fetch(registryProofUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        emailContent: emailB64,
         blueprintId: this.blueprintId,
-        fileName: this.selectedFile.name
-      })
+        emailContent: emailB64,
+        fileName: this.selectedFile.name,        // optional metadata
+      }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Backend error (${response.status}): ${errorText}`);
+      throw new Error(`Registry API error (${response.status}): ${errorText}`);
     }
 
     const result = await response.json();
 
-    if (result.success && result.proof) {
-      this.log('✅ Proof generated successfully via backend!');
+    // If the registry returns the proof immediately:
+    if (result.id && result.proofData) {
+      this.log('✅ Proof generated via registry API!');
       this.updateProgress(100, 'Cryptographic proof generated!');
-      return result.proof;
-
-    } else if (result.status === 'processing' && result.jobId) {
-      this.log('⏳ Proof generation in progress...');
-      return await this.pollForCompletion(result.jobId, result.pollUrl);
-
-    } else if (result.status === 'api_unavailable' || result.status === 'redirect_required') {
-      this.log('🔄 API unavailable, preparing registry redirect...');
-      return this.handleRegistryRedirect(result);
-
-    } else {
-      throw new Error(result.error || result.message || 'Unknown backend error');
+      return result;
     }
 
-  } catch (error) {
-    this.log(`❌ Backend service failed: ${error.message}`);
+    // Otherwise, if it returns a jobId for async processing:
+    if (result.jobId && result.pollUrl) {
+      this.log('⏳ Registry API returned job, polling for completion…');
+      return await this.pollForCompletion(result.jobId, result.pollUrl);
+    }
 
-    // Final fallback: registry redirect
+    // Unexpected shape
+    throw new Error(result.error || result.message || 'Unknown registry response');
+
+  } catch (error) {
+    this.log(`❌ Registry API call failed: ${error.message}`);
+
+    // Fallback to interactive registry redirect in UI
     return this.handleRegistryRedirect({
       blueprintId: this.blueprintId,
-      registryUrl: `${this.registryUrl}/${this.blueprintId}`,
+      registryUrl: `https://registry.zkregex.com/${this.blueprintId}`,
       fileName: this.selectedFile.name,
       status: 'redirect_required',
-      message: 'Backend service unavailable'
+      message: 'Unable to generate proof via API'
     });
   }
 }
