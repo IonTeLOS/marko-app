@@ -27,7 +27,7 @@ exports.handler = async (event) => {
   let { emailContent: rawB64, blueprintId, fileName } = JSON.parse(event.body);
 
   // Defaults
-  blueprintId = blueprintId || 'IonTeLOS/MailAddressProver@v1';
+  blueprintId = blueprintId || 'IonTeLOS/MailAddressProver@v2';
   fileName    = fileName    || 'email.eml';
 
   if (!rawB64) {
