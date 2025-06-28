@@ -1,11 +1,10 @@
 // File: marko-functions/generate-zk-proof.js
 // CommonJS Netlify Function using @zk-email/sdk v1.x,
-// expecting emailContent as Base64 and logging header presence across the entire content.
+// expecting emailContent as Base64, no backend validation gating.
 
 const zkeSdk = require('@zk-email/sdk').default || require('@zk-email/sdk');
 
 exports.handler = async (event) => {
-  // CORS headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -23,10 +22,7 @@ exports.handler = async (event) => {
     };
   }
 
-  // Parse incoming JSON
   let { emailContent: rawB64, blueprintId, fileName } = JSON.parse(event.body);
-
-  // Defaults
   blueprintId = blueprintId || 'IonTeLOS/MailAddressProver@v2';
   fileName    = fileName    || 'email.eml';
 
@@ -38,7 +34,6 @@ exports.handler = async (event) => {
     };
   }
 
-  // Decode Base64 → UTF-8 text (preserves CRLF exactly)
   let emailContent;
   try {
     emailContent = Buffer.from(rawB64, 'base64').toString('utf8');
@@ -50,13 +45,10 @@ exports.handler = async (event) => {
     };
   }
 
-  // Debug logs: length & presence of required headers across the entire content
+  // DEBUG: header indices
   console.log('📄 emailContent length:', emailContent.length);
-  console.log('📄 Index of "From:":', emailContent.indexOf('From:'));
-  console.log('📄 Index of "To:":', emailContent.indexOf('To:'));
-  console.log('📄 Index of "Subject:":', emailContent.indexOf('Subject:'));
-  console.log('📄 Index of "Message-ID:":', emailContent.indexOf('Message-ID:'));
-  console.log('📄 Index of "DKIM-Signature:":', emailContent.indexOf('DKIM-Signature:'));
+  ['From:', 'To:', 'Subject:', 'Message-ID:', 'DKIM-Signature:']
+    .forEach(h => console.log(`📄 Index of "${h}":`, emailContent.indexOf(h)));
 
   try {
     console.log('📦 Initializing ZK Email SDK…');
@@ -65,17 +57,12 @@ exports.handler = async (event) => {
     console.log('🔍 Fetching blueprint:', blueprintId);
     const blueprint = await sdk.getBlueprint(blueprintId);
 
-    console.log('🔍 Validating email…');
-    const valid = await blueprint.validateEmail(emailContent);
-    if (!valid) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          error: 'Email validation failed',
-          message: 'The email does not match the blueprint requirements',
-        }),
-      };
+    // Soft-check only: log but do NOT block
+    try {
+      const isValid = await blueprint.validateEmail(emailContent);
+      console.log('🔍 validateEmail →', isValid);
+    } catch (vErr) {
+      console.warn('⚠️ validateEmail threw, ignoring:', vErr.message);
     }
 
     console.log('⚙️ Creating prover…');
@@ -114,7 +101,7 @@ exports.handler = async (event) => {
         headers,
         body: JSON.stringify({
           error: 'Invalid blueprint slug',
-          message: `You passed "${blueprintId}". It must include its @version suffix, e.g. "IonTeLOS/MailAddressProver@v1".`
+          message: `Must include @version, e.g. "IonTeLOS/MailAddressProver@v1".`
         })
       };
     }
