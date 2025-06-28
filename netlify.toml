@@ -34,9 +34,11 @@ function = "hello-world"
 
 [build]
   functions = "marko-functions"      # <-- your functions folder
+  command = ""      # no build step
 
 [dev]
   functions = "marko-functions"      # for `netlify dev`
+    command = ""      # no build step
 
 [functions.generate-zk-proof]
   # Raise execution timeout to 26 seconds
