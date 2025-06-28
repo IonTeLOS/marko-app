@@ -1,6 +1,18 @@
 {
+  "name": "marko-netlify-functions",
+  "version": "1.0.0",
+  "description": "Netlify functions with Firebase and ZK Email integration",
+  "main": "index.js",
   "dependencies": {
     "firebase-admin": "12.2.0",
-    "cors": "2.8.5"
+    "cors": "2.8.5",
+    "@zk-email/sdk": "^0.0.139"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "echo 'No build step required'",
+    "test": "echo 'No tests specified'"
   }
 }
