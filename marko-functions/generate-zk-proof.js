@@ -1,5 +1,6 @@
 // File: marko-functions/generate-zk-proof.js
-// CommonJS Netlify Function using @zk-email/sdk v1.x
+// CommonJS Netlify Function using @zk-email/sdk v1.x,
+// expecting emailContent as Base64.
 
 const zkeSdk = require('@zk-email/sdk').default || require('@zk-email/sdk');
 
@@ -22,14 +23,14 @@ exports.handler = async (event) => {
     };
   }
 
-  // Parse body
-  let { emailContent: raw, blueprintId, fileName } = JSON.parse(event.body);
+  // Parse incoming JSON
+  let { emailContent: rawB64, blueprintId, fileName } = JSON.parse(event.body);
 
-  // If front-end didn’t supply a blueprint, use your IonTeLOS slug with @v1
+  // Defaults
   blueprintId = blueprintId || 'IonTeLOS/MailAddressProver@v1';
   fileName    = fileName    || 'email.eml';
 
-  if (!raw) {
+  if (!rawB64) {
     return {
       statusCode: 400,
       headers,
@@ -37,10 +38,21 @@ exports.handler = async (event) => {
     };
   }
 
-  // If you’re sending base64 from the browser, decode here; otherwise raw is your text
-  const emailContent = /^[A-Za-z0-9+/=]+$/.test(raw)
-    ? Buffer.from(raw, 'base64').toString('utf8')
-    : raw;
+  // Decode Base64 → UTF-8 text (preserves CRLF exactly)
+  let emailContent;
+  try {
+    emailContent = Buffer.from(rawB64, 'base64').toString('utf8');
+  } catch (e) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ error: 'Invalid Base64 in emailContent' }),
+    };
+  }
+
+  // Debug logs for length & snippet
+  console.log('📄 emailContent length:', emailContent.length);
+  console.log('📄 emailContent head:', emailContent.slice(0,200).replace(/\r/g,'␍'));
 
   try {
     console.log('📦 Initializing ZK Email SDK…');
@@ -91,7 +103,7 @@ exports.handler = async (event) => {
 
   } catch (error) {
     console.error('❌ Proof generation error:', error.message);
-    // If we caught the “must provide version” error, surface a clearer message:
+
     if (error.message.includes('provide the blueprint version')) {
       return {
         statusCode: 400,
