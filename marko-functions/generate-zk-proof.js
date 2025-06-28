@@ -1,19 +1,20 @@
 // File: marko-functions/generate-zk-proof.js
-// CommonJS Netlify Function using @zk-email/sdk v1.x,
-// expecting emailContent as Base64, no backend validation gating.
+// CommonJS Netlify Background Function using @zk-email/sdk v1.x
 
 const zkeSdk = require('@zk-email/sdk').default || require('@zk-email/sdk');
 
-exports.handler = async (event) => {
+exports.handler = (event, context) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   };
 
+  // Preflight
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
   }
+  // Only POST
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -22,94 +23,68 @@ exports.handler = async (event) => {
     };
   }
 
-  let { emailContent: rawB64, blueprintId, fileName } = JSON.parse(event.body);
-  blueprintId = blueprintId || 'IonTeLOS/MailAddressProver@v2';
-  fileName    = fileName    || 'email.eml';
-
-  if (!rawB64) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ error: 'No email content provided' }),
-    };
-  }
-
-  let emailContent;
-  try {
-    emailContent = Buffer.from(rawB64, 'base64').toString('utf8');
-  } catch (e) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ error: 'Invalid Base64 in emailContent' }),
-    };
-  }
-
-  // DEBUG: header indices
-  console.log('📄 emailContent length:', emailContent.length);
-  ['From:', 'To:', 'Subject:', 'Message-ID:', 'DKIM-Signature:']
-    .forEach(h => console.log(`📄 Index of "${h}":`, emailContent.indexOf(h)));
-
-  try {
-    console.log('📦 Initializing ZK Email SDK…');
-    const sdk = zkeSdk();
-
-    console.log('🔍 Fetching blueprint:', blueprintId);
-    const blueprint = await sdk.getBlueprint(blueprintId);
-
-    // Soft-check only: log but do NOT block
+  // Fire-and-forget proof job
+  (async () => {
     try {
-      const isValid = await blueprint.validateEmail(emailContent);
-      console.log('🔍 validateEmail →', isValid);
-    } catch (vErr) {
-      console.warn('⚠️ validateEmail threw, ignoring:', vErr.message);
-    }
+      // Parse payload
+      const { emailContent: rawB64, blueprintId: inSlug, fileName: inName } = JSON.parse(event.body);
+      const blueprintId = inSlug || 'IonTeLOS/MailAddressProver@v2';
+      const fileName    = inName  || 'email.eml';
 
-    console.log('⚙️ Creating prover…');
-    const prover = blueprint.createProver();
+      // Decode Base64 → UTF-8
+      const emailContent = Buffer.from(rawB64, 'base64').toString('utf8');
 
-    console.log('🚀 Generating proof…');
-    const proof = await prover.generateProof(emailContent);
+      console.log('📄 emailContent length:', emailContent.length);
+      ['From:', 'To:', 'Subject:', 'Message-ID:', 'DKIM-Signature:']
+        .forEach(h => console.log(`📄 Index of "${h}":`, emailContent.indexOf(h)));
 
-    const proofData = {
-      id: proof.id || `proof_${Date.now()}`,
-      proofData: proof.props?.proofData || proof.proofData || proof.proof,
-      publicData: proof.props?.publicData || proof.publicData || proof.publicOutputs,
-      publicOutputs: proof.props?.publicOutputs || proof.publicOutputs,
-      status: 'completed',
-      blueprintId,
-      timestamp: new Date().toISOString(),
-      fileName,
-      verified: null,
-    };
+      console.log('📦 Initializing ZK Email SDK…');
+      const sdk = zkeSdk();
 
-    console.log('🔍 Verifying proof…');
-    proofData.verified = await blueprint.verifyProof(proof);
+      console.log('🔍 Fetching blueprint:', blueprintId);
+      const blueprint = await sdk.getBlueprint(blueprintId);
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ success: true, proof: proofData }),
-    };
+      // Soft-check only
+      try {
+        const isValid = await blueprint.validateEmail(emailContent);
+        console.log('🔍 validateEmail →', isValid);
+      } catch (vErr) {
+        console.warn('⚠️ validateEmail threw, ignoring:', vErr.message);
+      }
 
-  } catch (error) {
-    console.error('❌ Proof generation error:', error.message);
+      console.log('⚙️ Creating prover…');
+      const prover = blueprint.createProver();
 
-    if (error.message.includes('provide the blueprint version')) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          error: 'Invalid blueprint slug',
-          message: `Must include @version, e.g. "IonTeLOS/MailAddressProver@v1".`
-        })
+      console.log('🚀 Generating proof…');
+      const proof = await prover.generateProof(emailContent);
+
+      const proofData = {
+        id: proof.id || `proof_${Date.now()}`,
+        proofData: proof.props?.proofData || proof.proofData || proof.proof,
+        publicData: proof.props?.publicData || proof.publicData || proof.publicOutputs,
+        publicOutputs: proof.props?.publicOutputs || proof.publicOutputs,
+        status: 'completed',
+        blueprintId,
+        timestamp: new Date().toISOString(),
+        fileName,
+        verified: null,
       };
-    }
 
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: error.message }),
-    };
-  }
+      console.log('🔍 Verifying proof…');
+      proofData.verified = await blueprint.verifyProof(proof);
+
+      console.log('✅ Proof generation completed:', proofData.id);
+      // TODO: write proofData to your DB or notify downstream service
+
+    } catch (error) {
+      console.error('❌ Background proof job failed:', error);
+    }
+  })();
+
+  // Immediate 202 response
+  return {
+    statusCode: 202,
+    headers,
+    body: JSON.stringify({ status: 'accepted', message: 'Proof job started' }),
+  };
 };
