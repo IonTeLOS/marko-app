@@ -957,7 +957,7 @@ async callBackendService() {
         this.safeUpdateElement('downloadJson', (btn) => {
             if (result.redirected) {
                 btn.textContent = '🔗 Open Registry';
-                btn.onclick = () => window.open(result.registryUrl, '_blank');
+                btn.onclick = () => window.open(this.proofResult.registryUrl, '_blank');
             }
         });
 
