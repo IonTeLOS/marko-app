@@ -1,12 +1,12 @@
 // File: marko-functions/generate-zk-proof.js
-// Netlify Background Function using async handler (no callback),
-// AWS Lambda will return HTTP 202 immediately, then run proof logic.
+// CommonJS Netlify Background Function
 
 const zkeSdk = require('@zk-email/sdk').default || require('@zk-email/sdk');
 
-exports.handler = async (event, context) => {
-  // Allow background work to continue after returning response
-  context.callbackWaitsForEmptyEventLoop = false;
+exports.handler = (event, context, callback) => {
+  // By default callbackWaitsForEmptyEventLoop = true, so Lambda will
+  // wait for all pending work before freezing.
+  // (No need to set it explicitly.)
 
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -14,19 +14,28 @@ exports.handler = async (event, context) => {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   };
 
+  // Preflight
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
+    return callback(null, { statusCode: 200, headers, body: '' });
   }
   if (event.httpMethod !== 'POST') {
-    return {
+    return callback(null, {
       statusCode: 405,
       headers,
       body: JSON.stringify({ error: 'Method not allowed' }),
-    };
+    });
   }
 
-  // Kick off the proof job *after* we return
-  setImmediate(async () => {
+  // Immediately ACK the request
+  callback(null, {
+    statusCode: 202,
+    headers,
+    body: JSON.stringify({ status: 'accepted', message: 'Proof job started' }),
+  });
+
+  // --- Background work continues below ---
+
+  (async () => {
     try {
       const { emailContent: rawB64, blueprintId: inSlug, fileName: inName } = JSON.parse(event.body);
       const blueprintId = inSlug || 'IonTeLOS/MailAddressProver@v2';
@@ -75,16 +84,10 @@ exports.handler = async (event, context) => {
       proofData.verified = await blueprint.verifyProof(proof);
 
       console.log('✅ Proof generation completed:', proofData.id);
-      // TODO: write proofData to your DB or dispatch a webhook
+      // TODO: persist proofData to your DB or fire a webhook here
+
     } catch (error) {
       console.error('❌ Background proof job failed:', error);
     }
-  });
-
-  // Immediate HTTP response
-  return {
-    statusCode: 202,
-    headers,
-    body: JSON.stringify({ status: 'accepted', message: 'Proof job started' }),
-  };
+  })();
 };
