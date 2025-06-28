@@ -474,7 +474,7 @@ class ZKEmailProver {
         this.emailContent = null;
         
         // Browser-specific configuration
-        this.backendEndpoint = 'https://zk-email-proxy.diavlos.workers.dev';
+        this.backendEndpoint = 'https://zk-production.up.railway.app/generate';
         this.registryUrl = 'https://registry.zkregex.com';
         
         // Try to detect if we can use the ZK Email SDK directly in browser
@@ -678,13 +678,12 @@ class ZKEmailProver {
 
 // in your ZKEmailProver class
 async callBackendService() {
-  this.log('🔧 Using proxy worker for proof generation…');
-  this.updateProgress(70, 'Connecting to proxy…');
+  this.log('🔧 Sending email to Railway service…');
+  this.updateProgress(70, 'Connecting to proof service…');
 
-  // preserve CRLFs exactly
   const emailB64 = btoa(this.emailContent);
 
-  const res = await fetch('https://zk-email-proxy.diavlos.workers.dev/', {
+  const res = await fetch(`${this.backendEndpoint}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -694,20 +693,14 @@ async callBackendService() {
     })
   });
 
-  const text = await res.text();
   if (!res.ok) {
-    throw new Error(`Proxy error ${res.status}: ${text}`);
+    const text = await res.text();
+    throw new Error(`Service error ${res.status}: ${text}`);
   }
 
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch (e) {
-    throw new Error(`Invalid JSON from proxy: ${text.slice(0,200)}`);
-  }
-
-  return data;
+  return res.json();
 }
+
 
 
     async pollForCompletion(jobId, pollUrl, maxAttempts = 15) {
