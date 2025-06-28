@@ -1,8 +1,22 @@
 // File: marko-functions/generate-zk-proof.js
-// Updated with correct ZK Email SDK implementation
+// Updated with proper ES module handling for Netlify
 
-// Note: You'll need to install the ZK Email SDK in your project:
-// npm install @zk-email/sdk
+let zkeSDK = null;
+
+// Dynamic import helper for Netlify environment
+async function loadZKEmailSDK() {
+    if (zkeSDK) return zkeSDK;
+    
+    try {
+        // Try different import patterns for Netlify
+        const module = await import('@zk-email/sdk');
+        zkeSDK = module.default || module;
+        return zkeSDK;
+    } catch (error) {
+        console.error('❌ Failed to load ZK Email SDK:', error.message);
+        throw new Error(`ZK Email SDK not available: ${error.message}`);
+    }
+}
 
 exports.handler = async (event, context) => {
     // Set CORS headers
@@ -55,12 +69,12 @@ exports.handler = async (event, context) => {
 
         console.log(`🔧 Generating proof for blueprint: ${blueprintId}`);
 
-        // Import the ZK Email SDK
-        // Note: This import needs to be dynamic for server-side usage
-        const zkeSDK = await import('@zk-email/sdk').then(module => module.default);
-
+        // Load the ZK Email SDK
+        console.log('📦 Loading ZK Email SDK...');
+        const SDKConstructor = await loadZKEmailSDK();
+        
         // Initialize the SDK
-        const sdk = zkeSDK();
+        const sdk = SDKConstructor();
         console.log('✅ ZK Email SDK initialized');
 
         // Get the blueprint from the registry
@@ -88,10 +102,7 @@ exports.handler = async (event, context) => {
         }
 
         // Create a prover (server-side proving for speed)
-        const prover = blueprint.createProver({
-            // Use server-side proving for faster generation
-            mode: 'server' // or 'remote' depending on SDK version
-        });
+        const prover = blueprint.createProver();
         console.log('✅ Prover created');
 
         // Generate the proof
@@ -137,7 +148,24 @@ exports.handler = async (event, context) => {
     } catch (error) {
         console.error('❌ Netlify function error:', error);
 
-        // Handle specific SDK errors
+        // Handle SDK-specific errors
+        if (error.message.includes('ZK Email SDK not available')) {
+            return {
+                statusCode: 503,
+                headers,
+                body: JSON.stringify({
+                    status: 'api_unavailable',
+                    error: 'ZK Email SDK not available in this environment',
+                    message: 'Please use the ZK Email registry interface directly',
+                    blueprintId: blueprintId,
+                    registryUrl: `https://registry.zkregex.com/${blueprintId}`,
+                    fileName: fileName,
+                    suggestion: 'Download the email file and upload it manually to the ZK Email registry'
+                })
+            };
+        }
+
+        // Handle other specific SDK errors
         let errorMessage = 'Internal server error';
         let statusCode = 500;
 
@@ -161,154 +189,7 @@ exports.handler = async (event, context) => {
             body: JSON.stringify({ 
                 error: errorMessage,
                 details: error.message,
-                suggestion: 'Check the blueprint ID and email format, or try again later'
-            })
-        };
-    }
-};
-
-// Alternative implementation using the older SDK pattern (if the above doesn't work)
-exports.handler_legacy = async (event, context) => {
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
-    };
-
-    if (event.httpMethod === 'OPTIONS') {
-        return { statusCode: 200, headers, body: '' };
-    }
-
-    if (event.httpMethod !== 'POST') {
-        return {
-            statusCode: 405,
-            headers,
-            body: JSON.stringify({ error: 'Method not allowed' })
-        };
-    }
-
-    try {
-        const { emailContent, blueprintId, fileName } = JSON.parse(event.body);
-        
-        console.log('📧 Processing request for blueprint:', blueprintId);
-
-        // Try the legacy API approach with proper endpoint structure
-        const registryBaseUrl = 'https://registry.zkregex.com'; // or 'https://registry-dev.zkregex.com' for dev
-        
-        // Method 1: Try the /api/generate endpoint
-        try {
-            console.log('🔄 Attempting proof generation via /api/generate...');
-            
-            const generateResponse = await fetch(`${registryBaseUrl}/api/generate`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'ZK-Email-Proof-Generator/1.0'
-                },
-                body: JSON.stringify({
-                    slug: blueprintId,
-                    email: emailContent,
-                    proving: 'server'
-                })
-            });
-
-            if (generateResponse.ok) {
-                const result = await generateResponse.json();
-                console.log('✅ Proof generated via /api/generate');
-                return {
-                    statusCode: 200,
-                    headers,
-                    body: JSON.stringify(result)
-                };
-            }
-        } catch (error) {
-            console.log(`❌ /api/generate failed: ${error.message}`);
-        }
-
-        // Method 2: Try the submit + poll pattern
-        try {
-            console.log('🔄 Attempting async proof generation...');
-            
-            const submitResponse = await fetch(`${registryBaseUrl}/api/submit`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    slug: blueprintId,
-                    email: emailContent,
-                    proving: 'server'
-                })
-            });
-
-            if (submitResponse.ok) {
-                const submitResult = await submitResponse.json();
-                const jobId = submitResult.id || submitResult.job_id;
-                
-                if (jobId) {
-                    console.log(`✅ Job submitted: ${jobId}`);
-                    
-                    // Poll for completion (simplified version)
-                    for (let i = 0; i < 10; i++) {
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        
-                        const statusResponse = await fetch(`${registryBaseUrl}/api/status/${jobId}`);
-                        if (statusResponse.ok) {
-                            const statusResult = await statusResponse.json();
-                            
-                            if (statusResult.status === 'completed' || statusResult.status === 'success') {
-                                console.log('✅ Async proof generation completed');
-                                return {
-                                    statusCode: 200,
-                                    headers,
-                                    body: JSON.stringify(statusResult)
-                                };
-                            } else if (statusResult.status === 'failed') {
-                                throw new Error(`Proof generation failed: ${statusResult.error}`);
-                            }
-                        }
-                    }
-                    
-                    // Return partial result if still processing
-                    return {
-                        statusCode: 202,
-                        headers,
-                        body: JSON.stringify({
-                            status: 'processing',
-                            jobId: jobId,
-                            pollUrl: `${registryBaseUrl}/api/status/${jobId}`,
-                            message: 'Proof generation in progress'
-                        })
-                    };
-                }
-            }
-        } catch (error) {
-            console.log(`❌ Async generation failed: ${error.message}`);
-        }
-
-        // If all methods fail, return helpful guidance
-        return {
-            statusCode: 202,
-            headers,
-            body: JSON.stringify({
-                status: 'api_unavailable',
-                message: 'ZK Email API endpoints may be restricted or changed',
-                blueprintId: blueprintId,
-                registryUrl: `${registryBaseUrl}/${blueprintId}`,
-                fileName: fileName,
-                emailPreview: emailContent.substring(0, 200) + '...',
-                suggestion: 'Use the ZK Email registry interface directly for proof generation'
-            })
-        };
-
-    } catch (error) {
-        console.error('❌ Legacy handler error:', error);
-        return {
-            statusCode: 500,
-            headers,
-            body: JSON.stringify({ 
-                error: 'Internal server error',
-                message: error.message
+                suggestion: 'Check the blueprint ID and email format, or try the registry directly'
             })
         };
     }
