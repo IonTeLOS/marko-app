@@ -1,40 +1,30 @@
 // File: marko-functions/generate-zk-proof.js
-// Fixed version for ES modules with proper error handling
-
-import { createRequire } from 'module';
+// Simplified version that works reliably in Netlify environment
 
 let zkeSDK = null;
 
-// Dynamic import helper for Netlify environment with fallback
+// Simple dynamic import that works in Netlify
 async function loadZKEmailSDK() {
     if (zkeSDK) return zkeSDK;
     
     try {
-        console.log('🔄 Attempting to load ZK Email SDK...');
+        console.log('🔄 Loading ZK Email SDK via dynamic import...');
         
-        // Method 1: Try ES module import
-        try {
-            const module = await import('@zk-email/sdk');
-            zkeSDK = module.default || module;
-            console.log('✅ ZK Email SDK loaded via ES import');
-            return zkeSDK;
-        } catch (esError) {
-            console.log('⚠️ ES import failed, trying CommonJS...');
-            
-            // Method 2: Try CommonJS require as fallback
-            const require = createRequire(import.meta.url);
-            const module = require('@zk-email/sdk');
-            zkeSDK = module.default || module;
-            console.log('✅ ZK Email SDK loaded via CommonJS');
-            return zkeSDK;
-        }
+        // Use simple dynamic import - this should work in Netlify
+        const module = await import('@zk-email/sdk');
+        zkeSDK = module.default || module;
+        
+        console.log('✅ ZK Email SDK loaded successfully');
+        return zkeSDK;
+        
     } catch (error) {
-        console.error('❌ All SDK loading methods failed:', error.message);
-        throw new Error(`ZK Email SDK not available: ${error.message}`);
+        console.error('❌ Failed to load ZK Email SDK:', error.message);
+        // Don't throw here, let the main function handle fallback
+        return null;
     }
 }
 
-export const handler = async (event, context) => {
+exports.handler = async (event, context) => {
     // Set CORS headers
     const headers = {
         'Access-Control-Allow-Origin': '*',
@@ -62,15 +52,16 @@ export const handler = async (event, context) => {
 
     let blueprintId = null;
     let fileName = null;
+    let emailContent = null;
 
     try {
         console.log('📧 Netlify function: Processing ZK Email proof request');
 
         // Parse the request body
         const requestBody = JSON.parse(event.body);
-        const { emailContent } = requestBody;
-        blueprintId = requestBody.blueprintId;
-        fileName = requestBody.fileName;
+        emailContent = requestBody.emailContent;
+        blueprintId = requestBody.blueprintId || 'e7d84ab3-68f3-46b4-a1af-f6c87611d423';
+        fileName = requestBody.fileName || 'email.eml';
 
         if (!emailContent) {
             return {
@@ -80,20 +71,17 @@ export const handler = async (event, context) => {
             };
         }
 
-        if (!blueprintId) {
-            return {
-                statusCode: 400,
-                headers,
-                body: JSON.stringify({ error: 'Blueprint ID required' })
-            };
-        }
+        console.log(`🔧 Attempting ZK proof for blueprint: ${blueprintId}`);
 
-        console.log(`🔧 Generating proof for blueprint: ${blueprintId}`);
-
-        // Load the ZK Email SDK
+        // Try to load the ZK Email SDK
         console.log('📦 Loading ZK Email SDK...');
         const SDKConstructor = await loadZKEmailSDK();
         
+        if (!SDKConstructor) {
+            console.log('⚠️ SDK not available, using fallback...');
+            throw new Error('SDK_NOT_AVAILABLE');
+        }
+
         // Initialize the SDK
         const sdk = SDKConstructor();
         console.log('✅ ZK Email SDK initialized');
@@ -103,8 +91,9 @@ export const handler = async (event, context) => {
         const blueprint = await sdk.getBlueprint(blueprintId);
         console.log('✅ Blueprint fetched successfully');
 
-        // Optional: Validate the email first
+        // Validate the email
         try {
+            console.log('🔍 Validating email...');
             const isValid = await blueprint.validateEmail(emailContent);
             if (!isValid) {
                 console.log('❌ Email validation failed');
@@ -119,42 +108,45 @@ export const handler = async (event, context) => {
             }
             console.log('✅ Email validation passed');
         } catch (validationError) {
-            console.log(`⚠️ Email validation error (continuing anyway): ${validationError.message}`);
+            console.log(`⚠️ Email validation error: ${validationError.message}`);
+            // Continue anyway, validation might be strict
         }
 
-        // Create a prover (server-side proving for speed)
+        // Create a prover
+        console.log('⚙️ Creating prover...');
         const prover = blueprint.createProver();
         console.log('✅ Prover created');
 
         // Generate the proof
         console.log('🚀 Starting proof generation...');
         const proof = await prover.generateProof(emailContent);
-        console.log('✅ Proof generated successfully');
+        console.log('✅ Proof generated successfully!');
 
-        // Extract proof data
+        // Extract and format proof data
         const proofData = {
             id: proof.id || `proof_${Date.now()}`,
-            proofData: proof.props?.proofData || proof.proofData,
-            publicData: proof.props?.publicData || proof.publicData,
+            proofData: proof.props?.proofData || proof.proofData || proof.proof,
+            publicData: proof.props?.publicData || proof.publicData || proof.publicOutputs,
             publicOutputs: proof.props?.publicOutputs || proof.publicOutputs,
             status: 'completed',
             blueprintId: blueprintId,
             timestamp: new Date().toISOString(),
-            fileName: fileName
+            fileName: fileName,
+            verified: null
         };
 
-        // Optional: Verify the proof to ensure it's valid
+        // Try to verify the proof
         try {
+            console.log('🔍 Verifying proof...');
             const isVerified = await blueprint.verifyProof(proof);
             proofData.verified = isVerified;
-            console.log(`🔍 Proof verification: ${isVerified ? 'VALID' : 'INVALID'}`);
+            console.log(`✅ Proof verification: ${isVerified ? 'VALID' : 'INVALID'}`);
         } catch (verifyError) {
-            console.log(`⚠️ Proof verification error: ${verifyError.message}`);
-            proofData.verified = null;
+            console.log(`⚠️ Proof verification failed: ${verifyError.message}`);
             proofData.verificationError = verifyError.message;
         }
 
-        console.log('✅ Proof generation completed successfully');
+        console.log('🎉 ZK Email proof generation completed successfully!');
 
         return {
             statusCode: 200,
@@ -162,67 +154,110 @@ export const handler = async (event, context) => {
             body: JSON.stringify({
                 success: true,
                 proof: proofData,
-                message: 'Cryptographic proof generated successfully'
+                message: 'Cryptographic proof generated successfully via ZK Email SDK'
             })
         };
 
     } catch (error) {
         console.error('❌ Netlify function error:', error);
 
-        // Handle SDK-specific errors with proper fallback
-        if (error.message.includes('ZK Email SDK not available')) {
-            console.log('🔄 SDK unavailable, providing registry redirect...');
+        // Handle specific error cases
+        if (error.message === 'SDK_NOT_AVAILABLE' || 
+            error.message.includes('ZK Email SDK not available') ||
+            error.message.includes('Cannot use import statement') ||
+            error.message.includes('filename') ||
+            error.message.includes('import.meta')) {
+            
+            console.log('🔄 Using registry fallback due to SDK issues...');
+            
+            // Provide registry redirect as fallback
             return {
-                statusCode: 202,  // Changed from 503 to 202
+                statusCode: 202,
                 headers,
                 body: JSON.stringify({
                     status: 'redirect_required',
-                    message: 'ZK Email SDK requires direct registry access',
+                    message: 'ZK Email SDK environment issue - please use registry directly',
                     action: 'redirect_to_registry',
                     data: {
-                        blueprintId: blueprintId || 'e7d84ab3-68f3-46b4-a1af-f6c87611d423',
-                        registryUrl: `https://registry.zkregex.com/${blueprintId || 'e7d84ab3-68f3-46b4-a1af-f6c87611d423'}`,
-                        fileName: fileName || 'email.eml',
+                        blueprintId: blueprintId,
+                        registryUrl: `https://registry.zkregex.com/${blueprintId}`,
+                        fileName: fileName,
+                        emailContent: emailContent,
+                        reason: 'sdk_environment_issue',
                         instructions: [
-                            'Download the prepared email file',
+                            'Your email is ready for processing',
+                            'Click to download the email file',
                             'Open the ZK Email registry',
-                            'Upload the email file',
-                            'Select server-side proving',
-                            'Generate the cryptographic proof'
-                        ]
+                            'Upload the email file to the registry',
+                            'Select "Server Proving" for best performance',
+                            'Generate your cryptographic proof'
+                        ],
+                        estimatedTime: '2-3 minutes'
                     }
                 })
             };
         }
 
         // Handle other specific SDK errors
-        let errorMessage = 'Internal server error';
-        let statusCode = 500;
-
         if (error.message.includes('Blueprint not found')) {
-            errorMessage = 'Blueprint not found in registry';
-            statusCode = 404;
-        } else if (error.message.includes('Invalid email')) {
-            errorMessage = 'Invalid email format or content';
-            statusCode = 400;
-        } else if (error.message.includes('Rate limit')) {
-            errorMessage = 'Rate limit exceeded, please try again later';
-            statusCode = 429;
-        } else if (error.message.includes('Network')) {
-            errorMessage = 'Network error connecting to ZK Email registry';
-            statusCode = 503;
+            return {
+                statusCode: 404,
+                headers,
+                body: JSON.stringify({ 
+                    error: 'Blueprint not found',
+                    message: `Blueprint ${blueprintId} does not exist in the registry`,
+                    suggestion: 'Check the blueprint ID or create a new blueprint'
+                })
+            };
         }
 
+        if (error.message.includes('Invalid email') || error.message.includes('validation')) {
+            return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({ 
+                    error: 'Invalid email format',
+                    message: 'Email does not meet the requirements for ZK proof generation',
+                    suggestion: 'Ensure the email has proper headers and DKIM signature'
+                })
+            };
+        }
+
+        if (error.message.includes('Rate limit') || error.message.includes('429')) {
+            return {
+                statusCode: 429,
+                headers,
+                body: JSON.stringify({ 
+                    error: 'Rate limit exceeded',
+                    message: 'Too many requests to ZK Email service',
+                    suggestion: 'Please wait a moment and try again'
+                })
+            };
+        }
+
+        // Generic error with registry fallback
+        console.log('🔄 Providing registry fallback for generic error...');
         return {
-            statusCode: statusCode,
+            statusCode: 202,
             headers,
-            body: JSON.stringify({ 
-                error: errorMessage,
-                details: error.message,
-                suggestion: 'Check the blueprint ID and email format, or try the registry directly'
+            body: JSON.stringify({
+                status: 'redirect_required',
+                message: 'ZK Email API issue - please use registry',
+                action: 'redirect_to_registry',
+                data: {
+                    blueprintId: blueprintId,
+                    registryUrl: `https://registry.zkregex.com/${blueprintId}`,
+                    fileName: fileName,
+                    emailContent: emailContent,
+                    error: error.message,
+                    instructions: [
+                        'Download the prepared email file',
+                        'Open the ZK Email registry',
+                        'Upload your email file',
+                        'Generate the proof using the registry interface'
+                    ]
+                }
             })
         };
     }
 };
-
-
