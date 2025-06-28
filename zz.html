@@ -460,712 +460,798 @@
 
     <!-- Real ZK Email API Implementation -->
     <script>
-        class ZKEmailProver {
-            constructor() {
-                this.blueprintId = 'e7d84ab3-68f3-46b4-a1af-f6c87611d423';
-                this.selectedFile = null;
-                this.proofResult = null;
-                this.baseURL = 'https://registry.zk.email';
+        // Updated JavaScript class for ZK Email Prover using proper SDK integration
+// This replaces the existing ZKEmailProver class in your HTML
+
+// Browser-optimized ZK Email Prover for Netlify hosting
+// This version works directly in the browser without Node.js dependencies
+
+class ZKEmailProver {
+    constructor() {
+        this.blueprintId = 'e7d84ab3-68f3-46b4-a1af-f6c87611d423';
+        this.selectedFile = null;
+        this.proofResult = null;
+        this.emailContent = null;
+        
+        // Browser-specific configuration
+        this.backendEndpoint = '/.netlify/functions/generate-zk-proof';
+        this.registryUrl = 'https://registry.zkregex.com';
+        
+        // Try to detect if we can use the ZK Email SDK directly in browser
+        this.browserSDKAvailable = false;
+        this.checkBrowserSDKAvailability();
+        
+        this.initializeEventListeners();
+        this.log('ZK Email Prover initialized for browser');
+        this.log('✅ Optimized for Netlify frontend hosting');
+    }
+
+    async checkBrowserSDKAvailability() {
+        try {
+            // Check if ZK Email SDK is available via CDN or bundled
+            if (typeof window !== 'undefined' && window.zkEmail) {
+                this.browserSDKAvailable = true;
+                this.log('✅ ZK Email SDK available in browser');
+            } else {
+                this.log('ℹ️ ZK Email SDK not available in browser - using backend proxy');
+            }
+        } catch (error) {
+            this.log('ℹ️ Browser SDK check failed - using backend proxy');
+        }
+    }
+
+    initializeEventListeners() {
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const proveButton = document.getElementById('proveButton');
+
+        if (!uploadArea || !fileInput || !proveButton) {
+            this.log('❌ Required DOM elements not found');
+            return;
+        }
+
+        // File upload handling
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                this.handleFileSelect(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        proveButton.addEventListener('click', () => {
+            this.generateProof();
+        });
+
+        // Result actions - add null checks
+        const downloadBtn = document.getElementById('downloadJson');
+        const copyBtn = document.getElementById('copyProofId');
+        const viewBtn = document.getElementById('viewProof');
+        const verifyBtn = document.getElementById('verifyProof');
+
+        if (downloadBtn) downloadBtn.addEventListener('click', () => this.downloadJSON());
+        if (copyBtn) copyBtn.addEventListener('click', () => this.copyProofId());
+        if (viewBtn) viewBtn.addEventListener('click', () => this.viewFullProof());
+        if (verifyBtn) verifyBtn.addEventListener('click', () => this.verifyProof());
+    }
+
+    handleFileSelect(file) {
+        const validExtensions = ['.eml', '.txt', '.msg'];
+        const hasValidExtension = validExtensions.some(ext => 
+            file.name.toLowerCase().endsWith(ext)
+        );
+
+        if (!hasValidExtension) {
+            this.log('❌ Please select an email file (.eml, .txt, .msg)');
+            this.showUserMessage('Please select an email file (.eml, .txt, .msg)', 'error');
+            return;
+        }
+
+        // Check file size (reasonable limit for email files)
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxSize) {
+            this.log('❌ File too large (max 10MB)');
+            this.showUserMessage('File too large. Please select a file smaller than 10MB.', 'error');
+            return;
+        }
+
+        this.selectedFile = file;
+
+        // Update UI safely
+        this.safeUpdateElement('uploadArea', (el) => el.classList.add('has-file'));
+        this.safeUpdateElement('fileInfo', (el) => el.classList.add('show'));
+        this.safeUpdateElement('fileName', (el) => el.textContent = file.name);
+        this.safeUpdateElement('fileSize', (el) => el.textContent = `${(file.size / 1024).toFixed(1)} KB`);
+        this.safeUpdateElement('proveButton', (el) => el.disabled = false);
+
+        // Update steps
+        this.safeUpdateElement('step1', (el) => {
+            el.classList.remove('active');
+            el.classList.add('completed');
+        });
+        this.safeUpdateElement('step2', (el) => el.classList.add('active'));
+
+        this.updateProgress(33, 'Email file selected - Ready to generate proof');
+        this.log(`✅ File selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
+    }
+
+    async generateProof() {
+        if (!this.selectedFile) {
+            this.log('❌ No file selected');
+            return;
+        }
+
+        try {
+            const proveButton = document.getElementById('proveButton');
+            if (proveButton) {
+                proveButton.classList.add('loading');
+                proveButton.textContent = '⏳ Generating Cryptographic Proof...';
+                proveButton.disabled = true;
+            }
+
+            this.updateProgress(50, 'Reading email content...');
+            this.log('📧 Reading email file...');
+
+            // Read file content
+            this.emailContent = await this.readFileContent(this.selectedFile);
+            this.log('✅ Email content read successfully');
+
+            // Basic email validation
+            const validation = this.validateEmailContent(this.emailContent);
+            if (!validation.isValid) {
+                throw new Error('Invalid email format - missing required headers');
+            }
+
+            if (!validation.hasDKIM) {
+                this.log('⚠️ Warning: No DKIM signature found in email');
+                this.showUserMessage('Warning: Email may not have DKIM signature required for ZK proof', 'warning');
+            }
+
+            this.updateProgress(60, 'Connecting to ZK Email service...');
+            this.log('🚀 Starting proof generation...');
+
+            // Try browser SDK first if available, then fallback to backend
+            let result;
+            if (this.browserSDKAvailable) {
+                result = await this.tryBrowserSDK();
+            } else {
+                result = await this.callBackendService();
+            }
+
+            this.proofResult = result;
+            this.showResults(result);
+
+        } catch (error) {
+            this.log(`❌ Error generating proof: ${error.message}`);
+            this.showError(error.message);
+            this.resetProveButton();
+        }
+    }
+
+    async tryBrowserSDK() {
+        this.log('🔄 Attempting browser SDK proof generation...');
+        this.updateProgress(70, 'Using browser ZK Email SDK...');
+
+        try {
+            // This would only work if the SDK is properly loaded via CDN
+            if (window.zkEmail && window.zkEmail.generateProof) {
+                const result = await window.zkEmail.generateProof({
+                    email: this.emailContent,
+                    blueprint: this.blueprintId,
+                    proving: 'server' // Use server proving for speed
+                });
+
+                if (result && result.id) {
+                    this.log('✅ Proof generated via browser SDK!');
+                    this.updateProgress(100, 'Cryptographic proof generated!');
+                    return result;
+                }
+            }
+            
+            throw new Error('Browser SDK not properly configured');
+
+        } catch (error) {
+            this.log(`❌ Browser SDK failed: ${error.message}`);
+            // Fallback to backend
+            return await this.callBackendService();
+        }
+    }
+
+    async callBackendService() {
+        this.log('🔧 Using backend service for proof generation...');
+        this.updateProgress(70, 'Connecting to backend service...');
+
+        try {
+            const response = await fetch(this.backendEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    emailContent: this.emailContent,
+                    blueprintId: this.blueprintId,
+                    fileName: this.selectedFile.name
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Backend error (${response.status}): ${errorText}`);
+            }
+
+            const result = await response.json();
+
+            if (result.success && result.proof) {
+                this.log('✅ Proof generated successfully via backend!');
+                this.updateProgress(100, 'Cryptographic proof generated!');
+                return result.proof;
+            } else if (result.status === 'processing' && result.jobId) {
+                this.log('⏳ Proof generation in progress...');
+                return await this.pollForCompletion(result.jobId, result.pollUrl);
+            } else if (result.status === 'api_unavailable' || result.status === 'redirect_required') {
+                this.log('🔄 API unavailable, preparing registry redirect...');
+                return this.handleRegistryRedirect(result);
+            } else {
+                throw new Error(result.error || result.message || 'Unknown backend error');
+            }
+
+        } catch (error) {
+            this.log(`❌ Backend service failed: ${error.message}`);
+            
+            // Final fallback: registry redirect
+            return this.handleRegistryRedirect({
+                blueprintId: this.blueprintId,
+                registryUrl: `${this.registryUrl}/${this.blueprintId}`,
+                fileName: this.selectedFile.name,
+                status: 'redirect_required',
+                message: 'Backend service unavailable'
+            });
+        }
+    }
+
+    async pollForCompletion(jobId, pollUrl, maxAttempts = 15) {
+        this.log(`🔄 Polling for proof completion (job: ${jobId})...`);
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                this.updateProgress(80 + (attempt / maxAttempts) * 15, `Checking proof status (${attempt}/${maxAttempts})...`);
+
+                const statusResponse = await fetch(pollUrl);
                 
-                this.initializeEventListeners();
-                this.log('ZK Email Prover initialized');
-                this.log('✅ Ready to generate real cryptographic proofs');
-            }
-
-            initializeEventListeners() {
-                const uploadArea = document.getElementById('uploadArea');
-                const fileInput = document.getElementById('fileInput');
-                const proveButton = document.getElementById('proveButton');
-
-                // File upload handling
-                uploadArea.addEventListener('click', () => fileInput.click());
-
-                uploadArea.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    uploadArea.classList.add('dragover');
-                });
-
-                uploadArea.addEventListener('dragleave', () => {
-                    uploadArea.classList.remove('dragover');
-                });
-
-                uploadArea.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    uploadArea.classList.remove('dragover');
-                    const files = e.dataTransfer.files;
-                    if (files.length > 0) {
-                        this.handleFileSelect(files[0]);
-                    }
-                });
-
-                fileInput.addEventListener('change', (e) => {
-                    if (e.target.files.length > 0) {
-                        this.handleFileSelect(e.target.files[0]);
-                    }
-                });
-
-                proveButton.addEventListener('click', () => {
-                    this.generateProof();
-                });
-
-                // Result actions
-                document.getElementById('downloadJson').addEventListener('click', () => {
-                    this.downloadJSON();
-                });
-
-                document.getElementById('copyProofId').addEventListener('click', () => {
-                    this.copyProofId();
-                });
-
-                document.getElementById('viewProof').addEventListener('click', () => {
-                    this.viewFullProof();
-                });
-
-                document.getElementById('verifyProof').addEventListener('click', () => {
-                    this.verifyProof();
-                });
-            }
-
-            handleFileSelect(file) {
-                const validExtensions = ['.eml', '.txt', '.msg'];
-                const hasValidExtension = validExtensions.some(ext => 
-                    file.name.toLowerCase().endsWith(ext)
-                );
-
-                if (!hasValidExtension) {
-                    this.log('❌ Please select an email file (.eml, .txt, .msg)');
-                    alert('Please select an email file (.eml, .txt, .msg)');
-                    return;
-                }
-
-                this.selectedFile = file;
-
-                // Update UI
-                document.getElementById('uploadArea').classList.add('has-file');
-                document.getElementById('fileInfo').classList.add('show');
-                document.getElementById('fileName').textContent = file.name;
-                document.getElementById('fileSize').textContent = `${(file.size / 1024).toFixed(1)} KB`;
-                document.getElementById('proveButton').disabled = false;
-
-                // Update steps
-                document.getElementById('step1').classList.remove('active');
-                document.getElementById('step1').classList.add('completed');
-                document.getElementById('step2').classList.add('active');
-
-                this.updateProgress(33, 'Email file selected - Ready to generate proof');
-                this.log(`✅ File selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
-            }
-
-            async generateProof() {
-                if (!this.selectedFile) {
-                    this.log('❌ No file selected');
-                    return;
-                }
-
-                try {
-                    const proveButton = document.getElementById('proveButton');
-                    proveButton.classList.add('loading');
-                    proveButton.textContent = '⏳ Generating Cryptographic Proof...';
-                    proveButton.disabled = true;
-
-                    this.updateProgress(50, 'Reading email content...');
-                    this.log('📧 Reading email file...');
-
-                    // Read file content and store it
-                    this.emailContent = await this.readFileContent(this.selectedFile);
-                    this.log('✅ Email content read successfully');
-
-                    this.updateProgress(60, 'Generating cryptographic proof...');
-                    this.log('🚀 Starting real proof generation...');
-
-                    // Generate real proof using ZK Email API
-                    const result = await this.generateRealProof(this.emailContent);
-
-                    this.proofResult = result;
-                    this.showResults(result);
-
-                } catch (error) {
-                    this.log(`❌ Error generating proof: ${error.message}`);
-                    this.showError(error.message);
-
-                    const proveButton = document.getElementById('proveButton');
-                    proveButton.classList.remove('loading');
-                    proveButton.textContent = '🚀 Generate Cryptographic Proof (Server-Side)';
-                    proveButton.disabled = false;
-
-                    this.updateProgress(0, 'Error generating proof');
-                }
-            }
-
-            async generateRealProof(emailContent) {
-                this.log('🔧 Generating real cryptographic proof...');
-
-                // First, let's try to use a CORS proxy or implement our own backend call
-                try {
-                    // Option 1: Try using a CORS proxy service
-                    const proxyUrl = 'https://api.allorigins.win/raw?url=';
-                    const targetUrl = encodeURIComponent(`${this.baseURL}/api/generate-proof`);
+                if (statusResponse.ok) {
+                    const result = await statusResponse.json();
                     
-                    this.updateProgress(60, 'Trying CORS proxy...');
-                    this.log('🔄 Attempting proof generation via CORS proxy...');
-
-                    const formData = new FormData();
-                    const emailBlob = new Blob([emailContent], { type: 'text/plain' });
-                    formData.append('email', emailBlob, 'email.eml');
-                    formData.append('blueprintId', this.blueprintId);
-                    formData.append('proving', 'server');
-
-                    const response = await fetch(proxyUrl + targetUrl, {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    if (response.ok) {
-                        const result = await response.json();
-                        if (result && result.id) {
-                            this.log('✅ Proof generated via CORS proxy!');
-                            return result;
-                        }
+                    if (result.status === 'completed' || result.status === 'success') {
+                        this.log('✅ Async proof generation completed!');
+                        this.updateProgress(100, 'Proof generation completed!');
+                        return result;
+                    } else if (result.status === 'failed' || result.status === 'error') {
+                        throw new Error(`Proof generation failed: ${result.error || 'Unknown error'}`);
                     }
-
-                } catch (error) {
-                    this.log(`❌ CORS proxy failed: ${error.message}`);
-                }
-
-                // Option 2: Create our own backend endpoint
-                try {
-                    this.updateProgress(70, 'Trying backend proxy...');
-                    this.log('🔄 Attempting proof generation via backend proxy...');
-
-                    const backendUrl = '/.netlify/functions/generate-zk-proof'; // Updated for marko-functions
                     
-                    // Send email content as JSON (simpler than FormData)
-                    const requestBody = {
-                        emailContent: this.emailContent,
-                        blueprintId: this.blueprintId,
-                        fileName: this.selectedFile.name
-                    };
-
-                    const response = await fetch(backendUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(requestBody)
-                    });
-
-                    if (response.ok) {
-                        const result = await response.json();
-                        if (result && (result.id || result.success)) {
-                            this.log('✅ Proof generated via backend proxy!');
-                            return result;
-                        }
-                    } else {
-                        const errorData = await response.json();
-                        this.log(`❌ Backend proxy error: ${errorData.error || response.statusText}`);
-                    }
-
-                } catch (error) {
-                    this.log(`❌ Backend proxy failed: ${error.message}`);
+                    this.log(`⏳ Proof status: ${result.status} (attempt ${attempt})`);
                 }
 
-                // Option 3: Use the ZK Email SDK properly (if available)
-                try {
-                    this.updateProgress(80, 'Trying ZK Email SDK...');
-                    this.log('🔄 Attempting proof generation via ZK Email SDK...');
+                // Wait before next poll
+                await this.sleep(3000);
 
-                    // Check if ZK Email SDK is available globally
-                    if (typeof window.zkEmail !== 'undefined' && window.zkEmail.generateProof) {
-                        const result = await window.zkEmail.generateProof({
-                            email: emailContent,
-                            blueprint: this.blueprintId,
-                            proving: 'server'
-                        });
-
-                        if (result && result.id) {
-                            this.log('✅ Proof generated via ZK Email SDK!');
-                            return result;
-                        }
-                    }
-
-                } catch (error) {
-                    this.log(`❌ ZK Email SDK failed: ${error.message}`);
-                }
-
-                // Option 4: Direct redirect to ZK Email with pre-filled data
-                this.log('🔄 Redirecting to ZK Email registry with pre-filled data...');
-                this.updateProgress(90, 'Redirecting to ZK Email registry...');
+            } catch (error) {
+                this.log(`❌ Polling attempt ${attempt} failed: ${error.message}`);
                 
-                return this.redirectToZKEmailWithData(emailContent);
-            }
-
-            async redirectToZKEmailWithData(emailContent) {
-                this.log('🚀 Opening ZK Email registry with your email data...');
-
-                // Create a temporary file for download
-                const emailBlob = new Blob([emailContent], { type: 'text/plain' });
-                const downloadUrl = URL.createObjectURL(emailBlob);
-                
-                // Create download link
-                const downloadLink = document.createElement('a');
-                downloadLink.href = downloadUrl;
-                downloadLink.download = this.selectedFile.name;
-                
-                // Show user instructions
-                const instructionDiv = document.createElement('div');
-                instructionDiv.className = 'notice';
-                instructionDiv.style.margin = '20px 0';
-                instructionDiv.innerHTML = `
-                    <strong>🚀 Opening ZK Email Registry</strong><br><br>
-                    Due to browser security restrictions, we're opening the ZK Email registry in a new tab.<br><br>
-                    <strong>📋 Instructions:</strong><br>
-                    1. <button id="downloadEmailBtn" style="background: #4299e1; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">📥 Download your email file</button><br>
-                    2. Upload it in the ZK Email registry (new tab will open)<br>
-                    3. Select "Server Proving" for reliability<br>
-                    4. Generate your cryptographic proof<br><br>
-                    <button id="openRegistryBtn" style="background: #38a169; color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-size: 16px;">🚀 Open ZK Email Registry</button>
-                `;
-
-                document.querySelector('.upload-section').appendChild(instructionDiv);
-
-                // Add event listeners
-                document.getElementById('downloadEmailBtn').addEventListener('click', () => {
-                    downloadLink.click();
-                    this.log('📥 Email file downloaded for registry upload');
-                });
-
-                document.getElementById('openRegistryBtn').addEventListener('click', () => {
-                    const registryUrl = `${this.baseURL}/${this.blueprintId}`;
-                    window.open(registryUrl, '_blank', 'width=1200,height=800');
-                    this.log('🚀 ZK Email registry opened in new tab');
-                });
-
-                // Auto-download the file
-                setTimeout(() => {
-                    downloadLink.click();
-                    this.log('📥 Auto-downloading email file...');
-                }, 1000);
-
-                // Return a pending result
-                return {
-                    id: 'pending-' + Date.now(),
-                    status: 'redirected',
-                    message: 'Please complete proof generation in ZK Email registry',
-                    registryUrl: `${this.baseURL}/${this.blueprintId}`,
-                    fileName: this.selectedFile.name,
-                    redirected: true
-                };
-            }
-
-            async tryFormDataAPI(url, emailContent) {
-                const formData = new FormData();
-                const emailBlob = new Blob([emailContent], { type: 'text/plain' });
-                formData.append('email', emailBlob, 'email.eml');
-                formData.append('blueprintId', this.blueprintId);
-                formData.append('proving', 'server');
-
-                const response = await fetch(url, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                if (attempt === maxAttempts) {
+                    throw new Error('Proof generation timed out');
                 }
-
-                return await response.json();
-            }
-
-            async tryJSONAPI(url, emailContent) {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        email: emailContent,
-                        blueprintId: this.blueprintId,
-                        proving: 'server'
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                return await response.json();
-            }
-
-            async tryAsyncProofGeneration(emailContent) {
-                this.log('🔄 Attempting async proof generation...');
-                this.updateProgress(70, 'Starting async proof generation...');
-
-                try {
-                    // Step 1: Submit proof request
-                    const submitResponse = await fetch(`${this.baseURL}/api/blueprints/${this.blueprintId}/submit`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            email: emailContent,
-                            proving: 'server'
-                        })
-                    });
-
-                    if (!submitResponse.ok) {
-                        throw new Error(`Submit failed: ${submitResponse.status}`);
-                    }
-
-                    const submitResult = await submitResponse.json();
-                    const jobId = submitResult.id || submitResult.jobId;
-
-                    if (!jobId) {
-                        throw new Error('No job ID returned from submit');
-                    }
-
-                    this.log(`✅ Proof job submitted: ${jobId}`);
-                    this.updateProgress(80, 'Polling for proof completion...');
-
-                    // Step 2: Poll for completion
-                    return await this.pollForProofCompletion(jobId);
-
-                } catch (error) {
-                    this.log(`❌ Async generation failed: ${error.message}`);
-                    throw error;
-                }
-            }
-
-            async pollForProofCompletion(jobId, maxAttempts = 30) {
-                this.log(`🔄 Polling for proof completion (job: ${jobId})...`);
-
-                for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-                    try {
-                        this.updateProgress(80 + (attempt / maxAttempts) * 15, `Checking proof status (${attempt}/${maxAttempts})...`);
-
-                        const statusResponse = await fetch(`${this.baseURL}/api/proofs/${jobId}`);
-                        
-                        if (statusResponse.ok) {
-                            const result = await statusResponse.json();
-                            
-                            if (result.status === 'completed' || result.status === 'success') {
-                                this.log('✅ Proof generation completed!');
-                                return result;
-                            } else if (result.status === 'failed' || result.status === 'error') {
-                                throw new Error(`Proof generation failed: ${result.error || 'Unknown error'}`);
-                            }
-                            
-                            this.log(`⏳ Proof status: ${result.status} (attempt ${attempt})`);
-                        }
-
-                        // Wait before next poll
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-
-                    } catch (error) {
-                        this.log(`❌ Polling attempt ${attempt} failed: ${error.message}`);
-                        
-                        if (attempt === maxAttempts) {
-                            throw new Error('Proof generation timed out');
-                        }
-                    }
-                }
-
-                throw new Error('Maximum polling attempts reached');
-            }
-
-            showResults(result) {
-                // Update steps
-                document.getElementById('step2').classList.remove('active');
-                document.getElementById('step2').classList.add('completed');
-                document.getElementById('step3').classList.add('completed');
-
-                this.updateProgress(100, 'Process completed!');
-
-                // Show results
-                const resultArea = document.getElementById('resultArea');
-                const resultData = document.getElementById('resultData');
-                const proofDetails = document.getElementById('proofDetails');
-
-                if (result.redirected) {
-                    // Handle redirect case
-                    this.log('✅ Email prepared for ZK Email registry');
-                    
-                    resultArea.querySelector('h3').textContent = '🚀 Ready for ZK Email Registry';
-                    resultData.innerHTML = `
-                        <div><strong>Status:</strong> Redirected to ZK Email Registry</div>
-                        <div><strong>File:</strong> ${result.fileName}</div>
-                        <div><strong>Registry URL:</strong> <a href="${result.registryUrl}" target="_blank">${result.registryUrl}</a></div>
-                        <div><strong>Blueprint ID:</strong> ${this.blueprintId}</div>
-                        <div><strong>Next Steps:</strong> Complete proof generation in the registry</div>
-                    `;
-
-                    proofDetails.innerHTML = `
-                        <strong>📋 Instructions:</strong><br>
-                        1. Your email file has been downloaded<br>
-                        2. Upload it in the ZK Email registry<br>
-                        3. Select "Server Proving" for reliability<br>
-                        4. Generate your cryptographic proof<br>
-                        5. Download the proof JSON from the registry<br>
-                        <br>
-                        <em>The registry will create a real, verifiable zero-knowledge proof.</em>
-                    `;
-
-                    // Update buttons for redirect case
-                    document.getElementById('downloadJson').textContent = '🔗 Open Registry';
-                    document.getElementById('downloadJson').onclick = () => {
-                        window.open(result.registryUrl, '_blank');
-                    };
-
-                    document.getElementById('copyProofId').style.display = 'none';
-                    document.getElementById('verifyProof').style.display = 'none';
-                    document.getElementById('viewProof').textContent = '📧 Re-download Email';
-                    document.getElementById('viewProof').onclick = () => {
-                        // Re-trigger download
-                        const emailBlob = new Blob([this.emailContent], { type: 'text/plain' });
-                        const url = URL.createObjectURL(emailBlob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = this.selectedFile.name;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                    };
-
-                } else {
-                    // Handle successful proof generation
-                    const publicData = result.publicData || result.public_data || {};
-                    const proofData = result.proofData || result.proof || {};
-                    
-                    const timestamp = publicData.email_timestamp?.[0] || publicData.timestamp;
-                    const timestampDate = timestamp ? new Date(parseInt(timestamp) * 1000).toLocaleString() : 'N/A';
-
-                    resultData.innerHTML = `
-                        <div><strong>Proof ID:</strong> ${result.id || 'N/A'}</div>
-                        <div><strong>Subject:</strong> ${publicData.subject?.[0] || 'N/A'}</div>
-                        <div><strong>Sender Domain:</strong> ${publicData.sender_domain?.[0] || 'N/A'}</div>
-                        <div><strong>Email Recipient:</strong> ${publicData.email_recipient?.[0] || 'N/A'}</div>
-                        <div><strong>Timestamp:</strong> ${timestampDate}</div>
-                        <div><strong>Status:</strong> ${result.status || 'completed'}</div>
-                        <div><strong>Proof Type:</strong> ${proofData.protocol || 'groth16'}</div>
-                    `;
-
-                    // Show proof details
-                    proofDetails.innerHTML = `
-                        <strong>Cryptographic Proof Data:</strong><br>
-                        pi_a: [${proofData.pi_a?.slice(0, 2).join(', ') || 'N/A'}, ...]<br>
-                        pi_b: [[${proofData.pi_b?.[0]?.slice(0, 2).join(', ') || 'N/A'}, ...], ...]<br>
-                        pi_c: [${proofData.pi_c?.slice(0, 2).join(', ') || 'N/A'}, ...]<br>
-                        <br>
-                        <em>This is a real, verifiable zero-knowledge proof that can be used on-chain.</em>
-                    `;
-
-                    this.log('✅ Real cryptographic proof generation completed');
-                }
-
-                resultArea.classList.add('show');
-
-                // Update button
-                const proveButton = document.getElementById('proveButton');
-                proveButton.classList.remove('loading');
-                
-                if (result.redirected) {
-                    proveButton.textContent = '🚀 Registry Opened - Complete There';
-                    proveButton.style.background = '#4285f4';
-                } else {
-                    proveButton.textContent = '✅ Cryptographic Proof Generated!';
-                    proveButton.style.background = '#38a169';
-                }
-
-                this.log(`📋 Process ID: ${result.id || 'Generated'}`);
-                this.log('🎉 Ready for cryptographic proof verification!');
-            }
-
-            async readFileContent(file) {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => resolve(e.target.result);
-                    reader.onerror = (e) => reject(new Error('Failed to read file'));
-                    reader.readAsText(file);
-                });
-            }
-
-            downloadJSON() {
-                if (!this.proofResult) return;
-
-                const jsonStr = JSON.stringify(this.proofResult, null, 2);
-                const blob = new Blob([jsonStr], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `zk-email-proof-${this.proofResult.id || Date.now()}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-
-                this.log('📥 Cryptographic proof JSON downloaded');
-            }
-
-            copyProofId() {
-                if (!this.proofResult || !this.proofResult.id) {
-                    alert('No proof ID available');
-                    return;
-                }
-
-                navigator.clipboard.writeText(this.proofResult.id).then(() => {
-                    this.log('📋 Proof ID copied to clipboard');
-
-                    const btn = document.getElementById('copyProofId');
-                    const originalText = btn.textContent;
-                    btn.textContent = '✅ Copied!';
-                    btn.classList.add('success');
-
-                    setTimeout(() => {
-                        btn.textContent = originalText;
-                        btn.classList.remove('success');
-                    }, 2000);
-                }).catch(() => {
-                    alert(`Proof ID: ${this.proofResult.id}`);
-                });
-            }
-
-            viewFullProof() {
-                if (!this.proofResult || !this.proofResult.id) {
-                    alert('No proof ID available');
-                    return;
-                }
-
-                const proofUrl = `${this.baseURL}/${this.blueprintId}/proofs/${this.proofResult.id}`;
-                window.open(proofUrl, '_blank');
-                this.log('🔗 Opened full proof verification page');
-            }
-
-            async verifyProof() {
-                if (!this.proofResult) {
-                    alert('No proof available to verify');
-                    return;
-                }
-
-                try {
-                    this.log('🔍 Verifying cryptographic proof...');
-                    
-                    const verifyBtn = document.getElementById('verifyProof');
-                    verifyBtn.textContent = '⏳ Verifying...';
-                    verifyBtn.disabled = true;
-
-                    // Try to verify the proof using ZK Email API
-                    const verifyResponse = await fetch(`${this.baseURL}/api/verify`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            proofId: this.proofResult.id,
-                            proof: this.proofResult.proofData || this.proofResult.proof,
-                            publicData: this.proofResult.publicData || this.proofResult.public_data
-                        })
-                    });
-
-                    if (verifyResponse.ok) {
-                        const verifyResult = await verifyResponse.json();
-                        if (verifyResult.valid || verifyResult.verified) {
-                            this.log('✅ Proof verification successful - cryptographically valid!');
-                            alert('✅ Proof is cryptographically valid and can be used on-chain!');
-                        } else {
-                            this.log('❌ Proof verification failed');
-                            alert('❌ Proof verification failed');
-                        }
-                    } else {
-                        // Fallback: basic validation
-                        this.log('🔍 Performing basic proof validation...');
-                        const isValid = this.basicProofValidation();
-                        if (isValid) {
-                            this.log('✅ Basic proof validation passed');
-                            alert('✅ Proof structure is valid (full verification requires ZK Email API)');
-                        } else {
-                            this.log('❌ Basic proof validation failed');
-                            alert('❌ Proof structure validation failed');
-                        }
-                    }
-
-                } catch (error) {
-                    this.log(`❌ Verification error: ${error.message}`);
-                    alert(`Verification error: ${error.message}`);
-                } finally {
-                    const verifyBtn = document.getElementById('verifyProof');
-                    verifyBtn.textContent = '🔍 Verify Proof';
-                    verifyBtn.disabled = false;
-                }
-            }
-
-            basicProofValidation() {
-                if (!this.proofResult) return false;
-
-                const proof = this.proofResult.proofData || this.proofResult.proof;
-                const publicData = this.proofResult.publicData || this.proofResult.public_data;
-
-                // Check if proof has required Groth16 elements
-                const hasProofElements = proof && proof.pi_a && proof.pi_b && proof.pi_c;
-                
-                // Check if public data exists
-                const hasPublicData = publicData && (
-                    publicData.subject || 
-                    publicData.sender_domain || 
-                    publicData.email_recipient
-                );
-
-                // Check if proof ID exists
-                const hasProofId = this.proofResult.id && this.proofResult.id.length > 10;
-
-                return hasProofElements && hasPublicData && hasProofId;
-            }
-
-            showError(message) {
-                const uploadSection = document.querySelector('.upload-section');
-
-                const errorDiv = document.createElement('div');
-                errorDiv.className = 'error';
-                errorDiv.innerHTML = `
-                    <strong>❌ Proof Generation Failed:</strong> ${message}<br>
-                    <small>This might be due to:</small><br>
-                    <small>• Invalid email format or missing DKIM signature</small><br>
-                    <small>• API rate limiting or temporary service issues</small><br>
-                    <small>• Network connectivity problems</small><br>
-                    <small>Please try again with a different email or check the logs for details.</small>
-                `;
-
-                uploadSection.appendChild(errorDiv);
-
-                // Remove error after 15 seconds
-                setTimeout(() => {
-                    if (errorDiv.parentNode) {
-                        errorDiv.remove();
-                    }
-                }, 15000);
-            }
-
-            updateProgress(percentage, text) {
-                document.getElementById('progressFill').style.width = `${percentage}%`;
-                document.getElementById('progressText').textContent = text;
-            }
-
-            log(message) {
-                const timestamp = new Date().toLocaleTimeString();
-                const logEntry = document.createElement('div');
-                logEntry.textContent = `[${timestamp}] ${message}`;
-
-                const logArea = document.getElementById('logArea');
-                logArea.appendChild(logEntry);
-                logArea.scrollTop = logArea.scrollHeight;
-
-                console.log(`[ZK Email] ${message}`);
             }
         }
 
-        // Initialize the prover when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            new ZKEmailProver();
+        throw new Error('Maximum polling attempts reached');
+    }
+
+    handleRegistryRedirect(result) {
+        this.log('🚀 Preparing registry redirect...');
+        this.updateProgress(90, 'Preparing registry access...');
+
+        // Create download for the email file
+        const emailBlob = new Blob([this.emailContent], { type: 'text/plain' });
+        const downloadUrl = URL.createObjectURL(emailBlob);
+        
+        // Create and show instructions
+        this.showRegistryInstructions(downloadUrl, result);
+
+        // Auto-download the file
+        setTimeout(() => {
+            this.downloadEmailFile(downloadUrl, this.selectedFile.name);
+        }, 1000);
+
+        // Return redirect result
+        return {
+            id: 'redirect-' + Date.now(),
+            status: 'redirected',
+            message: 'Please complete proof generation in ZK Email registry',
+            registryUrl: result.registryUrl || `${this.registryUrl}/${this.blueprintId}`,
+            fileName: this.selectedFile.name,
+            redirected: true
+        };
+    }
+
+    showRegistryInstructions(downloadUrl, result) {
+        const instructionsHTML = `
+            <div class="notice" style="margin: 20px 0; padding: 20px; background: rgba(72, 187, 120, 0.1); border: 1px solid rgba(72, 187, 120, 0.3); border-radius: 8px;">
+                <strong>🚀 ZK Email Registry Required</strong><br><br>
+                Direct API access is limited. Please use the ZK Email registry:<br><br>
+                <strong>📋 Steps:</strong><br>
+                1. <button id="downloadEmailBtn" style="background: #4299e1; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin: 5px 0;">📥 Download Email File</button><br>
+                2. <button id="openRegistryBtn" style="background: #38a169; color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-size: 16px; margin: 5px 0;">🚀 Open ZK Email Registry</button><br>
+                3. Upload the email file in the registry<br>
+                4. Select "Server Proving" for best performance<br>
+                5. Generate your cryptographic proof<br><br>
+                <em>The registry will create a real, verifiable zero-knowledge proof.</em>
+            </div>
+        `;
+
+        const uploadSection = document.querySelector('.upload-section');
+        if (uploadSection) {
+            uploadSection.insertAdjacentHTML('beforeend', instructionsHTML);
+
+            // Add event listeners
+            const downloadBtn = document.getElementById('downloadEmailBtn');
+            const openBtn = document.getElementById('openRegistryBtn');
+
+            if (downloadBtn) {
+                downloadBtn.addEventListener('click', () => {
+                    this.downloadEmailFile(downloadUrl, this.selectedFile.name);
+                });
+            }
+
+            if (openBtn) {
+                openBtn.addEventListener('click', () => {
+                    const registryUrl = result.registryUrl || `${this.registryUrl}/${this.blueprintId}`;
+                    window.open(registryUrl, '_blank', 'width=1200,height=800');
+                    this.log('🚀 ZK Email registry opened in new tab');
+                });
+            }
+        }
+    }
+
+    downloadEmailFile(url, filename) {
+        const downloadLink = document.createElement('a');
+        downloadLink.href = url;
+        downloadLink.download = filename;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        this.log('📥 Email file downloaded for registry upload');
+    }
+
+    // Utility functions
+    async readFileContent(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(new Error('Failed to read file'));
+            reader.readAsText(file);
         });
+    }
+
+    validateEmailContent(emailContent) {
+        const hasHeaders = emailContent.includes('From:') || emailContent.includes('Subject:');
+        const hasDKIM = emailContent.includes('DKIM-Signature:');
+        const hasMessageId = emailContent.includes('Message-ID:');
+        
+        return {
+            isValid: hasHeaders,
+            hasDKIM: hasDKIM,
+            hasMessageId: hasMessageId
+        };
+    }
+
+    sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    safeUpdateElement(id, updateFn) {
+        const element = document.getElementById(id);
+        if (element && typeof updateFn === 'function') {
+            try {
+                updateFn(element);
+            } catch (error) {
+                this.log(`❌ Error updating element ${id}: ${error.message}`);
+            }
+        }
+    }
+
+    showUserMessage(message, type = 'info') {
+        // Create a user-friendly notification
+        const alertClass = type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'notice';
+        const icon = type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = alertClass;
+        messageDiv.style.margin = '10px 0';
+        messageDiv.style.padding = '10px';
+        messageDiv.style.borderRadius = '4px';
+        messageDiv.innerHTML = `${icon} ${message}`;
+
+        const uploadSection = document.querySelector('.upload-section');
+        if (uploadSection) {
+            uploadSection.appendChild(messageDiv);
+            
+            // Remove after 10 seconds
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.remove();
+                }
+            }, 10000);
+        }
+    }
+
+    resetProveButton() {
+        const proveButton = document.getElementById('proveButton');
+        if (proveButton) {
+            proveButton.classList.remove('loading');
+            proveButton.textContent = '🚀 Generate Cryptographic Proof (Server-Side)';
+            proveButton.disabled = false;
+        }
+        this.updateProgress(0, 'Ready to try again');
+    }
+
+    // Results display methods (simplified for browser)
+    showResults(result) {
+        // Update progress steps
+        this.safeUpdateElement('step2', (el) => {
+            el.classList.remove('active');
+            el.classList.add('completed');
+        });
+        this.safeUpdateElement('step3', (el) => el.classList.add('completed'));
+
+        this.updateProgress(100, 'Process completed!');
+
+        // Show results area
+        const resultArea = document.getElementById('resultArea');
+        const resultData = document.getElementById('resultData');
+        const proofDetails = document.getElementById('proofDetails');
+
+        if (!resultArea) return;
+
+        if (result.redirected) {
+            this.showRedirectResults(result, resultData, proofDetails);
+        } else {
+            this.showProofResults(result, resultData, proofDetails);
+        }
+
+        resultArea.classList.add('show');
+        this.updateProveButtonFinal(result);
+    }
+
+    showRedirectResults(result, resultData, proofDetails) {
+        const resultArea = document.getElementById('resultArea');
+        if (resultArea) {
+            const titleEl = resultArea.querySelector('h3');
+            if (titleEl) titleEl.textContent = '🚀 Ready for ZK Email Registry';
+        }
+
+        if (resultData) {
+            resultData.innerHTML = `
+                <div><strong>Status:</strong> Redirected to ZK Email Registry</div>
+                <div><strong>File:</strong> ${result.fileName}</div>
+                <div><strong>Registry URL:</strong> <a href="${result.registryUrl}" target="_blank" rel="noopener">${result.registryUrl}</a></div>
+                <div><strong>Blueprint ID:</strong> ${this.blueprintId}</div>
+                <div><strong>Next Steps:</strong> Complete proof generation in the registry</div>
+            `;
+        }
+
+        if (proofDetails) {
+            proofDetails.innerHTML = `
+                <strong>📋 Registry Instructions:</strong><br>
+                1. Email file has been downloaded<br>
+                2. Upload it in the ZK Email registry<br>
+                3. Select "Server Proving" for reliability<br>
+                4. Generate your cryptographic proof<br>
+                5. Download the proof JSON from the registry<br>
+                <br>
+                <em>The registry creates real, verifiable zero-knowledge proofs.</em>
+            `;
+        }
+
+        this.updateResultButtons(result);
+    }
+
+    showProofResults(result, resultData, proofDetails) {
+        const extractedData = this.extractProofData(result.publicData || {});
+        
+        if (resultData) {
+            resultData.innerHTML = `
+                <div><strong>Proof ID:</strong> ${result.id || 'N/A'}</div>
+                <div><strong>Subject:</strong> ${extractedData.subject || 'N/A'}</div>
+                <div><strong>Sender Domain:</strong> ${extractedData.senderDomain || 'N/A'}</div>
+                <div><strong>Email Recipient:</strong> ${extractedData.emailRecipient || 'N/A'}</div>
+                <div><strong>Timestamp:</strong> ${extractedData.timestamp || 'N/A'}</div>
+                <div><strong>Status:</strong> ${result.status || 'completed'}</div>
+                <div><strong>Verified:</strong> ${result.verified ? '✅ Valid' : result.verified === false ? '❌ Invalid' : '⏳ Pending'}</div>
+            `;
+        }
+
+        if (proofDetails) {
+            proofDetails.innerHTML = `
+                <strong>Cryptographic Proof Data (ZK-SNARK):</strong><br>
+                ${this.formatProofData(result.proofData || {})}<br>
+                <br>
+                <em>Real, verifiable zero-knowledge proof generated successfully.</em>
+            `;
+        }
+
+        this.log('✅ Cryptographic proof generation completed');
+    }
+
+    updateResultButtons(result) {
+        // Update download button
+        this.safeUpdateElement('downloadJson', (btn) => {
+            if (result.redirected) {
+                btn.textContent = '🔗 Open Registry';
+                btn.onclick = () => window.open(result.registryUrl, '_blank');
+            }
+        });
+
+        // Hide/show other buttons based on result type
+        if (result.redirected) {
+            this.safeUpdateElement('copyProofId', (btn) => btn.style.display = 'none');
+            this.safeUpdateElement('verifyProof', (btn) => btn.style.display = 'none');
+            this.safeUpdateElement('viewProof', (btn) => {
+                btn.textContent = '📧 Re-download Email';
+                btn.onclick = () => this.redownloadEmail();
+            });
+        }
+    }
+
+    updateProveButtonFinal(result) {
+        const proveButton = document.getElementById('proveButton');
+        if (proveButton) {
+            proveButton.classList.remove('loading');
+            
+            if (result.redirected) {
+                proveButton.textContent = '🚀 Registry Opened - Complete There';
+                proveButton.style.background = '#4285f4';
+            } else {
+                proveButton.textContent = '✅ ZK Proof Generated!';
+                proveButton.style.background = '#38a169';
+            }
+        }
+    }
+
+    // Helper methods for result processing
+    extractProofData(publicData) {
+        return {
+            subject: publicData.subject?.[0] || publicData.email_subject?.[0] || 'N/A',
+            senderDomain: publicData.sender_domain?.[0] || publicData.domain?.[0] || 'N/A',
+            emailRecipient: publicData.email_recipient?.[0] || publicData.recipient?.[0] || 'N/A',
+            timestamp: publicData.email_timestamp?.[0] ? 
+                new Date(parseInt(publicData.email_timestamp[0]) * 1000).toLocaleString() : 
+                publicData.timestamp || 'N/A'
+        };
+    }
+
+    formatProofData(proofData) {
+        if (!proofData || typeof proofData !== 'object') {
+            return 'Proof data structure not available';
+        }
+
+        const keys = Object.keys(proofData);
+        if (keys.length === 0) {
+            return 'No proof data available';
+        }
+
+        let formatted = '';
+        if (proofData.pi_a) {
+            formatted += `pi_a: [${proofData.pi_a.slice(0, 2).join(', ')}, ...]<br>`;
+        }
+        if (proofData.pi_b) {
+            formatted += `pi_b: [[${proofData.pi_b[0]?.slice(0, 2).join(', ') || 'N/A'}, ...], ...]<br>`;
+        }
+        if (proofData.pi_c) {
+            formatted += `pi_c: [${proofData.pi_c.slice(0, 2).join(', ')}, ...]<br>`;
+        }
+
+        return formatted || `Available keys: ${keys.join(', ')}`;
+    }
+
+    // Action methods
+    downloadJSON() {
+        if (!this.proofResult) return;
+
+        const jsonStr = JSON.stringify(this.proofResult, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `zk-email-proof-${this.proofResult.id || Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        this.log('📥 Cryptographic proof JSON downloaded');
+    }
+
+    copyProofId() {
+        if (!this.proofResult || !this.proofResult.id) {
+            this.showUserMessage('No proof ID available', 'error');
+            return;
+        }
+
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(this.proofResult.id).then(() => {
+                this.log('📋 Proof ID copied to clipboard');
+                this.showUserMessage('Proof ID copied to clipboard!', 'info');
+            }).catch(() => {
+                this.showUserMessage(`Proof ID: ${this.proofResult.id}`, 'info');
+            });
+        } else {
+            this.showUserMessage(`Proof ID: ${this.proofResult.id}`, 'info');
+        }
+    }
+
+    viewFullProof() {
+        if (!this.proofResult || !this.proofResult.id) {
+            this.showUserMessage('No proof ID available', 'error');
+            return;
+        }
+
+        const proofUrl = `${this.registryUrl}/${this.blueprintId}/proofs/${this.proofResult.id}`;
+        window.open(proofUrl, '_blank', 'noopener,noreferrer');
+        this.log('🔗 Opened full proof verification page');
+    }
+
+    async verifyProof() {
+        if (!this.proofResult) {
+            this.showUserMessage('No proof available to verify', 'error');
+            return;
+        }
+
+        this.log('🔍 Verifying cryptographic proof...');
+        this.showUserMessage('Verifying proof...', 'info');
+
+        // Basic validation for now (can be enhanced with actual verification)
+        const isValid = this.basicProofValidation();
+        if (isValid) {
+            this.log('✅ Basic proof validation passed');
+            this.showUserMessage('✅ Proof structure is valid!', 'info');
+        } else {
+            this.log('❌ Basic proof validation failed');
+            this.showUserMessage('❌ Proof structure validation failed', 'error');
+        }
+    }
+
+    basicProofValidation() {
+        if (!this.proofResult) return false;
+
+        const proof = this.proofResult.proofData || this.proofResult.proof;
+        const publicData = this.proofResult.publicData || this.proofResult.public_data;
+
+        const hasProofElements = proof && Object.keys(proof).length > 0;
+        const hasPublicData = publicData && Object.keys(publicData).length > 0;
+        const hasProofId = this.proofResult.id && this.proofResult.id.length > 5;
+
+        return hasProofElements && hasPublicData && hasProofId;
+    }
+
+    redownloadEmail() {
+        if (this.emailContent && this.selectedFile) {
+            this.downloadEmailFile(
+                URL.createObjectURL(new Blob([this.emailContent], { type: 'text/plain' })),
+                this.selectedFile.name
+            );
+        }
+    }
+
+    showError(message) {
+        const uploadSection = document.querySelector('.upload-section');
+        if (!uploadSection) return;
+
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error';
+        errorDiv.style.margin = '20px 0';
+        errorDiv.style.padding = '15px';
+        errorDiv.style.borderRadius = '8px';
+        errorDiv.innerHTML = `
+            <strong>❌ ZK Proof Generation Failed:</strong> ${message}<br>
+            <small>Common causes:</small><br>
+            <small>• Invalid email format or missing DKIM signature</small><br>
+            <small>• Blueprint not found in the ZK Email registry</small><br>
+            <small>• Network connectivity issues</small><br>
+            <small>• Temporary service limitations</small><br>
+            <small>Try using the registry directly or check your email format.</small>
+        `;
+
+        uploadSection.appendChild(errorDiv);
+
+        // Remove error after 20 seconds
+        setTimeout(() => {
+            if (errorDiv.parentNode) {
+                errorDiv.remove();
+            }
+        }, 20000);
+    }
+
+    updateProgress(percentage, text) {
+        this.safeUpdateElement('progressFill', (el) => el.style.width = `${percentage}%`);
+        this.safeUpdateElement('progressText', (el) => el.textContent = text);
+    }
+
+    log(message) {
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = document.createElement('div');
+        logEntry.textContent = `[${timestamp}] ${message}`;
+
+        const logArea = document.getElementById('logArea');
+        if (logArea) {
+            logArea.appendChild(logEntry);
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        console.log(`[ZK Email] ${message}`);
+    }
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        window.zkEmailProver = new ZKEmailProver();
+    });
+} else {
+    window.zkEmailProver = new ZKEmailProver();
+}
+
+// Global error handler for uncaught promise rejections
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled promise rejection:', event.reason);
+    if (window.zkEmailProver) {
+        window.zkEmailProver.log(`❌ Uncaught error: ${event.reason.message || event.reason}`);
+        window.zkEmailProver.showUserMessage('An unexpected error occurred. Please try again.', 'error');
+    }
+    event.preventDefault();
+});
+
+// Helper function to check if all required DOM elements exist
+function validateDOMElements() {
+    const requiredElements = [
+        'uploadArea', 'fileInput', 'proveButton', 'progressFill', 
+        'progressText', 'logArea', 'step1', 'step2', 'step3'
+    ];
+    
+    const missing = requiredElements.filter(id => !document.getElementById(id));
+    
+    if (missing.length > 0) {
+        console.warn('Missing required DOM elements:', missing);
+        return false;
+    }
+    
+    return true;
+}
+
+// Export for potential use in other scripts
+if (typeof window !== 'undefined') {
+    window.ZKEmailProver = ZKEmailProver;
+    window.validateDOMElements = validateDOMElements;
+}
     </script>
 </body>
 </html>
