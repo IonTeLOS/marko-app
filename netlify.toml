@@ -35,10 +35,12 @@ function = "hello-world"
 [build]
   functions = "marko-functions"      # <-- your functions folder
   command = ""      # no build step
+  publish = "."         # or wherever your html lives
 
 [dev]
   functions = "marko-functions"      # for `netlify dev`
     command = ""      # no build step
+    publish = "."         # or wherever your html lives
 
 [functions.generate-zk-proof]
   # Raise execution timeout to 26 seconds
