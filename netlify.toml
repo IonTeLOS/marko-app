@@ -32,4 +32,8 @@ function = "send"
 path = "/hiya*"
 function = "hello-world"
 
+[build]
+  functions = "marko-functions"      # <-- your functions folder
 
+[dev]
+  functions = "marko-functions"      # for `netlify dev`
