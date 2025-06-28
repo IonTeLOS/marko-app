@@ -1,24 +1,40 @@
 // File: marko-functions/generate-zk-proof.js
-// Updated with proper ES module handling for Netlify
+// Fixed version for ES modules with proper error handling
+
+import { createRequire } from 'module';
 
 let zkeSDK = null;
 
-// Dynamic import helper for Netlify environment
+// Dynamic import helper for Netlify environment with fallback
 async function loadZKEmailSDK() {
     if (zkeSDK) return zkeSDK;
     
     try {
-        // Try different import patterns for Netlify
-        const module = await import('@zk-email/sdk');
-        zkeSDK = module.default || module;
-        return zkeSDK;
+        console.log('🔄 Attempting to load ZK Email SDK...');
+        
+        // Method 1: Try ES module import
+        try {
+            const module = await import('@zk-email/sdk');
+            zkeSDK = module.default || module;
+            console.log('✅ ZK Email SDK loaded via ES import');
+            return zkeSDK;
+        } catch (esError) {
+            console.log('⚠️ ES import failed, trying CommonJS...');
+            
+            // Method 2: Try CommonJS require as fallback
+            const require = createRequire(import.meta.url);
+            const module = require('@zk-email/sdk');
+            zkeSDK = module.default || module;
+            console.log('✅ ZK Email SDK loaded via CommonJS');
+            return zkeSDK;
+        }
     } catch (error) {
-        console.error('❌ Failed to load ZK Email SDK:', error.message);
+        console.error('❌ All SDK loading methods failed:', error.message);
         throw new Error(`ZK Email SDK not available: ${error.message}`);
     }
 }
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
     // Set CORS headers
     const headers = {
         'Access-Control-Allow-Origin': '*',
@@ -44,12 +60,17 @@ exports.handler = async (event, context) => {
         };
     }
 
+    let blueprintId = null;
+    let fileName = null;
+
     try {
         console.log('📧 Netlify function: Processing ZK Email proof request');
 
         // Parse the request body
         const requestBody = JSON.parse(event.body);
-        const { emailContent, blueprintId, fileName } = requestBody;
+        const { emailContent } = requestBody;
+        blueprintId = requestBody.blueprintId;
+        fileName = requestBody.fileName;
 
         if (!emailContent) {
             return {
@@ -148,19 +169,28 @@ exports.handler = async (event, context) => {
     } catch (error) {
         console.error('❌ Netlify function error:', error);
 
-        // Handle SDK-specific errors
+        // Handle SDK-specific errors with proper fallback
         if (error.message.includes('ZK Email SDK not available')) {
+            console.log('🔄 SDK unavailable, providing registry redirect...');
             return {
-                statusCode: 503,
+                statusCode: 202,  // Changed from 503 to 202
                 headers,
                 body: JSON.stringify({
-                    status: 'api_unavailable',
-                    error: 'ZK Email SDK not available in this environment',
-                    message: 'Please use the ZK Email registry interface directly',
-                    blueprintId: blueprintId,
-                    registryUrl: `https://registry.zkregex.com/${blueprintId}`,
-                    fileName: fileName,
-                    suggestion: 'Download the email file and upload it manually to the ZK Email registry'
+                    status: 'redirect_required',
+                    message: 'ZK Email SDK requires direct registry access',
+                    action: 'redirect_to_registry',
+                    data: {
+                        blueprintId: blueprintId || 'e7d84ab3-68f3-46b4-a1af-f6c87611d423',
+                        registryUrl: `https://registry.zkregex.com/${blueprintId || 'e7d84ab3-68f3-46b4-a1af-f6c87611d423'}`,
+                        fileName: fileName || 'email.eml',
+                        instructions: [
+                            'Download the prepared email file',
+                            'Open the ZK Email registry',
+                            'Upload the email file',
+                            'Select server-side proving',
+                            'Generate the cryptographic proof'
+                        ]
+                    }
                 })
             };
         }
