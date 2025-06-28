@@ -500,59 +500,44 @@ class ZKEmailProver {
         }
     }
 
-    initializeEventListeners() {
-        const uploadArea = document.getElementById('uploadArea');
-        const fileInput = document.getElementById('fileInput');
-        const proveButton = document.getElementById('proveButton');
+initializeEventListeners() {
+    const uploadArea   = document.getElementById('uploadArea');
+    const fileInput    = document.getElementById('fileInput');
+    const proveButton  = document.getElementById('proveButton');
 
-        if (!uploadArea || !fileInput || !proveButton) {
-            this.log('❌ Required DOM elements not found');
-            return;
-        }
-
-        // File upload handling
-        uploadArea.addEventListener('click', () => fileInput.click());
-
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                this.handleFileSelect(files[0]);
-            }
-        });
-
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                this.handleFileSelect(e.target.files[0]);
-            }
-        });
-
-        proveButton.addEventListener('click', () => {
-            this.generateProof();
-        });
-
-        // Result actions - add null checks
-        const downloadBtn = document.getElementById('downloadJson');
-        const copyBtn = document.getElementById('copyProofId');
-        const viewBtn = document.getElementById('viewProof');
-        const verifyBtn = document.getElementById('verifyProof');
-
-        if (downloadBtn) downloadBtn.addEventListener('click', () => this.downloadJSON());
-        if (copyBtn) copyBtn.addEventListener('click', () => this.copyProofId());
-        if (viewBtn) viewBtn.addEventListener('click', () => this.viewFullProof());
-        if (verifyBtn) verifyBtn.addEventListener('click', () => this.verifyProof());
+    if (!uploadArea || !fileInput || !proveButton) {
+        this.log('❌ Required DOM elements not found');
+        return;
     }
 
+    // File upload handling (click, drag/drop, change)
+    uploadArea.addEventListener('click', () => fileInput.click());
+    uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+    uploadArea.addEventListener('drop', e => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        if (e.dataTransfer.files.length) this.handleFileSelect(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', e => {
+        if (e.target.files.length) this.handleFileSelect(e.target.files[0]);
+    });
+
+    // Prove button
+    proveButton.addEventListener('click', () => this.generateProof());
+
+    // Cache result buttons so we can enable/disable/update them later
+    this.downloadBtn = document.getElementById('downloadJson');
+    this.copyBtn     = document.getElementById('copyProofId');
+    this.viewBtn     = document.getElementById('viewProof');
+    this.verifyBtn   = document.getElementById('verifyProof');
+
+    if (this.downloadBtn) this.downloadBtn.addEventListener('click', () => this.downloadJSON());
+    if (this.copyBtn)     this.copyBtn.    addEventListener('click', () => this.copyProofId());
+    if (this.viewBtn)     this.viewBtn.    addEventListener('click', () => this.viewFullProof());
+    if (this.verifyBtn)   this.verifyBtn.  addEventListener('click', () => this.verifyProof());
+}
+    
     handleFileSelect(file) {
         const validExtensions = ['.eml', '.txt', '.msg'];
         const hasValidExtension = validExtensions.some(ext => 
@@ -951,32 +936,31 @@ async callBackendService() {
     }
 
     showProofResults(result, resultData, proofDetails) {
-        const extractedData = this.extractProofData(result.publicData || {});
-        
-        if (resultData) {
-            resultData.innerHTML = `
-                <div><strong>Proof ID:</strong> ${result.id || 'N/A'}</div>
-                <div><strong>Subject:</strong> ${extractedData.subject || 'N/A'}</div>
-                <div><strong>Sender Domain:</strong> ${extractedData.senderDomain || 'N/A'}</div>
-                <div><strong>Email Recipient:</strong> ${extractedData.emailRecipient || 'N/A'}</div>
-                <div><strong>Timestamp:</strong> ${extractedData.timestamp || 'N/A'}</div>
-                <div><strong>Status:</strong> ${result.status || 'completed'}</div>
-                <div><strong>Verified:</strong> ${result.verified ? '✅ Valid' : result.verified === false ? '❌ Invalid' : '⏳ Pending'}</div>
-            `;
-        }
+    const data = this.extractProofData(result.publicData || {});
 
-        if (proofDetails) {
-            proofDetails.innerHTML = `
-                <strong>Cryptographic Proof Data (ZK-SNARK):</strong><br>
-                ${this.formatProofData(result.proofData || {})}<br>
-                <br>
-                <em>Real, verifiable zero-knowledge proof generated successfully.</em>
-            `;
-        }
+    // Proof ID + extracted fields
+    resultData.innerHTML = `
+        <div><strong>Proof ID:</strong> ${result.id}</div>
+        <div><strong>Subject:</strong> ${data.subject}</div>
+        <div><strong>Sender Domain:</strong> ${data.senderDomain}</div>
+        <div><strong>Email Recipient:</strong> ${data.emailRecipient}</div>
+        <div><strong>Timestamp:</strong> ${data.timestamp}</div>
+        <div><strong>Verified:</strong> ${result.verified ? '✅ Yes' : '❌ No'}</div>
+    `;
 
-        this.log('✅ Cryptographic proof generation completed');
-    }
+    proofDetails.innerHTML = `
+        <strong>Cryptographic Proof Data (ZK-SNARK):</strong><br>
+        ${this.formatProofData(result.proofData || {})}<br><br>
+        <em>Real, verifiable zero-knowledge proof generated successfully.</em>
+    `;
 
+    // Turn on the Copy/View/Verify buttons
+    if (this.copyBtn)   this.copyBtn.disabled   = false;
+    if (this.viewBtn)   this.viewBtn.disabled   = false;
+    if (this.verifyBtn) this.verifyBtn.disabled = false;
+
+    this.log('✅ Cryptographic proof generation completed');
+}
     updateResultButtons(result) {
         // Update download button
         this.safeUpdateElement('downloadJson', (btn) => {
@@ -1068,53 +1052,45 @@ async callBackendService() {
     }
 
     copyProofId() {
-        if (!this.proofResult || !this.proofResult.id) {
-            this.showUserMessage('No proof ID available', 'error');
-            return;
-        }
-
-        if (navigator.clipboard) {
-            navigator.clipboard.writeText(this.proofResult.id).then(() => {
-                this.log('📋 Proof ID copied to clipboard');
-                this.showUserMessage('Proof ID copied to clipboard!', 'info');
-            }).catch(() => {
-                this.showUserMessage(`Proof ID: ${this.proofResult.id}`, 'info');
-            });
-        } else {
-            this.showUserMessage(`Proof ID: ${this.proofResult.id}`, 'info');
-        }
+    if (!this.proofResult?.id) {
+        this.showUserMessage('No proof ID available', 'error');
+        return;
     }
+    navigator.clipboard?.writeText(this.proofResult.id)
+      .then(() => this.showUserMessage('Proof ID copied to clipboard!', 'info'))
+      .catch(() => this.showUserMessage(`Proof ID: ${this.proofResult.id}`, 'info'));
+    this.log('📋 Proof ID copied to clipboard');
+}
 
-    viewFullProof() {
-        if (!this.proofResult || !this.proofResult.id) {
-            this.showUserMessage('No proof ID available', 'error');
-            return;
-        }
-
-        const proofUrl = `${this.registryUrl}/${this.blueprintId}/proofs/${this.proofResult.id}`;
-        window.open(proofUrl, '_blank', 'noopener,noreferrer');
-        this.log('🔗 Opened full proof verification page');
+viewFullProof() {
+    if (!this.proofResult?.id) {
+        this.showUserMessage('No proof ID available', 'error');
+        return;
     }
+    const url = `${this.registryUrl}/${this.blueprintId}/proofs/${this.proofResult.id}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+    this.log('🔗 Opened full proof verification page');
+}
 
-    async verifyProof() {
-        if (!this.proofResult) {
-            this.showUserMessage('No proof available to verify', 'error');
-            return;
-        }
-
-        this.log('🔍 Verifying cryptographic proof...');
-        this.showUserMessage('Verifying proof...', 'info');
-
-        // Basic validation for now (can be enhanced with actual verification)
-        const isValid = this.basicProofValidation();
-        if (isValid) {
-            this.log('✅ Basic proof validation passed');
-            this.showUserMessage('✅ Proof structure is valid!', 'info');
-        } else {
-            this.log('❌ Basic proof validation failed');
-            this.showUserMessage('❌ Proof structure validation failed', 'error');
-        }
+// 5. Verify proof (client-side stub)
+async verifyProof() {
+    if (!this.proofResult) {
+        this.showUserMessage('No proof available to verify', 'error');
+        return;
     }
+    this.log('🔍 Verifying cryptographic proof…');
+    this.showUserMessage('Verifying proof...', 'info');
+
+    // Hook up to your verify API or do client-side validation here.
+    const isValid = this.basicProofValidation();
+    if (isValid) {
+        this.showUserMessage('✅ Proof structure is valid!', 'info');
+        this.log('✅ Basic proof validation passed');
+    } else {
+        this.showUserMessage('❌ Proof structure validation failed', 'error');
+        this.log('❌ Basic proof validation failed');
+    }
+}
 
     basicProofValidation() {
         if (!this.proofResult) return false;
