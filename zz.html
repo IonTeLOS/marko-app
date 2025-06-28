@@ -957,7 +957,7 @@ async callBackendService() {
         this.safeUpdateElement('downloadJson', (btn) => {
             if (result.redirected) {
                 btn.textContent = '🔗 Open Registry';
-                btn.onclick = () => window.open(this.proofResult.registryUrl, '_blank');
+                btn.onclick = () => window.open(result.registryUrl, '_blank');
             }
         });
 
@@ -1054,13 +1054,13 @@ async callBackendService() {
 }
 
 viewFullProof() {
-    if (!this.proofResult?.id) {
-        this.showUserMessage('No proof ID available', 'error');
-        return;
-    }
-    const url = `${this.registryUrl}/${this.blueprintId}/proofs/${this.proofResult.id}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
-    this.log('🔗 Opened full proof verification page');
+  if (!this.proofResult?.registryUrl) {
+    this.showUserMessage('No proof URL available', 'error');
+    return;
+  }
+
+  window.open(this.proofResult.registryUrl, '_blank', 'noopener,noreferrer');
+  this.log('🔗 Opened full proof verification page');
 }
 
 // 5. Verify proof (client-side stub)
