@@ -686,7 +686,7 @@ class ZKEmailProver {
      const emailB64 = btoa(rawText);
  
      // POST to your Cloudflare Worker
-     const response = await fetch(this.backendEndpoint + '/v1/proofs', {
+     const response = await fetch(this.backendEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
