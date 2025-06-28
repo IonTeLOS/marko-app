@@ -1,6 +1,6 @@
 // File: marko-functions/generate-zk-proof.js
 // CommonJS Netlify Function using @zk-email/sdk v1.x,
-// expecting emailContent as Base64.
+// expecting emailContent as Base64 and logging header presence across the entire content.
 
 const zkeSdk = require('@zk-email/sdk').default || require('@zk-email/sdk');
 
@@ -42,9 +42,6 @@ exports.handler = async (event) => {
   let emailContent;
   try {
     emailContent = Buffer.from(rawB64, 'base64').toString('utf8');
-    console.log('📄 emailContent length:', emailContent.length);
-    console.log('📄 emailContent head:', emailContent.slice(0,1000));
-
   } catch (e) {
     return {
       statusCode: 400,
@@ -53,9 +50,13 @@ exports.handler = async (event) => {
     };
   }
 
-  // Debug logs for length & snippet
+  // Debug logs: length & presence of required headers across the entire content
   console.log('📄 emailContent length:', emailContent.length);
-  console.log('📄 emailContent head:', emailContent.slice(0,200).replace(/\r/g,'␍'));
+  console.log('📄 Index of "From:":', emailContent.indexOf('From:'));
+  console.log('📄 Index of "To:":', emailContent.indexOf('To:'));
+  console.log('📄 Index of "Subject:":', emailContent.indexOf('Subject:'));
+  console.log('📄 Index of "Message-ID:":', emailContent.indexOf('Message-ID:'));
+  console.log('📄 Index of "DKIM-Signature:":', emailContent.indexOf('DKIM-Signature:'));
 
   try {
     console.log('📦 Initializing ZK Email SDK…');
