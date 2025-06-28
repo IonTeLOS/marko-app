@@ -474,7 +474,7 @@ class ZKEmailProver {
         this.emailContent = null;
         
         // Browser-specific configuration
-        this.backendEndpoint = '/.netlify/functions/generate-zk-proof';
+        this.backendEndpoint = 'https://zk-email-proxy.diavlos.workers.dev';
         this.registryUrl = 'https://registry.zkregex.com';
         
         // Try to detect if we can use the ZK Email SDK directly in browser
@@ -677,17 +677,16 @@ class ZKEmailProver {
 
 
  async callBackendService() {
-  this.log('🔧 Using ZK Email Registry API for proof generation…');
-  this.updateProgress(70, 'Connecting to registry API…');
-
-  try {
-    // Base64-encode the raw email text to preserve CRLFs
-    const rawText = this.emailContent;
-    const emailB64 = btoa(rawText);
-
-    // Direct POST to ZK Email’s hosted proving service
-    const registryProofUrl = 'https://registry.zk.email/v1/proofs';
-    const response = await fetch(registryProofUrl, {
+   this.log('🔧 Using proxy worker for proof generation…');
+   this.updateProgress(70, 'Connecting to proxy…');
+ 
+     try {
+     // Base64-encode the raw email text to preserve CRLFs
+     const rawText = this.emailContent;
+     const emailB64 = btoa(rawText);
+ 
+     // POST to your Cloudflare Worker
+     const response = await fetch(this.backendEndpoint + '/v1/proofs', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
