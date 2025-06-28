@@ -6,7 +6,7 @@
   "dependencies": {
     "firebase-admin": "12.2.0",
     "cors": "2.8.5",
-    "@zk-email/sdk": "^0.0.139"
+    "@zk-email/sdk": "^1.0.3"
   },
   "engines": {
     "node": ">=18.0.0"
