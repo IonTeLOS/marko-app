@@ -42,6 +42,9 @@ exports.handler = async (event) => {
   let emailContent;
   try {
     emailContent = Buffer.from(rawB64, 'base64').toString('utf8');
+    console.log('📄 emailContent length:', emailContent.length);
+    console.log('📄 emailContent head:', emailContent.slice(0,1000));
+
   } catch (e) {
     return {
       statusCode: 400,
