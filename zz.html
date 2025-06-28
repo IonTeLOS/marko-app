@@ -343,6 +343,67 @@
                 order: -1;
             }
         }
+        /* at the very bottom of your <style> block: */
+@media (max-width: 768px) {
+  .main-content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .upload-section, .sidebar {
+    width: 100%;
+    padding: 20px;
+  }
+
+  .sidebar {
+    order: -1; /* put sidebar above on mobile, if you prefer below just remove this */
+  }
+
+  .upload-area {
+    padding: 30px;
+  }
+
+  .prove-button,
+  .btn {
+    width: 100%;
+    font-size: 18px;
+    padding: 16px;
+  }
+
+  .file-info p,
+  .upload-text,
+  .upload-subtext,
+  .step-content p {
+    font-size: 16px;
+  }
+
+  .step-number {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  .step-content h3 {
+    font-size: 18px;
+  }
+}
+
+/* extra small screens */
+@media (max-width: 480px) {
+  .upload-area {
+    padding: 20px;
+  }
+
+  .proof-details,
+  .result-data {
+    font-size: 13px;
+  }
+
+  .log-area {
+    font-size: 11px;
+  }
+}
+
     </style>
 </head>
 <body>
