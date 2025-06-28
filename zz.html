@@ -511,7 +511,10 @@ initializeEventListeners() {
     }
 
     // File upload handling (click, drag/drop, change)
-    uploadArea.addEventListener('click', () => fileInput.click());
+    uploadArea.addEventListener('click', () => {
+        fileInput.value = '';
+        fileInput.click();
+    });
     uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
     uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
     uploadArea.addEventListener('drop', e => {
@@ -614,7 +617,7 @@ initializeEventListeners() {
             throw new Error(wrapper.error || 'Unknown proof service error');
         }
         this.proofResult = wrapper.proof;
-
+        console.log('🗄️  Generated proof payload:', JSON.stringify(this.proofResult, null, 2));
         // now hand off to your existing display logic
         this.showResults(this.proofResult);
 
