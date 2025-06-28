@@ -686,7 +686,7 @@ class ZKEmailProver {
     const emailB64 = btoa(rawText);
 
     // Direct POST to ZK Email’s hosted proving service
-    const registryProofUrl = 'https://registry.zkregex.com/v1/proofs';
+    const registryProofUrl = 'https://registry.zk.email/v1/proofs';
     const response = await fetch(registryProofUrl, {
       method: 'POST',
       headers: {
