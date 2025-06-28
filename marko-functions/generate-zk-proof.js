@@ -1,9 +1,7 @@
 // File: marko-functions/generate-zk-proof.js
-// CommonJS Netlify Background Function using @zk-email/sdk v1.x
-
 const zkeSdk = require('@zk-email/sdk').default || require('@zk-email/sdk');
 
-exports.handler = (event, context) => {
+exports.handler = (event, context, callback) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -12,26 +10,30 @@ exports.handler = (event, context) => {
 
   // Preflight
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
+    return callback(null, { statusCode: 200, headers, body: '' });
   }
-  // Only POST
   if (event.httpMethod !== 'POST') {
-    return {
+    return callback(null, {
       statusCode: 405,
       headers,
       body: JSON.stringify({ error: 'Method not allowed' }),
-    };
+    });
   }
 
-  // Fire-and-forget proof job
+  // ACKNOWLEDGE immediately
+  callback(null, {
+    statusCode: 202,
+    headers,
+    body: JSON.stringify({ status: 'accepted', message: 'Proof job started' }),
+  });
+
+  // --- EVERYTHING BELOW RUNS IN THE BACKGROUND ---
   (async () => {
     try {
-      // Parse payload
       const { emailContent: rawB64, blueprintId: inSlug, fileName: inName } = JSON.parse(event.body);
       const blueprintId = inSlug || 'IonTeLOS/MailAddressProver@v2';
       const fileName    = inName  || 'email.eml';
 
-      // Decode Base64 → UTF-8
       const emailContent = Buffer.from(rawB64, 'base64').toString('utf8');
 
       console.log('📄 emailContent length:', emailContent.length);
@@ -44,7 +46,6 @@ exports.handler = (event, context) => {
       console.log('🔍 Fetching blueprint:', blueprintId);
       const blueprint = await sdk.getBlueprint(blueprintId);
 
-      // Soft-check only
       try {
         const isValid = await blueprint.validateEmail(emailContent);
         console.log('🔍 validateEmail →', isValid);
@@ -74,17 +75,10 @@ exports.handler = (event, context) => {
       proofData.verified = await blueprint.verifyProof(proof);
 
       console.log('✅ Proof generation completed:', proofData.id);
-      // TODO: write proofData to your DB or notify downstream service
+      // TODO: write proofData to your DB or dispatch a webhook
 
     } catch (error) {
       console.error('❌ Background proof job failed:', error);
     }
   })();
-
-  // Immediate 202 response
-  return {
-    statusCode: 202,
-    headers,
-    body: JSON.stringify({ status: 'accepted', message: 'Proof job started' }),
-  };
 };
