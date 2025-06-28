@@ -637,8 +637,7 @@
                     this.updateProgress(70, 'Trying backend proxy...');
                     this.log('🔄 Attempting proof generation via backend proxy...');
 
-                    const backendUrl = '/api/generate-zk-proof'; // Your backend endpoint
-                    
+                    const backendUrl = '/.netlify/functions/generate-zk-proof'; // Netlify function                    
                     const formData = new FormData();
                     formData.append('email', this.selectedFile, 'email.eml');
                     formData.append('blueprintId', this.blueprintId);
