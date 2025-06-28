@@ -578,58 +578,52 @@ initializeEventListeners() {
         this.log(`✅ File selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
     }
 
-    async generateProof() {
-        if (!this.selectedFile) {
-            this.log('❌ No file selected');
-            return;
-        }
-
-        try {
-            const proveButton = document.getElementById('proveButton');
-            if (proveButton) {
-                proveButton.classList.add('loading');
-                proveButton.textContent = '⏳ Generating Cryptographic Proof...';
-                proveButton.disabled = true;
-            }
-
-            this.updateProgress(50, 'Reading email content...');
-            this.log('📧 Reading email file...');
-
-            // Read file content
-            this.emailContent = await this.readFileContent(this.selectedFile);
-            this.log('✅ Email content read successfully');
-
-            // Basic email validation
-            const validation = this.validateEmailContent(this.emailContent);
-            if (!validation.isValid) {
-                throw new Error('Invalid email format - missing required headers');
-            }
-
-            if (!validation.hasDKIM) {
-                this.log('⚠️ Warning: No DKIM signature found in email');
-                this.showUserMessage('Warning: Email may not have DKIM signature required for ZK proof', 'warning');
-            }
-
-            this.updateProgress(60, 'Connecting to ZK Email service...');
-            this.log('🚀 Starting proof generation...');
-
-            // Try browser SDK first if available, then fallback to backend
-            let result;
-            if (this.browserSDKAvailable) {
-                result = await this.tryBrowserSDK();
-            } else {
-                result = await this.callBackendService();
-            }
-
-            this.proofResult = result;
-            this.showResults(result);
-
-        } catch (error) {
-            this.log(`❌ Error generating proof: ${error.message}`);
-            this.showError(error.message);
-            this.resetProveButton();
-        }
+   async generateProof() {
+    if (!this.selectedFile) {
+        this.log('❌ No file selected');
+        return;
     }
+
+    try {
+        const btn = document.getElementById('proveButton');
+        if (btn) {
+            btn.classList.add('loading');
+            btn.textContent = '⏳ Generating Cryptographic Proof...';
+            btn.disabled = true;
+        }
+
+        this.updateProgress(50, 'Reading email content…');
+        this.log('📧 Reading email file...');
+        this.emailContent = await this.readFileContent(this.selectedFile);
+        this.log('✅ Email content read successfully');
+
+        const validation = this.validateEmailContent(this.emailContent);
+        if (!validation.isValid) {
+            throw new Error('Invalid email format – missing required headers');
+        }
+        if (!validation.hasDKIM) {
+            this.showUserMessage('⚠️ Warning: no DKIM signature – proof may not verify on-chain', 'warning');
+        }
+
+        this.updateProgress(60, 'Sending to proof service…');
+        this.log('🚀 Calling backend proof service…');
+
+        // call and unwrap
+        const wrapper = await this.callBackendService();
+        if (!wrapper.success || !wrapper.proof) {
+            throw new Error(wrapper.error || 'Unknown proof service error');
+        }
+        this.proofResult = wrapper.proof;
+
+        // now hand off to your existing display logic
+        this.showResults(this.proofResult);
+
+    } catch (err) {
+        this.log(`❌ Error generating proof: ${err.message}`);
+        this.showError(err.message);
+        this.resetProveButton();
+    }
+}
 
     async tryBrowserSDK() {
         this.log('🔄 Attempting browser SDK proof generation...');
@@ -663,29 +657,26 @@ initializeEventListeners() {
 
 // in your ZKEmailProver class
 async callBackendService() {
-  this.log('🔧 Sending email to Railway service…');
-  this.updateProgress(70, 'Connecting to proof service…');
+    this.log('🔧 Sending email to Railway service…');
+    this.updateProgress(70, 'Connecting to proof service…');
 
-  const emailB64 = btoa(this.emailContent);
-
-  const res = await fetch(`${this.backendEndpoint}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      blueprintId: this.blueprintId,
-      emailContent: emailB64,
-      fileName: this.selectedFile.name
-    })
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Service error ${res.status}: ${text}`);
-  }
-
-  return res.json();
+    const emailB64 = btoa(this.emailContent);
+    const res = await fetch(this.backendEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            blueprintId: this.blueprintId,
+            emailContent: emailB64,
+            fileName: this.selectedFile.name
+        })
+    });
+    if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(`Service error ${res.status}: ${txt}`);
+    }
+    // unwrap happens back in generateProof()
+    return res.json();
 }
-
 
 
     async pollForCompletion(jobId, pollUrl, maxAttempts = 15) {
