@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Netlify functions with Firebase and ZK Email integration",
   "main": "index.js",
-  "type": "module",
   "dependencies": {
     "firebase-admin": "12.2.0",
     "cors": "2.8.5",
