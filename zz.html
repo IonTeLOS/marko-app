@@ -637,22 +637,32 @@
                     this.updateProgress(70, 'Trying backend proxy...');
                     this.log('🔄 Attempting proof generation via backend proxy...');
 
-                    const backendUrl = '/.netlify/functions/generate-zk-proof'; // Netlify function                    
-                    const formData = new FormData();
-                    formData.append('email', this.selectedFile, 'email.eml');
-                    formData.append('blueprintId', this.blueprintId);
+                    const backendUrl = '/.netlify/functions/generate-zk-proof'; // Updated for marko-functions
+                    
+                    // Send email content as JSON (simpler than FormData)
+                    const requestBody = {
+                        emailContent: this.emailContent,
+                        blueprintId: this.blueprintId,
+                        fileName: this.selectedFile.name
+                    };
 
                     const response = await fetch(backendUrl, {
                         method: 'POST',
-                        body: formData
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestBody)
                     });
 
                     if (response.ok) {
                         const result = await response.json();
-                        if (result && result.id) {
+                        if (result && (result.id || result.success)) {
                             this.log('✅ Proof generated via backend proxy!');
                             return result;
                         }
+                    } else {
+                        const errorData = await response.json();
+                        this.log(`❌ Backend proxy error: ${errorData.error || response.statusText}`);
                     }
 
                 } catch (error) {
