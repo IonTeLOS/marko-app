@@ -1,10 +1,10 @@
-// netlify/functions/arload.js - Clean version with updated limits
+// netlify/functions/arload.js - Clean version with updated limits and key validation
 const crypto = require('crypto');
 
 // Configuration constants
 const CONFIG = {
   MAX_SIZE_BYTES: 100 * 1024, // 100KB final upload limit
-  MAX_RAW_FOR_ENCRYPTION: 73 * 1024, // 73KB max raw content that will be encrypted
+  MAX_RAW_FOR_ENCRYPTION: 72 * 1024, // 72KB max raw content that will be encrypted
   MAX_ALREADY_ENCRYPTED: 95 * 1024, // 95KB max for already encrypted or unencrypted content
   ENCRYPTION_OVERHEAD_PERCENT: 37, // Real-world encryption overhead: ~37%
   ARWEAVE_HOST: 'arweave.net',
@@ -134,6 +134,24 @@ class MinimalThyraUploader {
       return { baseSize, estimatedFinalSize: baseSize };
     }
   }
+
+  // NEW: Validate encryption key
+  validateEncryptionKey(customKey) {
+    if (!customKey) return null;
+    
+    try {
+      const keyBuffer = Buffer.from(customKey, 'base64');
+      if (keyBuffer.length !== 32) {
+        throw new Error(`Invalid key length: expected 32 bytes, got ${keyBuffer.length} bytes`);
+      }
+      return keyBuffer;
+    } catch (err) {
+      if (err.message.includes('Invalid key length')) {
+        throw err; // Re-throw our custom error
+      }
+      throw new Error('Invalid base64 key format');
+    }
+  }
 }
 
 // Netlify function handler
@@ -237,10 +255,23 @@ exports.handler = async (event, context) => {
     let finalContent, encryptionKey, shareUrl;
 
     if (encrypt) {
-      // Generate or use custom key
-      encryptionKey = customKey 
-        ? Buffer.from(customKey, 'base64')
-        : await uploader.generateEncryptionKey();
+      // FIXED: Validate custom key first, then generate or use it
+      try {
+        encryptionKey = customKey 
+          ? uploader.validateEncryptionKey(customKey)
+          : await uploader.generateEncryptionKey();
+      } catch (keyError) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            error: 'INVALID_KEY_LENGTH',
+            message: keyError.message,
+            duration: Date.now() - startTime
+          })
+        };
+      }
 
       // Encrypt content
       const encryptedData = await uploader.encryptContent(contentBuffer, encryptionKey);
@@ -258,7 +289,20 @@ exports.handler = async (event, context) => {
       // If user provided custom key but didn't want us to encrypt,
       // they likely want the shareUrl for already encrypted data
       if (customKey) {
-        encryptionKey = Buffer.from(customKey, 'base64');
+        try {
+          encryptionKey = uploader.validateEncryptionKey(customKey);
+        } catch (keyError) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              error: 'INVALID_KEY_LENGTH',
+              message: keyError.message,
+              duration: Date.now() - startTime
+            })
+          };
+        }
       }
     }
 
@@ -326,6 +370,9 @@ exports.handler = async (event, context) => {
       statusCode = 413;
     } else if (error.message.includes('Invalid content')) {
       errorCode = 'INVALID_CONTENT';
+      statusCode = 400;
+    } else if (error.message.includes('Invalid key length')) {
+      errorCode = 'INVALID_KEY_LENGTH';
       statusCode = 400;
     }
 
