@@ -1,11 +1,12 @@
-// netlify/functions/upload.js - Netlify-compatible version
-const Fastify = require('fastify');
+// netlify/functions/arload.js - Clean version with updated limits
 const crypto = require('crypto');
 
 // Configuration constants
 const CONFIG = {
-  MAX_SIZE_BYTES: 100 * 1024, // 100KB
-  ENCRYPTION_OVERHEAD: 64, // Approximate overhead for AES-256-GCM + metadata
+  MAX_SIZE_BYTES: 100 * 1024, // 100KB final upload limit
+  MAX_RAW_FOR_ENCRYPTION: 73 * 1024, // 73KB max raw content that will be encrypted
+  MAX_ALREADY_ENCRYPTED: 95 * 1024, // 95KB max for already encrypted or unencrypted content
+  ENCRYPTION_OVERHEAD_PERCENT: 37, // Real-world encryption overhead: ~37%
   ARWEAVE_HOST: 'arweave.net',
   TURBO_UPLOAD_URL: 'https://upload.ardrive.io/v1/tx'
 };
@@ -97,7 +98,7 @@ class MinimalThyraUploader {
 
   createShareUrl(arweaveId, encryptionKey, baseUrl, contentType = null) {
     const keyB64 = encryptionKey.toString('base64');
-    let shareUrl = `${baseUrl}?url=${btoa(`https://arweave.net/${arweaveId}`)}&key=${encodeURIComponent(keyB64)}`;
+    let shareUrl = `${baseUrl}/s/?url=${btoa(`https://arweave.net/${arweaveId}`)}&key=${encodeURIComponent(keyB64)}`;
     
     if (contentType) {
       shareUrl += `&type=${encodeURIComponent(contentType)}`;
@@ -108,13 +109,30 @@ class MinimalThyraUploader {
 
   validateSize(content, willEncrypt = true) {
     const baseSize = Buffer.isBuffer(content) ? content.length : Buffer.from(content).length;
-    const estimatedFinalSize = willEncrypt ? baseSize + CONFIG.ENCRYPTION_OVERHEAD : baseSize;
     
-    if (estimatedFinalSize > CONFIG.MAX_SIZE_BYTES) {
-      throw new Error(`Content too large. Max: ${CONFIG.MAX_SIZE_BYTES} bytes, Estimated: ${estimatedFinalSize} bytes`);
+    if (willEncrypt) {
+      // For content that will be encrypted by us
+      if (baseSize > CONFIG.MAX_RAW_FOR_ENCRYPTION) {
+        throw new Error(`Content too large for encryption. Max: ${Math.floor(CONFIG.MAX_RAW_FOR_ENCRYPTION / 1024)}KB, Actual: ${Math.floor(baseSize / 1024)}KB. Use encrypt=false for larger content.`);
+      }
+      
+      // Estimate final encrypted size
+      const estimatedEncryptedSize = Math.ceil(baseSize * (1 + CONFIG.ENCRYPTION_OVERHEAD_PERCENT / 100));
+      
+      if (estimatedEncryptedSize > CONFIG.MAX_SIZE_BYTES) {
+        throw new Error(`Encrypted content would be too large. Estimated: ${Math.floor(estimatedEncryptedSize / 1024)}KB, Max: ${Math.floor(CONFIG.MAX_SIZE_BYTES / 1024)}KB`);
+      }
+      
+      return { baseSize, estimatedFinalSize: estimatedEncryptedSize };
+      
+    } else {
+      // For unencrypted or already encrypted content
+      if (baseSize > CONFIG.MAX_ALREADY_ENCRYPTED) {
+        throw new Error(`Content too large. Max: ${Math.floor(CONFIG.MAX_ALREADY_ENCRYPTED / 1024)}KB, Actual: ${Math.floor(baseSize / 1024)}KB`);
+      }
+      
+      return { baseSize, estimatedFinalSize: baseSize };
     }
-    
-    return { baseSize, estimatedFinalSize };
   }
 }
 
@@ -179,7 +197,7 @@ exports.handler = async (event, context) => {
       contentType = null
     } = requestBody;
 
-    if (!content) {
+    if (!content && content !== "") {
       return {
         statusCode: 400,
         headers,
@@ -213,7 +231,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Validate size before processing
+    // Validate size with new limits
     const sizeInfo = uploader.validateSize(contentBuffer, encrypt);
 
     let finalContent, encryptionKey, shareUrl;
@@ -228,7 +246,7 @@ exports.handler = async (event, context) => {
       const encryptedData = await uploader.encryptContent(contentBuffer, encryptionKey);
       finalContent = Buffer.from(JSON.stringify(encryptedData));
 
-      // Double-check encrypted size
+      // Double-check encrypted size (should be caught by validateSize, but safety check)
       if (finalContent.length > CONFIG.MAX_SIZE_BYTES) {
         throw new Error(`Encrypted content too large: ${finalContent.length} bytes`);
       }
@@ -255,12 +273,18 @@ exports.handler = async (event, context) => {
     const arweaveId = uploadResult.id;
     const arweaveUrl = `https://arweave.net/${arweaveId}`;
 
-    // Create share URL if we have encryption key
+    // Create share URL if we have encryption key OR for unencrypted content
     if (encryptionKey) {
       const protocol = event.headers['x-forwarded-proto'] || 'https';
       const host = event.headers.host;
       const baseUrl = `${protocol}://${host}`;
       shareUrl = uploader.createShareUrl(arweaveId, encryptionKey, baseUrl, contentType);
+    } else if (!encrypt) {
+      // Create share URL for unencrypted content (no key parameter)
+      const protocol = event.headers['x-forwarded-proto'] || 'https';
+      const host = event.headers.host;
+      const baseUrl = `${protocol}://${host}`;
+      shareUrl = `${baseUrl}/s/?url=${btoa(arweaveUrl)}${contentType ? `&type=${encodeURIComponent(contentType)}` : ''}`;
     }
 
     const response = {
@@ -291,7 +315,13 @@ exports.handler = async (event, context) => {
     let errorCode = 'UPLOAD_FAILED';
     let statusCode = 500;
 
-    if (error.message.includes('too large')) {
+    if (error.message.includes('too large for encryption')) {
+      errorCode = 'CONTENT_TOO_LARGE_FOR_ENCRYPTION';
+      statusCode = 413;
+    } else if (error.message.includes('Encrypted content would be too large')) {
+      errorCode = 'ENCRYPTED_SIZE_TOO_LARGE';
+      statusCode = 413;
+    } else if (error.message.includes('Content too large')) {
       errorCode = 'CONTENT_TOO_LARGE';
       statusCode = 413;
     } else if (error.message.includes('Invalid content')) {
