@@ -1,35 +1,8 @@
-// minimal-thyra-api.js - Stateless API for sub-100KB uploads
-import Fastify from 'fastify';
-import cors from '@fastify/cors';
-import swagger from '@fastify/swagger';
-import swaggerUi from '@fastify/swagger-ui';
-import { createData, ArweaveSigner } from 'arbundles';
-import Arweave from 'arweave';
-import crypto from 'crypto';
+// netlify/functions/upload.js - Netlify-compatible version
+const Fastify = require('fastify');
+const crypto = require('crypto');
 
-const fastify = Fastify({
-  logger: {
-    level: process.env.LOG_LEVEL || 'info',
-    transport: process.env.NODE_ENV === 'development' ? {
-      target: 'pino-pretty'
-    } : undefined
-  }
-});
-
-// Register plugins
-await fastify.register(cors);
-await fastify.register(swagger, {
-  openapi: {
-    openapi: '3.0.0',
-    info: {
-      title: 'Minimal Thyra API',
-      description: 'Stateless API for sub-100KB encrypted uploads to Arweave',
-      version: '1.0.0'
-    }
-  }
-});
-
-// Constants
+// Configuration constants
 const CONFIG = {
   MAX_SIZE_BYTES: 100 * 1024, // 100KB
   ENCRYPTION_OVERHEAD: 64, // Approximate overhead for AES-256-GCM + metadata
@@ -40,14 +13,26 @@ const CONFIG = {
 // Core uploader class
 class MinimalThyraUploader {
   constructor() {
+    this.arweave = null;
+    this.initialized = false;
+  }
+
+  async initialize() {
+    if (this.initialized) return;
+    
+    // Dynamic imports inside async function
+    const Arweave = (await import('arweave')).default;
     this.arweave = Arweave.init({
       host: CONFIG.ARWEAVE_HOST,
       port: 443,
       protocol: 'https'
     });
+    
+    this.initialized = true;
   }
 
   async createEphemeralWallet() {
+    await this.initialize();
     return await this.arweave.wallets.generate();
   }
 
@@ -73,6 +58,9 @@ class MinimalThyraUploader {
 
   async uploadToArweave(content, tags = []) {
     const wallet = await this.createEphemeralWallet();
+    
+    // Dynamic import
+    const { createData, ArweaveSigner } = await import('arbundles');
     const signer = new ArweaveSigner(wallet);
 
     const dataItem = createData(content, signer, {
@@ -103,7 +91,7 @@ class MinimalThyraUploader {
     const result = await response.json();
     return { 
       id: result.id, 
-      wallet: wallet  // Return wallet for +wallet feature
+      wallet: wallet
     };
   }
 
@@ -111,7 +99,6 @@ class MinimalThyraUploader {
     const keyB64 = encryptionKey.toString('base64');
     let shareUrl = `${baseUrl}?url=${btoa(`https://arweave.net/${arweaveId}`)}&key=${encodeURIComponent(keyB64)}`;
     
-    // Add content type hint to share URL for webapp processing
     if (contentType) {
       shareUrl += `&type=${encodeURIComponent(contentType)}`;
     }
@@ -131,74 +118,56 @@ class MinimalThyraUploader {
   }
 }
 
-// Upload endpoint
-fastify.post('/api/upload', {
-  schema: {
-    description: 'Upload content to Arweave with optional encryption',
-    body: {
-      type: 'object',
-      properties: {
-        content: { 
-          type: 'string', 
-          description: 'Content to upload (base64 for binary data)' 
-        },
-        encrypt: { 
-          type: 'boolean', 
-          default: true,
-          description: 'Whether to encrypt the content' 
-        },
-        customKey: { 
-          type: 'string', 
-          description: 'Custom encryption key (base64). If provided with already encrypted data, set encrypt=false' 
-        },
-        isBase64: { 
-          type: 'boolean', 
-          default: false,
-          description: 'Whether content is base64 encoded binary data' 
-        },
-        note: { 
-          type: 'string', 
-          maxLength: 250,
-          description: 'Optional note for the upload' 
-        },
-        id: {
-          type: 'string',
-          description: 'Custom ID for the upload'
-        },
-        includeWallet: {
-          type: 'boolean',
-          default: false,
-          description: 'Include wallet JSON in response (courtesy feature for ArDrive ecosystem)'
-        },
-        contentType: {
-          type: 'string',
-          description: 'Content type hint for webapp processing (e.g., "text", "image", "audio")'
-        }
-      },
-      required: ['content']
-    },
-    response: {
-      200: {
-        type: 'object',
-        properties: {
-          success: { type: 'boolean' },
-          id: { type: 'string' },
-          arweaveId: { type: 'string' },
-          url: { type: 'string' },
-          shareUrl: { type: 'string' },
-          encrypted: { type: 'boolean' },
-          size: { type: 'number' },
-          timestamp: { type: 'number' },
-          note: { type: 'string' },
-          wallet: { type: 'object' }
-        }
-      }
-    }
-  }
-}, async (request, reply) => {
-  const startTime = Date.now(); // Track execution time
+// Netlify function handler
+exports.handler = async (event, context) => {
+  const startTime = Date.now();
   
+  // CORS handling
+  const headers = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS'
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 204,
+      headers,
+      body: ''
+    };
+  }
+
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      headers,
+      body: JSON.stringify({
+        success: false,
+        error: 'METHOD_NOT_ALLOWED',
+        message: 'Only POST method allowed',
+        duration: Date.now() - startTime
+      })
+    };
+  }
+
   try {
+    let requestBody;
+    try {
+      requestBody = JSON.parse(event.body || '{}');
+    } catch (err) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          error: 'INVALID_JSON',
+          message: 'Invalid JSON in request body',
+          duration: Date.now() - startTime
+        })
+      };
+    }
+
     const { 
       content, 
       encrypt = true, 
@@ -208,14 +177,19 @@ fastify.post('/api/upload', {
       id = null,
       includeWallet = false,
       contentType = null
-    } = request.body;
+    } = requestBody;
 
     if (!content) {
-      return reply.code(400).send({
-        success: false,
-        error: 'MISSING_CONTENT',
-        message: 'Content is required'
-      });
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          error: 'MISSING_CONTENT',
+          message: 'Content is required',
+          duration: Date.now() - startTime
+        })
+      };
     }
 
     const uploader = new MinimalThyraUploader();
@@ -227,11 +201,16 @@ fastify.post('/api/upload', {
     try {
       contentBuffer = isBase64 ? Buffer.from(content, 'base64') : Buffer.from(content, 'utf8');
     } catch (err) {
-      return reply.code(400).send({
-        success: false,
-        error: 'INVALID_CONTENT',
-        message: 'Invalid content format'
-      });
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          error: 'INVALID_CONTENT',
+          message: 'Invalid content format',
+          duration: Date.now() - startTime
+        })
+      };
     }
 
     // Validate size before processing
@@ -255,7 +234,7 @@ fastify.post('/api/upload', {
       }
 
     } else {
-      // Upload as-is (user provided already encrypted data or wants unencrypted)
+      // Upload as-is
       finalContent = contentBuffer;
       
       // If user provided custom key but didn't want us to encrypt,
@@ -278,7 +257,9 @@ fastify.post('/api/upload', {
 
     // Create share URL if we have encryption key
     if (encryptionKey) {
-      const baseUrl = `${request.protocol}://${request.headers.host}`;
+      const protocol = event.headers['x-forwarded-proto'] || 'https';
+      const host = event.headers.host;
+      const baseUrl = `${protocol}://${host}`;
       shareUrl = uploader.createShareUrl(arweaveId, encryptionKey, baseUrl, contentType);
     }
 
@@ -290,7 +271,7 @@ fastify.post('/api/upload', {
       encrypted: encrypt,
       size: sizeInfo.baseSize,
       timestamp,
-      duration: Date.now() - startTime // Add execution duration
+      duration: Date.now() - startTime
     };
 
     // Add conditional fields
@@ -298,10 +279,14 @@ fastify.post('/api/upload', {
     if (note) response.note = note;
     if (includeWallet) response.wallet = uploadResult.wallet;
 
-    reply.send(response);
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify(response)
+    };
 
   } catch (error) {
-    fastify.log.error(error);
+    console.error('Upload error:', error);
 
     let errorCode = 'UPLOAD_FAILED';
     let statusCode = 500;
@@ -314,116 +299,15 @@ fastify.post('/api/upload', {
       statusCode = 400;
     }
 
-    reply.code(statusCode).send({
-      success: false,
-      error: errorCode,
-      message: error.message,
-      duration: Date.now() - startTime // Include duration even in errors
-    });
-  }
-});
-
-// Health check
-fastify.get('/api/health', {
-  schema: {
-    description: 'Health check endpoint',
-    response: {
-      200: {
-        type: 'object',
-        properties: {
-          success: { type: 'boolean' },
-          status: { type: 'string' },
-          maxSizeKB: { type: 'number' },
-          timestamp: { type: 'number' },
-          duration: { type: 'number' }
-        }
-      }
-    }
-  }
-}, async (request, reply) => {
-  const startTime = Date.now();
-  
-  reply.send({
-    success: true,
-    status: 'healthy',
-    maxSizeKB: Math.floor(CONFIG.MAX_SIZE_BYTES / 1024),
-    timestamp: Date.now(),
-    duration: Date.now() - startTime
-  });
-});
-
-// Info endpoint
-fastify.get('/api/info', {
-  schema: {
-    description: 'API information and usage',
-    response: {
-      200: {
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          version: { type: 'string' },
-          maxSizeBytes: { type: 'number' },
-          maxSizeKB: { type: 'number' },
-          features: { type: 'array', items: { type: 'string' } },
-          endpoints: { type: 'array', items: { type: 'string' } }
-        }
-      }
-    }
-  }
-}, async (request, reply) => {
-  reply.send({
-    name: 'Minimal Thyra API',
-    version: '1.0.0',
-    maxSizeBytes: CONFIG.MAX_SIZE_BYTES,
-    maxSizeKB: Math.floor(CONFIG.MAX_SIZE_BYTES / 1024),
-    features: [
-      'Stateless operation',
-      'Ephemeral wallets',
-      'AES-256-GCM encryption',
-      'Custom encryption keys',
-      'Share URLs',
-      'Free sub-100KB uploads'
-    ],
-    endpoints: [
-      'POST /api/upload',
-      'GET /api/health',
-      'GET /api/info',
-      'GET /docs'
-    ]
-  });
-});
-
-// Register swagger UI
-await fastify.register(swaggerUi, {
-  routePrefix: '/docs',
-  uiConfig: {
-    docExpansion: 'full',
-    deepLinking: false
-  }
-});
-
-// Startup
-const start = async () => {
-  try {
-    const port = process.env.PORT || 3000;
-    const host = process.env.HOST || '0.0.0.0';
-
-    await fastify.listen({ port, host });
-
-    console.log(`🚀 Minimal Thyra API running on port ${port}`);
-    console.log(`📚 API docs: http://localhost:${port}/docs`);
-    console.log(`💾 Max upload size: ${Math.floor(CONFIG.MAX_SIZE_BYTES / 1024)}KB`);
-
-  } catch (err) {
-    fastify.log.error(err);
-    process.exit(1);
+    return {
+      statusCode,
+      headers,
+      body: JSON.stringify({
+        success: false,
+        error: errorCode,
+        message: error.message,
+        duration: Date.now() - startTime
+      })
+    };
   }
 };
-
-// Export for serverless deployment
-export { fastify };
-
-// Start if run directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  start();
-}
