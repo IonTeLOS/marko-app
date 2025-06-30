@@ -1,6 +1,6 @@
 // netlify/functions/arload.js - Enhanced version with file upload support
 const crypto = require('crypto');
-const multipart = require('lambda-multipart-parser'); // You'll need to install this
+const multipart = require('lambda-multipart-parser');
 
 // Configuration constants
 const CONFIG = {
