@@ -382,7 +382,7 @@
                 }
 
                 const contentType = response.headers.get('content-type') || '';
-                
+
                 if (contentType.includes('application/json')) {
                     // Likely encrypted content
                     this.contentData = await response.json();
@@ -432,13 +432,13 @@
             async decryptAndDisplay() {
                 try {
                     this.updateStatus('🔓 Decrypting content...', 'loading');
-                    
+
                     const decryptedData = await this.decryptContent();
                     this.contentType = this.detectContentType(decryptedData);
-                    
+
                     this.showFileInfo();
                     await this.displayContent(decryptedData);
-                    
+
                 } catch (error) {
                     this.showError(`Decryption failed: ${error.message}`);
                 }
@@ -486,7 +486,7 @@
 
                 // Try to detect from content
                 const bytes = new Uint8Array(data.slice ? data.slice(0, 16) : data);
-                
+
                 // Check for text content
                 if (this.isTextContent(bytes)) {
                     const text = new TextDecoder().decode(data);
@@ -551,16 +551,16 @@
             showCopyButton() {
                 const copyBtn = document.getElementById('copyBtn');
                 const copySuccessBtn = document.getElementById('copySuccessBtn');
-                
+
                 copyBtn.style.display = 'inline-flex';
                 copyBtn.onclick = async () => {
                     try {
                         const textContent = document.querySelector('.text-content').textContent;
                         await navigator.clipboard.writeText(textContent);
-                        
+
                         copyBtn.style.display = 'none';
                         copySuccessBtn.style.display = 'inline-flex';
-                        
+
                         setTimeout(() => {
                             copyBtn.style.display = 'inline-flex';
                             copySuccessBtn.style.display = 'none';
@@ -640,7 +640,7 @@
             updateStatus(message, type) {
                 const status = document.getElementById('status');
                 status.className = `status ${type}`;
-                
+
                 if (type === 'loading') {
                     status.innerHTML = `<div class="spinner"></div>${message}`;
                 } else {
