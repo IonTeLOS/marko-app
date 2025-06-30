@@ -1,6 +1,6 @@
 // netlify/functions/arload.js - Enhanced version with file upload support
 const crypto = require('crypto');
-const multipart = require('lambda-multipart-parser');
+// Note: multipart parser loaded conditionally below for better performance
 
 // Configuration constants
 const CONFIG = {
@@ -259,7 +259,23 @@ exports.handler = async (event, context) => {
     const contentType = event.headers['content-type'] || '';
     
     if (contentType.includes('multipart/form-data')) {
-      // Handle file upload
+      // Handle file upload - load parser only when needed
+      let multipart;
+      try {
+        multipart = require('lambda-multipart-parser');
+      } catch (err) {
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            error: 'MULTIPART_NOT_AVAILABLE',
+            message: 'File upload functionality not available. Install lambda-multipart-parser.',
+            duration: Date.now() - startTime
+          })
+        };
+      }
+
       try {
         const result = await multipart.parse(event);
         
