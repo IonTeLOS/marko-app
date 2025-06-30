@@ -6,6 +6,7 @@
   "dependencies": {
     "arweave": "^1.14.4", 
     "arbundles": "^0.11.0",
+    "lambda-multipart-parser": "^1.0.1",
     "firebase-admin": "12.2.0",
     "cors": "2.8.5",
     "@zk-email/sdk": "^1.0.3"
