@@ -4,6 +4,12 @@
   status = 200
   force = true
 
+[[redirects]]
+  from = "/s/*"
+  to   = "/s/index.html"
+  status = 200
+  force = true
+  
 [[edge_functions]]
 path = "/sites/*"
 function = "link-map"
@@ -17,7 +23,7 @@ path = "/o/*"
 function = "open-shortlink"
 
 [[edge_functions]]
-path = "/s/"
+path = "/c/"
 function = "create-shortlink"
 
 [[edge_functions]]
