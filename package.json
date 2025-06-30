@@ -4,6 +4,9 @@
   "description": "Netlify functions with Firebase and ZK Email integration",
   "main": "index.js",
   "dependencies": {
+    "fastify": "^4.24.3",
+    "arweave": "^1.14.4", 
+    "arbundles": "^0.11.0",
     "firebase-admin": "12.2.0",
     "cors": "2.8.5",
     "@zk-email/sdk": "^1.0.3"
