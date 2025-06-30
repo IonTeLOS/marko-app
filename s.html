@@ -339,6 +339,7 @@
                 this.originalFilename = 'download';
                 this.contentType = 'application/octet-stream';
                 this.isEncrypted = false;
+                this.decryptedContent = null;
                 this.init();
             }
 
@@ -381,15 +382,23 @@
                     throw new Error(`Failed to fetch content: ${response.status} ${response.statusText}`);
                 }
 
-                const contentType = response.headers.get('content-type') || '';
-
-                if (contentType.includes('application/json')) {
-                    // Likely encrypted content
-                    this.contentData = await response.json();
-                    this.isEncrypted = true;
-                } else {
-                    // Raw content
-                    this.contentData = await response.arrayBuffer();
+                // Try to parse as JSON first (encrypted content)
+                const text = await response.text();
+                
+                try {
+                    // Check if it's our encrypted JSON format
+                    const jsonData = JSON.parse(text);
+                    if (jsonData.algorithm === 'aes-256-gcm' && jsonData.encrypted && jsonData.iv && jsonData.authTag) {
+                        this.contentData = jsonData;
+                        this.isEncrypted = true;
+                    } else {
+                        // Not our encrypted format, treat as plain text
+                        this.contentData = new TextEncoder().encode(text).buffer;
+                        this.isEncrypted = false;
+                    }
+                } catch {
+                    // Not JSON, treat as raw content
+                    this.contentData = new TextEncoder().encode(text).buffer;
                     this.isEncrypted = false;
                 }
 
@@ -434,12 +443,15 @@
                     this.updateStatus('🔓 Decrypting content...', 'loading');
 
                     const decryptedData = await this.decryptContent();
+                    this.decryptedContent = decryptedData;
                     this.contentType = this.detectContentType(decryptedData);
 
-                    this.showFileInfo();
+                    // Update file info to show decrypted status
+                    this.showFileInfo(true);
                     await this.displayContent(decryptedData);
 
                 } catch (error) {
+                    console.error('Decryption error:', error);
                     this.showError(`Decryption failed: ${error.message}`);
                 }
             }
@@ -449,11 +461,17 @@
                     throw new Error('Unsupported encryption algorithm');
                 }
 
+                // FIXED: Properly decode the base64 key to bytes
+                const keyBytes = Uint8Array.from(atob(this.decryptionKey), c => c.charCodeAt(0));
+                
+                if (keyBytes.length !== 32) {
+                    throw new Error(`Invalid key length: expected 32 bytes, got ${keyBytes.length} bytes`);
+                }
+
                 // Import the key
-                const keyData = atob(this.decryptionKey);
                 const key = await crypto.subtle.importKey(
                     'raw',
-                    new TextEncoder().encode(keyData).slice(0, 32),
+                    keyBytes,
                     { name: 'AES-GCM' },
                     false,
                     ['decrypt']
@@ -464,7 +482,7 @@
                 const authTag = this.base64ToArrayBuffer(this.contentData.authTag);
                 const encrypted = this.base64ToArrayBuffer(this.contentData.encrypted);
 
-                // Combine encrypted data and auth tag
+                // Combine encrypted data and auth tag for Web Crypto API
                 const encryptedWithTag = new Uint8Array(encrypted.byteLength + authTag.byteLength);
                 encryptedWithTag.set(new Uint8Array(encrypted));
                 encryptedWithTag.set(new Uint8Array(authTag), encrypted.byteLength);
@@ -586,7 +604,7 @@
                 };
             }
 
-            showFileInfo() {
+            showFileInfo(isDecrypted = false) {
                 const fileInfo = document.getElementById('fileInfo');
                 const fileName = document.getElementById('fileName').querySelector('span');
                 const fileSize = document.getElementById('fileSize').querySelector('span');
@@ -594,14 +612,17 @@
                 const isEncrypted = document.getElementById('isEncrypted').querySelector('span');
 
                 fileName.textContent = this.originalFilename;
-                fileSize.textContent = this.getContentSize();
+                fileSize.textContent = this.getContentSize(isDecrypted);
                 fileType.textContent = this.contentType;
-                isEncrypted.textContent = this.isEncrypted ? 'Yes' : 'No';
+                isEncrypted.textContent = isDecrypted ? 'No (Decrypted)' : (this.isEncrypted ? 'Yes' : 'No');
 
                 fileInfo.style.display = 'block';
             }
 
-            getContentSize() {
+            getContentSize(isDecrypted = false) {
+                if (isDecrypted && this.decryptedContent) {
+                    return this.formatFileSize(this.decryptedContent.byteLength) + ' (decrypted)';
+                }
                 if (this.isEncrypted && this.contentData) {
                     return 'Encrypted data';
                 }
