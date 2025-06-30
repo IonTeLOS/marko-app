@@ -304,7 +304,7 @@ exports.handler = async (event, context) => {
           note: result.note || null,
           id: result.id || null,
           includeWallet: result.includeWallet === 'true' || result.includeWallet === true,
-          contentType: result.contentType || detectedContentType
+          formContentType: result.contentType || detectedContentType
         };
 
       } catch (parseError) {
@@ -376,8 +376,11 @@ exports.handler = async (event, context) => {
       note = null,
       id = null,
       includeWallet = false,
-      contentType = detectedContentType
+      formContentType = null
     } = requestData;
+
+    // Use the appropriate content type
+    const finalContentType = formContentType || detectedContentType;
 
     const uploadId = id || crypto.randomUUID();
 
@@ -438,7 +441,7 @@ exports.handler = async (event, context) => {
     const uploadResult = await uploader.uploadToArweave(finalContent, [
       ...(note ? [{ name: 'Note', value: note }] : []),
       ...(originalFilename !== 'upload' ? [{ name: 'Original-Filename', value: originalFilename }] : []),
-      { name: 'Content-Type-Hint', value: contentType },
+      { name: 'Content-Type-Hint', value: finalContentType },
       { name: 'Encrypted', value: encrypt.toString() },
       { name: 'Upload-ID', value: uploadId }
     ]);
@@ -451,12 +454,12 @@ exports.handler = async (event, context) => {
       const protocol = event.headers['x-forwarded-proto'] || 'https';
       const host = event.headers.host;
       const baseUrl = `${protocol}://${host}`;
-      shareUrl = uploader.createShareUrl(arweaveId, encryptionKey, baseUrl, contentType);
+      shareUrl = uploader.createShareUrl(arweaveId, encryptionKey, baseUrl, finalContentType);
     } else if (!encrypt) {
       const protocol = event.headers['x-forwarded-proto'] || 'https';
       const host = event.headers.host;
       const baseUrl = `${protocol}://${host}`;
-      shareUrl = `${baseUrl}/s/?url=${btoa(arweaveUrl)}${contentType ? `&type=${encodeURIComponent(contentType)}` : ''}`;
+      shareUrl = `${baseUrl}/s/?url=${btoa(arweaveUrl)}${finalContentType ? `&type=${encodeURIComponent(finalContentType)}` : ''}`;
     }
 
     const response = {
@@ -466,7 +469,7 @@ exports.handler = async (event, context) => {
       url: arweaveUrl,
       encrypted: encrypt,
       size: sizeInfo.baseSize,
-      contentType: contentType,
+      contentType: finalContentType,
       timestamp,
       duration: Date.now() - startTime
     };
