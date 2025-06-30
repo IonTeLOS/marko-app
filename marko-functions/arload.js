@@ -1,5 +1,6 @@
-// netlify/functions/arload.js - Clean version with updated limits and key validation
+// netlify/functions/arload.js - Enhanced version with file upload support
 const crypto = require('crypto');
+const multipart = require('lambda-multipart-parser'); // You'll need to install this
 
 // Configuration constants
 const CONFIG = {
@@ -11,7 +12,7 @@ const CONFIG = {
   TURBO_UPLOAD_URL: 'https://upload.ardrive.io/v1/tx'
 };
 
-// Core uploader class
+// Core uploader class (same as before)
 class MinimalThyraUploader {
   constructor() {
     this.arweave = null;
@@ -21,7 +22,6 @@ class MinimalThyraUploader {
   async initialize() {
     if (this.initialized) return;
     
-    // Dynamic imports inside async function
     const Arweave = (await import('arweave')).default;
     this.arweave = Arweave.init({
       host: CONFIG.ARWEAVE_HOST,
@@ -60,7 +60,6 @@ class MinimalThyraUploader {
   async uploadToArweave(content, tags = []) {
     const wallet = await this.createEphemeralWallet();
     
-    // Dynamic import
     const { createData, ArweaveSigner } = await import('arbundles');
     const signer = new ArweaveSigner(wallet);
 
@@ -111,12 +110,10 @@ class MinimalThyraUploader {
     const baseSize = Buffer.isBuffer(content) ? content.length : Buffer.from(content).length;
     
     if (willEncrypt) {
-      // For content that will be encrypted by us
       if (baseSize > CONFIG.MAX_RAW_FOR_ENCRYPTION) {
         throw new Error(`Content too large for encryption. Max: ${Math.floor(CONFIG.MAX_RAW_FOR_ENCRYPTION / 1024)}KB, Actual: ${Math.floor(baseSize / 1024)}KB. Use encrypt=false for larger content.`);
       }
       
-      // Estimate final encrypted size
       const estimatedEncryptedSize = Math.ceil(baseSize * (1 + CONFIG.ENCRYPTION_OVERHEAD_PERCENT / 100));
       
       if (estimatedEncryptedSize > CONFIG.MAX_SIZE_BYTES) {
@@ -126,7 +123,6 @@ class MinimalThyraUploader {
       return { baseSize, estimatedFinalSize: estimatedEncryptedSize };
       
     } else {
-      // For unencrypted or already encrypted content
       if (baseSize > CONFIG.MAX_ALREADY_ENCRYPTED) {
         throw new Error(`Content too large. Max: ${Math.floor(CONFIG.MAX_ALREADY_ENCRYPTED / 1024)}KB, Actual: ${Math.floor(baseSize / 1024)}KB`);
       }
@@ -135,7 +131,6 @@ class MinimalThyraUploader {
     }
   }
 
-  // NEW: Validate encryption key
   validateEncryptionKey(customKey) {
     if (!customKey) return null;
     
@@ -147,18 +142,82 @@ class MinimalThyraUploader {
       return keyBuffer;
     } catch (err) {
       if (err.message.includes('Invalid key length')) {
-        throw err; // Re-throw our custom error
+        throw err;
       }
       throw new Error('Invalid base64 key format');
     }
   }
+
+  // NEW: Detect content type from file
+  detectContentType(buffer, filename = '', mimeType = '') {
+    // Use provided mime type if available
+    if (mimeType && mimeType !== 'application/octet-stream') {
+      return mimeType;
+    }
+
+    // Detect from file extension
+    const ext = filename.toLowerCase().split('.').pop();
+    const extensionMap = {
+      'txt': 'text/plain',
+      'html': 'text/html',
+      'htm': 'text/html',
+      'css': 'text/css',
+      'js': 'application/javascript',
+      'json': 'application/json',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'zip': 'application/zip'
+    };
+
+    if (extensionMap[ext]) {
+      return extensionMap[ext];
+    }
+
+    // Detect from file signature (magic bytes)
+    const bytes = buffer.slice(0, 16);
+    
+    // Images
+    if (bytes[0] === 0xFF && bytes[1] === 0xD8) return 'image/jpeg';
+    if (bytes[0] === 0x89 && bytes[1] === 0x50) return 'image/png';
+    if (bytes[0] === 0x47 && bytes[1] === 0x49) return 'image/gif';
+    
+    // Documents
+    if (bytes[0] === 0x25 && bytes[1] === 0x50) return 'application/pdf'; // %PDF
+    if (bytes[0] === 0x50 && bytes[1] === 0x4B) return 'application/zip'; // PK (zip/docx)
+    
+    // Try to detect text
+    const isText = this.isTextContent(bytes);
+    if (isText) {
+      const text = buffer.toString('utf8', 0, Math.min(1000, buffer.length));
+      if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+        return 'text/html';
+      }
+      return 'text/plain';
+    }
+
+    return 'application/octet-stream';
+  }
+
+  isTextContent(bytes) {
+    for (let i = 0; i < Math.min(100, bytes.length); i++) {
+      const byte = bytes[i];
+      if (byte === 0 || (byte < 32 && byte !== 9 && byte !== 10 && byte !== 13)) {
+        return false;
+      }
+    }
+    return true;
+  }
 }
 
-// Netlify function handler
+// Enhanced Netlify function handler
 exports.handler = async (event, context) => {
   const startTime = Date.now();
   
-  // CORS handling
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
@@ -188,74 +247,131 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    let requestBody;
-    try {
-      requestBody = JSON.parse(event.body || '{}');
-    } catch (err) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          success: false,
-          error: 'INVALID_JSON',
-          message: 'Invalid JSON in request body',
-          duration: Date.now() - startTime
-        })
-      };
+    const uploader = new MinimalThyraUploader();
+    const timestamp = Date.now();
+    
+    let requestData;
+    let contentBuffer;
+    let originalFilename = 'upload';
+    let detectedContentType = 'application/octet-stream';
+
+    // NEW: Check if this is a multipart file upload
+    const contentType = event.headers['content-type'] || '';
+    
+    if (contentType.includes('multipart/form-data')) {
+      // Handle file upload
+      try {
+        const result = await multipart.parse(event);
+        
+        if (!result.files || result.files.length === 0) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              error: 'NO_FILE_PROVIDED',
+              message: 'No file provided in multipart upload',
+              duration: Date.now() - startTime
+            })
+          };
+        }
+
+        const file = result.files[0];
+        contentBuffer = Buffer.from(file.content);
+        originalFilename = file.filename || 'upload';
+        detectedContentType = uploader.detectContentType(contentBuffer, originalFilename, file.contentType);
+
+        // Extract form parameters
+        requestData = {
+          encrypt: result.encrypt === 'true' || result.encrypt === true,
+          customKey: result.customKey || null,
+          note: result.note || null,
+          id: result.id || null,
+          includeWallet: result.includeWallet === 'true' || result.includeWallet === true,
+          contentType: result.contentType || detectedContentType
+        };
+
+      } catch (parseError) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            error: 'MULTIPART_PARSE_ERROR',
+            message: `Failed to parse multipart data: ${parseError.message}`,
+            duration: Date.now() - startTime
+          })
+        };
+      }
+
+    } else {
+      // Handle JSON request (existing functionality)
+      try {
+        requestData = JSON.parse(event.body || '{}');
+      } catch (err) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            error: 'INVALID_JSON',
+            message: 'Invalid JSON in request body',
+            duration: Date.now() - startTime
+          })
+        };
+      }
+
+      const { content, isBase64 = false } = requestData;
+
+      if (!content && content !== "") {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            error: 'MISSING_CONTENT',
+            message: 'Content is required',
+            duration: Date.now() - startTime
+          })
+        };
+      }
+
+      // Convert content to buffer
+      try {
+        contentBuffer = isBase64 ? Buffer.from(content, 'base64') : Buffer.from(content, 'utf8');
+        detectedContentType = uploader.detectContentType(contentBuffer);
+      } catch (err) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            error: 'INVALID_CONTENT',
+            message: 'Invalid content format',
+            duration: Date.now() - startTime
+          })
+        };
+      }
     }
 
-    const { 
-      content, 
-      encrypt = true, 
-      customKey = null, 
-      isBase64 = false, 
+    const {
+      encrypt = true,
+      customKey = null,
       note = null,
       id = null,
       includeWallet = false,
-      contentType = null
-    } = requestBody;
+      contentType = detectedContentType
+    } = requestData;
 
-    if (!content && content !== "") {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          success: false,
-          error: 'MISSING_CONTENT',
-          message: 'Content is required',
-          duration: Date.now() - startTime
-        })
-      };
-    }
-
-    const uploader = new MinimalThyraUploader();
-    const timestamp = Date.now();
     const uploadId = id || crypto.randomUUID();
 
-    // Convert content to buffer
-    let contentBuffer;
-    try {
-      contentBuffer = isBase64 ? Buffer.from(content, 'base64') : Buffer.from(content, 'utf8');
-    } catch (err) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          success: false,
-          error: 'INVALID_CONTENT',
-          message: 'Invalid content format',
-          duration: Date.now() - startTime
-        })
-      };
-    }
-
-    // Validate size with new limits
+    // Validate size with limits
     const sizeInfo = uploader.validateSize(contentBuffer, encrypt);
 
     let finalContent, encryptionKey, shareUrl;
 
     if (encrypt) {
-      // FIXED: Validate custom key first, then generate or use it
+      // Validate custom key first, then generate or use it
       try {
         encryptionKey = customKey 
           ? uploader.validateEncryptionKey(customKey)
@@ -277,17 +393,13 @@ exports.handler = async (event, context) => {
       const encryptedData = await uploader.encryptContent(contentBuffer, encryptionKey);
       finalContent = Buffer.from(JSON.stringify(encryptedData));
 
-      // Double-check encrypted size (should be caught by validateSize, but safety check)
       if (finalContent.length > CONFIG.MAX_SIZE_BYTES) {
         throw new Error(`Encrypted content too large: ${finalContent.length} bytes`);
       }
 
     } else {
-      // Upload as-is
       finalContent = contentBuffer;
       
-      // If user provided custom key but didn't want us to encrypt,
-      // they likely want the shareUrl for already encrypted data
       if (customKey) {
         try {
           encryptionKey = uploader.validateEncryptionKey(customKey);
@@ -309,7 +421,8 @@ exports.handler = async (event, context) => {
     // Upload to Arweave
     const uploadResult = await uploader.uploadToArweave(finalContent, [
       ...(note ? [{ name: 'Note', value: note }] : []),
-      ...(contentType ? [{ name: 'Content-Type-Hint', value: contentType }] : []),
+      ...(originalFilename !== 'upload' ? [{ name: 'Original-Filename', value: originalFilename }] : []),
+      { name: 'Content-Type-Hint', value: contentType },
       { name: 'Encrypted', value: encrypt.toString() },
       { name: 'Upload-ID', value: uploadId }
     ]);
@@ -317,14 +430,13 @@ exports.handler = async (event, context) => {
     const arweaveId = uploadResult.id;
     const arweaveUrl = `https://arweave.net/${arweaveId}`;
 
-    // Create share URL if we have encryption key OR for unencrypted content
+    // Create share URL
     if (encryptionKey) {
       const protocol = event.headers['x-forwarded-proto'] || 'https';
       const host = event.headers.host;
       const baseUrl = `${protocol}://${host}`;
       shareUrl = uploader.createShareUrl(arweaveId, encryptionKey, baseUrl, contentType);
     } else if (!encrypt) {
-      // Create share URL for unencrypted content (no key parameter)
       const protocol = event.headers['x-forwarded-proto'] || 'https';
       const host = event.headers.host;
       const baseUrl = `${protocol}://${host}`;
@@ -338,6 +450,7 @@ exports.handler = async (event, context) => {
       url: arweaveUrl,
       encrypted: encrypt,
       size: sizeInfo.baseSize,
+      contentType: contentType,
       timestamp,
       duration: Date.now() - startTime
     };
@@ -345,6 +458,7 @@ exports.handler = async (event, context) => {
     // Add conditional fields
     if (shareUrl) response.shareUrl = shareUrl;
     if (note) response.note = note;
+    if (originalFilename !== 'upload') response.filename = originalFilename;
     if (includeWallet) response.wallet = uploadResult.wallet;
 
     return {
