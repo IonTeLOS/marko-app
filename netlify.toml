@@ -3,12 +3,6 @@
   to   = "/x/index.html"
   status = 200
   force = true
-
-[[redirects]]
-  from = "/s/*"
-  to   = "/s/index.html"
-  status = 200
-  force = true
   
 [[edge_functions]]
 path = "/sites/*"
