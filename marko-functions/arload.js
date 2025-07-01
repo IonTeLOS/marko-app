@@ -779,16 +779,17 @@ exports.handler = async (event, context) => {
 
       if (shouldDelegate) {
         safeLog(`Upload took ${uploadDuration}ms, delegating to fresh function for ${Math.round(contentBuffer.length/1024)}KB file`);
-        
+  
         try {
           return await delegateToFreshFunction({
-            contentBuffer: Array.from(contentBuffer), // Convert buffer to array for JSON serialization
+            contentBuffer: Array.from(contentBuffer),
             originalFilename,
             detectedContentType,
             ...requestData
           }, event.headers, startTime, delegationDepth);
+        } catch (delegationError) {
           safeError('Delegation failed, continuing with current function:', delegationError);
-          // Fall through to continue processing in current function
+          // and now fall through to do the upload in this function
         }
       }
     }
