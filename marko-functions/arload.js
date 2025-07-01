@@ -10,7 +10,7 @@ const CONFIG = {
   ENCRYPTION_OVERHEAD_PERCENT: 37, // Real-world encryption overhead: ~37%
   ARWEAVE_HOST: 'arweave.net',
   TURBO_UPLOAD_URL: 'https://upload.ardrive.io/v1/tx',
-  TIMEOUT_THRESHOLD: 20, // 3 seconds - if upload took longer, delegate to fresh function
+  TIMEOUT_THRESHOLD: 2, // 3 seconds - if upload took longer, delegate to fresh function
   MAX_FUNCTION_TIMEOUT: 9500, // 9.5 seconds - leave 500ms buffer
   
   // Admin controls
