@@ -9,7 +9,117 @@ const CONFIG = {
   MAX_ALREADY_ENCRYPTED: 95 * 1024, // 95KB max for already encrypted or unencrypted content
   ENCRYPTION_OVERHEAD_PERCENT: 37, // Real-world encryption overhead: ~37%
   ARWEAVE_HOST: 'arweave.net',
-  TURBO_UPLOAD_URL: 'https://upload.ardrive.io/v1/tx'
+  TURBO_UPLOAD_URL: 'https://upload.ardrive.io/v1/tx',
+  TIMEOUT_THRESHOLD: 2000, // 2 seconds - if upload took longer, delegate to fresh function
+  MAX_FUNCTION_TIMEOUT: 9500, // 9.5 seconds - leave 500ms buffer
+  
+  // Admin controls - easily configurable
+  ADMIN: {
+    DECRYPTION_ENABLED: true, // Set to false to disable decryption endpoint
+    DOMAIN_RESTRICTION_ENABLED: false, // Set to true to enable domain restrictions
+    LOGGING_ENABLED: true, // Set to false to disable all console.log for privacy
+    ALLOWED_DOMAINS: [
+      'your-domain.com',
+      'localhost:3000',
+      'localhost:8080'
+      // Add more domains as needed
+    ]
+  }
+
+// Privacy-aware logging function
+function safeLog(...args) {
+  if (CONFIG.ADMIN.LOGGING_ENABLED) {
+    console.log(...args);
+  }
+}
+
+function safeError(...args) {
+  if (CONFIG.ADMIN.LOGGING_ENABLED) {
+    console.error(...args);
+  }
+}
+
+// Helper function to check domain restrictions
+function checkDomainAccess(headers) {
+  if (!CONFIG.ADMIN.DOMAIN_RESTRICTION_ENABLED) {
+    return { allowed: true }; // Domain restrictions disabled
+  }
+
+  const origin = headers.origin || headers.referer;
+  
+  if (!origin) {
+    return { 
+      allowed: false, 
+      error: 'MISSING_ORIGIN',
+      message: 'Origin header required when domain restrictions are enabled'
+    };
+  }
+
+  try {
+    const originUrl = new URL(origin);
+    const domain = originUrl.hostname + (originUrl.port ? `:${originUrl.port}` : '');
+    
+    const isAllowed = CONFIG.ADMIN.ALLOWED_DOMAINS.some(allowedDomain => {
+      // Exact match or subdomain match
+      return domain === allowedDomain || domain.endsWith(`.${allowedDomain}`);
+    });
+
+    if (!isAllowed) {
+      return {
+        allowed: false,
+        error: 'DOMAIN_NOT_ALLOWED',
+        message: `Domain ${domain} is not in the allowed list`
+      };
+    }
+
+    return { allowed: true, domain };
+    
+  } catch (error) {
+    return {
+      allowed: false,
+      error: 'INVALID_ORIGIN',
+      message: 'Invalid origin header format'
+    };
+  }
+}
+
+// Helper function to parse share URL and extract components
+function parseShareUrl(shareUrl) {
+  try {
+    const url = new URL(shareUrl);
+    const params = new URLSearchParams(url.search);
+    
+    const encodedArweaveUrl = params.get('url');
+    const encryptionKey = params.get('key');
+    const contentType = params.get('type');
+
+    if (!encodedArweaveUrl) {
+      throw new Error('Missing URL parameter');
+    }
+
+    // Validate base64 before decoding
+    try {
+      const arweaveUrl = atob(encodedArweaveUrl);
+      
+      // Validate it's a proper Arweave URL
+      if (!arweaveUrl.startsWith('https://arweave.net/') && !arweaveUrl.startsWith('https://ar-io.net/')) {
+        throw new Error('Invalid Arweave URL');
+      }
+      
+      return {
+        arweaveUrl,
+        encryptionKey: encryptionKey ? decodeURIComponent(encryptionKey) : null,
+        contentType: contentType ? decodeURIComponent(contentType) : null
+      };
+      
+    } catch (decodeError) {
+      throw new Error('Invalid URL encoding');
+    }
+    
+  } catch (error) {
+    throw new Error('Invalid share URL format');
+  }
+}
 };
 
 // Core uploader class (same as before)
@@ -203,6 +313,25 @@ class MinimalThyraUploader {
     return 'application/octet-stream';
   }
 
+  // NEW: Decrypt content using AES-GCM
+  async decryptContent(encryptedData, key) {
+    if (!encryptedData.algorithm || encryptedData.algorithm !== 'aes-256-gcm') {
+      throw new Error('Unsupported encryption algorithm');
+    }
+
+    const iv = Buffer.from(encryptedData.iv, 'base64');
+    const authTag = Buffer.from(encryptedData.authTag, 'base64');
+    const encrypted = Buffer.from(encryptedData.encrypted, 'base64');
+
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(authTag);
+
+    let decrypted = decipher.update(encrypted);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+
+    return decrypted;
+  }
+
   isTextContent(bytes) {
     for (let i = 0; i < Math.min(100, bytes.length); i++) {
       const byte = bytes[i];
@@ -214,14 +343,14 @@ class MinimalThyraUploader {
   }
 }
 
-// Enhanced Netlify function handler
+// Enhanced Netlify function handler with timeout delegation and decryption
 exports.handler = async (event, context) => {
   const startTime = Date.now();
   
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Internal-Call, X-Original-Host',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS'
   };
 
@@ -233,6 +362,204 @@ exports.handler = async (event, context) => {
     };
   }
 
+  // Check domain restrictions for all requests (unless using Cloudflare protection)
+  if (CONFIG.ADMIN.DOMAIN_RESTRICTION_ENABLED) {
+    const domainCheck = checkDomainAccess(event.headers);
+    if (!domainCheck.allowed) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          error: 'ACCESS_DENIED',
+          message: 'Access not allowed from this domain',
+          duration: Date.now() - startTime
+        })
+      };
+    }
+  }
+
+  // Handle GET requests for decryption and info
+  if (event.httpMethod === 'GET') {
+    // Check if this is a request for API info/health check
+    if (!event.queryStringParameters?.url) {
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          name: 'Thyra API',
+          version: '1.0.0',
+          description: 'Encrypted file storage and sharing API',
+          endpoints: {
+            'POST /': 'Upload and encrypt files',
+            'GET /?url=<shareUrl>': 'Decrypt and retrieve files',
+            'GET /': 'API information (this endpoint)'
+          },
+          limits: {
+            maxUploadSize: `${Math.floor(CONFIG.MAX_ALREADY_ENCRYPTED / 1024)}KB`,
+            maxEncryptionSize: `${Math.floor(CONFIG.MAX_RAW_FOR_ENCRYPTION / 1024)}KB`,
+            maxDecryptionSize: `${Math.floor(CONFIG.MAX_DECRYPTION_SIZE / 1024)}KB`
+          },
+          features: {
+            encryption: 'AES-256-GCM',
+            storage: 'Arweave (permanent)',
+            delegation: 'Timeout protection enabled',
+            domainRestriction: CONFIG.ADMIN.DOMAIN_RESTRICTION_ENABLED,
+            decryptionEndpoint: CONFIG.ADMIN.DECRYPTION_ENABLED
+          },
+          status: 'operational',
+          timestamp: new Date().toISOString(),
+          duration: Date.now() - startTime
+        })
+      };
+    }
+
+    // Handle decryption request (existing logic)
+    if (!CONFIG.ADMIN.DECRYPTION_ENABLED) {
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          error: 'ENDPOINT_DISABLED',
+          message: 'Decryption endpoint is currently disabled',
+          duration: Date.now() - startTime
+        })
+      };
+    }
+
+    // Handle decryption request
+    try {
+      const shareUrl = event.queryStringParameters?.url;
+      
+      if (!shareUrl) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            error: 'MISSING_PARAMETER',
+            message: 'Required parameter missing',
+            duration: Date.now() - startTime
+          })
+        };
+      }
+
+      const uploader = new MinimalThyraUploader();
+      
+      // Parse the share URL
+      const { arweaveUrl, encryptionKey, contentType } = parseShareUrl(shareUrl);
+      
+      if (!encryptionKey) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            error: 'CONTENT_NOT_ENCRYPTED',
+            message: 'Content is not encrypted',
+            duration: Date.now() - startTime
+          })
+        };
+      }
+
+      // Fetch content from Arweave with size validation
+      const arweaveResponse = await fetch(arweaveUrl);
+      if (!arweaveResponse.ok) {
+        throw new Error('Failed to fetch content');
+      }
+
+      // Check content size before processing
+      const contentLength = arweaveResponse.headers.get('content-length');
+      if (contentLength && parseInt(contentLength) > CONFIG.MAX_DECRYPTION_SIZE) {
+        throw new Error('Content too large for decryption');
+      }
+
+      const encryptedContent = await arweaveResponse.text();
+      
+      // Additional size check after fetch
+      if (encryptedContent.length > CONFIG.MAX_DECRYPTION_SIZE) {
+        throw new Error('Content too large for decryption');
+      }
+      
+      // Parse encrypted JSON
+      let encryptedData;
+      try {
+        encryptedData = JSON.parse(encryptedContent);
+        
+        // Validate encrypted data structure
+        if (!encryptedData.algorithm || !encryptedData.encrypted || !encryptedData.iv || !encryptedData.authTag) {
+          throw new Error('Invalid encrypted format');
+        }
+      } catch (error) {
+        throw new Error('Invalid content format');
+      }
+
+      // Validate encryption key
+      const keyBuffer = uploader.validateEncryptionKey(encryptionKey);
+      if (!keyBuffer) {
+        throw new Error('Invalid encryption key');
+      }
+
+      // Decrypt the content
+      const decryptedBuffer = await uploader.decryptContent(encryptedData, keyBuffer);
+      
+      // Determine how to return the content
+      const isText = contentType?.startsWith('text/') || 
+                    contentType?.includes('json') || 
+                    uploader.isTextContent(decryptedBuffer.slice(0, 100));
+
+      if (isText) {
+        // Return text content as JSON
+        return {
+          statusCode: 200,
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            success: true,
+            content: decryptedBuffer.toString('utf8'),
+            contentType: contentType || 'text/plain',
+            size: decryptedBuffer.length,
+            duration: Date.now() - startTime
+          })
+        };
+      } else {
+        // Return binary content as base64
+        return {
+          statusCode: 200,
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            success: true,
+            content: decryptedBuffer.toString('base64'),
+            isBase64: true,
+            contentType: contentType || 'application/octet-stream',
+            size: decryptedBuffer.length,
+            duration: Date.now() - startTime
+          })
+        };
+      }
+
+    } catch (error) {
+      safeError('Decryption error:', error);
+      
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          error: 'DECRYPTION_FAILED',
+          message: error.message,
+          duration: Date.now() - startTime
+        })
+      };
+    }
+  }
+
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -240,7 +567,7 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         success: false,
         error: 'METHOD_NOT_ALLOWED',
-        message: 'Only POST method allowed',
+        message: 'Only POST and GET methods allowed',
         duration: Date.now() - startTime
       })
     };
@@ -254,122 +581,222 @@ exports.handler = async (event, context) => {
     let contentBuffer;
     let originalFilename = 'upload';
     let detectedContentType = 'application/octet-stream';
+    let isInternalCall = false;
 
-    // NEW: Check if this is a multipart file upload
-    const contentType = event.headers['content-type'] || '';
-    
-    if (contentType.includes('multipart/form-data')) {
-      // Handle file upload - load parser only when needed
-      let multipart;
-      try {
-        multipart = require('lambda-multipart-parser');
-      } catch (err) {
-        return {
-          statusCode: 500,
-          headers,
-          body: JSON.stringify({
-            success: false,
-            error: 'MULTIPART_NOT_AVAILABLE',
-            message: 'File upload functionality not available. Install lambda-multipart-parser.',
-            duration: Date.now() - startTime
-          })
-        };
-      }
+    // Check if this is an internal delegation call
+    isInternalCall = event.headers['x-internal-call'] === 'true' || 
+                     event.queryStringParameters?.internal === 'true';
 
+    // Prevent infinite delegation loops
+    const delegationDepth = parseInt(event.headers['x-delegation-depth'] || '0');
+    if (delegationDepth >= 1) {
+      safeLog('Maximum delegation depth reached, processing in current function');
+      isInternalCall = false; // Force processing in current function
+    }
+
+    if (isInternalCall) {
+      // Handle internal delegation call - data is already processed
       try {
-        const result = await multipart.parse(event);
+        const internalData = JSON.parse(event.body);
         
-        if (!result.files || result.files.length === 0) {
-          return {
-            statusCode: 400,
-            headers,
-            body: JSON.stringify({
-              success: false,
-              error: 'NO_FILE_PROVIDED',
-              message: 'No file provided in multipart upload',
-              duration: Date.now() - startTime
-            })
-          };
+        // Handle both old (base64) and new (array) formats for backward compatibility
+        if (internalData.processedContent) {
+          // Old format - base64 encoded (backward compatibility)
+          contentBuffer = Buffer.from(internalData.processedContent, 'base64');
+        } else if (internalData.contentBuffer) {
+          // New format - buffer as array
+          contentBuffer = Buffer.from(internalData.contentBuffer);
+        } else {
+          throw new Error('Missing content data');
         }
-
-        const file = result.files[0];
-        contentBuffer = Buffer.from(file.content);
-        originalFilename = file.filename || 'upload';
-        detectedContentType = uploader.detectContentType(contentBuffer, originalFilename, file.contentType);
-
-        // Extract form parameters
+        
+        originalFilename = internalData.originalFilename || 'upload';
+        detectedContentType = internalData.detectedContentType || 'application/octet-stream';
+        
         requestData = {
-          encrypt: result.encrypt === 'true' || result.encrypt === true,
-          customKey: result.customKey || null,
-          note: result.note || null,
-          id: result.id || null,
-          includeWallet: result.includeWallet === 'true' || result.includeWallet === true,
-          formContentType: result.contentType || detectedContentType
+          encrypt: internalData.encrypt,
+          customKey: internalData.customKey,
+          note: internalData.note,
+          id: internalData.id,
+          includeWallet: internalData.includeWallet,
+          formContentType: internalData.formContentType
         };
 
+        safeLog(`Internal call processing: ${Math.round(contentBuffer.length/1024)}KB file`);
+        
       } catch (parseError) {
         return {
           statusCode: 400,
           headers,
           body: JSON.stringify({
             success: false,
-            error: 'MULTIPART_PARSE_ERROR',
-            message: `Failed to parse multipart data: ${parseError.message}`,
+            error: 'INVALID_REQUEST',
+            message: 'Invalid internal request format',
             duration: Date.now() - startTime
           })
         };
       }
 
     } else {
-      // Handle JSON request (existing functionality)
-      try {
-        requestData = JSON.parse(event.body || '{}');
-      } catch (err) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({
-            success: false,
-            error: 'INVALID_JSON',
-            message: 'Invalid JSON in request body',
-            duration: Date.now() - startTime
-          })
-        };
+      // Handle normal request (existing functionality)
+      const contentType = event.headers['content-type'] || '';
+      
+      if (contentType.includes('multipart/form-data')) {
+        // Handle file upload - load parser only when needed
+        let multipart;
+        try {
+          multipart = require('lambda-multipart-parser');
+        } catch (err) {
+          return {
+            statusCode: 500,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              error: 'MULTIPART_NOT_AVAILABLE',
+              message: 'File upload functionality not available. Install lambda-multipart-parser.',
+              duration: Date.now() - startTime
+            })
+          };
+        }
+
+        try {
+          const result = await multipart.parse(event, {
+            maxFileSize: CONFIG.MAX_ALREADY_ENCRYPTED, // Reject large files early
+            maxFiles: 1 // Only allow single file upload
+          });
+          
+          if (!result.files || result.files.length === 0) {
+            return {
+              statusCode: 400,
+              headers,
+              body: JSON.stringify({
+                success: false,
+                error: 'NO_FILE_PROVIDED',
+                message: 'No file provided in multipart upload',
+                duration: Date.now() - startTime
+              })
+            };
+          }
+
+          const file = result.files[0];
+          contentBuffer = Buffer.from(file.content);
+          originalFilename = file.filename || 'upload';
+          
+          // Cache content type detection result
+          detectedContentType = uploader.detectContentType(contentBuffer, originalFilename, file.contentType);
+
+          // Extract form parameters
+          requestData = {
+            encrypt: result.encrypt === 'true' || result.encrypt === true,
+            customKey: result.customKey || null,
+            note: result.note || null,
+            id: result.id || null,
+            includeWallet: result.includeWallet === 'true' || result.includeWallet === true,
+            formContentType: result.contentType || detectedContentType
+          };
+
+        } catch (parseError) {
+          // Handle multipart parsing errors including size limits
+          const errorMessage = parseError.message.toLowerCase();
+          
+          if (errorMessage.includes('file too large') || errorMessage.includes('maxfilesize')) {
+            return {
+              statusCode: 413,
+              headers,
+              body: JSON.stringify({
+                success: false,
+                error: 'FILE_TOO_LARGE',
+                message: 'File size exceeds limit',
+                duration: Date.now() - startTime
+              })
+            };
+          }
+          
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              error: 'INVALID_UPLOAD',
+              message: 'Failed to process file upload',
+              duration: Date.now() - startTime
+            })
+          };
+        }
+
+      } else {
+        // Handle JSON request (existing functionality)
+        try {
+          requestData = JSON.parse(event.body || '{}');
+        } catch (err) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              error: 'INVALID_JSON',
+              message: 'Invalid JSON in request body',
+              duration: Date.now() - startTime
+            })
+          };
+        }
+
+        const { content, isBase64 = false } = requestData;
+
+        if (!content && content !== "") {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              error: 'MISSING_CONTENT',
+              message: 'Content is required',
+              duration: Date.now() - startTime
+            })
+          };
+        }
+
+        // Convert content to buffer
+        try {
+          contentBuffer = isBase64 ? Buffer.from(content, 'base64') : Buffer.from(content, 'utf8');
+          // Cache content type detection result
+          detectedContentType = uploader.detectContentType(contentBuffer);
+        } catch (err) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              error: 'INVALID_CONTENT',
+              message: 'Invalid content format',
+              duration: Date.now() - startTime
+            })
+          };
+        }
       }
 
-      const { content, isBase64 = false } = requestData;
+      // Check if we should delegate to a fresh function (timeout protection)
+      const uploadDuration = Date.now() - startTime;
+      const shouldDelegate = uploadDuration > CONFIG.TIMEOUT_THRESHOLD && contentBuffer.length > 10 * 1024; // Only for files > 10KB
 
-      if (!content && content !== "") {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({
-            success: false,
-            error: 'MISSING_CONTENT',
-            message: 'Content is required',
-            duration: Date.now() - startTime
-          })
-        };
-      }
-
-      // Convert content to buffer
-      try {
-        contentBuffer = isBase64 ? Buffer.from(content, 'base64') : Buffer.from(content, 'utf8');
-        detectedContentType = uploader.detectContentType(contentBuffer);
-      } catch (err) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({
-            success: false,
-            error: 'INVALID_CONTENT',
-            message: 'Invalid content format',
-            duration: Date.now() - startTime
-          })
-        };
+      if (shouldDelegate) {
+        safeLog(`Upload took ${uploadDuration}ms, delegating to fresh function for ${Math.round(contentBuffer.length/1024)}KB file`);
+        
+        try {
+          return await delegateToFreshFunction({
+            contentBuffer: Array.from(contentBuffer), // Convert buffer to array for JSON serialization
+            originalFilename,
+            detectedContentType,
+            ...requestData
+          }, event.headers, startTime, delegationDepth);
+        } catch (delegationError) {
+          safeError('Delegation failed, continuing with current function:', delegationError);
+          // Fall through to continue processing in current function
+        }
       }
     }
 
+    // Continue with normal processing (existing functionality)
     const {
       encrypt = true,
       customKey = null,
@@ -487,7 +914,7 @@ exports.handler = async (event, context) => {
     };
 
   } catch (error) {
-    console.error('Upload error:', error);
+    safeError('Upload error:', error);
 
     let errorCode = 'UPLOAD_FAILED';
     let statusCode = 500;
@@ -521,3 +948,53 @@ exports.handler = async (event, context) => {
     };
   }
 };
+
+// Helper function to delegate to a fresh function instance
+async function delegateToFreshFunction(processedData, originalHeaders, originalStartTime, currentDepth = 0) {
+  const protocol = originalHeaders['x-forwarded-proto'] || 'https';
+  const host = originalHeaders['host'];
+  const baseUrl = `${protocol}://${host}`;
+  
+  // Extract the function path from the request
+  const functionPath = '/.netlify/functions/arload';
+  const delegationUrl = `${baseUrl}${functionPath}?internal=true`;
+
+  try {
+    const response = await fetch(delegationUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Call': 'true',
+        'X-Delegation-Depth': (currentDepth + 1).toString(),
+        'X-Original-Host': originalHeaders['host'],
+        'User-Agent': 'Thyra-Internal-Delegation/1.0'
+      },
+      body: JSON.stringify(processedData),
+      timeout: 9000 // 9 second timeout for the delegated call
+    });
+
+    if (!response.ok) {
+      throw new Error(`Delegation failed with status ${response.status}`);
+    }
+
+    const responseData = await response.json();
+    
+    // Add delegation info to response
+    responseData.delegated = true;
+    responseData.originalDuration = Date.now() - originalStartTime;
+
+    return {
+      statusCode: response.status,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Internal-Call, X-Original-Host',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS'
+      },
+      body: JSON.stringify(responseData)
+    };
+
+  } catch (fetchError) {
+    throw new Error('Delegation request failed');
+  }
+}
