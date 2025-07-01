@@ -1,6 +1,5 @@
-// netlify/functions/arload.js - Enhanced version with file upload support
+// netlify/functions/arload.js
 const crypto = require('crypto');
-// Note: multipart parser loaded conditionally below for better performance
 
 // Configuration constants
 const CONFIG = {
@@ -10,19 +9,16 @@ const CONFIG = {
   ENCRYPTION_OVERHEAD_PERCENT: 37, // Real-world encryption overhead: ~37%
   ARWEAVE_HOST: 'arweave.net',
   TURBO_UPLOAD_URL: 'https://upload.ardrive.io/v1/tx',
-  TIMEOUT_THRESHOLD: 2000, // 2 seconds - if upload took longer, delegate to fresh function
+  TIMEOUT_THRESHOLD: 3000, // 3 seconds - if upload took longer, delegate to fresh function
   MAX_FUNCTION_TIMEOUT: 9500, // 9.5 seconds - leave 500ms buffer
   
-  // Admin controls - easily configurable
+  // Admin controls
   ADMIN: {
     DECRYPTION_ENABLED: true, // Set to false to disable decryption endpoint
     DOMAIN_RESTRICTION_ENABLED: false, // Set to true to enable domain restrictions
     LOGGING_ENABLED: true, // Set to false to disable all console.log for privacy
     ALLOWED_DOMAINS: [
-      'your-domain.com',
-      'localhost:3000',
-      'localhost:8080'
-      // Add more domains as needed
+      'komvos.net'
     ]
   }
 
@@ -122,7 +118,7 @@ function parseShareUrl(shareUrl) {
 }
 };
 
-// Core uploader class (same as before)
+// Core uploader class
 class MinimalThyraUploader {
   constructor() {
     this.arweave = null;
@@ -313,7 +309,7 @@ class MinimalThyraUploader {
     return 'application/octet-stream';
   }
 
-  // NEW: Decrypt content using AES-GCM
+  // Decrypt content using AES-GCM
   async decryptContent(encryptedData, key) {
     if (!encryptedData.algorithm || encryptedData.algorithm !== 'aes-256-gcm') {
       throw new Error('Unsupported encryption algorithm');
@@ -343,7 +339,7 @@ class MinimalThyraUploader {
   }
 }
 
-// Enhanced Netlify function handler with timeout delegation and decryption
+// Enhanced function handler with timeout delegation and decryption
 exports.handler = async (event, context) => {
   const startTime = Date.now();
   
@@ -414,7 +410,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Handle decryption request (existing logic)
+    // Handle decryption request
     if (!CONFIG.ADMIN.DECRYPTION_ENABLED) {
       return {
         statusCode: 404,
@@ -447,7 +443,7 @@ exports.handler = async (event, context) => {
 
       const uploader = new MinimalThyraUploader();
       
-      // Parse the share URL
+      // Parse the shareUrl
       const { arweaveUrl, encryptionKey, contentType } = parseShareUrl(shareUrl);
       
       if (!encryptionKey) {
@@ -599,12 +595,10 @@ exports.handler = async (event, context) => {
       try {
         const internalData = JSON.parse(event.body);
         
-        // Handle both old (base64) and new (array) formats for backward compatibility
+        // Handle both base64 and array formats for backward compatibility
         if (internalData.processedContent) {
-          // Old format - base64 encoded (backward compatibility)
           contentBuffer = Buffer.from(internalData.processedContent, 'base64');
         } else if (internalData.contentBuffer) {
-          // New format - buffer as array
           contentBuffer = Buffer.from(internalData.contentBuffer);
         } else {
           throw new Error('Missing content data');
@@ -638,7 +632,7 @@ exports.handler = async (event, context) => {
       }
 
     } else {
-      // Handle normal request (existing functionality)
+      // Handle normal request
       const contentType = event.headers['content-type'] || '';
       
       if (contentType.includes('multipart/form-data')) {
@@ -725,7 +719,7 @@ exports.handler = async (event, context) => {
         }
 
       } else {
-        // Handle JSON request (existing functionality)
+        // Handle JSON request
         try {
           requestData = JSON.parse(event.body || '{}');
         } catch (err) {
@@ -796,7 +790,7 @@ exports.handler = async (event, context) => {
       }
     }
 
-    // Continue with normal processing (existing functionality)
+    // Continue with normal processing
     const {
       encrypt = true,
       customKey = null,
