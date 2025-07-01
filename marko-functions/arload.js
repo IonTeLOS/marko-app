@@ -6,6 +6,7 @@ const CONFIG = {
   MAX_SIZE_BYTES: 100 * 1024, // 100KB final upload limit
   MAX_RAW_FOR_ENCRYPTION: 72 * 1024, // 72KB max raw content that will be encrypted
   MAX_ALREADY_ENCRYPTED: 95 * 1024, // 95KB max for already encrypted or unencrypted content
+  MAX_DECRYPTION_SIZE: 1024 * 1024, // 1MB max for decryption (larger since we're just fetching)
   ENCRYPTION_OVERHEAD_PERCENT: 37, // Real-world encryption overhead: ~37%
   ARWEAVE_HOST: 'arweave.net',
   TURBO_UPLOAD_URL: 'https://upload.ardrive.io/v1/tx',
@@ -18,104 +19,12 @@ const CONFIG = {
     DOMAIN_RESTRICTION_ENABLED: false, // Set to true to enable domain restrictions
     LOGGING_ENABLED: true, // Set to false to disable all console.log for privacy
     ALLOWED_DOMAINS: [
-      'komvos.net'
+      'komvos.net',
+      'localhost:3000',
+      'localhost:8080'
+      // Add more domains as needed
     ]
   }
-
-// Privacy-aware logging function
-function safeLog(...args) {
-  if (CONFIG.ADMIN.LOGGING_ENABLED) {
-    console.log(...args);
-  }
-}
-
-function safeError(...args) {
-  if (CONFIG.ADMIN.LOGGING_ENABLED) {
-    console.error(...args);
-  }
-}
-
-// Helper function to check domain restrictions
-function checkDomainAccess(headers) {
-  if (!CONFIG.ADMIN.DOMAIN_RESTRICTION_ENABLED) {
-    return { allowed: true }; // Domain restrictions disabled
-  }
-
-  const origin = headers.origin || headers.referer;
-  
-  if (!origin) {
-    return { 
-      allowed: false, 
-      error: 'MISSING_ORIGIN',
-      message: 'Origin header required when domain restrictions are enabled'
-    };
-  }
-
-  try {
-    const originUrl = new URL(origin);
-    const domain = originUrl.hostname + (originUrl.port ? `:${originUrl.port}` : '');
-    
-    const isAllowed = CONFIG.ADMIN.ALLOWED_DOMAINS.some(allowedDomain => {
-      // Exact match or subdomain match
-      return domain === allowedDomain || domain.endsWith(`.${allowedDomain}`);
-    });
-
-    if (!isAllowed) {
-      return {
-        allowed: false,
-        error: 'DOMAIN_NOT_ALLOWED',
-        message: `Domain ${domain} is not in the allowed list`
-      };
-    }
-
-    return { allowed: true, domain };
-    
-  } catch (error) {
-    return {
-      allowed: false,
-      error: 'INVALID_ORIGIN',
-      message: 'Invalid origin header format'
-    };
-  }
-}
-
-// Helper function to parse share URL and extract components
-function parseShareUrl(shareUrl) {
-  try {
-    const url = new URL(shareUrl);
-    const params = new URLSearchParams(url.search);
-    
-    const encodedArweaveUrl = params.get('url');
-    const encryptionKey = params.get('key');
-    const contentType = params.get('type');
-
-    if (!encodedArweaveUrl) {
-      throw new Error('Missing URL parameter');
-    }
-
-    // Validate base64 before decoding
-    try {
-      const arweaveUrl = atob(encodedArweaveUrl);
-      
-      // Validate it's a proper Arweave URL
-      if (!arweaveUrl.startsWith('https://arweave.net/') && !arweaveUrl.startsWith('https://ar-io.net/')) {
-        throw new Error('Invalid Arweave URL');
-      }
-      
-      return {
-        arweaveUrl,
-        encryptionKey: encryptionKey ? decodeURIComponent(encryptionKey) : null,
-        contentType: contentType ? decodeURIComponent(contentType) : null
-      };
-      
-    } catch (decodeError) {
-      throw new Error('Invalid URL encoding');
-    }
-    
-  } catch (error) {
-    throw new Error('Invalid share URL format');
-  }
-}
 };
 
 // Core uploader class
@@ -254,7 +163,26 @@ class MinimalThyraUploader {
     }
   }
 
-  // NEW: Detect content type from file
+  // Decrypt content using AES-GCM
+  async decryptContent(encryptedData, key) {
+    if (!encryptedData.algorithm || encryptedData.algorithm !== 'aes-256-gcm') {
+      throw new Error('Unsupported encryption algorithm');
+    }
+
+    const iv = Buffer.from(encryptedData.iv, 'base64');
+    const authTag = Buffer.from(encryptedData.authTag, 'base64');
+    const encrypted = Buffer.from(encryptedData.encrypted, 'base64');
+
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(authTag);
+
+    let decrypted = decipher.update(encrypted);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+
+    return decrypted;
+  }
+
+  // Detect content type from file
   detectContentType(buffer, filename = '', mimeType = '') {
     // Use provided mime type if available
     if (mimeType && mimeType !== 'application/octet-stream') {
@@ -309,25 +237,6 @@ class MinimalThyraUploader {
     return 'application/octet-stream';
   }
 
-  // Decrypt content using AES-GCM
-  async decryptContent(encryptedData, key) {
-    if (!encryptedData.algorithm || encryptedData.algorithm !== 'aes-256-gcm') {
-      throw new Error('Unsupported encryption algorithm');
-    }
-
-    const iv = Buffer.from(encryptedData.iv, 'base64');
-    const authTag = Buffer.from(encryptedData.authTag, 'base64');
-    const encrypted = Buffer.from(encryptedData.encrypted, 'base64');
-
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAuthTag(authTag);
-
-    let decrypted = decipher.update(encrypted);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-
-    return decrypted;
-  }
-
   isTextContent(bytes) {
     for (let i = 0; i < Math.min(100, bytes.length); i++) {
       const byte = bytes[i];
@@ -339,7 +248,102 @@ class MinimalThyraUploader {
   }
 }
 
-// Enhanced function handler with timeout delegation and decryption
+// Privacy-aware logging functions
+function safeLog(...args) {
+  if (CONFIG.ADMIN.LOGGING_ENABLED) {
+    console.log(...args);
+  }
+}
+
+function safeError(...args) {
+  if (CONFIG.ADMIN.LOGGING_ENABLED) {
+    console.error(...args);
+  }
+}
+
+// Helper function to check domain restrictions
+function checkDomainAccess(headers) {
+  if (!CONFIG.ADMIN.DOMAIN_RESTRICTION_ENABLED) {
+    return { allowed: true }; // Domain restrictions disabled
+  }
+
+  const origin = headers.origin || headers.referer;
+  
+  if (!origin) {
+    return { 
+      allowed: false, 
+      error: 'MISSING_ORIGIN',
+      message: 'Origin header required when domain restrictions are enabled'
+    };
+  }
+
+  try {
+    const originUrl = new URL(origin);
+    const domain = originUrl.hostname + (originUrl.port ? `:${originUrl.port}` : '');
+    
+    const isAllowed = CONFIG.ADMIN.ALLOWED_DOMAINS.some(allowedDomain => {
+      // Exact match or subdomain match
+      return domain === allowedDomain || domain.endsWith(`.${allowedDomain}`);
+    });
+
+    if (!isAllowed) {
+      return {
+        allowed: false,
+        error: 'DOMAIN_NOT_ALLOWED',
+        message: `Domain ${domain} is not in the allowed list`
+      };
+    }
+
+    return { allowed: true, domain };
+    
+  } catch (error) {
+    return {
+      allowed: false,
+      error: 'INVALID_ORIGIN',
+      message: 'Invalid origin header format'
+    };
+  }
+}
+
+// Helper function to parse share URL and extract components
+function parseShareUrl(shareUrl) {
+  try {
+    const url = new URL(shareUrl);
+    const params = new URLSearchParams(url.search);
+    
+    const encodedArweaveUrl = params.get('url');
+    const encryptionKey = params.get('key');
+    const contentType = params.get('type');
+
+    if (!encodedArweaveUrl) {
+      throw new Error('Missing URL parameter');
+    }
+
+    // Validate base64 before decoding
+    try {
+      const arweaveUrl = atob(encodedArweaveUrl);
+      
+      // Validate it's a proper Arweave URL
+      if (!arweaveUrl.startsWith('https://arweave.net/') && !arweaveUrl.startsWith('https://ar-io.net/')) {
+        throw new Error('Invalid Arweave URL');
+      }
+      
+      return {
+        arweaveUrl,
+        encryptionKey: encryptionKey ? decodeURIComponent(encryptionKey) : null,
+        contentType: contentType ? decodeURIComponent(contentType) : null
+      };
+      
+    } catch (decodeError) {
+      throw new Error('Invalid URL encoding');
+    }
+    
+  } catch (error) {
+    throw new Error('Invalid share URL format');
+  }
+}
+
+// Function handler with timeout delegation and decryption
 exports.handler = async (event, context) => {
   const startTime = Date.now();
   
@@ -418,7 +422,7 @@ exports.handler = async (event, context) => {
         body: JSON.stringify({
           success: false,
           error: 'ENDPOINT_DISABLED',
-          message: 'Decryption endpoint is currently disabled',
+          message: 'Service temporarily unavailable',
           duration: Date.now() - startTime
         })
       };
@@ -443,7 +447,7 @@ exports.handler = async (event, context) => {
 
       const uploader = new MinimalThyraUploader();
       
-      // Parse the shareUrl
+      // Parse the share URL
       const { arweaveUrl, encryptionKey, contentType } = parseShareUrl(shareUrl);
       
       if (!encryptionKey) {
@@ -548,8 +552,8 @@ exports.handler = async (event, context) => {
         headers,
         body: JSON.stringify({
           success: false,
-          error: 'DECRYPTION_FAILED',
-          message: error.message,
+          error: 'PROCESSING_FAILED',
+          message: 'Unable to process request',
           duration: Date.now() - startTime
         })
       };
@@ -783,7 +787,6 @@ exports.handler = async (event, context) => {
             detectedContentType,
             ...requestData
           }, event.headers, startTime, delegationDepth);
-        } catch (delegationError) {
           safeError('Delegation failed, continuing with current function:', delegationError);
           // Fall through to continue processing in current function
         }
