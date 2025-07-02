@@ -837,14 +837,14 @@
 
             showFileInfo(isDecrypted = false) {
                 const fileInfo = document.getElementById('fileInfo');
-                const fileName = document.getElementById('fileName').querySelector('span');
-                const fileSize = document.getElementById('fileSize').querySelector('span');
-                const fileType = document.getElementById('fileType').querySelector('span');
-                const isEncrypted = document.getElementById('isEncrypted').querySelector('span');
+                const fileNameEl   = document.getElementById('fileName');
+                const fileSizeEl   = document.getElementById('fileSize');
+                const fileTypeEl   = document.getElementById('fileType');
+                const isEncryptedEl= document.getElementById('isEncrypted');
 
-                fileName.textContent = this.originalFilename;
-                fileSize.textContent = this.getContentSize(isDecrypted);
-                fileType.textContent = this.contentType;
+                fileNameEl.textContent      = this.originalFilename;
+                fileSizeEl.textContent      = this.getContentSize(isDecrypted);
+                fileTypeEl.textContent      = this.contentType;
                 
                 let encryptionStatus = 'No';
                 if (this.isEncrypted) {
@@ -854,7 +854,7 @@
                         encryptionStatus = this.requiresPassword ? 'Yes (Password Protected)' : 'Yes (Key Protected)';
                     }
                 }
-                isEncrypted.textContent = encryptionStatus;
+                isEncryptedEl.textContent = encryptionStatus;
 
                 fileInfo.style.display = 'block';
             }
