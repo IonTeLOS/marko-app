@@ -4,7 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Thyra Share - Decrypt & Download</title>
+    <meta name="description" content="Access and decrypt securely shared files and messages from Arweave">
+
+    <!-- Material Design Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+
     <style>
+        :root {
+            --primary: #1976d2;
+            --primary-dark: #1565c0;
+            --primary-light: #42a5f5;
+            --secondary: #dc004e;
+            --surface: #ffffff;
+            --background: #f5f5f5;
+            --on-surface: #1d1d1d;
+            --on-primary: #ffffff;
+            --border: #e0e0e0;
+            --shadow: rgba(0, 0, 0, 0.1);
+            --success: #4caf50;
+            --warning: #ff9800;
+            --error: #f44336;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -12,78 +34,117 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
+            font-family: 'Roboto', sans-serif;
+            background: var(--background);
+            color: var(--on-surface);
+            line-height: 1.6;
+            overflow-x: hidden;
         }
 
         .container {
-            max-width: 800px;
+            max-width: 480px;
             margin: 0 auto;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            overflow: hidden;
+            padding: 16px;
+            min-height: 100vh;
         }
 
         .header {
-            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-            color: white;
-            padding: 30px;
             text-align: center;
+            margin-bottom: 32px;
+            padding-top: 24px;
         }
 
-        .header h1 {
-            font-size: 2.2rem;
-            margin-bottom: 10px;
-            font-weight: 600;
+        .logo {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -1px;
         }
 
-        .header p {
-            opacity: 0.9;
+        .subtitle {
+            color: #666;
+            font-size: 0.9rem;
+            font-weight: 400;
+        }
+
+        .card {
+            background: var(--surface);
+            border-radius: 16px;
+            box-shadow: 0 2px 16px var(--shadow);
+            margin-bottom: 24px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-header {
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .card-header .material-icons {
+            color: var(--primary);
+            font-size: 24px;
+        }
+
+        .card-title {
             font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--on-surface);
         }
 
-        .content {
-            padding: 40px;
+        .card-content {
+            padding: 24px;
         }
 
         .status {
             padding: 20px;
             border-radius: 12px;
-            margin-bottom: 30px;
+            margin-bottom: 24px;
             text-align: center;
             font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
         }
 
         .status.loading {
-            background: #f0f9ff;
-            color: #0369a1;
-            border: 2px solid #bae6fd;
+            background: rgba(25, 118, 210, 0.1);
+            color: var(--primary);
+            border: 2px solid rgba(25, 118, 210, 0.2);
         }
 
         .status.success {
-            background: #f0fdf4;
-            color: #166534;
-            border: 2px solid #bbf7d0;
+            background: rgba(76, 175, 80, 0.1);
+            color: var(--success);
+            border: 2px solid rgba(76, 175, 80, 0.2);
         }
 
         .status.error {
-            background: #fef2f2;
-            color: #dc2626;
-            border: 2px solid #fecaca;
+            background: rgba(244, 67, 54, 0.1);
+            color: var(--error);
+            border: 2px solid rgba(244, 67, 54, 0.2);
         }
 
         .spinner {
             display: inline-block;
-            width: 24px;
-            height: 24px;
-            border: 3px solid #e5e7eb;
-            border-top: 3px solid #4f46e5;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(25, 118, 210, 0.3);
+            border-top: 2px solid var(--primary);
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin-right: 10px;
         }
 
         @keyframes spin {
@@ -91,19 +152,129 @@
             100% { transform: rotate(360deg); }
         }
 
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--on-surface);
+            margin-bottom: 8px;
+        }
+
+        .input {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-size: 1rem;
+            font-family: inherit;
+            background: var(--surface);
+            color: var(--on-surface);
+            transition: all 0.3s ease;
+        }
+
+        .input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(25, 118, 210, 0.1);
+        }
+
+        .input[type="password"] {
+            font-family: inherit;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: var(--on-primary);
+            border: none;
+            border-radius: 12px;
+            padding: 16px 24px;
+            font-size: 1rem;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            text-decoration: none;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(25, 118, 210, 0.3);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--primary);
+            color: var(--on-primary);
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.875rem;
+            width: auto;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #388e3c;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .btn-row .btn {
+            flex: 1;
+            min-width: 120px;
+        }
+
         .content-display {
-            background: #f8fafc;
+            background: rgba(25, 118, 210, 0.05);
+            border: 1px solid rgba(25, 118, 210, 0.2);
             border-radius: 12px;
             padding: 24px;
             margin: 20px 0;
-            border: 2px solid #e2e8f0;
         }
 
         .content-type {
-            display: inline-block;
-            background: #4f46e5;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--primary);
             color: white;
-            padding: 6px 12px;
+            padding: 8px 16px;
             border-radius: 20px;
             font-size: 0.85rem;
             font-weight: 500;
@@ -111,8 +282,8 @@
         }
 
         .text-content {
-            background: white;
-            border: 1px solid #d1d5db;
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 8px;
             padding: 20px;
             font-family: 'Monaco', 'Menlo', monospace;
@@ -125,8 +296,8 @@
         }
 
         .html-content {
-            background: white;
-            border: 1px solid #d1d5db;
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 8px;
             padding: 20px;
             max-height: 500px;
@@ -141,193 +312,215 @@
             max-width: 100%;
             max-height: 500px;
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
 
-        .actions {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-top: 20px;
-        }
-
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 14px;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .btn-primary {
-            background: #4f46e5;
-            color: white;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            background: #4338ca;
-            transform: translateY(-1px);
-        }
-
-        .btn-secondary {
-            background: #e5e7eb;
-            color: #374151;
-        }
-
-        .btn-secondary:hover:not(:disabled) {
-            background: #d1d5db;
-        }
-
-        .btn-success {
-            background: #10b981;
-            color: white;
-        }
-
-        .btn-success:hover:not(:disabled) {
-            background: #059669;
-        }
-
-        .key-input-section {
-            background: #fffbeb;
-            border: 2px solid #f59e0b;
+        .key-input-section,
+        .password-input-section {
+            background: rgba(255, 152, 0, 0.1);
+            border: 2px solid rgba(255, 152, 0, 0.3);
             border-radius: 12px;
             padding: 24px;
             margin: 20px 0;
         }
 
-        .key-input-section h3 {
-            color: #92400e;
-            margin-bottom: 16px;
-            font-size: 1.1rem;
+        .password-input-section {
+            background: rgba(25, 118, 210, 0.1);
+            border-color: rgba(25, 118, 210, 0.3);
         }
 
-        .key-input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            font-family: 'Monaco', 'Menlo', monospace;
-            font-size: 14px;
-            margin-bottom: 12px;
+        .key-input-section h3,
+        .password-input-section h3 {
+            color: var(--warning);
+            margin-bottom: 16px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .password-input-section h3 {
+            color: var(--primary);
         }
 
         .file-info {
-            background: #f1f5f9;
-            border-left: 4px solid #4f46e5;
+            background: rgba(25, 118, 210, 0.05);
+            border-left: 4px solid var(--primary);
             padding: 16px;
             margin: 20px 0;
             border-radius: 0 8px 8px 0;
         }
 
         .file-info h3 {
-            color: #334155;
+            color: var(--on-surface);
             margin-bottom: 8px;
             font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .file-info p {
-            color: #64748b;
+            color: #666;
             font-size: 0.9rem;
             margin: 4px 0;
         }
 
-        .footer {
-            background: #f8fafc;
-            padding: 20px;
-            text-align: center;
-            border-top: 1px solid #e2e8f0;
-            color: #64748b;
-            font-size: 0.9rem;
+        .file-info strong {
+            color: var(--on-surface);
         }
 
-        @media (max-width: 640px) {
+        .footer {
+            text-align: center;
+            padding: 24px 0;
+            color: #666;
+            font-size: 0.8rem;
+            border-top: 1px solid var(--border);
+            margin-top: 32px;
+        }
+
+        .instructions {
+            background: rgba(25, 118, 210, 0.05);
+            border: 1px solid rgba(25, 118, 210, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        .instructions .material-icons {
+            color: var(--primary);
+            font-size: 20px;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @media (max-width: 480px) {
             .container {
+                padding: 12px;
                 margin: 10px;
-                border-radius: 12px;
             }
 
-            .header {
+            .card-content {
                 padding: 20px;
             }
 
-            .header h1 {
-                font-size: 1.8rem;
-            }
-
-            .content {
-                padding: 20px;
-            }
-
-            .actions {
+            .btn-row {
                 flex-direction: column;
             }
 
-            .btn {
+            .btn-row .btn {
                 width: 100%;
-                justify-content: center;
             }
+
+            .logo {
+                font-size: 2rem;
+            }
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Header -->
         <div class="header">
-            <h1>🔐 Thyra Share</h1>
-            <p>Secure content sharing with decryption</p>
+            <h1 class="logo">🔐 Thyra Share</h1>
+            <p class="subtitle">Secure content sharing with decryption</p>
         </div>
 
-        <div class="content">
-            <div id="status" class="status loading">
-                <div class="spinner"></div>
-                Analyzing shared content...
-            </div>
+        <!-- Instructions -->
+        <div class="instructions fade-in">
+            <span class="material-icons">info</span>
+            Securely access encrypted content shared via Arweave. Enter your password or key to decrypt and view.
+        </div>
 
-            <div id="keyInputSection" class="key-input-section" style="display: none;">
-                <h3>🔑 Decryption Key Required</h3>
-                <p style="margin-bottom: 16px; color: #92400e;">This content is encrypted. Please provide the decryption key:</p>
-                <input type="text" id="keyInput" class="key-input" placeholder="Enter base64 decryption key..." />
-                <button id="decryptBtn" class="btn btn-primary">
-                    <span>🔓</span> Decrypt Content
-                </button>
+        <!-- Main Content Card -->
+        <div class="card fade-in">
+            <div class="card-header">
+                <span class="material-icons">lock_open</span>
+                <h2 class="card-title">Decrypt Content</h2>
             </div>
+            <div class="card-content">
+                <div id="status" class="status loading">
+                    <div class="spinner"></div>
+                    <span>Analyzing shared content...</span>
+                </div>
 
-            <div id="fileInfo" class="file-info" style="display: none;">
-                <h3>📄 File Information</h3>
-                <p id="fileName">Name: <span></span></p>
-                <p id="fileSize">Size: <span></span></p>
-                <p id="fileType">Type: <span></span></p>
-                <p id="isEncrypted">Encrypted: <span></span></p>
-            </div>
+                <div id="keyInputSection" class="key-input-section" style="display: none;">
+                    <h3>
+                        <span class="material-icons">vpn_key</span>
+                        Decryption Key Required
+                    </h3>
+                    <p style="margin-bottom: 16px; color: var(--warning);">This content is encrypted. Please provide the decryption key:</p>
+                    <div class="form-group">
+                        <input type="text" id="keyInput" class="input" placeholder="Enter base64 decryption key..." />
+                    </div>
+                    <button id="decryptBtn" class="btn">
+                        <span class="material-icons">lock_open</span>
+                        Decrypt Content
+                    </button>
+                </div>
 
-            <div id="contentDisplay" class="content-display" style="display: none;">
-                <div id="contentTypeLabel" class="content-type"></div>
-                <div id="contentArea"></div>
-                <div class="actions">
-                    <button id="downloadBtn" class="btn btn-primary">
-                        <span>📥</span> Download File
+                <div id="passwordInputSection" class="password-input-section" style="display: none;">
+                    <h3>
+                        <span class="material-icons">password</span>
+                        Password Required
+                    </h3>
+                    <p style="margin-bottom: 16px; color: var(--primary);">This content is password-protected. Please enter the password:</p>
+                    <div class="form-group">
+                        <input type="password" id="passwordInput" class="input" placeholder="Enter password..." />
+                    </div>
+                    <button id="decryptWithPasswordBtn" class="btn">
+                        <span class="material-icons">lock_open</span>
+                        Decrypt with Password
                     </button>
-                    <button id="copyBtn" class="btn btn-secondary" style="display: none;">
-                        <span>📋</span> Copy Text
-                    </button>
-                    <button id="copySuccessBtn" class="btn btn-success" style="display: none;">
-                        <span>✅</span> Copied!
-                    </button>
+                </div>
+
+                <div id="fileInfo" class="file-info" style="display: none;">
+                    <h3>
+                        <span class="material-icons">description</span>
+                        File Information
+                    </h3>
+                    <p><strong>Name:</strong> <span id="fileName"></span></p>
+                    <p><strong>Size:</strong> <span id="fileSize"></span></p>
+                    <p><strong>Type:</strong> <span id="fileType"></span></p>
+                    <p><strong>Encrypted:</strong> <span id="isEncrypted"></span></p>
+                </div>
+
+                <div id="contentDisplay" class="content-display" style="display: none;">
+                    <div id="contentTypeLabel" class="content-type"></div>
+                    <div id="contentArea"></div>
+                    <div class="btn-row">
+                        <button id="downloadBtn" class="btn">
+                            <span class="material-icons">download</span>
+                            Download File
+                        </button>
+                        <button id="copyBtn" class="btn btn-secondary" style="display: none;">
+                            <span class="material-icons">content_copy</span>
+                            Copy Text
+                        </button>
+                        <button id="copySuccessBtn" class="btn btn-success" style="display: none;">
+                            <span class="material-icons">check</span>
+                            Copied!
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
 
+        <!-- Footer -->
         <div class="footer">
-            <p>Powered by Thyra • Secure • Decentralized • Private</p>
+            Powered by Arweave • Data stored permanently • End-to-end encrypted
         </div>
     </div>
 
@@ -339,6 +532,7 @@
                 this.originalFilename = 'download';
                 this.contentType = 'application/octet-stream';
                 this.isEncrypted = false;
+                this.requiresPassword = false;
                 this.decryptedContent = null;
                 this.init();
             }
@@ -358,6 +552,7 @@
                 const url = params.get('url');
                 const key = params.get('key');
                 const type = params.get('type');
+                const withPass = params.get('withPass');
 
                 if (!url) {
                     throw new Error('No content URL provided');
@@ -366,11 +561,13 @@
                 this.contentUrl = atob(url);
                 this.decryptionKey = key ? decodeURIComponent(key) : null;
                 this.contentTypeHint = type;
+                this.requiresPassword = withPass === 'true';
 
                 console.log('Parsed URL:', {
                     contentUrl: this.contentUrl,
                     hasKey: !!this.decryptionKey,
-                    typeHint: this.contentTypeHint
+                    typeHint: this.contentTypeHint,
+                    requiresPassword: this.requiresPassword
                 });
             }
 
@@ -424,7 +621,10 @@
             async handleEncryptedContent() {
                 this.showFileInfo();
 
-                if (!this.decryptionKey) {
+                if (this.requiresPassword) {
+                    this.showPasswordInput();
+                    return;
+                } else if (!this.decryptionKey) {
                     this.showKeyInput();
                     return;
                 }
@@ -436,6 +636,37 @@
                 this.contentType = this.detectContentType(this.contentData);
                 this.showFileInfo();
                 await this.displayContent(this.contentData);
+            }
+
+            async deriveKeyFromPassword(password) {
+                try {
+                    const encoder = new TextEncoder();
+                    const passwordData = encoder.encode(password);
+                    const keyMaterial = await crypto.subtle.importKey(
+                        'raw',
+                        passwordData,
+                        'PBKDF2',
+                        false,
+                        ['deriveBits']
+                    );
+                    const saltData = encoder.encode('thyra-salt-v1-2025');
+                    const derivedBits = await crypto.subtle.deriveBits(
+                        {
+                            name: 'PBKDF2',
+                            salt: saltData,
+                            iterations: 100000,
+                            hash: 'SHA-256'
+                        },
+                        keyMaterial,
+                        256 // 256 bits = 32 bytes
+                    );
+                    const keyArray = new Uint8Array(derivedBits);
+                    const base64Key = btoa(String.fromCharCode(...keyArray));
+                    return base64Key;
+                } catch (error) {
+                    console.error('Key derivation failed:', error);
+                    throw new Error(`Key derivation failed: ${error.message}`);
+                }
             }
 
             async decryptAndDisplay() {
@@ -614,7 +845,16 @@
                 fileName.textContent = this.originalFilename;
                 fileSize.textContent = this.getContentSize(isDecrypted);
                 fileType.textContent = this.contentType;
-                isEncrypted.textContent = isDecrypted ? 'No (Decrypted)' : (this.isEncrypted ? 'Yes' : 'No');
+                
+                let encryptionStatus = 'No';
+                if (this.isEncrypted) {
+                    if (isDecrypted) {
+                        encryptionStatus = this.requiresPassword ? 'No (Password Decrypted)' : 'No (Key Decrypted)';
+                    } else {
+                        encryptionStatus = this.requiresPassword ? 'Yes (Password Protected)' : 'Yes (Key Protected)';
+                    }
+                }
+                isEncrypted.textContent = encryptionStatus;
 
                 fileInfo.style.display = 'block';
             }
@@ -656,6 +896,48 @@
                         decryptBtn.click();
                     }
                 });
+            }
+
+            showPasswordInput() {
+                const passwordInputSection = document.getElementById('passwordInputSection');
+                const passwordInput = document.getElementById('passwordInput');
+                const decryptWithPasswordBtn = document.getElementById('decryptWithPasswordBtn');
+
+                this.updateStatus('🔐 Password required for decryption', 'error');
+                passwordInputSection.style.display = 'block';
+
+                decryptWithPasswordBtn.onclick = async () => {
+                    const password = passwordInput.value;
+                    if (!password) {
+                        alert('Please enter a password');
+                        return;
+                    }
+
+                    try {
+                        decryptWithPasswordBtn.disabled = true;
+                        decryptWithPasswordBtn.innerHTML = '<div class="spinner"></div>Deriving key...';
+                        
+                        // Derive key from password using the same method as your original function
+                        this.decryptionKey = await this.deriveKeyFromPassword(password);
+                        
+                        passwordInputSection.style.display = 'none';
+                        await this.decryptAndDisplay();
+                    } catch (error) {
+                        console.error('Password decryption failed:', error);
+                        alert('Failed to decrypt with this password. Please check your password and try again.');
+                        decryptWithPasswordBtn.disabled = false;
+                        decryptWithPasswordBtn.innerHTML = '<span>🔓</span> Decrypt with Password';
+                    }
+                };
+
+                passwordInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        decryptWithPasswordBtn.click();
+                    }
+                });
+
+                // Focus on password input
+                passwordInput.focus();
             }
 
             updateStatus(message, type) {
