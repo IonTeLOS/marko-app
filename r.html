@@ -619,6 +619,30 @@
           <input type="checkbox" id="unencrypted-message" class="checkbox">
           <label for="unencrypted-message" class="checkbox-label">Upload without encryption</label>
         </div>
+<!-- For Message Upload section -->
+<div class="checkbox-group">
+  <input type="checkbox" id="password-protected-message" class="checkbox">
+  <label for="password-protected-message" class="checkbox-label">Password protected (pre-shared key)</label>
+</div>
+
+<div class="form-group" id="message-password-group" style="display: none;">
+  <label class="label" for="message-password">Pre-shared password</label>
+  <div class="input-container">
+    <input
+      type="password"
+      class="input"
+      id="message-password"
+      placeholder="Enter pre-shared password..."
+      maxlength="200"
+    >
+    <button class="clear-btn" id="clear-message-password-btn" type="button" style="display: none;">
+      <span class="material-icons">close</span>
+    </button>
+  </div>
+  <div style="font-size: 0.8rem; color: #666; margin-top: 4px;">
+    Share this password with your recipient separately. The URL will not contain the decryption key.
+  </div>
+</div>
 
         <div class="form-group">
           <label class="label" for="message-note">Note (optional)</label>
@@ -684,7 +708,30 @@
           <input type="checkbox" id="unencrypted-file" class="checkbox">
           <label for="unencrypted-file" class="checkbox-label">Upload without encryption</label>
         </div>
+<!-- For File Upload section -->
+<div class="checkbox-group">
+  <input type="checkbox" id="password-protected-file" class="checkbox">
+  <label for="password-protected-file" class="checkbox-label">Password protected (pre-shared key)</label>
+</div>
 
+<div class="form-group" id="file-password-group" style="display: none;">
+  <label class="label" for="file-password">Pre-shared password</label>
+  <div class="input-container">
+    <input
+      type="password"
+      class="input"
+      id="file-password"
+      placeholder="Enter pre-shared password..."
+      maxlength="200"
+    >
+    <button class="clear-btn" id="clear-file-password-btn" type="button" style="display: none;">
+      <span class="material-icons">close</span>
+    </button>
+  </div>
+  <div style="font-size: 0.8rem; color: #666; margin-top: 4px;">
+    Share this password with your recipient separately. The URL will not contain the decryption key.
+  </div>
+</div>
         <div class="form-group">
           <label class="label" for="file-note">Note (optional)</label>
           <div class="input-container">
@@ -772,519 +819,784 @@
     </div>
   </div>
 
-  <script>
-    const API_BASE = 'https://marko-app.netlify.app/.netlify/functions/arload';
+<script>
+const API_BASE = 'https://marko-app.netlify.app/.netlify/functions/arload';
 
-    // DOM elements
-    const messageInput = document.getElementById('message-input');
-    const messageNote = document.getElementById('message-note');
-    const unencryptedMessage = document.getElementById('unencrypted-message');
-    const uploadMessageBtn = document.getElementById('upload-message-btn');
-    const messageLoading = document.getElementById('message-loading');
-    const messageResult = document.getElementById('message-result');
-    const clearMessageBtn = document.getElementById('clear-message-btn');
-    const clearMessageNoteBtn = document.getElementById('clear-message-note-btn');
+// DOM elements
+const messageInput = document.getElementById('message-input');
+const messageNote = document.getElementById('message-note');
+const unencryptedMessage = document.getElementById('unencrypted-message');
+const uploadMessageBtn = document.getElementById('upload-message-btn');
+const messageLoading = document.getElementById('message-loading');
+const messageResult = document.getElementById('message-result');
+const clearMessageBtn = document.getElementById('clear-message-btn');
+const clearMessageNoteBtn = document.getElementById('clear-message-note-btn');
 
-    const fileInput = document.getElementById('file-input');
-    const fileDropZone = document.getElementById('file-drop-zone');
-    const fileSelected = document.getElementById('file-selected');
-    const fileName = document.getElementById('file-name');
-    const fileSize = document.getElementById('file-size');
-    const fileNote = document.getElementById('file-note');
-    const unencryptedFile = document.getElementById('unencrypted-file');
-    const uploadFileBtn = document.getElementById('upload-file-btn');
-    const clearFileBtn = document.getElementById('clear-file-btn');
-    const clearFileNoteBtn = document.getElementById('clear-file-note-btn');
-    const fileLoading = document.getElementById('file-loading');
-    const fileResult = document.getElementById('file-result');
+const fileInput = document.getElementById('file-input');
+const fileDropZone = document.getElementById('file-drop-zone');
+const fileSelected = document.getElementById('file-selected');
+const fileName = document.getElementById('file-name');
+const fileSize = document.getElementById('file-size');
+const fileNote = document.getElementById('file-note');
+const unencryptedFile = document.getElementById('unencrypted-file');
+const uploadFileBtn = document.getElementById('upload-file-btn');
+const clearFileBtn = document.getElementById('clear-file-btn');
+const clearFileNoteBtn = document.getElementById('clear-file-note-btn');
+const fileLoading = document.getElementById('file-loading');
+const fileResult = document.getElementById('file-result');
 
-    const shareUrlInput = document.getElementById('share-url-input');
-    const openShareUrlBtn = document.getElementById('open-share-url-btn');
-    const clearShareUrlBtn = document.getElementById('clear-share-url-btn');
+const shareUrlInput = document.getElementById('share-url-input');
+const openShareUrlBtn = document.getElementById('open-share-url-btn');
+const clearShareUrlBtn = document.getElementById('clear-share-url-btn');
 
-    const toggleHistoryBtn = document.getElementById('toggle-history-btn');
-    const historySection = document.getElementById('history-section');
-    const historyList = document.getElementById('history-list');
-    const clearAllHistoryBtn = document.getElementById('clear-all-history-btn');
+const toggleHistoryBtn = document.getElementById('toggle-history-btn');
+const historySection = document.getElementById('history-section');
+const historyList = document.getElementById('history-list');
+const clearAllHistoryBtn = document.getElementById('clear-all-history-btn');
 
-    let selectedFile = null;
-    let uploadHistory = JSON.parse(localStorage.getItem('thyra_upload_history') || '[]');
-    let historyVisible = false;
+// Add these to the existing DOM elements
+const passwordProtectedMessage = document.getElementById('password-protected-message');
+const messagePassword = document.getElementById('message-password');
+const messagePasswordGroup = document.getElementById('message-password-group');
+const clearMessagePasswordBtn = document.getElementById('clear-message-password-btn');
 
-    // Helper functions
-    function toggleClearButton(btn, hasValue) {
-      if (btn) btn.style.display = hasValue ? 'block' : 'none';
+const passwordProtectedFile = document.getElementById('password-protected-file');
+const filePassword = document.getElementById('file-password');
+const filePasswordGroup = document.getElementById('file-password-group');
+const clearFilePasswordBtn = document.getElementById('clear-file-password-btn');
+
+let selectedFile = null;
+let uploadHistory = JSON.parse(localStorage.getItem('thyra_upload_history') || '[]');
+let historyVisible = false;
+
+
+// PBKDF2 key derivation function
+async function deriveKeyFromPassword(password) {
+ try {
+   const encoder = new TextEncoder();
+   const passwordData = encoder.encode(password);
+
+   const keyMaterial = await crypto.subtle.importKey(
+     'raw',
+     passwordData,
+     'PBKDF2',
+     false,
+     ['deriveBits']
+   );
+
+   const saltData = encoder.encode('thyra-salt-v1-2025');
+
+   const derivedBits = await crypto.subtle.deriveBits(
+     {
+       name: 'PBKDF2',
+       salt: saltData,
+       iterations: 100000,
+       hash: 'SHA-256'
+     },
+     keyMaterial,
+     256 // 256 bits = 32 bytes
+   );
+
+   const keyArray = new Uint8Array(derivedBits);
+   const base64Key = btoa(String.fromCharCode(...keyArray));
+
+   return base64Key;
+ } catch (error) {
+   console.error('Key derivation failed:', error);
+   throw new Error(`Key derivation failed: ${error.message}`);
+ }
+}
+
+// URL parameter handling function
+// Update the handlePasswordParameter function
+async function handlePasswordParameter() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const pass = urlParams.get('pass');
+  const url = urlParams.get('url');
+
+  if (pass && url) {
+    try {
+      // Derive key from password
+      const derivedKey = await deriveKeyFromPassword(pass);
+
+      // Create new URL with key instead of pass
+      const newUrl = `${window.location.origin}${window.location.pathname}?url=${url}&key=${encodeURIComponent(derivedKey)}`;
+
+      // Redirect to the new URL
+      window.location.href = newUrl;
+    } catch (error) {
+      console.error('Failed to process password parameter:', error);
+      alert('Failed to process password. Please try again.');
     }
+  }
+}
 
-    function updateButtonStates() {
-      const hasMessage = messageInput.value.trim().length > 0;
-      const hasFile = selectedFile !== null;
-      const hasShareUrl = shareUrlInput.value.trim().length > 0;
+// Add new function to handle share URL input with password
+async function handleShareUrlWithPassword(inputUrl) {
+  try {
+    const urlObj = new URL(inputUrl);
+    const pass = urlObj.searchParams.get('pass');
+    const url = urlObj.searchParams.get('url');
 
-      uploadMessageBtn.disabled = !hasMessage;
-      uploadFileBtn.disabled = !hasFile;
-      openShareUrlBtn.disabled = !hasShareUrl;
+    if (pass && url) {
+      // Derive key from password
+      const derivedKey = await deriveKeyFromPassword(pass);
+
+      // Create new URL with key instead of pass
+      const newUrl = `${urlObj.origin}${urlObj.pathname}?url=${url}&key=${encodeURIComponent(derivedKey)}`;
+
+      return newUrl;
     }
+  } catch (error) {
+    console.error('Failed to process share URL with password:', error);
+    throw error;
+  }
 
-    function initializeEventListeners() {
-      // Message input events
-      messageInput.addEventListener('input', () => {
-        updateButtonStates();
-        toggleClearButton(clearMessageBtn, messageInput.value.trim());
-        // Auto-resize textarea
-        messageInput.style.height = 'auto';
-        messageInput.style.height = Math.min(messageInput.scrollHeight, 200) + 'px';
-      });
+  return inputUrl; // Return original if no password parameter found
+}
 
-      messageNote.addEventListener('input', () => {
-        updateButtonStates();
-        toggleClearButton(clearMessageNoteBtn, messageNote.value.trim());
-      });
-
-      clearMessageBtn.addEventListener('click', clearMessage);
-      clearMessageNoteBtn.addEventListener('click', () => {
-        messageNote.value = '';
-        toggleClearButton(clearMessageNoteBtn, false);
-        updateButtonStates();
-      });
-      uploadMessageBtn.addEventListener('click', uploadMessage);
-
-      // File input events
-      fileInput.addEventListener('change', handleFileSelect);
-      fileDropZone.addEventListener('click', () => fileInput.click());
-      fileDropZone.addEventListener('dragover', handleDragOver);
-      fileDropZone.addEventListener('dragleave', handleDragLeave);
-      fileDropZone.addEventListener('drop', handleFileDrop);
-      fileNote.addEventListener('input', () => {
-        updateButtonStates();
-        toggleClearButton(clearFileNoteBtn, fileNote.value.trim());
-      });
-      clearFileBtn.addEventListener('click', clearFile);
-      clearFileNoteBtn.addEventListener('click', () => {
-        fileNote.value = '';
-        toggleClearButton(clearFileNoteBtn, false);
-        updateButtonStates();
-      });
-      uploadFileBtn.addEventListener('click', uploadFile);
-
-      // Share URL events
-      shareUrlInput.addEventListener('input', () => {
-        updateButtonStates();
-        toggleClearButton(clearShareUrlBtn, shareUrlInput.value.trim());
-      });
-      clearShareUrlBtn.addEventListener('click', clearShareUrl);
-      openShareUrlBtn.addEventListener('click', openShareUrl);
-
-      // History events
-      toggleHistoryBtn.addEventListener('click', toggleHistory);
-      clearAllHistoryBtn.addEventListener('click', clearAllHistory);
+// Update the openShareUrl function
+async function openShareUrl() {
+  const url = shareUrlInput.value.trim();
+  if (url) {
+    try {
+      // Check if URL contains password parameter and convert it
+      const processedUrl = await handleShareUrlWithPassword(url);
+      window.open(processedUrl, '_blank');
+    } catch (error) {
+      console.error('Failed to process share URL:', error);
+      alert('Failed to process share URL. Please check the URL and try again.');
     }
+  }
+}
 
-    // Initialize
-    document.addEventListener('DOMContentLoaded', () => {
-      initializeEventListeners();
-      updateButtonStates();
+// Helper functions
+function toggleClearButton(btn, hasValue) {
+ if (btn) btn.style.display = hasValue ? 'block' : 'none';
+}
 
-      // Handle deep linking for share URLs
-      const urlParams = new URLSearchParams(window.location.search);
-      const shareUrl = urlParams.get('url');
-      const key = urlParams.get('key');
+function updateButtonStates() {
+ const hasMessage = messageInput.value.trim().length > 0;
+ const hasFile = selectedFile !== null;
+ const hasShareUrl = shareUrlInput.value.trim().length > 0;
 
-      if (shareUrl && key) {
-        const fullShareUrl = `${window.location.origin}${window.location.pathname}?url=${shareUrl}&key=${key}`;
-        shareUrlInput.value = fullShareUrl;
-        updateButtonStates();
-        toggleClearButton(clearShareUrlBtn, true);
+ uploadMessageBtn.disabled = !hasMessage;
+ uploadFileBtn.disabled = !hasFile;
+ openShareUrlBtn.disabled = !hasShareUrl;
+}
+
+function initializeEventListeners() {
+ // Message input events
+ messageInput.addEventListener('input', () => {
+   updateButtonStates();
+   toggleClearButton(clearMessageBtn, messageInput.value.trim());
+   // Auto-resize textarea
+   messageInput.style.height = 'auto';
+   messageInput.style.height = Math.min(messageInput.scrollHeight, 200) + 'px';
+ });
+
+ messageNote.addEventListener('input', () => {
+   updateButtonStates();
+   toggleClearButton(clearMessageNoteBtn, messageNote.value.trim());
+ });
+
+ clearMessageBtn.addEventListener('click', clearMessage);
+ clearMessageNoteBtn.addEventListener('click', () => {
+   messageNote.value = '';
+   toggleClearButton(clearMessageNoteBtn, false);
+   updateButtonStates();
+ });
+ uploadMessageBtn.addEventListener('click', uploadMessage);
+
+ // File input events
+ fileInput.addEventListener('change', handleFileSelect);
+ fileDropZone.addEventListener('click', () => fileInput.click());
+ fileDropZone.addEventListener('dragover', handleDragOver);
+ fileDropZone.addEventListener('dragleave', handleDragLeave);
+ fileDropZone.addEventListener('drop', handleFileDrop);
+ fileNote.addEventListener('input', () => {
+   updateButtonStates();
+   toggleClearButton(clearFileNoteBtn, fileNote.value.trim());
+ });
+ clearFileBtn.addEventListener('click', clearFile);
+ clearFileNoteBtn.addEventListener('click', () => {
+   fileNote.value = '';
+   toggleClearButton(clearFileNoteBtn, false);
+   updateButtonStates();
+ });
+ uploadFileBtn.addEventListener('click', uploadFile);
+
+ // Share URL events
+// Update the share URL input listener in initializeEventListeners()
+shareUrlInput.addEventListener('input', async () => {
+  const inputValue = shareUrlInput.value.trim();
+
+  // Check if the input contains a password parameter
+  if (inputValue.includes('&pass=') || inputValue.includes('?pass=')) {
+    try {
+      const processedUrl = await handleShareUrlWithPassword(inputValue);
+      if (processedUrl !== inputValue) {
+        shareUrlInput.value = processedUrl;
       }
+    } catch (error) {
+      // Silently handle error, user is still typing
+    }
+  }
+
+  updateButtonStates();
+  toggleClearButton(clearShareUrlBtn, shareUrlInput.value.trim());
+});
+
+ clearShareUrlBtn.addEventListener('click', clearShareUrl);
+ openShareUrlBtn.addEventListener('click', openShareUrl);
+
+ // History events
+ toggleHistoryBtn.addEventListener('click', toggleHistory);
+ clearAllHistoryBtn.addEventListener('click', clearAllHistory);
+
+ // Add these to the existing initializeEventListeners() function
+
+// Message password protection events
+if (passwordProtectedMessage) {
+  passwordProtectedMessage.addEventListener('change', () => {
+    if (passwordProtectedMessage.checked) {
+      if (unencryptedMessage) unencryptedMessage.checked = false;
+      if (messagePasswordGroup) messagePasswordGroup.style.display = 'block';
+    } else {
+      if (messagePasswordGroup) messagePasswordGroup.style.display = 'none';
+    }
+    updateButtonStates();
+  });
+}
+
+if (messagePassword) {
+  messagePassword.addEventListener('input', () => {
+    updateButtonStates();
+    toggleClearButton(clearMessagePasswordBtn, messagePassword.value.trim());
+  });
+}
+
+if (clearMessagePasswordBtn) {
+  clearMessagePasswordBtn.addEventListener('click', () => {
+    if (messagePassword) messagePassword.value = '';
+    toggleClearButton(clearMessagePasswordBtn, false);
+    updateButtonStates();
+  });
+}
+
+// File password protection events
+if (passwordProtectedFile) {
+  passwordProtectedFile.addEventListener('change', () => {
+    if (passwordProtectedFile.checked) {
+      if (unencryptedFile) unencryptedFile.checked = false;
+      if (filePasswordGroup) filePasswordGroup.style.display = 'block';
+    } else {
+      if (filePasswordGroup) filePasswordGroup.style.display = 'none';
+    }
+    updateButtonStates();
+  });
+}
+
+if (filePassword) {
+  filePassword.addEventListener('input', () => {
+    updateButtonStates();
+    toggleClearButton(clearFilePasswordBtn, filePassword.value.trim());
+  });
+}
+
+if (clearFilePasswordBtn) {
+  clearFilePasswordBtn.addEventListener('click', () => {
+    if (filePassword) filePassword.value = '';
+    toggleClearButton(clearFilePasswordBtn, false);
+    updateButtonStates();
+  });
+}
+
+// Also update the unencrypted checkboxes to hide password when checked
+if (unencryptedMessage) {
+  unencryptedMessage.addEventListener('change', () => {
+    if (unencryptedMessage.checked && passwordProtectedMessage) {
+      passwordProtectedMessage.checked = false;
+      if (messagePasswordGroup) messagePasswordGroup.style.display = 'none';
+    }
+  });
+}
+
+if (unencryptedFile) {
+  unencryptedFile.addEventListener('change', () => {
+    if (unencryptedFile.checked && passwordProtectedFile) {
+      passwordProtectedFile.checked = false;
+      if (filePasswordGroup) filePasswordGroup.style.display = 'none';
+    }
+  });
+}
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+ // Handle password parameter first
+ handlePasswordParameter();
+
+ initializeEventListeners();
+ updateButtonStates();
+
+ // Handle deep linking for share URLs
+ const urlParams = new URLSearchParams(window.location.search);
+ const shareUrl = urlParams.get('url');
+ const key = urlParams.get('key');
+
+ if (shareUrl && key) {
+   const fullShareUrl = `${window.location.origin}${window.location.pathname}?url=${shareUrl}&key=${key}`;
+   shareUrlInput.value = fullShareUrl;
+   updateButtonStates();
+   toggleClearButton(clearShareUrlBtn, true);
+ }
+});
+
+function clearMessage() {
+  messageInput.value = '';
+  messageNote.value = '';
+  if (messagePassword) messagePassword.value = '';
+  unencryptedMessage.checked = false;
+  if (passwordProtectedMessage) passwordProtectedMessage.checked = false;
+  if (messagePasswordGroup) messagePasswordGroup.style.display = 'none';
+  updateButtonStates();
+  toggleClearButton(clearMessageBtn, false);
+  toggleClearButton(clearMessageNoteBtn, false);
+  toggleClearButton(clearMessagePasswordBtn, false);
+}
+
+function clearFile() {
+  selectedFile = null;
+  fileInput.value = '';
+  fileNote.value = '';
+  if (filePassword) filePassword.value = '';
+  unencryptedFile.checked = false;
+  if (passwordProtectedFile) passwordProtectedFile.checked = false;
+  if (filePasswordGroup) filePasswordGroup.style.display = 'none';
+  fileSelected.style.display = 'none';
+  updateButtonStates();
+  toggleClearButton(clearFileNoteBtn, false);
+  toggleClearButton(clearFilePasswordBtn, false);
+}
+
+function clearShareUrl() {
+ shareUrlInput.value = '';
+ updateButtonStates();
+ toggleClearButton(clearShareUrlBtn, false);
+}
+
+function handleFileSelect(event) {
+ const file = event.target.files[0];
+ if (file) {
+   setSelectedFile(file);
+ }
+}
+
+function handleDragOver(event) {
+ event.preventDefault();
+ fileDropZone.classList.add('drag-over');
+}
+
+function handleDragLeave(event) {
+ event.preventDefault();
+ fileDropZone.classList.remove('drag-over');
+}
+
+function handleFileDrop(event) {
+ event.preventDefault();
+ fileDropZone.classList.remove('drag-over');
+
+ const files = event.dataTransfer.files;
+ if (files.length > 0) {
+   setSelectedFile(files[0]);
+ }
+}
+
+function setSelectedFile(file) {
+ // Check file size (95KB limit)
+ const maxSize = 95 * 1024;
+ if (file.size > maxSize) {
+   showResult(fileResult, 'error', 'File too large',
+     `Maximum file size is 95KB. Your file is ${formatFileSize(file.size)}.`);
+   return;
+ }
+
+ selectedFile = file;
+ fileName.textContent = file.name;
+ fileSize.textContent = formatFileSize(file.size);
+ fileSelected.style.display = 'block';
+ hideResult(fileResult);
+ updateButtonStates();
+}
+
+function formatFileSize(bytes) {
+ if (bytes === 0) return '0 Bytes';
+ const k = 1024;
+ const sizes = ['Bytes', 'KB', 'MB'];
+ const i = Math.floor(Math.log(bytes) / Math.log(k));
+ return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+async function uploadMessage() {
+  const message = messageInput.value.trim();
+  const note = messageNote.value.trim();
+  const encrypt = !unencryptedMessage.checked;
+  const passwordProtected = passwordProtectedMessage && passwordProtectedMessage.checked;
+  const password = messagePassword ? messagePassword.value.trim() : '';
+
+  if (!message) return;
+  if (passwordProtected && !password) {
+    showResult(messageResult, 'error', 'Password required', 'Please enter a pre-shared password for encryption.');
+    return;
+  }
+
+  showLoading(messageLoading);
+  hideResult(messageResult);
+  uploadMessageBtn.disabled = true;
+
+  try {
+    const payload = {
+      content: message,
+      encrypt: encrypt,
+      note: note || undefined
+    };
+
+    // Add custom key if password protected
+    if (passwordProtected && password) {
+      payload.customKey = await deriveKeyFromPassword(password);
+    }
+
+    const response = await fetch(API_BASE, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
     });
 
-    function clearMessage() {
-      messageInput.value = '';
-      messageNote.value = '';
-      unencryptedMessage.checked = false;
-      // Don't hide result when clearing form
-      updateButtonStates();
-      toggleClearButton(clearMessageBtn, false);
-      toggleClearButton(clearMessageNoteBtn, false);
-    }
+    const result = await response.json();
+    console.log('Message upload response:', result);
 
-    function clearFile() {
-      selectedFile = null;
-      fileInput.value = '';
-      fileNote.value = '';
-      unencryptedFile.checked = false;
-      fileSelected.style.display = 'none';
-      // Don't hide result when clearing form
-      updateButtonStates();
-      toggleClearButton(clearFileNoteBtn, false);
-    }
+    if (result.success) {
+      let shareUrl;
 
-    function clearShareUrl() {
-      shareUrlInput.value = '';
-      updateButtonStates();
-      toggleClearButton(clearShareUrlBtn, false);
-    }
-
-    function handleFileSelect(event) {
-      const file = event.target.files[0];
-      if (file) {
-        setSelectedFile(file);
-      }
-    }
-
-    function handleDragOver(event) {
-      event.preventDefault();
-      fileDropZone.classList.add('drag-over');
-    }
-
-    function handleDragLeave(event) {
-      event.preventDefault();
-      fileDropZone.classList.remove('drag-over');
-    }
-
-    function handleFileDrop(event) {
-      event.preventDefault();
-      fileDropZone.classList.remove('drag-over');
-
-      const files = event.dataTransfer.files;
-      if (files.length > 0) {
-        setSelectedFile(files[0]);
-      }
-    }
-
-    function setSelectedFile(file) {
-      // Check file size (95KB limit)
-      const maxSize = 95 * 1024;
-      if (file.size > maxSize) {
-        showResult(fileResult, 'error', 'File too large',
-          `Maximum file size is 95KB. Your file is ${formatFileSize(file.size)}.`);
-        return;
-      }
-
-      selectedFile = file;
-      fileName.textContent = file.name;
-      fileSize.textContent = formatFileSize(file.size);
-      fileSelected.style.display = 'block';
-      hideResult(fileResult);
-      updateButtonStates();
-    }
-
-    function formatFileSize(bytes) {
-      if (bytes === 0) return '0 Bytes';
-      const k = 1024;
-      const sizes = ['Bytes', 'KB', 'MB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-    }
-
-    async function uploadMessage() {
-      const message = messageInput.value.trim();
-      const note = messageNote.value.trim();
-      const encrypt = !unencryptedMessage.checked;
-
-      if (!message) return;
-
-      showLoading(messageLoading);
-      hideResult(messageResult);
-      uploadMessageBtn.disabled = true;
-
-      try {
-        const payload = {
-          content: message,
-          encrypt: encrypt,
-          note: note || undefined
-        };
-
-        const response = await fetch(API_BASE, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        });
-
-        const result = await response.json();
-        console.log('Message upload response:', result);
-
-        if (result.success) {
-          const shareUrl = result.shareUrl || result.url;
-          console.log('Share URL found:', shareUrl);
-
-          // Save to history
-          saveToHistory({
-            type: 'message',
-            content: message,
-            note: note,
-            shareUrl: shareUrl,
-            timestamp: Date.now(),
-            encrypted: encrypt
-          });
-
-          showResult(messageResult, 'success', 'Message uploaded successfully!',
-            `Your message is now stored on Arweave.`, shareUrl);
-          clearMessage();
-        } else {
-          throw new Error(result.message || 'Upload failed');
-        }
-      } catch (error) {
-        console.error('Upload error:', error);
-        showResult(messageResult, 'error', 'Upload failed', error.message);
-      } finally {
-        hideLoading(messageLoading);
-        updateButtonStates();
-      }
-    }
-
-    async function uploadFile() {
-      if (!selectedFile) return;
-
-      const note = fileNote.value.trim();
-      const encrypt = !unencryptedFile.checked;
-
-      showLoading(fileLoading);
-      hideResult(fileResult);
-      uploadFileBtn.disabled = true;
-
-      try {
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-        formData.append('encrypt', encrypt.toString());
-        if (note) formData.append('note', note);
-
-        const response = await fetch(API_BASE, {
-          method: 'POST',
-          body: formData
-        });
-
-        const result = await response.json();
-        console.log('File upload response:', result);
-
-        if (result.success) {
-          const shareUrl = result.shareUrl || result.url;
-          console.log('Share URL found:', shareUrl);
-
-          // Save to history
-          saveToHistory({
-            type: 'file',
-            content: selectedFile.name,
-            note: note,
-            shareUrl: shareUrl,
-            timestamp: Date.now(),
-            encrypted: encrypt,
-            fileSize: selectedFile.size
-          });
-
-          showResult(fileResult, 'success', 'File uploaded successfully!',
-            `${selectedFile.name} is now stored on Arweave.`, shareUrl);
-          clearFile();
-        } else {
-          throw new Error(result.message || 'Upload failed');
-        }
-      } catch (error) {
-        console.error('Upload error:', error);
-        showResult(fileResult, 'error', 'Upload failed', error.message);
-      } finally {
-        hideLoading(fileLoading);
-        updateButtonStates();
-      }
-    }
-
-    function openShareUrl() {
-      const url = shareUrlInput.value.trim();
-      if (url) {
-        window.open(url, '_blank');
-      }
-    }
-
-    function showLoading(element) {
-      element.classList.add('show');
-    }
-
-    function hideLoading(element) {
-      element.classList.remove('show');
-    }
-
-    function showResult(element, type, title, message, url = null) {
-      console.log('showResult called with:', { type, title, message, url });
-      element.className = `result show ${type}`;
-
-      let content = `
-        <div class="result-title">
-          <span class="material-icons">${type === 'success' ? 'check_circle' : 'error'}</span>
-          ${title}
-        </div>
-        <div class="result-content">${message}</div>
-      `;
-
-      if (url) {
-        console.log('Adding URL section to result');
-        content += `
-          <div style="margin: 16px 0;">
-            <div style="font-weight: 500; margin-bottom: 8px; color: var(--primary);">
-              <span class="material-icons" style="font-size: 16px; vertical-align: middle; margin-right: 4px;">link</span>
-              Share URL:
-            </div>
-            <div class="result-url">
-              <a href="${url}" target="_blank">${url}</a>
-            </div>
-          </div>
-          <div class="btn-row" style="margin-top: 16px;">
-            <button class="btn btn-secondary btn-small" onclick="window.open('${url}', '_blank')">
-              <span class="material-icons">open_in_new</span>
-              Open
-            </button>
-            <button class="btn btn-secondary btn-small" onclick="copyToClipboard('${url}')">
-              <span class="material-icons">content_copy</span>
-              Copy
-            </button>
-            <button class="btn btn-secondary btn-small" onclick="shareUrl('${url}')">
-              <span class="material-icons">share</span>
-              Share
-            </button>
-          </div>
-        `;
+      if (passwordProtected) {
+        // Create URL with password parameter for easy sharing
+        const baseUrl = window.location.origin + '/s/';
+        const encodedArweaveUrl = btoa(result.url);
+        shareUrl = `${baseUrl}?url=${encodedArweaveUrl}&pass=${password}`;
       } else {
-        console.log('No URL provided to showResult');
+        shareUrl = result.shareUrl || result.url;
       }
 
-      element.innerHTML = content;
-      console.log('Result element updated:', element);
+      console.log('Share URL found:', shareUrl);
+
+      // Save to history
+      saveToHistory({
+        type: 'message',
+        content: message,
+        note: note,
+        shareUrl: shareUrl,
+        timestamp: Date.now(),
+        encrypted: encrypt,
+        passwordProtected: passwordProtected
+      });
+
+      showResult(messageResult, 'success', 'Message uploaded successfully!',
+        passwordProtected ?
+          'Your message is password-protected. Share the URL and password together.' :
+          'Your message is now stored on Arweave.',
+        shareUrl);
+      clearMessage();
+    } else {
+      throw new Error(result.message || 'Upload failed');
+    }
+  } catch (error) {
+    console.error('Upload error:', error);
+    showResult(messageResult, 'error', 'Upload failed', error.message);
+  } finally {
+    hideLoading(messageLoading);
+    updateButtonStates();
+  }
+}
+
+async function uploadFile() {
+  if (!selectedFile) return;
+
+  const note = fileNote.value.trim();
+  const encrypt = !unencryptedFile.checked;
+  const passwordProtected = passwordProtectedFile && passwordProtectedFile.checked;
+  const password = filePassword ? filePassword.value.trim() : '';
+
+  if (passwordProtected && !password) {
+    showResult(fileResult, 'error', 'Password required', 'Please enter a pre-shared password for encryption.');
+    return;
+  }
+
+  showLoading(fileLoading);
+  hideResult(fileResult);
+  uploadFileBtn.disabled = true;
+
+  try {
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('encrypt', encrypt.toString());
+    if (note) formData.append('note', note);
+
+    // Add custom key if password protected
+    if (passwordProtected && password) {
+      formData.append('customKey', await deriveKeyFromPassword(password));
     }
 
-    function hideResult(element) {
-      element.classList.remove('show');
-    }
+    const response = await fetch(API_BASE, {
+      method: 'POST',
+      body: formData
+    });
 
-    async function copyToClipboard(text) {
-      try {
-        await navigator.clipboard.writeText(text);
-        // Show temporary feedback
-        const btn = event.target.closest('button');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<span class="material-icons">check</span> Copied!';
-        setTimeout(() => {
-          btn.innerHTML = originalText;
-        }, 2000);
-      } catch (err) {
-        console.error('Failed to copy:', err);
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-      }
-    }
+    const result = await response.json();
+    console.log('File upload response:', result);
 
-    async function shareUrl(url) {
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: 'Thyra Shared Content',
-            text: 'Check out this securely stored content',
-            url: url
-          });
-          console.log('Successfully shared');
-        } catch (err) {
-          console.log('Error sharing:', err);
-          // Fallback to copy
-          copyToClipboard(url);
-        }
+    if (result.success) {
+      let shareUrl;
+
+      if (passwordProtected) {
+        // Create URL with password parameter for easy sharing
+        const baseUrl = window.location.origin + '/s/';
+        const encodedArweaveUrl = btoa(result.url);
+        shareUrl = `${baseUrl}?url=${encodedArweaveUrl}&pass=${password}`;
       } else {
-        // Fallback to copy if Web Share API is not supported
-        copyToClipboard(url);
-      }
-    }
-
-    // History management functions
-    function saveToHistory(item) {
-      uploadHistory.unshift(item); // Add to beginning
-      localStorage.setItem('thyra_upload_history', JSON.stringify(uploadHistory));
-      if (historyVisible) {
-        renderHistory();
-      }
-    }
-
-    function toggleHistory() {
-      historyVisible = !historyVisible;
-      if (historyVisible) {
-        historySection.style.display = 'block';
-        toggleHistoryBtn.innerHTML = '<span class="material-icons">visibility_off</span> Hide History';
-        renderHistory();
-      } else {
-        historySection.style.display = 'none';
-        toggleHistoryBtn.innerHTML = '<span class="material-icons">visibility</span> Show History';
-      }
-    }
-
-    function renderHistory() {
-      if (uploadHistory.length === 0) {
-        historyList.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No uploads yet</div>';
-        return;
+        shareUrl = result.shareUrl || result.url;
       }
 
-      const historyHTML = uploadHistory.map((item, index) => {
-        const date = new Date(item.timestamp);
-        const timeStr = date.toLocaleString();
-        const truncatedContent = item.content.length > 50 ?
-          item.content.substring(0, 50) + '...' : item.content;
+      console.log('Share URL found:', shareUrl);
 
-        return `
-          <div class="history-item">
-            <div class="history-header">
-              <div class="history-number">${index + 1}</div>
-              <div class="history-timestamp">${timeStr}</div>
-            </div>
-            <div class="history-content">
-              <div class="history-title" title="${item.content}" onclick="window.open('${item.shareUrl}', '_blank')">
-                ${item.type === 'file' ? '📁' : '💬'} ${truncatedContent}
-              </div>
-              ${item.note ? `<div class="history-note">"${item.note}"</div>` : ''}
-              <div class="history-url" onclick="copyToClipboard('${item.shareUrl}')" title="Click to copy">
-                ${item.shareUrl}
-              </div>
-            </div>
-            <div class="history-actions">
-              <button class="history-btn" onclick="window.open('${item.shareUrl}', '_blank')">
-                <span class="material-icons" style="font-size: 14px;">open_in_new</span>
-                Open
-              </button>
-              <button class="history-btn" onclick="copyToClipboard('${item.shareUrl}')">
-                <span class="material-icons" style="font-size: 14px;">content_copy</span>
-                Copy
-              </button>
-              <button class="history-btn" onclick="shareUrl('${item.shareUrl}')">
-                <span class="material-icons" style="font-size: 14px;">share</span>
-                Share
-              </button>
-              <button class="history-btn delete" onclick="deleteHistoryItem(${index})">
-                <span class="material-icons" style="font-size: 14px;">delete</span>
-                Delete
-              </button>
-            </div>
-          </div>
-        `;
-      }).join('');
+      // Save to history
+      saveToHistory({
+        type: 'file',
+        content: selectedFile.name,
+        note: note,
+        shareUrl: shareUrl,
+        timestamp: Date.now(),
+        encrypted: encrypt,
+        passwordProtected: passwordProtected,
+        fileSize: selectedFile.size
+      });
 
-      historyList.innerHTML = historyHTML;
+      showResult(fileResult, 'success', 'File uploaded successfully!',
+        passwordProtected ?
+          'Your file is password-protected. Share the URL and password together.' :
+          `${selectedFile.name} is now stored on Arweave.`,
+        shareUrl);
+      clearFile();
+    } else {
+      throw new Error(result.message || 'Upload failed');
     }
+  } catch (error) {
+    console.error('Upload error:', error);
+    showResult(fileResult, 'error', 'Upload failed', error.message);
+  } finally {
+    hideLoading(fileLoading);
+    updateButtonStates();
+  }
+}
 
-    function deleteHistoryItem(index) {
-      if (confirm('Delete this item from history?')) {
-        uploadHistory.splice(index, 1);
-        localStorage.setItem('thyra_upload_history', JSON.stringify(uploadHistory));
-        renderHistory();
-      }
-    }
+function openShareUrl() {
+ const url = shareUrlInput.value.trim();
+ if (url) {
+   window.open(url, '_blank');
+ }
+}
 
-    function clearAllHistory() {
-      if (confirm('Clear all upload history? This cannot be undone.')) {
-        uploadHistory = [];
-        localStorage.setItem('thyra_upload_history', JSON.stringify(uploadHistory));
-        renderHistory();
-      }
-    }
-  </script>
+function showLoading(element) {
+ element.classList.add('show');
+}
+
+function hideLoading(element) {
+ element.classList.remove('show');
+}
+
+function showResult(element, type, title, message, url = null) {
+ console.log('showResult called with:', { type, title, message, url });
+ element.className = `result show ${type}`;
+
+ let content = `
+   <div class="result-title">
+     <span class="material-icons">${type === 'success' ? 'check_circle' : 'error'}</span>
+     ${title}
+   </div>
+   <div class="result-content">${message}</div>
+ `;
+
+ if (url) {
+   console.log('Adding URL section to result');
+   content += `
+     <div style="margin: 16px 0;">
+       <div style="font-weight: 500; margin-bottom: 8px; color: var(--primary);">
+         <span class="material-icons" style="font-size: 16px; vertical-align: middle; margin-right: 4px;">link</span>
+         Share URL:
+       </div>
+       <div class="result-url">
+         <a href="${url}" target="_blank">${url}</a>
+       </div>
+     </div>
+     <div class="btn-row" style="margin-top: 16px;">
+       <button class="btn btn-secondary btn-small" onclick="window.open('${url}', '_blank')">
+         <span class="material-icons">open_in_new</span>
+         Open
+       </button>
+       <button class="btn btn-secondary btn-small" onclick="copyToClipboard('${url}')">
+         <span class="material-icons">content_copy</span>
+         Copy
+       </button>
+       <button class="btn btn-secondary btn-small" onclick="shareUrl('${url}')">
+         <span class="material-icons">share</span>
+         Share
+       </button>
+     </div>
+   `;
+ } else {
+   console.log('No URL provided to showResult');
+ }
+
+ element.innerHTML = content;
+ console.log('Result element updated:', element);
+}
+
+function hideResult(element) {
+ element.classList.remove('show');
+}
+
+async function copyToClipboard(text) {
+ try {
+   await navigator.clipboard.writeText(text);
+   // Show temporary feedback
+   const btn = event.target.closest('button');
+   const originalText = btn.innerHTML;
+   btn.innerHTML = '<span class="material-icons">check</span> Copied!';
+   setTimeout(() => {
+     btn.innerHTML = originalText;
+   }, 2000);
+ } catch (err) {
+   console.error('Failed to copy:', err);
+   // Fallback for older browsers
+   const textArea = document.createElement('textarea');
+   textArea.value = text;
+   document.body.appendChild(textArea);
+   textArea.select();
+   document.execCommand('copy');
+   document.body.removeChild(textArea);
+ }
+}
+
+async function shareUrl(url) {
+ if (navigator.share) {
+   try {
+     await navigator.share({
+       title: 'Thyra Shared Content',
+       text: 'Check out this securely stored content',
+       url: url
+     });
+     console.log('Successfully shared');
+   } catch (err) {
+     console.log('Error sharing:', err);
+     // Fallback to copy
+     copyToClipboard(url);
+   }
+ } else {
+   // Fallback to copy if Web Share API is not supported
+   copyToClipboard(url);
+ }
+}
+
+// History management functions
+function saveToHistory(item) {
+ uploadHistory.unshift(item); // Add to beginning
+ localStorage.setItem('thyra_upload_history', JSON.stringify(uploadHistory));
+ if (historyVisible) {
+   renderHistory();
+ }
+}
+
+function toggleHistory() {
+ historyVisible = !historyVisible;
+ if (historyVisible) {
+   historySection.style.display = 'block';
+   toggleHistoryBtn.innerHTML = '<span class="material-icons">visibility_off</span> Hide History';
+   renderHistory();
+ } else {
+   historySection.style.display = 'none';
+   toggleHistoryBtn.innerHTML = '<span class="material-icons">visibility</span> Show History';
+ }
+}
+
+function renderHistory() {
+ if (uploadHistory.length === 0) {
+   historyList.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No uploads yet</div>';
+   return;
+ }
+
+ const historyHTML = uploadHistory.map((item, index) => {
+   const date = new Date(item.timestamp);
+   const timeStr = date.toLocaleString();
+   const truncatedContent = item.content.length > 50 ?
+     item.content.substring(0, 50) + '...' : item.content;
+
+   return `
+     <div class="history-item">
+       <div class="history-header">
+         <div class="history-number">${index + 1}</div>
+         <div class="history-timestamp">${timeStr}</div>
+       </div>
+       <div class="history-content">
+         <div class="history-title" title="${item.content}" onclick="window.open('${item.shareUrl}', '_blank')">
+           ${item.type === 'file' ? '📁' : '💬'} ${truncatedContent}
+         </div>
+         ${item.note ? `<div class="history-note">"${item.note}"</div>` : ''}
+         <div class="history-url" onclick="copyToClipboard('${item.shareUrl}')" title="Click to copy">
+           ${item.shareUrl}
+         </div>
+       </div>
+       <div class="history-actions">
+         <button class="history-btn" onclick="window.open('${item.shareUrl}', '_blank')">
+           <span class="material-icons" style="font-size: 14px;">open_in_new</span>
+           Open
+         </button>
+         <button class="history-btn" onclick="copyToClipboard('${item.shareUrl}')">
+           <span class="material-icons" style="font-size: 14px;">content_copy</span>
+           Copy
+         </button>
+         <button class="history-btn" onclick="shareUrl('${item.shareUrl}')">
+           <span class="material-icons" style="font-size: 14px;">share</span>
+           Share
+         </button>
+         <button class="history-btn delete" onclick="deleteHistoryItem(${index})">
+           <span class="material-icons" style="font-size: 14px;">delete</span>
+           Delete
+         </button>
+       </div>
+     </div>
+   `;
+ }).join('');
+
+ historyList.innerHTML = historyHTML;
+}
+
+function deleteHistoryItem(index) {
+ if (confirm('Delete this item from history?')) {
+   uploadHistory.splice(index, 1);
+   localStorage.setItem('thyra_upload_history', JSON.stringify(uploadHistory));
+   renderHistory();
+ }
+}
+
+function clearAllHistory() {
+ if (confirm('Clear all upload history? This cannot be undone.')) {
+   uploadHistory = [];
+   localStorage.setItem('thyra_upload_history', JSON.stringify(uploadHistory));
+   renderHistory();
+ }
+}
+</script>
 </body>
 </html>
