@@ -1032,7 +1032,7 @@ shareUrlInput.addEventListener('input', async () => {
   const inputValue = shareUrlInput.value.trim();
 
   // Check if the input contains a password parameter
-  if (inputValue.includes('&pass=') || inputValue.includes('?pass=')) {
+  if (inputValue.includes('&withPass=') || inputValue.includes('?withPass=')) {
     try {
       const processedUrl = await handleShareUrlWithPassword(inputValue);
       if (processedUrl !== inputValue) {
@@ -1285,7 +1285,7 @@ async function uploadMessage() {
         // Create URL with password parameter for easy sharing
         const baseUrl = window.location.origin + '/s/';
         const encodedArweaveUrl = btoa(result.url);
-        shareUrl = `${baseUrl}?url=${encodedArweaveUrl}&pass=${password}`;
+        shareUrl = `${baseUrl}?url=${encodedArweaveUrl}&withPass=true`;
       } else {
         shareUrl = result.shareUrl || result.url;
       }
@@ -1364,7 +1364,7 @@ async function uploadFile() {
         // Create URL with password parameter for easy sharing
         const baseUrl = window.location.origin + '/s/';
         const encodedArweaveUrl = btoa(result.url);
-        shareUrl = `${baseUrl}?url=${encodedArweaveUrl}&pass=${password}`;
+        shareUrl = `${baseUrl}?url=${encodedArweaveUrl}&withPass=true`;
       } else {
         shareUrl = result.shareUrl || result.url;
       }
