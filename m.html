@@ -207,7 +207,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-messaging-compat.min.js"></script>
 
     <script>
-        // Firebase configuration - REPLACE WITH YOUR ACTUAL CONFIG
+                // Firebase configuration - REPLACE WITH YOUR ACTUAL CONFIG
         const firebaseConfig = {
           apiKey: "AIzaSyD96IBVqGKVEdmXIVCYL_7kvlBhJNSD1Ww",
           authDomain: "marko-be9a9.firebaseapp.com",
@@ -222,7 +222,7 @@
 
         // Initialize Firebase
         let messaging;
-        let fcmToken = null; // Using variable instead of localStorage for compatibility
+        let fcmToken = null;
 
         try {
             firebase.initializeApp(firebaseConfig);
@@ -232,8 +232,64 @@
             showError("Firebase not properly configured. Please add your Firebase config and VAPID key.");
         }
 
-        // Check initial permission status
+        // Check initial permission status and load stored token
         checkPermissionStatus();
+        loadStoredToken();
+
+        // Auto-generate token if permission is already granted
+        if (Notification.permission === 'granted') {
+            setTimeout(() => {
+                getFCMToken();
+            }, 1000); // Small delay to ensure Firebase is fully loaded
+        }
+
+        function loadStoredToken() {
+            const storedToken = localStorage.getItem('fcmToken');
+            if (storedToken) {
+                fcmToken = storedToken;
+                displayToken(storedToken);
+                
+                // Update FCM status
+                const fcmStatus = document.getElementById('fcm-status');
+                const fcmText = document.getElementById('fcm-text');
+                fcmStatus.className = 'status-icon status-success';
+                fcmStatus.textContent = '✓';
+                fcmText.textContent = 'Loaded from storage';
+                
+                console.log('FCM Token loaded from localStorage:', storedToken);
+            }
+        }
+
+        function compareAndUpdateToken(newToken) {
+            const storedToken = localStorage.getItem('fcmToken');
+            
+            if (storedToken !== newToken) {
+                // Token is different, update storage
+                localStorage.setItem('fcmToken', newToken);
+                fcmToken = newToken;
+                
+                // Log the change
+                console.log('FCM Token changed!');
+                console.log('Previous token:', storedToken || 'None');
+                console.log('New token:', newToken);
+                
+                // Update display
+                displayToken(newToken);
+                
+                // Update status
+                const fcmStatus = document.getElementById('fcm-status');
+                const fcmText = document.getElementById('fcm-text');
+                fcmStatus.className = 'status-icon status-success';
+                fcmStatus.textContent = '✓';
+                fcmText.textContent = storedToken ? 'Token updated' : 'Token generated';
+                
+                console.log('New FCM Token stored in localStorage and displayed');
+                return true; // Token was updated
+            } else {
+                console.log('FCM Token unchanged:', newToken);
+                return false; // Token was the same
+            }
+        }
 
         function checkPermissionStatus() {
             const permission = Notification.permission;
@@ -262,15 +318,22 @@
 
         async function requestNotificationPermission() {
             try {
-                const permission = await Notification.requestPermission();
-                console.log('Notification permission:', permission);
-                
-                checkPermissionStatus();
-                
-                if (permission === 'granted') {
-                    console.log('Notification permission granted');
+                // Only request if permission hasn't been granted yet
+                if (Notification.permission === 'default') {
+                    const permission = await Notification.requestPermission();
+                    console.log('Notification permission requested:', permission);
+                    
+                    checkPermissionStatus();
+                    
+                    if (permission === 'granted') {
+                        console.log('Notification permission granted');
+                    } else {
+                        console.log('Notification permission denied');
+                        showError('Notification permission was denied. Please enable notifications in your browser settings.');
+                    }
                 } else {
-                    console.log('Notification permission denied');
+                    console.log('Notification permission already set:', Notification.permission);
+                    checkPermissionStatus();
                 }
             } catch (error) {
                 console.error('Error requesting notification permission:', error);
@@ -299,22 +362,20 @@
                 });
 
                 if (token) {
-                    fcmToken = token; // Store in variable instead of localStorage
+                    // Compare with stored token and update if different
+                    const tokenUpdated = compareAndUpdateToken(token);
                     
                     // Log token to console
                     console.log('FCM Token:', token);
                     
-                    // Display token on page
-                    displayToken(token);
-                    
-                    // Update status
-                    const fcmStatus = document.getElementById('fcm-status');
-                    const fcmText = document.getElementById('fcm-text');
-                    fcmStatus.className = 'status-icon status-success';
-                    fcmStatus.textContent = '✓';
-                    fcmText.textContent = 'Generated successfully';
-                    
-                    console.log('Token stored and displayed successfully');
+                    // Update status (if not already updated by compareAndUpdateToken)
+                    if (!tokenUpdated) {
+                        const fcmStatus = document.getElementById('fcm-status');
+                        const fcmText = document.getElementById('fcm-text');
+                        fcmStatus.className = 'status-icon status-success';
+                        fcmStatus.textContent = '✓';
+                        fcmText.textContent = 'Token verified (unchanged)';
+                    }
                 } else {
                     throw new Error('No registration token available');
                 }
