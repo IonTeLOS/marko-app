@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FCM Token Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .status-section {
+            margin-bottom: 2rem;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+
+        .status-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: white;
+        }
+
+        .status-pending {
+            background: #ffc107;
+        }
+
+        .status-success {
+            background: #28a745;
+        }
+
+        .status-error {
+            background: #dc3545;
+        }
+
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.2s;
+            margin-right: 1rem;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+        }
+
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .token-display {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .token-label {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 0.5rem;
+        }
+
+        .token-value {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #6c757d;
+            word-break: break-all;
+            background: white;
+            padding: 1rem;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+
+        .copy-button {
+            background: #28a745;
+            font-size: 14px;
+            padding: 8px 16px;
+            margin-top: 0.5rem;
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 0.5rem;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .info-box h3 {
+            color: #0066cc;
+            margin-bottom: 0.5rem;
+        }
+
+        .info-box p {
+            color: #004080;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔔 FCM Token Generator</h1>
+        
+        <div class="info-box">
+            <h3>Important Setup Required</h3>
+            <p>To use this page with actual FCM tokens, you'll need to:</p>
+            <ul style="margin-left: 20px; margin-top: 10px;">
+                <li>Replace 'YOUR_FIREBASE_CONFIG' with your actual Firebase configuration</li>
+                <li>Replace 'YOUR_VAPID_KEY' with your actual VAPID key</li>
+                <li>Host this page on a secure domain (HTTPS)</li>
+            </ul>
+        </div>
+
+        <div class="status-section">
+            <div class="status-item">
+                <div class="status-icon status-pending" id="permission-status">⏳</div>
+                <div>
+                    <strong>Notification Permission:</strong> 
+                    <span id="permission-text">Checking...</span>
+                </div>
+            </div>
+            
+            <div class="status-item">
+                <div class="status-icon status-pending" id="fcm-status">⏳</div>
+                <div>
+                    <strong>FCM Token:</strong> 
+                    <span id="fcm-text">Not generated</span>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <button class="button" id="request-permission" onclick="requestNotificationPermission()">
+                Request Notification Permission
+            </button>
+            <button class="button" id="get-token" onclick="getFCMToken()" disabled>
+                Get FCM Token
+            </button>
+        </div>
+
+        <div class="token-display" id="token-display" style="display: none;">
+            <div class="token-label">Your FCM Token:</div>
+            <div class="token-value" id="token-value"></div>
+            <button class="button copy-button" onclick="copyToken()">Copy Token</button>
+        </div>
+
+        <div class="error-message" id="error-message"></div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-messaging-compat.min.js"></script>
+
+    <script>
+        // Firebase configuration - REPLACE WITH YOUR ACTUAL CONFIG
+        const firebaseConfig = {
+          apiKey: "AIzaSyD96IBVqGKVEdmXIVCYL_7kvlBhJNSD1Ww",
+          authDomain: "marko-be9a9.firebaseapp.com",
+          projectId: "marko-be9a9",
+          storageBucket: "marko-be9a9.appspot.com",
+          messagingSenderId: "7036670175",
+          appId: "1:7036670175:web:99992356716578ea13996a"
+        };
+
+        // VAPID key - REPLACE WITH YOUR ACTUAL VAPID KEY
+        const vapidKey = "BNbpZ8MoJQ0OvODtVFtqBmiH81lNdGMSU87ISkIMoRGCVN2gHdxnemVqfW1MlAzO5qQqTi_I_QdKo7qpdyFq3tw";
+
+        // Initialize Firebase
+        let messaging;
+        let fcmToken = null; // Using variable instead of localStorage for compatibility
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            messaging = firebase.messaging();
+        } catch (error) {
+            console.error("Firebase initialization error:", error);
+            showError("Firebase not properly configured. Please add your Firebase config and VAPID key.");
+        }
+
+        // Check initial permission status
+        checkPermissionStatus();
+
+        function checkPermissionStatus() {
+            const permission = Notification.permission;
+            const permissionStatus = document.getElementById('permission-status');
+            const permissionText = document.getElementById('permission-text');
+            
+            switch (permission) {
+                case 'granted':
+                    permissionStatus.className = 'status-icon status-success';
+                    permissionStatus.textContent = '✓';
+                    permissionText.textContent = 'Granted';
+                    document.getElementById('get-token').disabled = false;
+                    break;
+                case 'denied':
+                    permissionStatus.className = 'status-icon status-error';
+                    permissionStatus.textContent = '✗';
+                    permissionText.textContent = 'Denied';
+                    showError('Notification permission denied. Please enable in browser settings.');
+                    break;
+                default:
+                    permissionStatus.className = 'status-icon status-pending';
+                    permissionStatus.textContent = '⏳';
+                    permissionText.textContent = 'Not requested';
+            }
+        }
+
+        async function requestNotificationPermission() {
+            try {
+                const permission = await Notification.requestPermission();
+                console.log('Notification permission:', permission);
+                
+                checkPermissionStatus();
+                
+                if (permission === 'granted') {
+                    console.log('Notification permission granted');
+                } else {
+                    console.log('Notification permission denied');
+                }
+            } catch (error) {
+                console.error('Error requesting notification permission:', error);
+                showError('Error requesting notification permission: ' + error.message);
+            }
+        }
+
+        async function getFCMToken() {
+            if (!messaging) {
+                showError('Firebase messaging not initialized. Please check your configuration.');
+                return;
+            }
+
+            try {
+                // Request permission first if not granted
+                if (Notification.permission !== 'granted') {
+                    await requestNotificationPermission();
+                    if (Notification.permission !== 'granted') {
+                        throw new Error('Notification permission not granted');
+                    }
+                }
+
+                // Get FCM token
+                const token = await messaging.getToken({
+                    vapidKey: vapidKey
+                });
+
+                if (token) {
+                    fcmToken = token; // Store in variable instead of localStorage
+                    
+                    // Log token to console
+                    console.log('FCM Token:', token);
+                    
+                    // Display token on page
+                    displayToken(token);
+                    
+                    // Update status
+                    const fcmStatus = document.getElementById('fcm-status');
+                    const fcmText = document.getElementById('fcm-text');
+                    fcmStatus.className = 'status-icon status-success';
+                    fcmStatus.textContent = '✓';
+                    fcmText.textContent = 'Generated successfully';
+                    
+                    console.log('Token stored and displayed successfully');
+                } else {
+                    throw new Error('No registration token available');
+                }
+            } catch (error) {
+                console.error('Error getting FCM token:', error);
+                showError('Error getting FCM token: ' + error.message);
+                
+                // Update status
+                const fcmStatus = document.getElementById('fcm-status');
+                const fcmText = document.getElementById('fcm-text');
+                fcmStatus.className = 'status-icon status-error';
+                fcmStatus.textContent = '✗';
+                fcmText.textContent = 'Error generating token';
+            }
+        }
+
+        function displayToken(token) {
+            const tokenDisplay = document.getElementById('token-display');
+            const tokenValue = document.getElementById('token-value');
+            
+            tokenValue.textContent = token;
+            tokenDisplay.style.display = 'block';
+        }
+
+        function copyToken() {
+            const tokenValue = document.getElementById('token-value');
+            
+            // Create a temporary textarea to copy the token
+            const textarea = document.createElement('textarea');
+            textarea.value = tokenValue.textContent;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            
+            // Show feedback
+            const copyButton = event.target;
+            const originalText = copyButton.textContent;
+            copyButton.textContent = 'Copied!';
+            copyButton.style.background = '#28a745';
+            
+            setTimeout(() => {
+                copyButton.textContent = originalText;
+                copyButton.style.background = '#28a745';
+            }, 2000);
+        }
+
+        function showError(message) {
+            const errorElement = document.getElementById('error-message');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+
+        // Note: Token refresh handling can be implemented separately if needed
+        // Modern Firebase versions handle token refresh automatically
+    </script>
+</body>
+</html>
