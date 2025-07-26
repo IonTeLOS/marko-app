@@ -339,7 +339,8 @@
             </div>
 
             <div class="mobile-hint">
-                📱 <strong>Mobile users:</strong> Use WalletConnect to scan QR code with your mobile wallet app (MetaMask, Trust Wallet, etc.)
+                📱 <strong>Mobile users:</strong> Use WalletConnect v2 to scan QR code with your mobile wallet app (MetaMask, Trust Wallet, etc.)
+                <br>⚠️ <strong>Note:</strong> WalletConnect requires a Project ID from <a href="https://cloud.walletconnect.com/" target="_blank">WalletConnect Cloud</a> for production use
             </div>
 
             <div id="walletStatus"></div>
@@ -387,7 +388,8 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+    <script src="https://unpkg.com/@walletconnect/sign-client@2.11.0/dist/index.umd.js"></script>
+    <script src="https://unpkg.com/@walletconnect/qrcode-modal@2.6.2/dist/index.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script>
         class WalletMessageSigner {
@@ -395,7 +397,12 @@
                 this.provider = null;
                 this.signer = null;
                 this.userAddress = null;
-                this.walletConnectProvider = null;
+                this.walletConnectClient = null;
+                this.wcSession = null;
+                
+                // ⚠️ REPLACE WITH YOUR PROJECT ID FROM https://cloud.walletconnect.com/
+                this.PROJECT_ID = '088f7df8d5806b6ee79edef7eaadf2b8';
+                
                 this.initializeEventListeners();
             }
 
@@ -445,43 +452,140 @@
 
             async connectWalletConnect() {
                 try {
-                    this.showStatus('walletStatus', '🔄 Initializing WalletConnect...', 'info');
+                    if (this.PROJECT_ID === 'YOUR_PROJECT_ID_HERE') {
+                        this.showStatus('walletStatus', '❌ Please set your WalletConnect Project ID in the code. Get one from https://cloud.walletconnect.com/', 'error');
+                        return;
+                    }
 
-                    // Create WalletConnect Provider
-                    this.walletConnectProvider = new WalletConnectProvider.default({
-                        infuraId: "460f40a260564ac4a4f4b3fffb032dad", // Demo Infura ID
-                        rpc: {
-                            1: "https://cloudflare-eth.com",
-                            137: "https://polygon-rpc.com",
-                            56: "https://bsc-dataseed.binance.org"
-                        },
-                        chainId: 1,
-                        qrcode: false // We'll handle QR display manually
+                    this.showStatus('walletStatus', '🔄 Initializing WalletConnect v2...', 'info');
+
+                    // Initialize WalletConnect SignClient
+                    const { SignClient } = window.WalletConnectSignClient;
+                    
+                    this.walletConnectClient = await SignClient.init({
+                        projectId: this.PROJECT_ID,
+                        metadata: {
+                            name: 'Wallet Message Signer',
+                            description: 'Sign and verify messages with your wallet',
+                            url: window.location.origin,
+                            icons: ['https://walletconnect.com/walletconnect-logo.png']
+                        }
                     });
 
-                    // Handle QR Code display
-                    this.walletConnectProvider.connector.on("display_uri", (err, payload) => {
-                        const uri = payload.params[0];
+                    // Define connection parameters
+                    const namespaces = {
+                        eip155: {
+                            methods: [
+                                'eth_sendTransaction',
+                                'eth_signTransaction',
+                                'eth_sign',
+                                'personal_sign',
+                                'eth_signTypedData'
+                            ],
+                            chains: ['eip155:1'], // Ethereum mainnet
+                            events: ['accountsChanged', 'chainChanged']
+                        }
+                    };
+
+                    // Create connection
+                    const { uri, approval } = await this.walletConnectClient.connect({
+                        requiredNamespaces: namespaces
+                    });
+
+                    // Show QR code if URI exists
+                    if (uri) {
                         this.showQRModal(uri);
-                    });
+                        this.showStatus('walletStatus', '📱 Scan QR code with your mobile wallet...', 'info');
+                    }
 
-                    // Enable the provider
-                    await this.walletConnectProvider.enable();
-
-                    // Create ethers provider
-                    this.provider = new ethers.BrowserProvider(this.walletConnectProvider);
-                    this.signer = await this.provider.getSigner();
-                    this.userAddress = await this.signer.getAddress();
-
+                    // Wait for session approval
+                    this.wcSession = await approval();
                     this.closeQRModal();
-                    this.showWalletConnected('WalletConnect');
+
+                    // Get account from session
+                    const accounts = Object.values(this.wcSession.namespaces)
+                        .map((namespace) => namespace.accounts)
+                        .flat();
+                    
+                    if (accounts.length === 0) {
+                        throw new Error('No accounts found in session');
+                    }
+
+                    // Extract address from account (format: eip155:1:0x...)
+                    this.userAddress = accounts[0].split(':')[2];
+
+                    // Create custom provider for WalletConnect
+                    this.provider = this.createWalletConnectProvider();
+                    this.signer = this.createWalletConnectSigner();
+
+                    this.showWalletConnected('WalletConnect v2');
                     this.enableSigningInterface();
 
+                    // Listen for session events
+                    this.walletConnectClient.on('session_event', (args) => {
+                        console.log('WC session event:', args);
+                    });
+
+                    this.walletConnectClient.on('session_update', ({ topic, params }) => {
+                        console.log('WC session update:', topic, params);
+                    });
+
+                    this.walletConnectClient.on('session_delete', () => {
+                        console.log('WC session deleted');
+                        this.disconnect();
+                        location.reload();
+                    });
+
                 } catch (error) {
-                    console.error('WalletConnect connection error:', error);
+                    console.error('WalletConnect v2 connection error:', error);
                     this.closeQRModal();
-                    this.showStatus('walletStatus', `❌ WalletConnect failed: ${error.message}`, 'error');
+                    this.showStatus('walletStatus', `❌ WalletConnect v2 failed: ${error.message}`, 'error');
                 }
+            }
+
+            createWalletConnectProvider() {
+                return {
+                    request: async (args) => {
+                        if (!this.wcSession) {
+                            throw new Error('WalletConnect session not established');
+                        }
+
+                        const result = await this.walletConnectClient.request({
+                            topic: this.wcSession.topic,
+                            chainId: 'eip155:1',
+                            request: args
+                        });
+
+                        return result;
+                    }
+                };
+            }
+
+            createWalletConnectSigner() {
+                return {
+                    getAddress: () => {
+                        return this.userAddress;
+                    },
+                    signMessage: async (message) => {
+                        if (!this.wcSession || !this.walletConnectClient) {
+                            throw new Error('WalletConnect not connected');
+                        }
+
+                        // Convert message to hex if it's a string
+                        const messageHex = ethers.hexlify(ethers.toUtf8Bytes(message));
+
+                        const result = await this.walletConnectClient.request({
+                            topic: this.wcSession.topic,
+                            chainId: 'eip155:1',
+                            request: {
+                                method: 'personal_sign',
+                                params: [messageHex, this.userAddress]
+                            }
+                        });
+
+                        return result;
+                    }
+                };
             }
 
             async connectCoinbase() {
