@@ -204,8 +204,7 @@
             word-break: break-all;
             background: rgba(255, 255, 255, 0.2);
             padding: 10px;
-            border-radius: 8px;PROJECT I
-            
+            border-radius: 8px;
             margin-top: 10px;
         }
 
@@ -340,8 +339,8 @@
             </div>
 
             <div class="mobile-hint">
-                📱 <strong>Mobile users:</strong> Use WalletConnect v2 to scan QR code with your mobile wallet app
-                <br>🔧 <strong>Setup:</strong> Replace <code>YOUR_PROJECT_ID_HERE</code> in the code with your Project ID from <a href="https://cloud.walletconnect.com/" target="_blank">WalletConnect Cloud</a>
+                📱 <strong>Mobile users:</strong> Use Reown AppKit (formerly WalletConnect) to connect with any mobile wallet
+                <br>🔧 <strong>Setup:</strong> Replace <code>YOUR_PROJECT_ID_HERE</code> with your Project ID from <a href="https://cloud.reown.com/" target="_blank">cloud.reown.com</a>
             </div>
 
             <div id="walletStatus"></div>
@@ -389,7 +388,8 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
-    <script src="https://unpkg.com/@walletconnect/sign-client@2.11.0/dist/index.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@reown/appkit@1.0.0/dist/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@reown/appkit-adapter-ethers@1.0.0/dist/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script>
         class WalletMessageSigner {
@@ -397,13 +397,63 @@
                 this.provider = null;
                 this.signer = null;
                 this.userAddress = null;
-                this.walletConnectClient = null;
-                this.wcSession = null;
+                this.appKit = null;
                 
-                // ⚠️ REPLACE WITH YOUR PROJECT ID FROM https://cloud.walletconnect.com/
+                // ⚠️ REPLACE WITH YOUR PROJECT ID FROM https://cloud.reown.com/
                 this.PROJECT_ID = '088f7df8d5806b6ee79edef7eaadf2b8';
                 
                 this.initializeEventListeners();
+                this.initializeAppKit();
+            }
+
+            async initializeAppKit() {
+                try {
+                    if (this.PROJECT_ID === 'YOUR_PROJECT_ID_HERE') {
+                        console.warn('Please set your Reown Project ID');
+                        return;
+                    }
+
+                    // Wait for Reown AppKit to be available
+                    if (typeof window.ReownAppKit === 'undefined') {
+                        console.warn('Reown AppKit not loaded yet');
+                        return;
+                    }
+
+                    const { createAppKit } = window.ReownAppKit;
+                    const { EthersAdapter } = window.ReownAppKitAdapterEthers;
+
+                    // Create Ethers adapter
+                    const ethersAdapter = new EthersAdapter();
+
+                    // Initialize AppKit
+                    this.appKit = createAppKit({
+                        adapters: [ethersAdapter],
+                        projectId: this.PROJECT_ID,
+                        networks: [
+                            {
+                                chainId: 1,
+                                name: 'Ethereum',
+                                currency: 'ETH',
+                                explorerUrl: 'https://etherscan.io',
+                                rpcUrl: 'https://cloudflare-eth.com'
+                            }
+                        ],
+                        metadata: {
+                            name: 'Wallet Message Signer',
+                            description: 'Sign and verify messages with your wallet',
+                            url: window.location.origin,
+                            icons: ['https://walletconnect.com/walletconnect-logo.png']
+                        },
+                        features: {
+                            analytics: true
+                        }
+                    });
+
+                    console.log('Reown AppKit initialized successfully');
+
+                } catch (error) {
+                    console.error('AppKit initialization error:', error);
+                }
             }
 
             initializeEventListeners() {
@@ -453,132 +503,87 @@
             async connectWalletConnect() {
                 try {
                     if (this.PROJECT_ID === 'YOUR_PROJECT_ID_HERE') {
-                        this.showStatus('walletStatus', '❌ Please set your WalletConnect Project ID in the code. Get one from https://cloud.walletconnect.com/', 'error');
+                        this.showStatus('walletStatus', '❌ Please set your Reown Project ID in the code. Get one from https://cloud.reown.com/', 'error');
                         return;
                     }
 
-                    this.showStatus('walletStatus', '🔄 Initializing WalletConnect v2...', 'info');
-
-                    // Check if WalletConnect is available
-                    if (typeof window.WalletConnectSignClient === 'undefined') {
-                        throw new Error('WalletConnect SignClient not loaded. Please check your internet connection.');
-                    }
-
-                    // Initialize WalletConnect SignClient
-                    const SignClient = window.WalletConnectSignClient.SignClient || window.WalletConnectSignClient.default || window.WalletConnectSignClient;
-                    
-                    if (!SignClient) {
-                        throw new Error('SignClient constructor not found');
-                    }
-                    
-                    this.walletConnectClient = await SignClient.init({
-                        projectId: this.PROJECT_ID,
-                        metadata: {
-                            name: 'Wallet Message Signer',
-                            description: 'Sign and verify messages with your wallet',
-                            url: window.location.origin,
-                            icons: ['https://walletconnect.com/walletconnect-logo.png']
+                    if (!this.appKit) {
+                        this.showStatus('walletStatus', '🔄 Initializing Reown AppKit...', 'info');
+                        await this.initializeAppKit();
+                        
+                        if (!this.appKit) {
+                            throw new Error('Failed to initialize Reown AppKit');
                         }
-                    });
-
-                    // Define connection parameters
-                    const namespaces = {
-                        eip155: {
-                            methods: [
-                                'eth_sendTransaction',
-                                'eth_signTransaction',
-                                'eth_sign',
-                                'personal_sign',
-                                'eth_signTypedData'
-                            ],
-                            chains: ['eip155:1'], // Ethereum mainnet
-                            events: ['accountsChanged', 'chainChanged']
-                        }
-                    };
-
-                    // Create connection
-                    const { uri, approval } = await this.walletConnectClient.connect({
-                        requiredNamespaces: namespaces
-                    });
-
-                    // Show QR code if URI exists
-                    if (uri) {
-                        this.showQRModal(uri);
-                        this.showStatus('walletStatus', '📱 Scan QR code with your mobile wallet...', 'info');
                     }
 
-                    // Wait for session approval
-                    this.wcSession = await approval();
-                    this.closeQRModal();
+                    this.showStatus('walletStatus', '🔄 Opening Reown connection modal...', 'info');
 
-                    // Get account from session
-                    const accounts = Object.values(this.wcSession.namespaces)
-                        .map((namespace) => namespace.accounts)
-                        .flat();
-                    
-                    if (accounts.length === 0) {
-                        throw new Error('No accounts found in session');
-                    }
+                    // Open the connection modal
+                    await this.appKit.open();
 
-                    // Extract address from account (format: eip155:1:0x...)
-                    this.userAddress = accounts[0].split(':')[2];
-
-                    // Create custom provider for WalletConnect
-                    this.provider = this.createWalletConnectProvider();
-                    this.signer = this.createWalletConnectSigner();
-
-                    this.showWalletConnected('WalletConnect v2');
-                    this.enableSigningInterface();
-
-                    // Listen for session events
-                    this.walletConnectClient.on('session_event', (args) => {
-                        console.log('WC session event:', args);
-                    });
-
-                    this.walletConnectClient.on('session_update', ({ topic, params }) => {
-                        console.log('WC session update:', topic, params);
-                    });
-
-                    this.walletConnectClient.on('session_delete', () => {
-                        console.log('WC session deleted');
-                        this.disconnect();
-                        location.reload();
-                    });
+                    // Wait for connection
+                    await this.waitForConnection();
 
                 } catch (error) {
-                    console.error('WalletConnect v2 connection error:', error);
-                    this.closeQRModal();
-                    
-                    if (error.message.includes('not loaded')) {
-                        this.showStatus('walletStatus', '❌ WalletConnect SDK failed to load. Trying alternative implementation...', 'error');
-                        // Fallback to a simpler implementation
-                        setTimeout(() => this.connectWalletConnectFallback(), 2000);
-                    } else {
-                        this.showStatus('walletStatus', `❌ WalletConnect v2 failed: ${error.message}`, 'error');
-                    }
+                    console.error('Reown connection error:', error);
+                    this.showStatus('walletStatus', `❌ Reown connection failed: ${error.message}`, 'error');
                 }
             }
 
+            async waitForConnection() {
+                return new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('Connection timeout'));
+                    }, 60000); // 60 second timeout
+
+                    const checkConnection = async () => {
+                        try {
+                            if (this.appKit.getAccount()?.isConnected) {
+                                clearTimeout(timeout);
+                                
+                                // Get provider and signer from AppKit
+                                this.provider = this.appKit.getWalletProvider();
+                                this.signer = await this.provider.getSigner();
+                                this.userAddress = await this.signer.getAddress();
+
+                                this.showWalletConnected('Reown AppKit');
+                                this.enableSigningInterface();
+                                
+                                resolve();
+                            } else {
+                                setTimeout(checkConnection, 1000);
+                            }
+                        } catch (error) {
+                            clearTimeout(timeout);
+                            reject(error);
+                        }
+                    };
+
+                    checkConnection();
+                });
+            }
+
             async connectWalletConnectFallback() {
+                // Fallback implementation using direct WalletConnect
                 try {
-                    this.showStatus('walletStatus', '🔄 Using WalletConnect fallback method...', 'info');
+                    this.showStatus('walletStatus', '🔄 Using direct WalletConnect fallback...', 'info');
                     
-                    // Create a demo WalletConnect URI for testing
-                    const demoUri = `wc:00e46b69-d0cc-4b3e-b6a2-cee442f97188@2?symKey=587d5484ce2a2a6ee3ba5962efdd7e5e&relay-protocol=irn`;
-                    
+                    // Create a demo URI for testing purposes
+                    const demoUri = `wc:demo-${Date.now()}@2?relay-protocol=irn&symKey=demo-key`;
                     this.showQRModal(demoUri);
+                    
                     this.showStatus('walletStatus', `
                         <div class="status info">
-                            📱 <strong>WalletConnect Demo Mode</strong><br>
-                            This is a demo QR code. For production:<br>
-                            1. Get your Project ID from <a href="https://cloud.walletconnect.com/" target="_blank">WalletConnect Cloud</a><br>
+                            📱 <strong>Demo QR Code</strong><br>
+                            This is a demo for UI testing. For real functionality:<br>
+                            1. Get Project ID from <a href="https://cloud.reown.com/" target="_blank">cloud.reown.com</a><br>
                             2. Replace YOUR_PROJECT_ID_HERE in the code<br>
-                            3. The full WalletConnect v2 functionality will work
+                            3. Reown AppKit will handle everything automatically
                         </div>
                     `, 'info');
                     
                 } catch (error) {
-                    this.showStatus('walletStatus', `❌ Fallback also failed: ${error.message}`, 'error');
+                    this.showStatus('walletStatus', `❌ Fallback failed: ${error.message}`, 'error');
                 }
             }
 
