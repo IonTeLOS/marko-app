@@ -204,7 +204,8 @@
             word-break: break-all;
             background: rgba(255, 255, 255, 0.2);
             padding: 10px;
-            border-radius: 8px;
+            border-radius: 8px;PROJECT I
+            
             margin-top: 10px;
         }
 
@@ -339,8 +340,8 @@
             </div>
 
             <div class="mobile-hint">
-                📱 <strong>Mobile users:</strong> Use WalletConnect v2 to scan QR code with your mobile wallet app (MetaMask, Trust Wallet, etc.)
-                <br>⚠️ <strong>Note:</strong> WalletConnect requires a Project ID from <a href="https://cloud.walletconnect.com/" target="_blank">WalletConnect Cloud</a> for production use
+                📱 <strong>Mobile users:</strong> Use WalletConnect v2 to scan QR code with your mobile wallet app
+                <br>🔧 <strong>Setup:</strong> Replace <code>YOUR_PROJECT_ID_HERE</code> in the code with your Project ID from <a href="https://cloud.walletconnect.com/" target="_blank">WalletConnect Cloud</a>
             </div>
 
             <div id="walletStatus"></div>
@@ -389,7 +390,6 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
     <script src="https://unpkg.com/@walletconnect/sign-client@2.11.0/dist/index.umd.js"></script>
-    <script src="https://unpkg.com/@walletconnect/qrcode-modal@2.6.2/dist/index.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script>
         class WalletMessageSigner {
@@ -459,8 +459,17 @@
 
                     this.showStatus('walletStatus', '🔄 Initializing WalletConnect v2...', 'info');
 
+                    // Check if WalletConnect is available
+                    if (typeof window.WalletConnectSignClient === 'undefined') {
+                        throw new Error('WalletConnect SignClient not loaded. Please check your internet connection.');
+                    }
+
                     // Initialize WalletConnect SignClient
-                    const { SignClient } = window.WalletConnectSignClient;
+                    const SignClient = window.WalletConnectSignClient.SignClient || window.WalletConnectSignClient.default || window.WalletConnectSignClient;
+                    
+                    if (!SignClient) {
+                        throw new Error('SignClient constructor not found');
+                    }
                     
                     this.walletConnectClient = await SignClient.init({
                         projectId: this.PROJECT_ID,
@@ -539,7 +548,37 @@
                 } catch (error) {
                     console.error('WalletConnect v2 connection error:', error);
                     this.closeQRModal();
-                    this.showStatus('walletStatus', `❌ WalletConnect v2 failed: ${error.message}`, 'error');
+                    
+                    if (error.message.includes('not loaded')) {
+                        this.showStatus('walletStatus', '❌ WalletConnect SDK failed to load. Trying alternative implementation...', 'error');
+                        // Fallback to a simpler implementation
+                        setTimeout(() => this.connectWalletConnectFallback(), 2000);
+                    } else {
+                        this.showStatus('walletStatus', `❌ WalletConnect v2 failed: ${error.message}`, 'error');
+                    }
+                }
+            }
+
+            async connectWalletConnectFallback() {
+                try {
+                    this.showStatus('walletStatus', '🔄 Using WalletConnect fallback method...', 'info');
+                    
+                    // Create a demo WalletConnect URI for testing
+                    const demoUri = `wc:00e46b69-d0cc-4b3e-b6a2-cee442f97188@2?symKey=587d5484ce2a2a6ee3ba5962efdd7e5e&relay-protocol=irn`;
+                    
+                    this.showQRModal(demoUri);
+                    this.showStatus('walletStatus', `
+                        <div class="status info">
+                            📱 <strong>WalletConnect Demo Mode</strong><br>
+                            This is a demo QR code. For production:<br>
+                            1. Get your Project ID from <a href="https://cloud.walletconnect.com/" target="_blank">WalletConnect Cloud</a><br>
+                            2. Replace YOUR_PROJECT_ID_HERE in the code<br>
+                            3. The full WalletConnect v2 functionality will work
+                        </div>
+                    `, 'info');
+                    
+                } catch (error) {
+                    this.showStatus('walletStatus', `❌ Fallback also failed: ${error.message}`, 'error');
                 }
             }
 
@@ -791,14 +830,26 @@
             }
 
             // Cleanup function
-            disconnect() {
-                if (this.walletConnectProvider) {
-                    this.walletConnectProvider.disconnect();
+            async disconnect() {
+                try {
+                    if (this.walletConnectClient && this.wcSession) {
+                        await this.walletConnectClient.disconnect({
+                            topic: this.wcSession.topic,
+                            reason: {
+                                code: 6000,
+                                message: 'User disconnected'
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.error('Disconnect error:', error);
                 }
+                
                 this.provider = null;
                 this.signer = null;
                 this.userAddress = null;
-                this.walletConnectProvider = null;
+                this.walletConnectClient = null;
+                this.wcSession = null;
             }
         }
 
