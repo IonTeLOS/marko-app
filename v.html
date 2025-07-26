@@ -87,6 +87,11 @@
             box-shadow: 0 10px 20px rgba(102, 126, 234, 0.1);
         }
 
+        .wallet-btn.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
         .wallet-btn img {
             width: 40px;
             height: 40px;
@@ -238,48 +243,6 @@
             border: 2px solid #dc3545;
         }
 
-        .qr-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .qr-content {
-            background: white;
-            padding: 30px;
-            border-radius: 20px;
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-        }
-
-        .qr-content h3 {
-            margin-bottom: 20px;
-            color: #333;
-        }
-
-        .qr-code {
-            margin: 20px 0;
-            display: flex;
-            justify-content: center;
-        }
-
-        .close-qr {
-            background: #f8f9fa;
-            border: 2px solid #e9ecef;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-top: 20px;
-        }
-
         .mobile-hint {
             background: #e3f2fd;
             color: #1565c0;
@@ -323,12 +286,12 @@
             
             <div class="wallet-options">
                 <div class="wallet-btn" id="metamaskBtn">
-                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzUiIGhlaWdodD0iMzMiIHZpZXdCb3g9IjAgMCAzNSAzMyIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTMyLjk1ODIgMS4zODA0M0wyMC41NzE2IDEwLjI5ODVMMjMuMzEzNiAzLjAyNTQzTDMyLjk1ODIgMS4zODA0M1oiIGZpbGw9IiNFMjc2MkYiIHN0cm9rZT0iI0UyNzYyRiIgc3Ryb2tlLXdpZHRoPSIwLjI1IiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CjxwYXRoIGQ9Ik0yLjY2Mjk2IDEuMzgwNDNMMTQuOTEwNyAxMC4zOTI0TDEyLjMxMDIgMy4wMjU0M0wyLjY2Mjk2IDEuMzgwNDNaIiBmaWxsPSIjRTQ3NjFCIiBzdHJva2U9IiNFNDc2MUIiIHN0cm9rZS13aWR0aD0iMC4yNSIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8cGF0aCBkPSJNMjguMjI3MSAyMy4xOTA3TDI0LjI0MDMgMjkuMDA5M0wzMi4xNzE5IDMxLjQ4MTRMMzQuNzMxMSAyMy4zODMzTDI4LjIyNzEgMjMuMTkwN1oiIGZpbGw9IiNFNDc2MUIiIHN0cm9rZT0iI0U0NzYxQiIgc3Ryb2tlLXdpZHRoPSIwLjI1IiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CjxwYXRoIGQ9Ik0wLjkyODU1OSAyMy4zODMzTDMuNDg3NzkgMzEuNDgxNEwxMS40MTk0IDI5LjAwOTNMNy40MzI2OSAyMy4xOTA3TDAuOTI4NTU5IDIzLjM4MzNaIiBmaWxsPSIjRTQ3NjFCIiBzdHJva2U9IiNFNDc2MUIiIHN0cm9rZS13aWR0aD0iMC4yNSIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8cGF0aCBkPSJNMTAuOTU3NSAxNC4xODEzTDguNTk3NDYgMTcuOTM1M0wxNi40Njc4IDE4LjI5N0wxNi4yNTEgOS4xNTQzTDEwLjk1NzUgMTQuMTgxM1oiIGZpbGw9IiNFNDc2MUIiIHN0cm9rZT0iI0U0NzYxQiIgc3Ryb2tlLXdpZHRoPSIwLjI1IiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CjxwYXRoIGQ9Ik0yNC42NzIyIDE0LjE4MTNMMTU2Ljk5MDIgMTcuOTM1M0wyNy4wNjEzIDE4LjI5N0wyNi44NDQ1IDkuMTU0M0wyNC42NzIyIDE0LjE4MTNaIiBmaWxsPSIjRTQ3NjFCIiBzdHJva2U9IiNFNDc2MUIiIHN0cm9rZS13aWR0aD0iMC4yNSIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K" alt="MetaMask">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTM1LjgzMzMgMS44NzVMMjIuNSAxMC44MzMzTDI0Ljc5MTcgNS4yMDgzM0wzNS44MzMzIDEuODc1WiIgZmlsbD0iI0UyNzYyRiIvPgo8cGF0aCBkPSJNNC4xNjY2NyAxLjg3NUwxNy4zNzUgMTAuOTU4M0wxNS4yMDgzIDUuMjA4MzNMNC4xNjY2NyAxLjg3NVoiIGZpbGw9IiNFNDc2MUIiLz4KPHBhdGggZD0iTTMwLjUgMjQuNTgzM0wyNi43MDgzIDMwLjgzMzNMMzUuMDQxNyAzMy4yMDgzTDM3LjYyNSAyNC44NzVMMzAuNSAyNC41ODMzWiIgZmlsbD0iI0U0NzYxQiIvPgo8cGF0aCBkPSJNMi4zNzUgMjQuODc1TDQuOTU4MzMgMzMuMjA4M0wxMy4yOTE3IDMwLjgzMzNMOS41IDI0LjU4MzNMMi4zNzUgMjQuODc1WiIgZmlsbD0iI0U0NzYxQiIvPgo8L3N2Zz4=" alt="MetaMask">
                     <span>MetaMask</span>
                 </div>
                 
                 <div class="wallet-btn" id="walletConnectBtn">
-                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTguNTM0NjcgMTQuNDA0MkMxMi44MjggMTAuMTExIDE5LjE3MiAxMC4xMTEgMjMuNDY1MyAxNC40MDQyTDI0LjI0MjYgMTUuMTgxNUMyNC40NTQ2IDE1LjM5MzUgMjQuNDU0NiAxNS43NDI0IDI0LjI0MjYgMTUuOTU0NEwyMi43Mjc5IDE3LjQ2OTFDMjIuNjIxOSAxNy41NzUxIDIyLjQ0OTEgMTcuNTc1MSAyMi4zNDMxIDE3LjQ2OTFMMjEuMzEzNiAxNi40Mzk2QzE4LjY5MSAxMy44MTcgMTQuMzA5IDEzLjgxNyAxMS42ODY0IDE2LjQzOTZMOS4wNDAzNyAxOS4wODU3QzguOTM0MzcgMTkuMTkxNyA4Ljc2MTU3IDE5LjE5MTcgOC42NTU1NyAxOS4wODU3TDcuMTQwODcgMTcuNTcxQzYuOTI4ODcgMTcuMzU5IDYuOTI4ODcgMTcuMDEwMSA3LjE0MDg3IDE2Ljc5ODFMOC41MzQ2NyAxNC40MDQyWk0yNi44NjE3IDE4LjY5OTVMMjguMjI2MyAyMC4wNjQxQzI4LjQzODMgMjAuMjc2MSAyOC40MzgzIDIwLjYyNSAyOC4yMjYzIDIwLjgzN0wyMS44MjgyIDI3LjIzNTFDMjEuNjE2MiAyNy40NDcxIDIxLjI2NzMgMjcuNDQ3MSAyMS4wNTUzIDI3LjIzNTFMMTUuMDMzOSAyMS4yMTM3QzE0Ljk4MDkgMjEuMTYwNyAxNC44OTUxIDIxLjE2MDcgMTQuODQyMSAyMS4yMTM3TDguODIwNjggMjcuMjM1MUM4LjYwODY4IDI3LjQ0NzEgOC4yNTk3OCAyNy40NDcxIDguMDQ3NzggMjcuMjM1MUwxLjY0OTY4IDIwLjgzN0MxLjQzNzY4IDIwLjYyNSAxLjQzNzY4IDIwLjI3NjEgMS42NDk2OCAyMC4wNjQxTDMuMDE0MjggMTguNjk5NUMzLjIyNjI4IDE4LjQ4NzUgMy41NzUxOCAxOC40ODc1IDMuNzg3MTggMTguNjk5NUw5LjgwODY4IDI0LjcyMUMxMC4wNzQ3IDI0Ljk4NyAxMC41MjUyIDI0Ljk4NyAxMC43OTEyIDI0LjcyMUwxNi44MTI2IDE4LjY5OTVDMTcuMDI0NiAxOC40ODc1IDE3LjM3MzUgMTguNDg3NSAxNy41ODU1IDE4LjY5OTVMMjMuNjA3IDI0LjcyMUMyMy44NzMgMjQuOTg3IDI0LjMyMzUgMjQuOTg3IDI0LjU4OTUgMjQuNzIxTDMwLjYxMSAxOC42OTk1QzMwLjgyMyAxOC40ODc1IDMxLjE3MTkgMTguNDg3NSAzMS4zODM5IDE4LjY5OTVaTTI2Ljg2MTcgMTguNjk5NVoiIGZpbGw9IiMzQzk5REMiLz4KPC9zdmc+" alt="WalletConnect">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTguNTM0NjcgMTQuNDA0MkMxMi44MjggMTAuMTExIDE5LjE3MiAxMC4xMTEgMjMuNDY1MyAxNC40MDQyTDI0LjI0MjYgMTUuMTgxNUMyNC40NTQ2IDE1LjM5MzUgMjQuNDU0NiAxNS43NDI0IDI0LjI0MjYgMTUuOTU0NEwyMi43Mjc5IDE3LjQ2OTFDMjIuNjIxOSAxNy41NzUxIDIyLjQ0OTEgMTcuNTc1MSAyMi4zNDMxIDE3LjQ2OTFMMjEuMzEzNiAxNi40Mzk2QzE4LjY5MSAxMy44MTcgMTQuMzA5IDEzLjgxNyAxMS42ODY0IDE2LjQzOTZMOS4wNDAzNyAxOS4wODU3QzguOTM0MzcgMTkuMTkxNyA4Ljc2MTU3IDE5LjE5MTcgOC42NTU1NyAxOS4wODU3TDcuMTQwODcgMTcuNTcxQzYuOTI4ODcgMTcuMzU5IDYuOTI4ODcgMTcuMDEwMSA3LjE0MDg3IDE2Ljc5ODFMOC41MzQ2NyAxNC40MDQyWk0yNi44NjE3IDE4LjY5OTVMMjguMjI2MyAyMC4wNjQxQzI4LjQzODMgMjAuMjc2MSAyOC40MzgzIDIwLjYyNSAyOC4yMjYzIDIwLjgzN0wyMS44MjgyIDI3LjIzNTFDMjEuNjE2MiAyNy40NDcxIDIxLjI2NzMgMjcuNDQ3MSAyMS4wNTUzIDI3LjIzNTFMMTUuMDMzOSAyMS4yMTM3QzE0Ljk4MDkgMjEuMTYwNyAxNC44OTUxIDIxLjE2MDcgMTQuODQyMSAyMS4yMTM3TDguODIwNjggMjcuMjM1MUM4LjYwODY4IDI3LjQ0NzEgOC4yNTk3OCAyNy40NDcxIDguMDQ3NzggMjcuMjM1MUwxLjY0OTY4IDIwLjgzN0MxLjQzNzY4IDIwLjYyNSAxLjQzNzY4IDIwLjI3NjEgMS42NDk2OCAyMC4wNjQxTDMuMDE0MjggMTguNjk5NUMzLjIyNjI4IDE4LjQ4NzUgMy41NzUxOCAxOC40ODc1IDMuNzg3MTggMTguNjk5NUw5LjgwODY4IDI0LjcyMUMxMC4wNzQ3IDI0Ljk4NyAxMC41MjUyIDI0Ljk4NyAxMC43OTEyIDI0LjcyMUwxNi44MTI2IDE4LjY5OTVDMTcuMDI0NiAxOC40ODc1IDE3LjM3MzUgMTguNDg3NSAxNy41ODU1IDE4LjY5OTVMMjMuNjA3IDI0LjcyMUMyMy44NzMgMjQuOTg3IDI0LjMyMzUgMjQuOTg3IDI0LjU4OTUgMjQuNzIxTDMwLjYxMSAxOC42OTk1QzMwLjgyMyAxOC40ODc1IDMxLjE3MTkgMTguNDg3NSAzMS4zODM5IDE4LjY5OTVaIiBmaWxsPSIjM0M5OURDIi8+Cjwvc3ZnPg==" alt="WalletConnect">
                     <span>WalletConnect</span>
                 </div>
 
@@ -339,8 +302,7 @@
             </div>
 
             <div class="mobile-hint">
-                📱 <strong>Mobile users:</strong> Use Reown AppKit (formerly WalletConnect) to connect with any mobile wallet
-                <br>🔧 <strong>Setup:</strong> Replace <code>YOUR_PROJECT_ID_HERE</code> with your Project ID from <a href="https://cloud.reown.com/" target="_blank">cloud.reown.com</a>
+                📱 <strong>Mobile users:</strong> Use WalletConnect for mobile wallets or use the built-in browser in MetaMask/Coinbase mobile apps
             </div>
 
             <div id="walletStatus"></div>
@@ -377,83 +339,14 @@
         </div>
     </div>
 
-    <!-- QR Code Modal -->
-    <div id="qrModal" class="qr-modal">
-        <div class="qr-content">
-            <h3>📱 Scan with Mobile Wallet</h3>
-            <p>Open your mobile wallet app and scan this QR code to connect</p>
-            <div id="qrCode" class="qr-code"></div>
-            <div class="close-qr" onclick="closeQRModal()">Close</div>
-        </div>
-    </div>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@reown/appkit@1.0.0/dist/index.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@reown/appkit-adapter-ethers@1.0.0/dist/index.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script>
         class WalletMessageSigner {
             constructor() {
                 this.provider = null;
                 this.signer = null;
                 this.userAddress = null;
-                this.appKit = null;
-                
-                // ⚠️ REPLACE WITH YOUR PROJECT ID FROM https://cloud.reown.com/
-                this.PROJECT_ID = '088f7df8d5806b6ee79edef7eaadf2b8';
-                
                 this.initializeEventListeners();
-                this.initializeAppKit();
-            }
-
-            async initializeAppKit() {
-                try {
-                    if (this.PROJECT_ID === 'YOUR_PROJECT_ID_HERE') {
-                        console.warn('Please set your Reown Project ID');
-                        return;
-                    }
-
-                    // Wait for Reown AppKit to be available
-                    if (typeof window.ReownAppKit === 'undefined') {
-                        console.warn('Reown AppKit not loaded yet');
-                        return;
-                    }
-
-                    const { createAppKit } = window.ReownAppKit;
-                    const { EthersAdapter } = window.ReownAppKitAdapterEthers;
-
-                    // Create Ethers adapter
-                    const ethersAdapter = new EthersAdapter();
-
-                    // Initialize AppKit
-                    this.appKit = createAppKit({
-                        adapters: [ethersAdapter],
-                        projectId: this.PROJECT_ID,
-                        networks: [
-                            {
-                                chainId: 1,
-                                name: 'Ethereum',
-                                currency: 'ETH',
-                                explorerUrl: 'https://etherscan.io',
-                                rpcUrl: 'https://cloudflare-eth.com'
-                            }
-                        ],
-                        metadata: {
-                            name: 'Wallet Message Signer',
-                            description: 'Sign and verify messages with your wallet',
-                            url: window.location.origin,
-                            icons: ['https://walletconnect.com/walletconnect-logo.png']
-                        },
-                        features: {
-                            analytics: true
-                        }
-                    });
-
-                    console.log('Reown AppKit initialized successfully');
-
-                } catch (error) {
-                    console.error('AppKit initialization error:', error);
-                }
             }
 
             initializeEventListeners() {
@@ -472,7 +365,7 @@
             async connectMetaMask() {
                 try {
                     if (typeof window.ethereum === 'undefined') {
-                        this.showStatus('walletStatus', '❌ MetaMask is not installed. Please install MetaMask browser extension.', 'error');
+                        this.showStatus('walletStatus', '❌ MetaMask not detected. Please install MetaMask browser extension or use the MetaMask mobile app.', 'error');
                         return;
                     }
 
@@ -502,134 +395,22 @@
 
             async connectWalletConnect() {
                 try {
-                    if (this.PROJECT_ID === 'YOUR_PROJECT_ID_HERE') {
-                        this.showStatus('walletStatus', '❌ Please set your Reown Project ID in the code. Get one from https://cloud.reown.com/', 'error');
-                        return;
-                    }
-
-                    if (!this.appKit) {
-                        this.showStatus('walletStatus', '🔄 Initializing Reown AppKit...', 'info');
-                        await this.initializeAppKit();
-                        
-                        if (!this.appKit) {
-                            throw new Error('Failed to initialize Reown AppKit');
-                        }
-                    }
-
-                    this.showStatus('walletStatus', '🔄 Opening Reown connection modal...', 'info');
-
-                    // Open the connection modal
-                    await this.appKit.open();
-
-                    // Wait for connection
-                    await this.waitForConnection();
-
-                } catch (error) {
-                    console.error('Reown connection error:', error);
-                    this.showStatus('walletStatus', `❌ Reown connection failed: ${error.message}`, 'error');
-                }
-            }
-
-            async waitForConnection() {
-                return new Promise((resolve, reject) => {
-                    const timeout = setTimeout(() => {
-                        reject(new Error('Connection timeout'));
-                    }, 60000); // 60 second timeout
-
-                    const checkConnection = async () => {
-                        try {
-                            if (this.appKit.getAccount()?.isConnected) {
-                                clearTimeout(timeout);
-                                
-                                // Get provider and signer from AppKit
-                                this.provider = this.appKit.getWalletProvider();
-                                this.signer = await this.provider.getSigner();
-                                this.userAddress = await this.signer.getAddress();
-
-                                this.showWalletConnected('Reown AppKit');
-                                this.enableSigningInterface();
-                                
-                                resolve();
-                            } else {
-                                setTimeout(checkConnection, 1000);
-                            }
-                        } catch (error) {
-                            clearTimeout(timeout);
-                            reject(error);
-                        }
-                    };
-
-                    checkConnection();
-                });
-            }
-
-            async connectWalletConnectFallback() {
-                // Fallback implementation using direct WalletConnect
-                try {
-                    this.showStatus('walletStatus', '🔄 Using direct WalletConnect fallback...', 'info');
+                    this.showStatus('walletStatus', '🔄 WalletConnect integration...', 'info');
                     
-                    // Create a demo URI for testing purposes
-                    const demoUri = `wc:demo-${Date.now()}@2?relay-protocol=irn&symKey=demo-key`;
-                    this.showQRModal(demoUri);
-                    
+                    // Simple fallback - suggest alternatives
                     this.showStatus('walletStatus', `
                         <div class="status info">
-                            📱 <strong>Demo QR Code</strong><br>
-                            This is a demo for UI testing. For real functionality:<br>
-                            1. Get Project ID from <a href="https://cloud.reown.com/" target="_blank">cloud.reown.com</a><br>
-                            2. Replace YOUR_PROJECT_ID_HERE in the code<br>
-                            3. Reown AppKit will handle everything automatically
+                            📱 <strong>For Mobile Wallets:</strong><br>
+                            <strong>Option 1:</strong> Open this page in your mobile wallet's built-in browser (MetaMask app → Browser → paste URL)<br>
+                            <strong>Option 2:</strong> Use Coinbase Wallet's browser<br>
+                            <strong>Option 3:</strong> Use Trust Wallet's browser<br><br>
+                            <strong>Desktop:</strong> Install MetaMask browser extension and refresh this page
                         </div>
                     `, 'info');
                     
                 } catch (error) {
-                    this.showStatus('walletStatus', `❌ Fallback failed: ${error.message}`, 'error');
+                    this.showStatus('walletStatus', `❌ Error: ${error.message}`, 'error');
                 }
-            }
-
-            createWalletConnectProvider() {
-                return {
-                    request: async (args) => {
-                        if (!this.wcSession) {
-                            throw new Error('WalletConnect session not established');
-                        }
-
-                        const result = await this.walletConnectClient.request({
-                            topic: this.wcSession.topic,
-                            chainId: 'eip155:1',
-                            request: args
-                        });
-
-                        return result;
-                    }
-                };
-            }
-
-            createWalletConnectSigner() {
-                return {
-                    getAddress: () => {
-                        return this.userAddress;
-                    },
-                    signMessage: async (message) => {
-                        if (!this.wcSession || !this.walletConnectClient) {
-                            throw new Error('WalletConnect not connected');
-                        }
-
-                        // Convert message to hex if it's a string
-                        const messageHex = ethers.hexlify(ethers.toUtf8Bytes(message));
-
-                        const result = await this.walletConnectClient.request({
-                            topic: this.wcSession.topic,
-                            chainId: 'eip155:1',
-                            request: {
-                                method: 'personal_sign',
-                                params: [messageHex, this.userAddress]
-                            }
-                        });
-
-                        return result;
-                    }
-                };
             }
 
             async connectCoinbase() {
@@ -647,48 +428,33 @@
 
                         this.showWalletConnected('Coinbase Wallet');
                         this.enableSigningInterface();
+                    } else if (window.ethereum && !window.ethereum.isMetaMask) {
+                        // Try generic wallet connection
+                        const accounts = await window.ethereum.request({
+                            method: 'eth_requestAccounts'
+                        });
+
+                        this.provider = new ethers.BrowserProvider(window.ethereum);
+                        this.signer = await this.provider.getSigner();
+                        this.userAddress = accounts[0];
+
+                        this.showWalletConnected('Wallet');
+                        this.enableSigningInterface();
                     } else {
-                        this.showStatus('walletStatus', '❌ Coinbase Wallet not detected. Please install the Coinbase Wallet extension or use WalletConnect on mobile.', 'error');
+                        this.showStatus('walletStatus', `
+                            <div class="status info">
+                                📱 <strong>To use Coinbase Wallet:</strong><br>
+                                <strong>Mobile:</strong> Open this page in Coinbase Wallet app's browser<br>
+                                <strong>Desktop:</strong> Install Coinbase Wallet browser extension<br>
+                                <strong>Alternative:</strong> Use MetaMask instead
+                            </div>
+                        `, 'info');
                     }
 
                 } catch (error) {
                     console.error('Coinbase connection error:', error);
                     this.showStatus('walletStatus', `❌ Connection failed: ${error.message}`, 'error');
                 }
-            }
-
-            showQRModal(uri) {
-                const modal = document.getElementById('qrModal');
-                const qrContainer = document.getElementById('qrCode');
-                
-                // Clear previous QR code
-                qrContainer.innerHTML = '';
-                
-                // Generate QR code
-                QRCode.toCanvas(qrContainer, uri, {
-                    width: 256,
-                    margin: 2,
-                    color: {
-                        dark: '#000000',
-                        light: '#FFFFFF'
-                    }
-                }, (error) => {
-                    if (error) {
-                        console.error('QR Code generation error:', error);
-                        this.showStatus('walletStatus', '❌ Failed to generate QR code', 'error');
-                    }
-                });
-
-                modal.style.display = 'flex';
-                
-                // Auto-close after 2 minutes
-                setTimeout(() => {
-                    this.closeQRModal();
-                }, 120000);
-            }
-
-            closeQRModal() {
-                document.getElementById('qrModal').style.display = 'none';
             }
 
             showWalletConnected(walletName) {
@@ -703,8 +469,7 @@
                 
                 // Disable all wallet buttons
                 document.querySelectorAll('.wallet-btn').forEach(btn => {
-                    btn.style.opacity = '0.5';
-                    btn.style.pointerEvents = 'none';
+                    btn.classList.add('disabled');
                 });
             }
 
@@ -727,10 +492,8 @@
 
                     this.showStatus('signatureOutput', '🔄 Please check your wallet and sign the message...', 'info');
 
-                    // Sign the message
                     const signature = await this.signer.signMessage(message);
 
-                    // Display the signature
                     this.displaySignature(message, signature);
 
                     // Auto-fill verification form
@@ -739,7 +502,7 @@
 
                 } catch (error) {
                     console.error('Signing error:', error);
-                    if (error.code === 4001) {
+                    if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
                         this.showStatus('signatureOutput', '❌ Signing cancelled by user.', 'error');
                     } else {
                         this.showStatus('signatureOutput', `❌ Signing failed: ${error.message}`, 'error');
@@ -775,16 +538,17 @@
                     const expectedAddress = document.getElementById('verifyAddress').value.trim();
 
                     if (!message || !signature || !expectedAddress) {
-                        this.showStatus('verificationResult', '❌ Please fill in all verification fields.', 'error');
+                        document.getElementById('verificationResult').innerHTML = `
+                            <div class="verification-result invalid">
+                                ❌ Please fill in all verification fields
+                            </div>
+                        `;
                         return;
                     }
 
                     this.showStatus('verificationResult', '🔄 Verifying signature...', 'info');
 
-                    // Verify the signature
                     const recoveredAddress = ethers.verifyMessage(message, signature);
-
-                    // Check if addresses match (case-insensitive)
                     const isValid = recoveredAddress.toLowerCase() === expectedAddress.toLowerCase();
 
                     this.displayVerificationResult(isValid, recoveredAddress, expectedAddress);
@@ -803,8 +567,10 @@
             }
 
             displayVerificationResult(isValid, recoveredAddress, expectedAddress) {
+                const resultElement = document.getElementById('verificationResult');
+                
                 if (isValid) {
-                    const result = `
+                    resultElement.innerHTML = `
                         <div class="verification-result valid">
                             ✅ SIGNATURE VALID
                             <br><br>
@@ -816,9 +582,8 @@
                             ${expectedAddress}
                         </div>
                     `;
-                    document.getElementById('verificationResult').innerHTML = result;
                 } else {
-                    const result = `
+                    resultElement.innerHTML = `
                         <div class="verification-result invalid">
                             ❌ SIGNATURE INVALID
                             <br><br>
@@ -830,43 +595,13 @@
                             ${expectedAddress}
                         </div>
                     `;
-                    document.getElementById('verificationResult').innerHTML = result;
                 }
             }
-
-            // Cleanup function
-            async disconnect() {
-                try {
-                    if (this.walletConnectClient && this.wcSession) {
-                        await this.walletConnectClient.disconnect({
-                            topic: this.wcSession.topic,
-                            reason: {
-                                code: 6000,
-                                message: 'User disconnected'
-                            }
-                        });
-                    }
-                } catch (error) {
-                    console.error('Disconnect error:', error);
-                }
-                
-                this.provider = null;
-                this.signer = null;
-                this.userAddress = null;
-                this.walletConnectClient = null;
-                this.wcSession = null;
-            }
-        }
-
-        // Global function for QR modal
-        function closeQRModal() {
-            document.getElementById('qrModal').style.display = 'none';
         }
 
         // Initialize the application
-        let walletSigner;
         document.addEventListener('DOMContentLoaded', () => {
-            walletSigner = new WalletMessageSigner();
+            new WalletMessageSigner();
         });
 
         // Handle account changes for MetaMask
@@ -883,21 +618,6 @@
                 location.reload();
             });
         }
-
-        // Close QR modal when clicking outside
-        document.addEventListener('click', (e) => {
-            const modal = document.getElementById('qrModal');
-            if (e.target === modal) {
-                closeQRModal();
-            }
-        });
-
-        // Handle escape key for QR modal
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                closeQRModal();
-            }
-        });
     </script>
 </body>
 </html>
