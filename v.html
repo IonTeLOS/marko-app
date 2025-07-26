@@ -1,33 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WalletConnect Vanilla JS</title>
-  <script src="https://unpkg.com/@walletconnect/ethereum-provider/dist/umd/index.min.js"></script>
+<head><meta charset="UTF-8"><title>WalletConnect v2 Vanilla JS</title>
+  <script src="https://unpkg.com/@walletconnect/ethereum-provider@2.8.4/dist/index.umd.js"></script>
 </head>
 <body>
-  <button id="connectBtn">Connect Wallet</button>
-
+  <button id="connect">Connect Wallet</button>
   <script>
     async function connect() {
-      const provider = await window.WalletConnectProvider.init({
-        projectId: "088f7df8d5806b6ee79edef7eaadf2b8", // Replace with your project ID
-        chains: [1],                        // Ethereum Mainnet
-        showQrModal: true                   // Automatically show QR modal
+      if (!window.EthereumProvider) {
+        alert("EthereumProvider not found. Check version is v2.8.4.");
+        return;
+      }
+      const provider = await window.EthereumProvider.init({
+        projectId: "088f7df8d5806b6ee79edef7eaadf2b8",
+        metadata: {
+          name: "MyDApp",
+          description: "Connect your wallet",
+          url: window.location.origin,
+          icons: []
+        },
+        showQrModal: true,
+        chains: [1]
       });
 
       await provider.enable();
       console.log("Connected accounts:", provider.accounts);
-      alert("Connected account: " + provider.accounts[0]);
+      alert("Connected: " + provider.accounts[0]);
 
-      // Optional: Listen for events
-      provider.on("accountsChanged", (accounts) => console.log("Accounts changed:", accounts));
-      provider.on("chainChanged", (chainId) => console.log("Chain changed:", chainId));
-      provider.on("disconnect", (code, reason) => console.log("Disconnected:", code, reason));
+      provider.on("disconnect", (code, reason) => {
+        console.log("Disconnected:", code, reason);
+      });
     }
-
-    document.getElementById("connectBtn").onclick = connect;
+    document.getElementById("connect").onclick = connect;
   </script>
 </body>
 </html>
