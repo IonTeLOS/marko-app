@@ -10,7 +10,7 @@
             padding: 0;
             box-sizing: border-box;
         }
-
+        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #1a1a1a;
@@ -19,7 +19,7 @@
             flex-direction: column;
             height: 100vh;
         }
-
+        
         .container {
             flex: 1;
             display: flex;
@@ -27,13 +27,13 @@
             padding: 20px;
             gap: 20px;
         }
-
+        
         .input-section {
             display: flex;
             gap: 10px;
             align-items: center;
         }
-
+        
         input {
             flex: 1;
             padding: 12px;
@@ -43,11 +43,11 @@
             color: #fff;
             font-size: 16px;
         }
-
+        
         input::placeholder {
             color: #666;
         }
-
+        
         button {
             padding: 12px 24px;
             border: none;
@@ -57,16 +57,16 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-
+        
         .load-btn {
             background: #4CAF50;
             color: white;
         }
-
+        
         .load-btn:hover {
             background: #45a049;
         }
-
+        
         .iframe-container {
             flex: 1;
             background: #000;
@@ -74,13 +74,13 @@
             overflow: hidden;
             position: relative;
         }
-
+        
         iframe {
             width: 100%;
             height: 100%;
             border: none;
         }
-
+        
         .open-btn {
             background: #2196F3;
             color: white;
@@ -88,16 +88,16 @@
             padding: 16px;
             font-size: 18px;
         }
-
+        
         .open-btn:hover {
             background: #0b7dda;
         }
-
+        
         .open-btn:disabled {
             background: #555;
             cursor: not-allowed;
         }
-
+        
         .placeholder {
             position: absolute;
             top: 50%;
@@ -106,7 +106,7 @@
             text-align: center;
             color: #666;
         }
-
+        
         .placeholder h2 {
             font-size: 24px;
             margin-bottom: 10px;
@@ -116,14 +116,14 @@
 <body>
     <div class="container">
         <div class="input-section">
-            <input
-                type="text"
-                id="roomInput"
+            <input 
+                type="text" 
+                id="roomInput" 
                 placeholder="Enter VDO.ninja room ID"
                 value="">
             <button class="load-btn" onclick="loadStream()">Load Stream</button>
         </div>
-
+        
         <div class="iframe-container" id="iframeContainer">
             <div class="placeholder">
                 <h2>No stream loaded</h2>
@@ -131,34 +131,35 @@
             </div>
         </div>
     </div>
-
+    
     <button class="open-btn" id="openBtn" onclick="openRoom()" disabled>
         Open Room in New Tab
     </button>
 
     <script>
         let currentRoom = '';
-
+        
         function loadStream() {
             const roomId = document.getElementById('roomInput').value.trim();
-
+            
             if (!roomId) {
                 alert('Please enter a room ID');
                 return;
             }
-
+            
             currentRoom = roomId;
-
+            
             // View-only URL with no camera/audio
-            const viewUrl = `https://vdo.ninja/?view=${roomId}&scene`;
-
+            // Using &room with &scene to view all streams, plus &novideo and &noaudio to not publish
+            const viewUrl = `https://vdo.ninja/?scene&room=${roomId}&novideo&noaudio`;
+            
             console.log('Loading VDO.ninja stream:', viewUrl);
-
+            
             const container = document.getElementById('iframeContainer');
             container.innerHTML = `<iframe src="${viewUrl}" allow="autoplay; camera; microphone; display-capture; fullscreen;"></iframe>`;
-
+            
             document.getElementById('openBtn').disabled = false;
-
+            
             // Add iframe load listener for debugging
             const iframe = container.querySelector('iframe');
             iframe.addEventListener('load', () => {
@@ -168,26 +169,26 @@
                 console.error('Iframe error:', e);
             });
         }
-
+        
         function openRoom() {
             if (!currentRoom) {
                 alert('No room loaded');
                 return;
             }
-
+            
             // Normal room URL to join with camera/audio
             const roomUrl = `https://vdo.ninja/?room=${currentRoom}`;
             console.log('Opening room:', roomUrl);
             window.open(roomUrl, '_blank');
         }
-
+        
         // Allow Enter key to load stream
         document.getElementById('roomInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 loadStream();
             }
         });
-
+        
         // Listen for messages from iframe (for debugging)
         window.addEventListener('message', function(e) {
             if (e.data && typeof e.data === 'object') {
