@@ -170,7 +170,7 @@ function loadStream() {
     document.getElementById('streamDisplay').textContent = currentStream;
 
     // Add chat parameter so viewer can chat
-    const viewUrl = `https://vdo.ninja/?scene&view=${currentStream}&room=${currentRoom}&chat&novideo&noaudio&noscreen`;
+    const viewUrl = `https://vdo.ninja/?scene&view=${currentStream}&room=${currentRoom}&chat&noaudio&noscreen&hideui`;
     console.log('Loading VDO.ninja stream:', viewUrl);
 
     const container = document.getElementById('iframeContainer');
