@@ -159,15 +159,15 @@
             document.getElementById('roomDisplay').textContent = currentRoom;
             document.getElementById('streamDisplay').textContent = currentStream;
             
-            // View specific stream in room - adding &novideo&noaudio to prevent camera prompt
-            const viewUrl = `https://vdo.ninja/?view=${currentStream}&room=${currentRoom}&novideo&noaudio`;
+            // View specific stream in room - using &scene mode for view-only
+            const viewUrl = `https://vdo.ninja/?scene&view=${currentStream}&room=${currentRoom}`;
             
             console.log('Loading VDO.ninja stream:', viewUrl);
             console.log('Room:', currentRoom);
             console.log('Stream:', currentStream);
             
             const container = document.getElementById('iframeContainer');
-            container.innerHTML = `<iframe src="${viewUrl}" allow="autoplay;"></iframe>`;
+            container.innerHTML = `<iframe src="${viewUrl}" allow="autoplay; display-capture;"></iframe>`;
             
             // Add iframe load listener for debugging
             const iframe = container.querySelector('iframe');
