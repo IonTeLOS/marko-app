@@ -131,12 +131,14 @@
         let currentRoom = '';
         let currentStream = '';
         
-        function generateUUID() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                const r = Math.random() * 16 | 0;
-                const v = c === 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
+        function generateRoomId() {
+            // Generate 20 character random room ID (under 31 char limit)
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < 20; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
         }
         
         function generateRandomId(length = 7) {
@@ -149,23 +151,23 @@
         }
         
         function loadStream() {
-            // Generate random room (UUID) and stream ID (7 chars)
-            currentRoom = generateUUID();
+            // Generate random room (20 chars) and stream ID (7 chars)
+            currentRoom = generateRoomId();
             currentStream = generateRandomId(7);
             
             // Update display
             document.getElementById('roomDisplay').textContent = currentRoom;
             document.getElementById('streamDisplay').textContent = currentStream;
             
-            // View specific stream in room (viewer only, no camera/mic access requested)
-            const viewUrl = `https://vdo.ninja/?view=${currentStream}&room=${currentRoom}`;
+            // View specific stream in room - adding &novideo&noaudio to prevent camera prompt
+            const viewUrl = `https://vdo.ninja/?view=${currentStream}&room=${currentRoom}&novideo&noaudio`;
             
             console.log('Loading VDO.ninja stream:', viewUrl);
             console.log('Room:', currentRoom);
             console.log('Stream:', currentStream);
             
             const container = document.getElementById('iframeContainer');
-            container.innerHTML = `<iframe src="${viewUrl}" allow="autoplay; camera; microphone; display-capture; fullscreen;"></iframe>`;
+            container.innerHTML = `<iframe src="${viewUrl}" allow="autoplay;"></iframe>`;
             
             // Add iframe load listener for debugging
             const iframe = container.querySelector('iframe');
