@@ -137,7 +137,7 @@
         alert('No room loaded');
         return;
       }
-      const roomUrl = `https://vdo.ninja/?room=${currentRoom}&push=${currentStream}&chat&nofiles`;
+      const viewUrl = `https://vdo.ninja/?scene&view=${currentStream}&room=${currentRoom}&chat&noaudio&noscreen&hideui`;
       console.log('Opening room as publisher:', roomUrl);
       window.open(roomUrl, '_blank');
     }
