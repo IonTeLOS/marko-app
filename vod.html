@@ -3,14 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VDO.ninja Stream Viewer</title>
+    <title>VDO.ninja Stream Viewer + Chat</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * {margin: 0; padding: 0; box-sizing: border-box;}
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #1a1a1a;
@@ -19,7 +14,6 @@
             flex-direction: column;
             height: 100vh;
         }
-        
         .container {
             flex: 1;
             display: flex;
@@ -27,7 +21,6 @@
             padding: 20px;
             gap: 20px;
         }
-        
         .info-section {
             display: flex;
             gap: 15px;
@@ -37,39 +30,63 @@
             border-radius: 8px;
             font-size: 14px;
         }
-        
-        .info-item {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-        
-        .info-label {
-            color: #888;
-            font-size: 12px;
-            text-transform: uppercase;
-        }
-        
-        .info-value {
-            color: #fff;
-            font-family: monospace;
-            font-size: 16px;
-        }
-        
-        .iframe-container {
+        .info-item {display: flex; flex-direction: column; gap: 5px;}
+        .info-label {color: #888; font-size: 12px; text-transform: uppercase;}
+        .info-value {color: #fff; font-family: monospace; font-size: 16px;}
+        .content {
             flex: 1;
+            display: flex;
+            gap: 20px;
+            overflow: hidden;
+        }
+        .iframe-container {
+            flex: 3;
             background: #000;
             border-radius: 12px;
             overflow: hidden;
             position: relative;
         }
-        
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
+        iframe {width: 100%; height: 100%; border: none;}
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #2a2a2a;
+            border-radius: 12px;
+            overflow: hidden;
         }
-        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            font-size: 14px;
+        }
+        .chat-messages div {
+            margin-bottom: 8px;
+            padding: 6px 8px;
+            background: #333;
+            border-radius: 6px;
+        }
+        .chat-input {
+            display: flex;
+            border-top: 1px solid #444;
+        }
+        .chat-input input {
+            flex: 1;
+            padding: 12px;
+            background: #1f1f1f;
+            border: none;
+            color: white;
+            font-size: 14px;
+        }
+        .chat-input button {
+            background: #2196F3;
+            border: none;
+            color: white;
+            font-size: 14px;
+            padding: 12px 18px;
+            cursor: pointer;
+        }
         .open-btn {
             background: #2196F3;
             color: white;
@@ -82,126 +99,135 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        
-        .open-btn:hover {
-            background: #0b7dda;
-        }
-        
+        .open-btn:hover {background: #0b7dda;}
         .placeholder {
             position: absolute;
-            top: 50%;
-            left: 50%;
+            top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
             color: #666;
         }
-        
-        .placeholder h2 {
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
+        .placeholder h2 {font-size: 24px; margin-bottom: 10px;}
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="info-section">
-            <div class="info-item">
-                <div class="info-label">Room ID</div>
-                <div class="info-value" id="roomDisplay">-</div>
-            </div>
-            <div class="info-item">
-                <div class="info-label">Stream ID</div>
-                <div class="info-value" id="streamDisplay">-</div>
-            </div>
+<div class="container">
+    <div class="info-section">
+        <div class="info-item">
+            <div class="info-label">Room ID</div>
+            <div class="info-value" id="roomDisplay">-</div>
         </div>
-        
+        <div class="info-item">
+            <div class="info-label">Stream ID</div>
+            <div class="info-value" id="streamDisplay">-</div>
+        </div>
+    </div>
+
+    <div class="content">
         <div class="iframe-container" id="iframeContainer">
             <div class="placeholder">
                 <h2>Loading stream...</h2>
                 <p>Waiting for someone to join</p>
             </div>
         </div>
-    </div>
-    
-    <button class="open-btn" id="openBtn" onclick="openRoom()">
-        Join as Publisher (Open in New Tab)
-    </button>
 
-    <script>
-        let currentRoom = '';
-        let currentStream = '';
-        
-        function generateRoomId() {
-            // Generate 20 character random room ID (under 31 char limit)
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-            let result = '';
-            for (let i = 0; i < 20; i++) {
-                result += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            return result;
-        }
-        
-        function generateRandomId(length = 7) {
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-            let result = '';
-            for (let i = 0; i < length; i++) {
-                result += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            return result;
-        }
-        
-        function loadStream() {
-            // Generate random room (20 chars) and stream ID (7 chars)
-            currentRoom = generateRoomId();
-            currentStream = generateRandomId(7);
-            
-            // Update display
-            document.getElementById('roomDisplay').textContent = currentRoom;
-            document.getElementById('streamDisplay').textContent = currentStream;
-            
-            // View specific stream in room - using &scene mode for view-only
-            const viewUrl = `https://vdo.ninja/?scene&view=${currentStream}&room=${currentRoom}`;
-            
-            console.log('Loading VDO.ninja stream:', viewUrl);
-            console.log('Room:', currentRoom);
-            console.log('Stream:', currentStream);
-            
-            const container = document.getElementById('iframeContainer');
-            container.innerHTML = `<iframe src="${viewUrl}" allow="autoplay; display-capture;"></iframe>`;
-            
-            // Add iframe load listener for debugging
-            const iframe = container.querySelector('iframe');
-            iframe.addEventListener('load', () => {
-                console.log('Iframe loaded successfully');
-            });
-            iframe.addEventListener('error', (e) => {
-                console.error('Iframe error:', e);
-            });
-        }
-        
-        function openRoom() {
-            if (!currentRoom || !currentStream) {
-                alert('No room loaded');
-                return;
-            }
-            
-            // Open room with the SAME stream ID so person can join as publisher
-            const roomUrl = `https://vdo.ninja/?room=${currentRoom}&push=${currentStream}`;
-            console.log('Opening room as publisher:', roomUrl);
-            window.open(roomUrl, '_blank');
-        }
-        
-        // Listen for messages from iframe (for debugging)
-        window.addEventListener('message', function(e) {
-            if (e.data && typeof e.data === 'object') {
-                console.log('VDO.ninja message:', e.data);
-            }
-        });
-        
-        // Auto-load on page load
-        window.addEventListener('load', function() {
-            loadStream();
-        });
-    </script>
+        <div class="chat-container">
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-input">
+                <input type="text" id="chatInput" placeholder="Type a message...">
+                <button id="sendBtn">Send</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<button class="open-btn" id="openBtn" onclick="openRoom()">Join as Publisher (Open in New Tab)</button>
+
+<script>
+let currentRoom = '';
+let currentStream = '';
+let iframe = null;
+
+// Generate IDs
+function generateRoomId() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < 20; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
+    return result;
+}
+function generateRandomId(length = 7) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
+    return result;
+}
+
+// Load stream + chat
+function loadStream() {
+    currentRoom = generateRoomId();
+    currentStream = generateRandomId(7);
+    document.getElementById('roomDisplay').textContent = currentRoom;
+    document.getElementById('streamDisplay').textContent = currentStream;
+
+    // Add chat parameter so viewer can chat
+    const viewUrl = `https://vdo.ninja/?scene&view=${currentStream}&room=${currentRoom}&chat&novideo&noaudio&noscreen`;
+    console.log('Loading VDO.ninja stream:', viewUrl);
+
+    const container = document.getElementById('iframeContainer');
+    container.innerHTML = `<iframe src="${viewUrl}" allow="autoplay; display-capture;"></iframe>`;
+    iframe = container.querySelector('iframe');
+    iframe.addEventListener('load', () => console.log('Iframe loaded'));
+}
+
+// Open publisher link
+function openRoom() {
+    if (!currentRoom || !currentStream) {
+        alert('No room loaded');
+        return;
+    }
+    const roomUrl = `https://vdo.ninja/?room=${currentRoom}&push=${currentStream}&chat`;
+    window.open(roomUrl, '_blank');
+}
+
+// Chat handling
+const chatMessages = document.getElementById('chatMessages');
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+
+sendBtn.addEventListener('click', sendMessage);
+chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage();
+});
+
+function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text || !iframe) return;
+    chatInput.value = '';
+    appendChatMessage('You', text);
+
+    // Send message to VDO.ninja iframe via postMessage
+    iframe.contentWindow.postMessage({
+        action: 'sendChat',
+        msg: text
+    }, '*');
+}
+
+// Append chat message locally
+function appendChatMessage(sender, message) {
+    const msgEl = document.createElement('div');
+    msgEl.textContent = `${sender}: ${message}`;
+    chatMessages.appendChild(msgEl);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Listen for chat messages from VDO.ninja
+window.addEventListener('message', function(e) {
+    if (typeof e.data === 'object' && e.data.chat) {
+        appendChatMessage('Publisher', e.data.chat);
+    }
+});
+
+window.addEventListener('load', loadStream);
+</script>
 </body>
 </html>
