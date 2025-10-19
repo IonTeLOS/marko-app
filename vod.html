@@ -1,175 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VDO.ninja Stream Viewer + Chat</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #1a1a1a;
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-
-        .container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-            gap: 20px;
-        }
-
-        .info-section {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            background: #2a2a2a;
-            padding: 15px;
-            border-radius: 8px;
-            font-size: 14px;
-        }
-
-        .info-item { display: flex; flex-direction: column; gap: 5px; }
-        .info-label { color: #888; font-size: 12px; text-transform: uppercase; }
-        .info-value { color: #fff; font-family: monospace; font-size: 16px; }
-
-        .content {
-            flex: 1;
-            display: flex;
-            gap: 20px;
-            overflow: hidden;
-        }
-
-        .iframe-container {
-            flex: 3;
-            background: #000;
-            border-radius: 12px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        iframe { width: 100%; height: 100%; border: none; }
-
-        .chat-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: #2a2a2a;
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px;
-            font-size: 14px;
-        }
-
-        .chat-message {
-            margin-bottom: 8px;
-            padding: 6px 8px;
-            border-radius: 6px;
-            word-wrap: break-word;
-        }
-
-        .chat-message.you { background: #1e88e5; align-self: flex-end; }
-        .chat-message.other { background: #444; align-self: flex-start; }
-
-        .chat-input {
-            display: flex;
-            border-top: 1px solid #444;
-        }
-
-        .chat-input input {
-            flex: 1;
-            padding: 12px;
-            background: #1f1f1f;
-            border: none;
-            color: white;
-            font-size: 14px;
-        }
-
-        .chat-input button {
-            background: #2196F3;
-            border: none;
-            color: white;
-            font-size: 14px;
-            padding: 12px 18px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .chat-input button:hover { background: #0b7dda; }
-
-        .open-btn {
-            background: #2196F3;
-            color: white;
-            width: 100%;
-            padding: 16px;
-            font-size: 18px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .open-btn:hover { background: #0b7dda; }
-
-        .placeholder {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            color: #666;
-        }
-
-        .placeholder h2 { font-size: 24px; margin-bottom: 10px; }
-
-        @media (max-width: 768px) {
-            .content { flex-direction: column; }
-            .chat-container { flex: none; height: 40vh; }
-        }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VDO.ninja Stream Viewer + Chat</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:#1a1a1a;color:#fff;
+  display:flex;flex-direction:column;height:100vh;
+}
+.container{flex:1;display:flex;flex-direction:column;padding:20px;gap:20px;}
+.info-section{
+  display:flex;gap:15px;align-items:center;
+  background:#2a2a2a;padding:15px;border-radius:8px;font-size:14px;
+}
+.info-item{display:flex;flex-direction:column;gap:5px;}
+.info-label{color:#888;font-size:12px;text-transform:uppercase;}
+.info-value{color:#fff;font-family:monospace;font-size:16px;}
+.content{flex:1;display:flex;gap:20px;overflow:hidden;}
+.iframe-container{flex:3;background:#000;border-radius:12px;overflow:hidden;position:relative;}
+iframe{width:100%;height:100%;border:none;}
+.chat-container{flex:1;display:flex;flex-direction:column;background:#2a2a2a;border-radius:12px;overflow:hidden;}
+.chat-messages{flex:1;overflow-y:auto;padding:10px;font-size:14px;}
+.chat-message{margin-bottom:8px;padding:6px 8px;border-radius:6px;word-wrap:break-word;max-width:90%;}
+.chat-message.you{background:#1e88e5;align-self:flex-end;}
+.chat-message.other{background:#444;align-self:flex-start;}
+.chat-input{display:flex;border-top:1px solid #444;}
+.chat-input input{
+  flex:1;padding:12px;background:#1f1f1f;border:none;color:white;font-size:14px;
+}
+.chat-input button{
+  background:#2196F3;border:none;color:white;font-size:14px;
+  padding:12px 18px;cursor:pointer;transition:background 0.2s;
+}
+.chat-input button:hover{background:#0b7dda;}
+.open-btn{
+  background:#2196F3;color:white;width:100%;padding:16px;font-size:18px;
+  border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:background 0.2s;
+}
+.open-btn:hover{background:#0b7dda;}
+.placeholder{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  text-align:center;color:#666;
+}
+.placeholder h2{font-size:24px;margin-bottom:10px;}
+@media(max-width:768px){
+  .content{flex-direction:column;}
+  .chat-container{flex:none;height:40vh;}
+}
+</style>
 </head>
 <body>
 <div class="container">
-    <div class="info-section">
-        <div class="info-item">
-            <div class="info-label">Room ID</div>
-            <div class="info-value" id="roomDisplay">-</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Stream ID</div>
-            <div class="info-value" id="streamDisplay">-</div>
-        </div>
+  <div class="info-section">
+    <div class="info-item">
+      <div class="info-label">Room ID</div>
+      <div class="info-value" id="roomDisplay">-</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">Stream ID</div>
+      <div class="info-value" id="streamDisplay">-</div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="iframe-container" id="iframeContainer">
+      <div class="placeholder">
+        <h2>Loading stream...</h2>
+        <p>Waiting for someone to join</p>
+      </div>
     </div>
 
-    <div class="content">
-        <div class="iframe-container" id="iframeContainer">
-            <div class="placeholder">
-                <h2>Loading stream...</h2>
-                <p>Waiting for someone to join</p>
-            </div>
-        </div>
-
-        <div class="chat-container">
-            <div class="chat-messages" id="chatMessages"></div>
-            <div class="chat-input">
-                <input type="text" id="chatInput" placeholder="Type a message..." />
-                <button id="sendBtn">Send</button>
-            </div>
-        </div>
+    <div class="chat-container">
+      <div class="chat-messages" id="chatMessages"></div>
+      <div class="chat-input">
+        <input type="text" id="chatInput" placeholder="Type a message..." />
+        <button id="sendBtn">Send</button>
+      </div>
     </div>
+  </div>
 </div>
 
 <button class="open-btn" id="openBtn" onclick="openRoom()">
-    Join as Publisher (Open in New Tab)
+  Join as Publisher (Open in New Tab)
 </button>
 
 <script>
@@ -177,102 +92,84 @@ let currentRoom = '';
 let currentStream = '';
 let iframe = null;
 
-// ---------- Utility ----------
+// Utility
 function generateRoomId() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    return Array.from({ length: 20 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  return Array.from({ length: 20 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 function generateRandomId(length = 7) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
-// ---------- Load stream ----------
+// Load stream
 function loadStream() {
-    currentRoom = generateRoomId();
-    currentStream = generateRandomId(7);
-    document.getElementById('roomDisplay').textContent = currentRoom;
-    document.getElementById('streamDisplay').textContent = currentStream;
+  currentRoom = generateRoomId();
+  currentStream = generateRandomId(7);
+  document.getElementById('roomDisplay').textContent = currentRoom;
+  document.getElementById('streamDisplay').textContent = currentStream;
 
-    const viewUrl = `https://vdo.ninja/?scene&view=${currentStream}&room=${currentRoom}&chat&noaudio&noscreen&hideui`;
-    console.log('Loading VDO.ninja stream:', viewUrl);
+  // ❌ no &chat → no built-in UI
+  const viewUrl = `https://vdo.ninja/?scene&view=${currentStream}&room=${currentRoom}&noaudio&noscreen&hideui`;
+  console.log('Loading stream:', viewUrl);
 
-    const container = document.getElementById('iframeContainer');
-    container.innerHTML = `<iframe src="${viewUrl}" allow="autoplay; display-capture;"></iframe>`;
-    iframe = container.querySelector('iframe');
+  const container = document.getElementById('iframeContainer');
+  container.innerHTML = `<iframe src="${viewUrl}" allow="autoplay; display-capture;"></iframe>`;
+  iframe = container.querySelector('iframe');
 
-    iframe.addEventListener('load', () => {
-        console.log('Iframe loaded');
-        // Hide VDO.ninja's internal chat UI, reload & file-share buttons
-        const css = `
-            .chatContainer, .chatBtn, .reloadBtn, .fileButton, .fileButtonContainer {
-                display: none !important;
-            }
-        `;
-        const script = `
-            const style = document.createElement('style');
-            style.textContent = ${JSON.stringify(css)};
-            document.head.appendChild(style);
-        `;
-        iframe.contentWindow.postMessage({ runScript: script }, '*');
-    });
+  iframe.addEventListener('load', () => {
+    console.log('Iframe loaded, adding chat datachannel');
+    // ✅ Explicitly create DataChannel named "chat"
+    iframe.contentWindow.postMessage({ action: "addDataChannel", label: "chat" }, "*");
+  });
 }
 
-// ---------- Publisher link ----------
+// Publisher link
 function openRoom() {
-    if (!currentRoom || !currentStream) {
-        alert('No room loaded');
-        return;
-    }
-    const roomUrl = `https://vdo.ninja/?room=${currentRoom}&push=${currentStream}&chat`;
-    console.log('Opening room as publisher:', roomUrl);
-    window.open(roomUrl, '_blank');
+  if (!currentRoom || !currentStream) return alert('No room loaded');
+  const url = `https://vdo.ninja/?room=${currentRoom}&push=${currentStream}`;
+  window.open(url, '_blank');
 }
 
-// ---------- Chat ----------
+// Chat handling
 const chatMessages = document.getElementById('chatMessages');
 const chatInput = document.getElementById('chatInput');
 const sendBtn = document.getElementById('sendBtn');
 
 sendBtn.addEventListener('click', sendMessage);
-chatInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendMessage();
-});
+chatInput.addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
 
 function appendChatMessage(sender, message) {
-    const msgEl = document.createElement('div');
-    msgEl.classList.add('chat-message');
-    msgEl.classList.add(sender === 'You' ? 'you' : 'other');
-    msgEl.textContent = `${sender}: ${message}`;
-    chatMessages.appendChild(msgEl);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+  const msgEl = document.createElement('div');
+  msgEl.classList.add('chat-message', sender === 'You' ? 'you' : 'other');
+  msgEl.textContent = `${sender}: ${message}`;
+  chatMessages.appendChild(msgEl);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 function sendMessage() {
-    const text = chatInput.value.trim();
-    if (!text || !iframe) return;
-    chatInput.value = '';
-    appendChatMessage('You', text);
-
-    try {
-        // ✅ Correct VDO.ninja format
-        iframe.contentWindow.postMessage({ chat: text }, '*');
-    } catch (err) {
-        console.warn('PostMessage error:', err);
-    }
+  const text = chatInput.value.trim();
+  if (!text || !iframe) return;
+  chatInput.value = '';
+  appendChatMessage('You', text);
+  // ✅ Send via our "chat" DataChannel
+  iframe.contentWindow.postMessage({
+    action: "sendDataChannelMsg",
+    label: "chat",
+    msg: text
+  }, "*");
 }
 
-// ---------- Receive messages from publisher ----------
+// Receive from publisher
 window.addEventListener('message', (e) => {
-    const data = e.data;
-    if (!data) return;
-
-    if (typeof data === 'object' && typeof data.chat === 'string') {
-        appendChatMessage('Publisher', data.chat);
-    }
+  const data = e.data;
+  if (!data) return;
+  if (data.action === 'dataChannel' && data.label === 'chat' && typeof data.msg === 'string') {
+    appendChatMessage('Publisher', data.msg);
+  }
 });
 
-// ---------- Init ----------
+// Init
 window.addEventListener('load', loadStream);
 </script>
 </body>
