@@ -61,6 +61,7 @@
         .load-btn {
             background: #4CAF50;
             color: white;
+            white-space: nowrap;
         }
         
         .load-btn:hover {
@@ -119,7 +120,12 @@
             <input 
                 type="text" 
                 id="roomInput" 
-                placeholder="Enter VDO.ninja room ID"
+                placeholder="Enter room ID"
+                value="">
+            <input 
+                type="text" 
+                id="streamInput" 
+                placeholder="Enter stream ID (push)"
                 value="">
             <button class="load-btn" onclick="loadStream()">Load Stream</button>
         </div>
@@ -127,31 +133,42 @@
         <div class="iframe-container" id="iframeContainer">
             <div class="placeholder">
                 <h2>No stream loaded</h2>
-                <p>Enter a room ID above to view the stream</p>
+                <p>Enter a room ID and stream ID above to view the stream</p>
             </div>
         </div>
     </div>
     
     <button class="open-btn" id="openBtn" onclick="openRoom()" disabled>
-        Open Room in New Tab
+        Open Room in New Tab (Join as Publisher)
     </button>
 
     <script>
         let currentRoom = '';
+        let currentStream = '';
+        
+        function generateRandomId(length = 7) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < length; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
         
         function loadStream() {
             const roomId = document.getElementById('roomInput').value.trim();
+            const streamId = document.getElementById('streamInput').value.trim();
             
-            if (!roomId) {
-                alert('Please enter a room ID');
+            if (!roomId || !streamId) {
+                alert('Please enter both room ID and stream ID');
                 return;
             }
             
             currentRoom = roomId;
+            currentStream = streamId;
             
-            // View-only URL with no camera/audio
-            // Using &room with &view mode to see streams without publishing
-            const viewUrl = `https://vdo.ninja/?password=false&room=${roomId}&view`;
+            // View specific stream in room
+            const viewUrl = `https://vdo.ninja/?view=${streamId}&room=${roomId}`;
             
             console.log('Loading VDO.ninja stream:', viewUrl);
             
@@ -176,14 +193,23 @@
                 return;
             }
             
-            // Normal room URL to join with camera/audio
-            const roomUrl = `https://vdo.ninja/?room=${currentRoom}`;
-            console.log('Opening room:', roomUrl);
+            // Generate random push ID for new publisher
+            const randomPushId = generateRandomId(7);
+            
+            // Open room with random push ID so user can join as publisher
+            const roomUrl = `https://vdo.ninja/?room=${currentRoom}&push=${randomPushId}`;
+            console.log('Opening room as publisher:', roomUrl);
             window.open(roomUrl, '_blank');
         }
         
         // Allow Enter key to load stream
         document.getElementById('roomInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('streamInput').focus();
+            }
+        });
+        
+        document.getElementById('streamInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 loadStream();
             }
