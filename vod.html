@@ -28,44 +28,32 @@
             gap: 20px;
         }
         
-        .input-section {
+        .info-section {
             display: flex;
-            gap: 10px;
+            gap: 15px;
             align-items: center;
-        }
-        
-        input {
-            flex: 1;
-            padding: 12px;
-            border: 2px solid #333;
-            border-radius: 8px;
             background: #2a2a2a;
-            color: #fff;
-            font-size: 16px;
-        }
-        
-        input::placeholder {
-            color: #666;
-        }
-        
-        button {
-            padding: 12px 24px;
-            border: none;
+            padding: 15px;
             border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .info-label {
+            color: #888;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        
+        .info-value {
+            color: #fff;
+            font-family: monospace;
             font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .load-btn {
-            background: #4CAF50;
-            color: white;
-            white-space: nowrap;
-        }
-        
-        .load-btn:hover {
-            background: #45a049;
         }
         
         .iframe-container {
@@ -88,15 +76,15 @@
             width: 100%;
             padding: 16px;
             font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
         }
         
         .open-btn:hover {
             background: #0b7dda;
-        }
-        
-        .open-btn:disabled {
-            background: #555;
-            cursor: not-allowed;
         }
         
         .placeholder {
@@ -116,35 +104,40 @@
 </head>
 <body>
     <div class="container">
-        <div class="input-section">
-            <input 
-                type="text" 
-                id="roomInput" 
-                placeholder="Enter room ID"
-                value="">
-            <input 
-                type="text" 
-                id="streamInput" 
-                placeholder="Enter stream ID (push)"
-                value="">
-            <button class="load-btn" onclick="loadStream()">Load Stream</button>
+        <div class="info-section">
+            <div class="info-item">
+                <div class="info-label">Room ID</div>
+                <div class="info-value" id="roomDisplay">-</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Stream ID</div>
+                <div class="info-value" id="streamDisplay">-</div>
+            </div>
         </div>
         
         <div class="iframe-container" id="iframeContainer">
             <div class="placeholder">
-                <h2>No stream loaded</h2>
-                <p>Enter a room ID and stream ID above to view the stream</p>
+                <h2>Loading stream...</h2>
+                <p>Waiting for someone to join</p>
             </div>
         </div>
     </div>
     
-    <button class="open-btn" id="openBtn" onclick="openRoom()" disabled>
-        Open Room in New Tab (Join as Publisher)
+    <button class="open-btn" id="openBtn" onclick="openRoom()">
+        Join as Publisher (Open in New Tab)
     </button>
 
     <script>
         let currentRoom = '';
         let currentStream = '';
+        
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
         
         function generateRandomId(length = 7) {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -156,26 +149,23 @@
         }
         
         function loadStream() {
-            const roomId = document.getElementById('roomInput').value.trim();
-            const streamId = document.getElementById('streamInput').value.trim();
+            // Generate random room (UUID) and stream ID (7 chars)
+            currentRoom = generateUUID();
+            currentStream = generateRandomId(7);
             
-            if (!roomId || !streamId) {
-                alert('Please enter both room ID and stream ID');
-                return;
-            }
+            // Update display
+            document.getElementById('roomDisplay').textContent = currentRoom;
+            document.getElementById('streamDisplay').textContent = currentStream;
             
-            currentRoom = roomId;
-            currentStream = streamId;
-            
-            // View specific stream in room
-            const viewUrl = `https://vdo.ninja/?view=${streamId}&room=${roomId}`;
+            // View specific stream in room (viewer only, no camera/mic access requested)
+            const viewUrl = `https://vdo.ninja/?view=${currentStream}&room=${currentRoom}`;
             
             console.log('Loading VDO.ninja stream:', viewUrl);
+            console.log('Room:', currentRoom);
+            console.log('Stream:', currentStream);
             
             const container = document.getElementById('iframeContainer');
             container.innerHTML = `<iframe src="${viewUrl}" allow="autoplay; camera; microphone; display-capture; fullscreen;"></iframe>`;
-            
-            document.getElementById('openBtn').disabled = false;
             
             // Add iframe load listener for debugging
             const iframe = container.querySelector('iframe');
@@ -188,38 +178,27 @@
         }
         
         function openRoom() {
-            if (!currentRoom) {
+            if (!currentRoom || !currentStream) {
                 alert('No room loaded');
                 return;
             }
             
-            // Generate random push ID for new publisher
-            const randomPushId = generateRandomId(7);
-            
-            // Open room with random push ID so user can join as publisher
-            const roomUrl = `https://vdo.ninja/?room=${currentRoom}&push=${randomPushId}`;
+            // Open room with the SAME stream ID so person can join as publisher
+            const roomUrl = `https://vdo.ninja/?room=${currentRoom}&push=${currentStream}`;
             console.log('Opening room as publisher:', roomUrl);
             window.open(roomUrl, '_blank');
         }
-        
-        // Allow Enter key to load stream
-        document.getElementById('roomInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                document.getElementById('streamInput').focus();
-            }
-        });
-        
-        document.getElementById('streamInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                loadStream();
-            }
-        });
         
         // Listen for messages from iframe (for debugging)
         window.addEventListener('message', function(e) {
             if (e.data && typeof e.data === 'object') {
                 console.log('VDO.ninja message:', e.data);
             }
+        });
+        
+        // Auto-load on page load
+        window.addEventListener('load', function() {
+            loadStream();
         });
     </script>
 </body>
