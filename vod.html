@@ -125,7 +125,7 @@
       document.getElementById('streamDisplay').textContent = currentStream;
 
       // ✅ default chat enabled, no file upload, no mic/screen, no reload/file buttons
-      const viewUrl = `https://vdo.ninja/?scene&view=${currentStream}&room=${currentRoom}&chat&nofiles&noaudio&noscreen&hideui`;
+      const viewUrl = `https://vdo.ninja/?view=${currentStream}&room=${currentRoom}&cleanoutput`;
 
       console.log('Loading VDO.ninja stream:', viewUrl);
       const container = document.getElementById('iframeContainer');
