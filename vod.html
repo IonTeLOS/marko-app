@@ -150,8 +150,8 @@
             currentRoom = roomId;
             
             // View-only URL with no camera/audio
-            // Using &view with room name (without &scene for auto-display)
-            const viewUrl = `https://vdo.ninja/?view=${roomId}`;
+            // Using &room with &view mode to see streams without publishing
+            const viewUrl = `https://vdo.ninja/?password=false&room=${roomId}&view`;
             
             console.log('Loading VDO.ninja stream:', viewUrl);
             
