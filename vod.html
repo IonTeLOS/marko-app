@@ -1,148 +1,147 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VDO.ninja Stream Viewer</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #1a1a1a;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-
-    .container {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 20px;
-      gap: 20px;
-    }
-
-    .info-section {
-      display: flex;
-      gap: 15px;
-      align-items: center;
-      background: #2a2a2a;
-      padding: 15px;
-      border-radius: 8px;
-      font-size: 14px;
-    }
-
-    .info-item { display: flex; flex-direction: column; gap: 5px; }
-    .info-label { color: #888; font-size: 12px; text-transform: uppercase; }
-    .info-value { color: #fff; font-family: monospace; font-size: 16px; }
-
-    .iframe-container {
-      flex: 1;
-      background: #000;
-      border-radius: 12px;
-      overflow: hidden;
-      position: relative;
-    }
-
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      border-radius: 12px;
-    }
-
-    .placeholder {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      color: #666;
-    }
-
-    .placeholder h2 { font-size: 24px; margin-bottom: 10px; }
-
-    .open-btn {
-      background: #2196F3;
-      color: white;
-      width: 100%;
-      padding: 16px;
-      font-size: 18px;
-      border: none;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .open-btn:hover { background: #0b7dda; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VDO.ninja Stream Viewer + Chat</title>
+    <style>
+        * {margin: 0; padding: 0; box-sizing: border-box;}
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 20px;
+        }
+        .info-section {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .info-item {display: flex; flex-direction: column; gap: 5px;}
+        .info-label {color: #888; font-size: 12px; text-transform: uppercase;}
+        .info-value {color: #fff; font-family: monospace; font-size: 16px;}
+        .content {
+            flex: 1;
+            display: flex;
+            gap: 20px;
+            overflow: hidden;
+        }
+        .iframe-container {
+            flex: 3;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+        iframe {width: 100%; height: 100%; border: none;}
+        .open-btn {
+            background: #2196F3;
+            color: white;
+            width: 100%;
+            padding: 16px;
+            font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .open-btn:hover {background: #0b7dda;}
+        .placeholder {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #666;
+        }
+        .placeholder h2 {font-size: 24px; margin-bottom: 10px;}
+    </style>
 </head>
 <body>
-  <div class="container">
+<div class="container">
     <div class="info-section">
-      <div class="info-item">
-        <div class="info-label">Room ID</div>
-        <div class="info-value" id="roomDisplay">-</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">Stream ID</div>
-        <div class="info-value" id="streamDisplay">-</div>
-      </div>
+        <div class="info-item">
+            <div class="info-label">Room ID</div>
+            <div class="info-value" id="roomDisplay">-</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Stream ID</div>
+            <div class="info-value" id="streamDisplay">-</div>
+        </div>
     </div>
 
-    <div class="iframe-container" id="iframeContainer">
-      <div class="placeholder">
-        <h2>Loading stream...</h2>
-        <p>Waiting for someone to join</p>
-      </div>
+    <div class="content">
+        <div class="iframe-container" id="iframeContainer">
+            <div class="placeholder">
+                <h2>Loading stream...</h2>
+                <p>Waiting for someone to join</p>
+            </div>
+        </div>
     </div>
-  </div>
+</div>
 
-  <button class="open-btn" id="openBtn" onclick="openRoom()">
-    Join as Publisher (Open in New Tab)
-  </button>
+<button class="open-btn" id="openBtn" onclick="openRoom()">Join as Publisher (Open in New Tab)</button>
 
-  <script>
-    let currentRoom = '';
-    let currentStream = '';
+<script>
+let currentRoom = '';
+let currentStream = '';
+let iframe = null;
 
-    function generateRoomId() {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-      return Array.from({ length: 20 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    }
+// Generate IDs
+function generateRoomId() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < 20; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
+    return result;
+}
+function generateRandomId(length = 7) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
+    return result;
+}
 
-    function generateRandomId(length = 7) {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-      return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    }
+// Load stream + chat
+function loadStream() {
+    currentRoom = generateRoomId();
+    currentStream = generateRandomId(7);
+    document.getElementById('roomDisplay').textContent = currentRoom;
+    document.getElementById('streamDisplay').textContent = currentStream;
 
-    function loadStream() {
-      currentRoom = generateRoomId();
-      currentStream = generateRandomId(7);
+    // Add chat parameter so viewer can chat
+    const viewUrl = `https://vdo.ninja/?scene&view=${currentStream}&room=${currentRoom}&chat&noaudio&noscreen&hideui`;
+    console.log('Loading VDO.ninja stream:', viewUrl);
 
-      document.getElementById('roomDisplay').textContent = currentRoom;
-      document.getElementById('streamDisplay').textContent = currentStream;
+    const container = document.getElementById('iframeContainer');
+    container.innerHTML = `<iframe src="${viewUrl}" allow="autoplay; display-capture;"></iframe>`;
+    iframe = container.querySelector('iframe');
+    iframe.addEventListener('load', () => console.log('Iframe loaded'));
+}
 
-      // ✅ default chat enabled, no file upload, no mic/screen, no reload/file buttons
-      const viewUrl = `https://vdo.ninja/?view=${currentStream}&room=${currentRoom}&cleanoutput`;
-
-      console.log('Loading VDO.ninja stream:', viewUrl);
-      const container = document.getElementById('iframeContainer');
-      container.innerHTML = `<iframe src="${viewUrl}" allow="autoplay; display-capture;"></iframe>`;
-    }
-
-    function openRoom() {
-      if (!currentRoom || !currentStream) {
+// Open publisher link
+function openRoom() {
+    if (!currentRoom || !currentStream) {
         alert('No room loaded');
         return;
-      }
-      const viewUrl = `https://vdo.ninja/?scene&view=${currentStream}&room=${currentRoom}&chat&noaudio&noscreen&hideui`;
-      console.log('Opening room as publisher:', roomUrl);
-      window.open(roomUrl, '_blank');
     }
+    const roomUrl = `https://vdo.ninja/?room=${currentRoom}&push=${currentStream}&chat`;
+    window.open(roomUrl, '_blank');
+}
 
-    window.addEventListener('load', loadStream);
-  </script>
+window.addEventListener('load', loadStream);
+</script>
 </body>
 </html>
