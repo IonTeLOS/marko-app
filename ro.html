@@ -202,9 +202,20 @@
         <div class="status" id="status"></div>
     </div>
 
+    <script type="importmap">
+    {
+        "imports": {
+            "@ardrive/turbo-sdk": "https://unpkg.com/@ardrive/turbo-sdk/lib/esm/web/index.js",
+            "@dha-team/arbundles": "https://unpkg.com/@dha-team/arbundles",
+            "arweave": "https://unpkg.com/arweave@1.15.1",
+            "axios": "https://unpkg.com/axios/dist/esm/axios.js",
+            "eventemitter3": "https://unpkg.com/eventemitter3"
+        }
+    }
+    </script>
     <script type="module">
-        import { TurboFactory } from 'https://unpkg.com/@ardrive/turbo-sdk/lib/esm/web/index.js';
-        import * as ArweaveModule from 'https://unpkg.com/arweave@1.15.1';
+        import { TurboFactory } from '@ardrive/turbo-sdk';
+        import * as ArweaveModule from 'arweave';
         const Arweave = ArweaveModule.default || ArweaveModule;
 
         const uploadArea = document.getElementById('uploadArea');
