@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arweave Uploader</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .info-banner {
+            background: #e8f4fd;
+            border-left: 4px solid #2196F3;
+            padding: 12px 15px;
+            margin-bottom: 25px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #1976D2;
+        }
+
+        .file-upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .file-upload-area:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .file-upload-area.active {
+            border-color: #667eea;
+            background: #f0f3ff;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .file-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .file-info {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .file-selected {
+            color: #667eea;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .checkbox-label {
+            color: #555;
+            font-size: 14px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .upload-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .upload-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .upload-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status.error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+
+        .status.success {
+            background: #efe;
+            color: #3c3;
+            border: 1px solid #cfc;
+        }
+
+        .status.info {
+            background: #eef;
+            color: #33c;
+            border: 1px solid #ccf;
+        }
+
+        .result-link {
+            color: #667eea;
+            word-break: break-all;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .result-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 Arweave Uploader</h1>
+        <p class="subtitle">Permanently store files on Arweave (free under 100KB)</p>
+
+        <div class="info-banner">
+            ℹ️ Files under 100KB are free! A temporary wallet is auto-generated for each upload.
+        </div>
+
+        <div class="file-upload-area" id="uploadArea">
+            <div class="file-icon">📄</div>
+            <div class="file-info">
+                Click to select a file or drag and drop<br>
+                <small>(Max 100 KB for free uploads)</small>
+            </div>
+            <div class="file-selected" id="fileSelected"></div>
+        </div>
+        <input type="file" id="fileInput">
+
+        <div class="checkbox-group">
+            <input type="checkbox" id="isManifest">
+            <label for="isManifest" class="checkbox-label">Is Manifest (adds manifest content-type)</label>
+        </div>
+
+        <button class="upload-btn" id="uploadBtn">Upload to Arweave</button>
+
+        <div class="status" id="status"></div>
+    </div>
+
+    <script type="module">
+        import { TurboFactory } from 'https://esm.sh/@ardrive/turbo-sdk@2.1.0';
+        import Arweave from 'https://esm.sh/arweave@1.15.1';
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileSelected = document.getElementById('fileSelected');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const status = document.getElementById('status');
+        const isManifestCheck = document.getElementById('isManifest');
+
+        let selectedFile = null;
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('active');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('active');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('active');
+            if (e.dataTransfer.files.length) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            if (file.size > 100 * 1024) {
+                showStatus('⚠️ File size must be under 100 KB for free uploads', 'error');
+                selectedFile = null;
+                fileSelected.textContent = '';
+                return;
+            }
+            selectedFile = file;
+            fileSelected.textContent = `✓ ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+            hideStatus();
+        }
+
+        uploadBtn.addEventListener('click', async () => {
+            if (!selectedFile) {
+                showStatus('Please select a file first', 'error');
+                return;
+            }
+
+            try {
+                uploadBtn.disabled = true;
+                showStatus('Generating temporary wallet...', 'info');
+
+                // Generate a temporary wallet for this upload
+                const arweave = new Arweave({});
+                const privateKey = await arweave.wallets.generate();
+                
+                showStatus('Uploading to Arweave...', 'info');
+
+                const turbo = TurboFactory.authenticated({ privateKey });
+
+                const uploadOptions = {
+                    fileStreamFactory: () => selectedFile.stream(),
+                    fileSizeFactory: () => selectedFile.size,
+                };
+
+                if (isManifestCheck.checked) {
+                    uploadOptions.dataItemOpts = {
+                        tags: [
+                            { name: 'Content-Type', value: 'application/x.arweave-manifest+json' }
+                        ]
+                    };
+                }
+
+                const uploadResult = await turbo.uploadFile(uploadOptions);
+
+                showStatus(
+                    `✓ File uploaded successfully!<br><br>` +
+                    `Transaction ID: <a href="https://arweave.net/${uploadResult.id}" target="_blank" class="result-link">${uploadResult.id}</a><br><br>` +
+                    `<small>Your file is now permanently stored on Arweave!</small>`,
+                    'success'
+                );
+
+                selectedFile = null;
+                fileSelected.textContent = '';
+                fileInput.value = '';
+            } catch (error) {
+                console.error('Upload error:', error);
+                showStatus(`Upload failed: ${error.message}`, 'error');
+            } finally {
+                uploadBtn.disabled = false;
+            }
+        });
+
+        function showStatus(message, type) {
+            status.className = `status ${type}`;
+            status.innerHTML = message;
+            status.style.display = 'block';
+        }
+
+        function hideStatus() {
+            status.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
