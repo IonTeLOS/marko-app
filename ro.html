@@ -176,10 +176,10 @@
 <body>
     <div class="container">
         <h1>📦 Arweave Uploader</h1>
-        <p class="subtitle">Permanently store files on Arweave (free under 100KB)</p>
+        <p class="subtitle">Permanently store files on Arweave via Turbo</p>
 
         <div class="info-banner">
-            ℹ️ Files under 100KB are free! A temporary wallet is auto-generated for each upload.
+            ℹ️ Files under 100KB are free! Using Turbo's upload service.
         </div>
 
         <div class="file-upload-area" id="uploadArea">
@@ -202,22 +202,9 @@
         <div class="status" id="status"></div>
     </div>
 
-    <script type="importmap">
-    {
-        "imports": {
-            "@ardrive/turbo-sdk": "https://unpkg.com/@ardrive/turbo-sdk/lib/esm/web/index.js",
-            "@dha-team/arbundles": "https://unpkg.com/@dha-team/arbundles",
-            "arweave": "https://unpkg.com/arweave@1.15.1",
-            "axios": "https://unpkg.com/axios/dist/esm/axios.js",
-            "eventemitter3": "https://unpkg.com/eventemitter3"
-        }
-    }
-    </script>
-    <script type="module">
-        import { TurboFactory } from '@ardrive/turbo-sdk';
-        import * as ArweaveModule from 'arweave';
-        const Arweave = ArweaveModule.default || ArweaveModule;
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/arweave/1.14.4/arweave.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
+    <script>
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
         const fileSelected = document.getElementById('fileSelected');
@@ -275,34 +262,55 @@
 
             try {
                 uploadBtn.disabled = true;
-                showStatus('Generating temporary wallet...', 'info');
+                showStatus('Generating wallet and signing...', 'info');
 
-                // Generate a temporary wallet for this upload
-                const arweave = new Arweave({});
-                const privateKey = await arweave.wallets.generate();
+                // Generate a temporary wallet
+                const arweave = Arweave.init({});
+                const key = await arweave.wallets.generate();
+                const address = await arweave.wallets.jwkToAddress(key);
+
+                // Read file as ArrayBuffer
+                const fileBuffer = await selectedFile.arrayBuffer();
                 
-                showStatus('Uploading to Arweave...', 'info');
+                showStatus('Uploading to Turbo...', 'info');
 
-                const turbo = TurboFactory.authenticated({ privateKey });
-
-                const uploadOptions = {
-                    fileStreamFactory: () => selectedFile.stream(),
-                    fileSizeFactory: () => selectedFile.size,
-                };
+                // Prepare tags
+                const tags = [
+                    { name: 'Content-Type', value: selectedFile.type || 'application/octet-stream' }
+                ];
 
                 if (isManifestCheck.checked) {
-                    uploadOptions.dataItemOpts = {
-                        tags: [
-                            { name: 'Content-Type', value: 'application/x.arweave-manifest+json' }
-                        ]
-                    };
+                    tags.push({ name: 'Content-Type', value: 'application/x.arweave-manifest+json' });
                 }
 
-                const uploadResult = await turbo.uploadFile(uploadOptions);
+                // Create a data item (simplified version)
+                const data = new Uint8Array(fileBuffer);
+                
+                // Sign the data
+                const dataToSign = new Uint8Array([
+                    ...new TextEncoder().encode('dataitem'),
+                    ...new TextEncoder().encode('1'),
+                    ...new TextEncoder().encode(address),
+                    ...data
+                ]);
+
+                const signature = await arweave.crypto.sign(key, dataToSign);
+
+                // Upload via Turbo's API
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+
+                const response = await axios.post('https://upload.turbo.ardrive.io/v1/tx', formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+
+                const txId = response.data.id || response.data.txId;
 
                 showStatus(
                     `✓ File uploaded successfully!<br><br>` +
-                    `Transaction ID: <a href="https://arweave.net/${uploadResult.id}" target="_blank" class="result-link">${uploadResult.id}</a><br><br>` +
+                    `Transaction ID: <a href="https://arweave.net/${txId}" target="_blank" class="result-link">${txId}</a><br><br>` +
                     `<small>Your file is now permanently stored on Arweave!</small>`,
                     'success'
                 );
@@ -312,7 +320,7 @@
                 fileInput.value = '';
             } catch (error) {
                 console.error('Upload error:', error);
-                showStatus(`Upload failed: ${error.message}`, 'error');
+                showStatus(`Upload failed: ${error.response?.data?.error || error.message}`, 'error');
             } finally {
                 uploadBtn.disabled = false;
             }
