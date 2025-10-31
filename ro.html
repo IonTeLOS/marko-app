@@ -204,7 +204,8 @@
 
     <script type="module">
         import { TurboFactory } from 'https://unpkg.com/@ardrive/turbo-sdk';
-        import Arweave from 'https://unpkg.com/arweave@1.15.1';
+        import * as ArweaveModule from 'https://unpkg.com/arweave@1.15.1';
+        const Arweave = ArweaveModule.default || ArweaveModule;
 
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
@@ -215,7 +216,10 @@
 
         let selectedFile = null;
 
-        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fileInput.click();
+        });
 
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
