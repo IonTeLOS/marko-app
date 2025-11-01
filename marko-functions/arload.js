@@ -1,4 +1,5 @@
 // netlify/functions/arload.js
+// FIXED VERSION - Properly handles Content-Type headers
 const crypto = require('crypto');
 
 // Configuration constants
@@ -15,14 +16,13 @@ const CONFIG = {
   
   // Admin controls
   ADMIN: {
-    DECRYPTION_ENABLED: true, // Set to false to disable decryption endpoint
-    DOMAIN_RESTRICTION_ENABLED: false, // Set to true to enable domain restrictions
-    LOGGING_ENABLED: true, // Set to false to disable all console.log for privacy
+    DECRYPTION_ENABLED: true,
+    DOMAIN_RESTRICTION_ENABLED: false,
+    LOGGING_ENABLED: true,
     ALLOWED_DOMAINS: [
       'komvos.net',
       'localhost:3000',
       'localhost:8080'
-      // Add more domains as needed
     ]
   }
 };
@@ -78,12 +78,19 @@ class MinimalThyraUploader {
     const { createData, ArweaveSigner } = await import('arbundles');
     const signer = new ArweaveSigner(wallet);
 
+    // ✅ FIX: Extract content type from tags or default to octet-stream
+    const contentTypeTag = tags.find(t => t.name === 'Content-Type');
+    const contentType = contentTypeTag ? contentTypeTag.value : 'application/octet-stream';
+    
+    // Filter out Content-Type from additional tags to avoid duplication
+    const additionalTags = tags.filter(t => t.name !== 'Content-Type');
+
     const dataItem = createData(content, signer, {
       tags: [
-        { name: 'Content-Type', value: 'application/octet-stream' },
+        { name: 'Content-Type', value: contentType }, // ✅ Now uses actual content type!
         { name: 'App-Name', value: 'MinimalThyra' },
         { name: 'Timestamp', value: Date.now().toString() },
-        ...tags
+        ...additionalTags
       ]
     });
 
@@ -163,7 +170,6 @@ class MinimalThyraUploader {
     }
   }
 
-  // Decrypt content using AES-GCM
   async decryptContent(encryptedData, key) {
     if (!encryptedData.algorithm || encryptedData.algorithm !== 'aes-256-gcm') {
       throw new Error('Unsupported encryption algorithm');
@@ -182,14 +188,11 @@ class MinimalThyraUploader {
     return decrypted;
   }
 
-  // Detect content type from file
   detectContentType(buffer, filename = '', mimeType = '') {
-    // Use provided mime type if available
     if (mimeType && mimeType !== 'application/octet-stream') {
       return mimeType;
     }
 
-    // Detect from file extension
     const ext = filename.toLowerCase().split('.').pop();
     const extensionMap = {
       'txt': 'text/plain',
@@ -202,6 +205,7 @@ class MinimalThyraUploader {
       'jpeg': 'image/jpeg',
       'png': 'image/png',
       'gif': 'image/gif',
+      'svg': 'image/svg+xml',
       'pdf': 'application/pdf',
       'doc': 'application/msword',
       'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -212,19 +216,14 @@ class MinimalThyraUploader {
       return extensionMap[ext];
     }
 
-    // Detect from file signature (magic bytes)
     const bytes = buffer.slice(0, 16);
     
-    // Images
     if (bytes[0] === 0xFF && bytes[1] === 0xD8) return 'image/jpeg';
     if (bytes[0] === 0x89 && bytes[1] === 0x50) return 'image/png';
     if (bytes[0] === 0x47 && bytes[1] === 0x49) return 'image/gif';
+    if (bytes[0] === 0x25 && bytes[1] === 0x50) return 'application/pdf';
+    if (bytes[0] === 0x50 && bytes[1] === 0x4B) return 'application/zip';
     
-    // Documents
-    if (bytes[0] === 0x25 && bytes[1] === 0x50) return 'application/pdf'; // %PDF
-    if (bytes[0] === 0x50 && bytes[1] === 0x4B) return 'application/zip'; // PK (zip/docx)
-    
-    // Try to detect text
     const isText = this.isTextContent(bytes);
     if (isText) {
       const text = buffer.toString('utf8', 0, Math.min(1000, buffer.length));
@@ -248,7 +247,6 @@ class MinimalThyraUploader {
   }
 }
 
-// Privacy-aware logging functions
 function safeLog(...args) {
   if (CONFIG.ADMIN.LOGGING_ENABLED) {
     console.log(...args);
@@ -261,10 +259,9 @@ function safeError(...args) {
   }
 }
 
-// Helper function to check domain restrictions
 function checkDomainAccess(headers) {
   if (!CONFIG.ADMIN.DOMAIN_RESTRICTION_ENABLED) {
-    return { allowed: true }; // Domain restrictions disabled
+    return { allowed: true };
   }
 
   const origin = headers.origin || headers.referer;
@@ -282,7 +279,6 @@ function checkDomainAccess(headers) {
     const domain = originUrl.hostname + (originUrl.port ? `:${originUrl.port}` : '');
     
     const isAllowed = CONFIG.ADMIN.ALLOWED_DOMAINS.some(allowedDomain => {
-      // Exact match or subdomain match
       return domain === allowedDomain || domain.endsWith(`.${allowedDomain}`);
     });
 
@@ -305,7 +301,6 @@ function checkDomainAccess(headers) {
   }
 }
 
-// Helper function to parse share URL and extract components
 function parseShareUrl(shareUrl) {
   try {
     const url = new URL(shareUrl);
@@ -319,11 +314,9 @@ function parseShareUrl(shareUrl) {
       throw new Error('Missing URL parameter');
     }
 
-    // Validate base64 before decoding
     try {
       const arweaveUrl = atob(encodedArweaveUrl);
       
-      // Validate it's a proper Arweave URL
       if (!arweaveUrl.startsWith('https://arweave.net/') && !arweaveUrl.startsWith('https://ar-io.net/')) {
         throw new Error('Invalid Arweave URL');
       }
@@ -343,7 +336,6 @@ function parseShareUrl(shareUrl) {
   }
 }
 
-// Function handler with timeout delegation and decryption
 exports.handler = async (event, context) => {
   const startTime = Date.now();
   
@@ -362,7 +354,6 @@ exports.handler = async (event, context) => {
     };
   }
 
-  // Check domain restrictions for all requests (unless using Cloudflare protection)
   if (CONFIG.ADMIN.DOMAIN_RESTRICTION_ENABLED) {
     const domainCheck = checkDomainAccess(event.headers);
     if (!domainCheck.allowed) {
@@ -379,9 +370,7 @@ exports.handler = async (event, context) => {
     }
   }
 
-  // Handle GET requests for decryption and info
   if (event.httpMethod === 'GET') {
-    // Check if this is a request for API info/health check
     if (!event.queryStringParameters?.url) {
       return {
         statusCode: 200,
@@ -414,7 +403,6 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Handle decryption request
     if (!CONFIG.ADMIN.DECRYPTION_ENABLED) {
       return {
         statusCode: 404,
@@ -428,7 +416,6 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Handle decryption request
     try {
       const shareUrl = event.queryStringParameters?.url;
       
@@ -446,8 +433,6 @@ exports.handler = async (event, context) => {
       }
 
       const uploader = new MinimalThyraUploader();
-      
-      // Parse the share URL
       const { arweaveUrl, encryptionKey, contentType } = parseShareUrl(shareUrl);
       
       if (!encryptionKey) {
@@ -463,13 +448,11 @@ exports.handler = async (event, context) => {
         };
       }
 
-      // Fetch content from Arweave with size validation
       const arweaveResponse = await fetch(arweaveUrl);
       if (!arweaveResponse.ok) {
         throw new Error('Failed to fetch content');
       }
 
-      // Check content size before processing
       const contentLength = arweaveResponse.headers.get('content-length');
       if (contentLength && parseInt(contentLength) > CONFIG.MAX_DECRYPTION_SIZE) {
         throw new Error('Content too large for decryption');
@@ -477,17 +460,14 @@ exports.handler = async (event, context) => {
 
       const encryptedContent = await arweaveResponse.text();
       
-      // Additional size check after fetch
       if (encryptedContent.length > CONFIG.MAX_DECRYPTION_SIZE) {
         throw new Error('Content too large for decryption');
       }
       
-      // Parse encrypted JSON
       let encryptedData;
       try {
         encryptedData = JSON.parse(encryptedContent);
         
-        // Validate encrypted data structure
         if (!encryptedData.algorithm || !encryptedData.encrypted || !encryptedData.iv || !encryptedData.authTag) {
           throw new Error('Invalid encrypted format');
         }
@@ -495,22 +475,18 @@ exports.handler = async (event, context) => {
         throw new Error('Invalid content format');
       }
 
-      // Validate encryption key
       const keyBuffer = uploader.validateEncryptionKey(encryptionKey);
       if (!keyBuffer) {
         throw new Error('Invalid encryption key');
       }
 
-      // Decrypt the content
       const decryptedBuffer = await uploader.decryptContent(encryptedData, keyBuffer);
       
-      // Determine how to return the content
       const isText = contentType?.startsWith('text/') || 
                     contentType?.includes('json') || 
                     uploader.isTextContent(decryptedBuffer.slice(0, 100));
 
       if (isText) {
-        // Return text content as JSON
         return {
           statusCode: 200,
           headers: {
@@ -526,7 +502,6 @@ exports.handler = async (event, context) => {
           })
         };
       } else {
-        // Return binary content as base64
         return {
           statusCode: 200,
           headers: {
@@ -583,23 +558,19 @@ exports.handler = async (event, context) => {
     let detectedContentType = 'application/octet-stream';
     let isInternalCall = false;
 
-    // Check if this is an internal delegation call
     isInternalCall = event.headers['x-internal-call'] === 'true' || 
                      event.queryStringParameters?.internal === 'true';
 
-    // Prevent infinite delegation loops
     const delegationDepth = parseInt(event.headers['x-delegation-depth'] || '0');
     if (delegationDepth >= 1) {
       safeLog('Maximum delegation depth reached, processing in current function');
-      isInternalCall = false; // Force processing in current function
+      isInternalCall = false;
     }
 
     if (isInternalCall) {
-      // Handle internal delegation call - data is already processed
       try {
         const internalData = JSON.parse(event.body);
         
-        // Handle both base64 and array formats for backward compatibility
         if (internalData.processedContent) {
           contentBuffer = Buffer.from(internalData.processedContent, 'base64');
         } else if (internalData.contentBuffer) {
@@ -636,11 +607,9 @@ exports.handler = async (event, context) => {
       }
 
     } else {
-      // Handle normal request
       const contentType = event.headers['content-type'] || '';
       
       if (contentType.includes('multipart/form-data')) {
-        // Handle file upload - load parser only when needed
         let multipart;
         try {
           multipart = require('lambda-multipart-parser');
@@ -659,8 +628,8 @@ exports.handler = async (event, context) => {
 
         try {
           const result = await multipart.parse(event, {
-            maxFileSize: CONFIG.MAX_ALREADY_ENCRYPTED, // Reject large files early
-            maxFiles: 1 // Only allow single file upload
+            maxFileSize: CONFIG.MAX_ALREADY_ENCRYPTED,
+            maxFiles: 1
           });
           
           if (!result.files || result.files.length === 0) {
@@ -680,10 +649,8 @@ exports.handler = async (event, context) => {
           contentBuffer = Buffer.from(file.content);
           originalFilename = file.filename || 'upload';
           
-          // Cache content type detection result
           detectedContentType = uploader.detectContentType(contentBuffer, originalFilename, file.contentType);
 
-          // Extract form parameters
           requestData = {
             encrypt: result.encrypt === 'true' || result.encrypt === true,
             customKey: result.customKey || null,
@@ -694,7 +661,6 @@ exports.handler = async (event, context) => {
           };
 
         } catch (parseError) {
-          // Handle multipart parsing errors including size limits
           const errorMessage = parseError.message.toLowerCase();
           
           if (errorMessage.includes('file too large') || errorMessage.includes('maxfilesize')) {
@@ -723,7 +689,6 @@ exports.handler = async (event, context) => {
         }
 
       } else {
-        // Handle JSON request
         try {
           requestData = JSON.parse(event.body || '{}');
         } catch (err) {
@@ -754,10 +719,8 @@ exports.handler = async (event, context) => {
           };
         }
 
-        // Convert content to buffer
         try {
           contentBuffer = isBase64 ? Buffer.from(content, 'base64') : Buffer.from(content, 'utf8');
-          // Cache content type detection result
           detectedContentType = uploader.detectContentType(contentBuffer);
         } catch (err) {
           return {
@@ -773,9 +736,8 @@ exports.handler = async (event, context) => {
         }
       }
 
-      // Check if we should delegate to a fresh function (timeout protection)
       const uploadDuration = Date.now() - startTime;
-      const shouldDelegate = uploadDuration > CONFIG.TIMEOUT_THRESHOLD && contentBuffer.length > 10 * 1024; // Only for files > 10KB
+      const shouldDelegate = uploadDuration > CONFIG.TIMEOUT_THRESHOLD && contentBuffer.length > 10 * 1024;
 
       if (shouldDelegate) {
         safeLog(`Processing took ${uploadDuration}ms, delegating to fresh function for ${Math.round(contentBuffer.length/1024)}KB file`);
@@ -789,12 +751,10 @@ exports.handler = async (event, context) => {
           }, event.headers, startTime, delegationDepth);
         } catch (delegationError) {
           safeError('Delegation failed, continuing with current function:', delegationError);
-          // and now fall through to do the upload in this function
         }
       }
     }
 
-    // Continue with normal processing
     const {
       encrypt = true,
       customKey = null,
@@ -804,18 +764,14 @@ exports.handler = async (event, context) => {
       formContentType = null
     } = requestData;
 
-    // Use the appropriate content type
     const finalContentType = formContentType || detectedContentType;
-
     const uploadId = id || crypto.randomUUID();
 
-    // Validate size with limits
     const sizeInfo = uploader.validateSize(contentBuffer, encrypt);
 
     let finalContent, encryptionKey, shareUrl;
 
     if (encrypt) {
-      // Validate custom key first, then generate or use it
       try {
         encryptionKey = customKey 
           ? uploader.validateEncryptionKey(customKey)
@@ -833,7 +789,6 @@ exports.handler = async (event, context) => {
         };
       }
 
-      // Encrypt content
       const encryptedData = await uploader.encryptContent(contentBuffer, encryptionKey);
       finalContent = Buffer.from(JSON.stringify(encryptedData));
 
@@ -862,11 +817,11 @@ exports.handler = async (event, context) => {
       }
     }
 
-    // Upload to Arweave
+    // ✅ FIX: Pass Content-Type in tags instead of Content-Type-Hint
     const uploadResult = await uploader.uploadToArweave(finalContent, [
+      { name: 'Content-Type', value: finalContentType }, // ✅ Proper Content-Type tag
       ...(note ? [{ name: 'Note', value: note }] : []),
       ...(originalFilename !== 'upload' ? [{ name: 'Original-Filename', value: originalFilename }] : []),
-      { name: 'Content-Type-Hint', value: finalContentType },
       { name: 'Encrypted', value: encrypt.toString() },
       { name: 'Upload-ID', value: uploadId }
     ]);
@@ -874,7 +829,6 @@ exports.handler = async (event, context) => {
     const arweaveId = uploadResult.id;
     const arweaveUrl = `https://arweave.net/${arweaveId}`;
 
-    // Create share URL
     if (encryptionKey) {
       const protocol = event.headers['x-forwarded-proto'] || 'https';
       const host = event.headers.host;
@@ -899,7 +853,6 @@ exports.handler = async (event, context) => {
       duration: Date.now() - startTime
     };
 
-    // Add conditional fields
     if (shareUrl) response.shareUrl = shareUrl;
     if (note) response.note = note;
     if (originalFilename !== 'upload') response.filename = originalFilename;
@@ -953,7 +906,6 @@ async function delegateToFreshFunction(processedData, originalHeaders, originalS
   const host = originalHeaders['host'];
   const baseUrl = `${protocol}://${host}`;
   
-  // Extract the function path from the request
   const functionPath = '/.netlify/functions/arload';
   const delegationUrl = `${baseUrl}${functionPath}?internal=true`;
 
@@ -968,7 +920,7 @@ async function delegateToFreshFunction(processedData, originalHeaders, originalS
         'User-Agent': 'Thyra-Internal-Delegation/1.0'
       },
       body: JSON.stringify(processedData),
-      timeout: 9000 // 9 second timeout for the delegated call
+      timeout: 9000
     });
 
     if (!response.ok) {
@@ -977,7 +929,6 @@ async function delegateToFreshFunction(processedData, originalHeaders, originalS
 
     const responseData = await response.json();
     
-    // Add delegation info to response
     responseData.delegated = true;
     responseData.originalDuration = Date.now() - originalStartTime;
 
