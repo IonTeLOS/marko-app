@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="refresh" content="0;url=/" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Redirecting...</title>
   <script>
@@ -10,17 +9,22 @@
       const base = "https://arweave.net/uvErPw3epHhfjkO8ZXCkX-GImHl6jHwuIt1ysH4vopY";
 
       const loc = window.location;
-      // full path, strip only the very first leading slash
-      const path = loc.pathname.replace(/^\/+/, ""); // keeps any other slashes
-      const qs = loc.search ? loc.search.replace(/^\?/, "&") : "";
+
+      // ✅ Keep full path including subpaths, but strip only leading slash
+      const path = loc.pathname.replace(/^\/+/, "");
+
+      // ✅ Preserve all query params correctly
+      const query = loc.search ? loc.search : "";
+
+      // ✅ Preserve hash (#...) exactly
       const hash = loc.hash || "";
 
-      // Construct final URL
-      const target = `${base}/?path=${encodeURIComponent(path)}${qs}${hash}`;
+      // ✅ Build final URL
+      const target = `${base}/?path=${encodeURIComponent(path)}${query}${hash}`;
 
       console.log("Redirecting to:", target);
 
-      // Use replace() to avoid keeping the intermediate page in history
+      // Use replace() to avoid polluting browser history
       window.location.replace(target);
     })();
   </script>
