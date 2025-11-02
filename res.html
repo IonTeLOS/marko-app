@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="refresh" content="0;url=/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Redirecting...</title>
+  <script>
+    (function() {
+      const base = "https://arweave.net/LBaGPiwP3u2uSiqm6IexsJ4o1W3HXN-ION86Zo5BQZE";
+
+      const loc = window.location;
+      // full path, strip only the very first leading slash
+      const path = loc.pathname.replace(/^\/+/, ""); // keeps any other slashes
+      const qs = loc.search ? loc.search.replace(/^\?/, "&") : "";
+      const hash = loc.hash || "";
+
+      // Construct final URL
+      const target = `${base}/?path=${encodeURIComponent(path)}${qs}${hash}`;
+
+      console.log("Redirecting to:", target);
+
+      // Use replace() to avoid keeping the intermediate page in history
+      window.location.replace(target);
+    })();
+  </script>
+</head>
+<body>
+  <noscript>
+    <meta http-equiv="refresh" content="0; url=https://arweave.net/LBaGPiwP3u2uSiqm6IexsJ4o1W3HXN-ION86Zo5BQZE" />
+    <p>Redirecting...</p>
+  </noscript>
+</body>
+</html>
