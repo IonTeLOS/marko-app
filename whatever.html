@@ -10,21 +10,14 @@
 
       const loc = window.location;
 
-      // ✅ Keep full path including subpaths, but strip only leading slash
-      const path = loc.pathname.replace(/^\/+/, "");
-
-      // ✅ Preserve all query params correctly
-      const query = loc.search ? loc.search : "";
-
-      // ✅ Preserve hash (#...) exactly
+      // keep full subpath
+      const path = loc.pathname.replace(/^\/+/, ""); 
+      const query = loc.search ? "&" + loc.search.slice(1) : "";  // ✅ prepend '&' instead of '?'
       const hash = loc.hash || "";
 
-      // ✅ Build final URL
       const target = `${base}/?path=${encodeURIComponent(path)}${query}${hash}`;
 
       console.log("Redirecting to:", target);
-
-      // Use replace() to avoid polluting browser history
       window.location.replace(target);
     })();
   </script>
