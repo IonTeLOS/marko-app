@@ -72,30 +72,44 @@ class MinimalThyraUploader {
     };
   }
 
-  async uploadToArweave(content, tags = []) {
+  /**
+   * Uploads a buffer/string to Arweave with flexible custom metadata tags.
+   * Required core tags (always added):
+   *   - Content-Type
+   *   - App-Name (defaults to MinimalThyra)
+   *   - Protocol-Version
+   *   - Timestamp
+   * Optional: Path, Namespace, Owner, Target, etc. can be passed in `extraTags`.
+   */
+  async uploadToArweave(content, userTags = {}) {
     const wallet = await this.createEphemeralWallet();
-    
     const { createData, ArweaveSigner } = await import('arbundles');
     const signer = new ArweaveSigner(wallet);
 
-    // ✅ FIX: Extract content type from tags or default to octet-stream
-    const contentTypeTag = tags.find(t => t.name === 'Content-Type');
-    const contentType = contentTypeTag ? contentTypeTag.value : 'application/octet-stream';
-    
-    // Filter out Content-Type from additional tags to avoid duplication
-    const additionalTags = tags.filter(t => t.name !== 'Content-Type');
+    // 1️⃣  Convert userTags {key: value} into Arweave format
+    const extraTags = Object.entries(userTags)
+      .filter(([k, v]) => v !== undefined && v !== null)
+      .map(([k, v]) => ({ name: k, value: String(v) }));
 
-    const dataItem = createData(content, signer, {
-      tags: [
-        { name: 'Content-Type', value: contentType }, // ✅ Now uses actual content type!
-        { name: 'App-Name', value: 'MinimalThyra' },
-        { name: 'Timestamp', value: Date.now().toString() },
-        ...additionalTags
-      ]
-    });
+    // 2️⃣  Extract / default Content-Type
+    const typeTag = extraTags.find(t => t.name.toLowerCase() === 'content-type');
+    const contentType = typeTag ? typeTag.value : 'application/octet-stream';
+    const remainingTags = extraTags.filter(t => t.name.toLowerCase() !== 'content-type');
 
+    // 3️⃣  Compose complete tag set
+    const tags = [
+      { name: 'Content-Type', value: contentType },
+      { name: 'App-Name', value: userTags['App-Name'] || 'MinimalThyra' },
+      { name: 'Protocol-Version', value: userTags['Protocol-Version'] || '1.0.0' },
+      { name: 'Timestamp', value: Date.now().toString() },
+      ...remainingTags
+    ];
+
+    // 4️⃣  Create + sign data item
+    const dataItem = createData(content, signer, { tags });
     await dataItem.sign(signer);
 
+    // 5️⃣  Upload via ArDrive Turbo
     const response = await fetch(CONFIG.TURBO_UPLOAD_URL, {
       method: 'POST',
       headers: {
@@ -106,15 +120,12 @@ class MinimalThyraUploader {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Arweave upload failed: ${response.status} - ${errorText}`);
+      const err = await response.text();
+      throw new Error(`Arweave upload failed: ${response.status} - ${err}`);
     }
 
     const result = await response.json();
-    return { 
-      id: result.id, 
-      wallet: wallet
-    };
+    return { id: result.id, wallet };
   }
 
   createShareUrl(arweaveId, encryptionKey, baseUrl, contentType = null) {
@@ -818,13 +829,24 @@ exports.handler = async (event, context) => {
     }
 
     // ✅ FIX: Pass Content-Type in tags instead of Content-Type-Hint
-    const uploadResult = await uploader.uploadToArweave(finalContent, [
-      { name: 'Content-Type', value: finalContentType }, // ✅ Proper Content-Type tag
-      ...(note ? [{ name: 'Note', value: note }] : []),
-      ...(originalFilename !== 'upload' ? [{ name: 'Original-Filename', value: originalFilename }] : []),
-      { name: 'Encrypted', value: encrypt.toString() },
-      { name: 'Upload-ID', value: uploadId }
-    ]);
+const coreTags = {
+  'Content-Type': finalContentType,
+  'App-Name': 'Pathfinder',
+  'Protocol-Version': '1.0.0',
+  'Path': requestData.path || '/f/freeSlug',
+  'Owner': requestData.owner || '0x000...',
+  'Namespace': requestData.namespace || 'public',
+  'Target': requestData.target || '',
+  'Indexed': requestData.indexed ? 'true' : 'false',
+  'ArSource': requestData.paid ? 'paid' : 'free',
+  'Encrypted': encrypt.toString(),
+  'Upload-ID': uploadId,
+  ...(note ? { 'Note': note } : {}),
+  ...(originalFilename !== 'upload' ? { 'Original-Filename': originalFilename } : {}),
+  ...(requestData.extraTags || {})
+};
+
+    const uploadResult = await uploader.uploadToArweave(finalContent, coreTags);
 
     const arweaveId = uploadResult.id;
     const arweaveUrl = `https://arweave.net/${arweaveId}`;
