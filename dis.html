@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arweave Transaction Dispatcher</title>
     <script src="https://unpkg.com/arweave@1.15.1/bundles/web.bundle.min.js"></script>
-    <script src="https://unpkg.com/arweave-wallet-connector@1.0.2/lib/index.js"></script>
     <style>
         * {
             margin: 0;
@@ -246,17 +245,17 @@
         <div class="wallet-status" id="walletStatus">
             <div class="status-header">
                 <div class="status-dot"></div>
-                <span id="statusText">Not connected</span>
+                <span id="statusText">Checking for wallet...</span>
             </div>
             <div class="wallet-address" id="walletAddress" style="display: none;"></div>
             <div class="wallet-buttons">
-                <button onclick="connectWallet()">Connect Wallet</button>
+                <button onclick="connectWallet()" id="connectBtn">Connect Wallet</button>
                 <button onclick="disconnectWallet()" style="display: none;" id="disconnectBtn">Disconnect</button>
             </div>
         </div>
 
         <div class="info-box">
-            ℹ️ <strong>Free Dispatch:</strong> Transactions under 100KB are FREE using dispatch()! Works with arweave.app, ArConnect, and other Arweave wallets.
+            ℹ️ <strong>Free Dispatch:</strong> Transactions under 100KB are FREE using dispatch()! Works with ArConnect, arweave.app, and other Arweave wallets. Make sure your wallet extension is installed.
         </div>
 
         <form id="dispatchForm" style="display: none;">
@@ -303,65 +302,78 @@
         const dispatchForm = document.getElementById('dispatchForm');
         const dispatchBtn = document.getElementById('dispatchBtn');
         const disconnectBtn = document.getElementById('disconnectBtn');
+        const connectBtn = document.getElementById('connectBtn');
         const resultDiv = document.getElementById('result');
         const dataInput = document.getElementById('data');
         const charCount = document.getElementById('charCount');
 
-        let connector = null;
         let walletAddr = null;
+        let walletConnected = false;
 
-        // Initialize wallet connector
-        async function initConnector() {
-            try {
-                connector = new WebWalletConnector({
-                    name: 'Arweave Dispatcher',
-                    logo: 'https://arweave.net/jAvd7Z1CBd8gVF2D6ESj7SMCCUYxDX_z3vpp5aHdaYk'
-                });
-                await connector.setUrl('arweave.app');
-            } catch (error) {
-                console.error('Connector init error:', error);
+        // Check if wallet is available
+        async function checkWallet() {
+            if (window.arweaveWallet) {
+                statusText.textContent = '✅ Wallet detected - Click to connect';
+                connectBtn.disabled = false;
+            } else {
+                statusText.textContent = '❌ No wallet detected';
+                showResult('error', 'Please install ArConnect or arweave.app wallet extension to use this app.');
             }
         }
 
         // Connect wallet
         async function connectWallet() {
             try {
-                statusText.textContent = 'Connecting...';
-                
-                if (!connector) {
-                    await initConnector();
+                if (!window.arweaveWallet) {
+                    showResult('error', 'No Arweave wallet found. Please install ArConnect or arweave.app extension.');
+                    return;
                 }
+
+                statusText.textContent = 'Connecting...';
+                connectBtn.disabled = true;
                 
-                await connector.connect();
-                walletAddr = await connector.getActiveAddress();
+                // Request permissions
+                await window.arweaveWallet.connect(['ACCESS_ADDRESS', 'DISPATCH', 'SIGN_TRANSACTION']);
                 
+                // Get address
+                walletAddr = await window.arweaveWallet.getActiveAddress();
+                
+                walletConnected = true;
                 walletStatus.classList.add('connected');
                 statusText.textContent = '✅ Connected';
                 walletAddress.textContent = `Address: ${walletAddr}`;
                 walletAddress.style.display = 'block';
                 
                 dispatchForm.style.display = 'block';
+                connectBtn.style.display = 'none';
                 disconnectBtn.style.display = 'block';
                 
                 showResult('success', `Wallet connected! You can now dispatch transactions for free (under 100KB).`);
             } catch (error) {
                 console.error('Connection error:', error);
                 statusText.textContent = 'Connection failed';
-                showResult('error', `Failed to connect wallet: ${error.message}. Make sure you have arweave.app or ArConnect installed.`);
+                connectBtn.disabled = false;
+                showResult('error', `Failed to connect: ${error.message}. Please make sure you approve the connection in your wallet.`);
             }
         }
 
         // Disconnect wallet
         async function disconnectWallet() {
-            if (connector) {
-                await connector.disconnect();
+            try {
+                if (window.arweaveWallet && window.arweaveWallet.disconnect) {
+                    await window.arweaveWallet.disconnect();
+                }
+            } catch (e) {
+                console.log('Disconnect not supported');
             }
             
+            walletConnected = false;
             walletStatus.classList.remove('connected');
-            statusText.textContent = 'Not connected';
+            statusText.textContent = '✅ Wallet detected - Click to connect';
             walletAddress.style.display = 'none';
             dispatchForm.style.display = 'none';
             disconnectBtn.style.display = 'none';
+            connectBtn.style.display = 'block';
             walletAddr = null;
             
             resultDiv.style.display = 'none';
@@ -385,7 +397,7 @@
         dispatchForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            if (!connector || !walletAddr) {
+            if (!walletConnected) {
                 showResult('error', 'Please connect your wallet first.');
                 return;
             }
@@ -421,7 +433,7 @@
                 dispatchBtn.textContent = 'Dispatching... (check your wallet)';
 
                 // Dispatch transaction using wallet
-                const result = await connector.dispatch(tx);
+                const result = await window.arweaveWallet.dispatch(tx);
 
                 showResult('success', `
                     <div class="result-title">✅ Transaction Dispatched Successfully! (FREE)</div>
@@ -453,7 +465,11 @@
 
             } catch (error) {
                 console.error('Dispatch error:', error);
-                showResult('error', `Failed to dispatch transaction: ${error.message}`);
+                let errorMsg = error.message;
+                if (error.message.includes('dispatch')) {
+                    errorMsg += ' - Make sure your wallet supports the dispatch() method.';
+                }
+                showResult('error', `Failed to dispatch transaction: ${errorMsg}`);
             } finally {
                 dispatchBtn.disabled = false;
                 dispatchBtn.textContent = '🚀 Dispatch Transaction (FREE)';
@@ -465,8 +481,15 @@
             resultDiv.innerHTML = typeof message === 'string' ? `<div class="result-title">${type === 'error' ? '❌ Error' : '✅ Success'}</div><p style="font-size: 14px; margin-top: 10px;">${message}</p>` : message;
         }
 
-        // Initialize on load
-        initConnector();
+        // Check for wallet on load
+        window.addEventListener('load', () => {
+            checkWallet();
+        });
+
+        // Also check when wallet becomes available
+        window.addEventListener('arweaveWalletLoaded', () => {
+            checkWallet();
+        });
     </script>
 </body>
 </html>
