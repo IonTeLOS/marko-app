@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ephemeral dispatch() demo</title>
+<script src="https://unpkg.com/arweave@1.15.1/bundles/web.bundle.min.js"></script>
+<script src="https://unpkg.com/@irys/sdk@latest/dist/web.bundle.min.js"></script>
+</head>
+<body>
+  <button id="go">Upload “Hello Arweave!”</button>
+<script>
+(async () => {
+  const arweave = Arweave.init({});
+  const jwk = await arweave.wallets.generate(); // ephemeral
+  const irys = new Irys("https://node2.irys.xyz", "arweave", jwk);
+
+  const item = irys.createData("Hello from Irys!", {
+    tags: [{ name: "Content-Type", value: "text/plain" }]
+  });
+  await item.sign();
+  await item.upload();
+
+  console.log("https://arweave.net/" + item.id);
+})();
+</script>
+
+</body>
+</html>
