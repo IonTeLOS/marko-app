@@ -118,7 +118,7 @@
   <div id="result" class="result"></div>
 
   <script>
-    const WORKER_URL = "https://cf-dispatch-worker.diavlos.workers.dev/"; // change to your Worker
+    const WORKER_URL = "https://cf-dispatch-worker.diavlos.workers.dev/";
 
     const textInput = document.getElementById("textInput");
     const fileInput = document.getElementById("fileInput");
@@ -127,9 +127,7 @@
     const tagsContainer = document.getElementById("tags");
     const addTagBtn = document.getElementById("addTag");
 
-    // --- Add first default tag ---
     addTagRow("App-Name", "CFUploader");
-
     addTagBtn.onclick = () => addTagRow();
 
     function addTagRow(name = "", value = "") {
@@ -193,7 +191,6 @@
       }
 
       const payload = { content, isBase64, tags, contentType };
-
       showMessage("Uploading... please wait ⏳");
 
       try {
@@ -204,74 +201,79 @@
         });
         const data = await res.json();
 
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || "Upload failed");
-        }
-
-        // 🪵 Debug info
         console.group("📦 CF Dispatch Response");
         console.log("Status:", res.status);
         console.log("Response JSON:", data);
         if (data?.url) console.log("🌐 Arweave URL:", data.url);
         if (data?.download) console.log("⬇️  Download URL:", data.download);
         console.groupEnd();
-        
-        // ✅ Enhanced output with copy + share
+
+        if (!res.ok || !data.success) throw new Error(data.error || "Upload failed");
+
         const viewUrl = data.url;
-        const downloadUrl = data.download;
+        const downloadUrl = data.download || viewUrl;
 
-showMessage(
-  `
-    ✅ <b>Upload complete!</b><br><br>
-    <b>TX ID:</b> ${data.id}<br>
-    <b>Size:</b> ${(data.size / 1024).toFixed(2)} KB<br>
-    <a href="${viewUrl}" target="_blank">View on Arweave</a> |
-    <a href="${downloadUrl}" target="_blank">Download</a>
-    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-      <button type="button" id="copyBtn" style="flex:1;">📋 Copy Link</button>
-      <button type="button" id="shareBtn" style="flex:1;">📱 Share</button>
-    </div>
-  `,
-  false
-);
+        showMessage(
+          `
+            ✅ <b>Upload complete!</b><br><br>
+            <b>TX ID:</b> ${data.id}<br>
+            <b>Size:</b> ${(data.size / 1024).toFixed(2)} KB<br>
+            <a href="${viewUrl}" target="_blank">View on Arweave</a> |
+            <a href="${downloadUrl}" target="_blank">Download</a>
+            <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+              <button type="button" id="copyBtn" style="flex:1;">📋 Copy Links</button>
+              <button type="button" id="shareBtn" style="flex:1;">📱 Share</button>
+            </div>
+          `,
+          false
+        );
 
-// 🔗 Copy + Share logic
-setTimeout(() => {
-  const copyBtn = document.getElementById("copyBtn");
-  const shareBtn = document.getElementById("shareBtn");
+        setTimeout(() => {
+          const copyBtn = document.getElementById("copyBtn");
+          const shareBtn = document.getElementById("shareBtn");
 
-  if (copyBtn) {
-    copyBtn.onclick = async () => {
-      try {
-        await navigator.clipboard.writeText(viewUrl);
-        copyBtn.textContent = "✅ Copied!";
-        setTimeout(() => (copyBtn.textContent = "📋 Copy Link"), 2000);
+          if (copyBtn) {
+            copyBtn.onclick = async () => {
+              try {
+                const textToCopy = `View: ${viewUrl}\nDownload: ${downloadUrl}`;
+                await navigator.clipboard.writeText(textToCopy);
+                copyBtn.textContent = "✅ Copied!";
+                copyBtn.style.background = "#b2fab4";
+                setTimeout(() => {
+                  copyBtn.textContent = "📋 Copy Links";
+                  copyBtn.style.background = "#eee";
+                }, 2000);
+              } catch (err) {
+                alert("Failed to copy link: " + err.message);
+              }
+            };
+          }
+
+          if (shareBtn) {
+            if (navigator.share) {
+              shareBtn.onclick = async () => {
+                try {
+                  await navigator.share({
+                    title: "Arweave Upload",
+                    text: "View or download my uploaded file on Arweave",
+                    url: viewUrl,
+                  });
+                } catch (err) {
+                  console.warn("Share cancelled or failed", err);
+                }
+              };
+            } else {
+              shareBtn.style.display = "none";
+            }
+          }
+        }, 100);
+
       } catch (err) {
-        alert("Failed to copy link: " + err.message);
+        showError("Upload failed: " + err.message);
       }
     };
-  }
 
-  if (shareBtn) {
-    if (navigator.share) {
-      shareBtn.onclick = async () => {
-        try {
-          await navigator.share({
-            title: "Arweave Upload",
-            text: "View my uploaded file on Arweave",
-            url: viewUrl,
-          });
-        } catch (err) {
-          console.warn("Share cancelled or failed", err);
-        }
-      };
-    } else {
-      // Hide share button if not supported
-      shareBtn.style.display = "none";
-    }
-  }
-}, 100);
-
+    // --- Message helpers ---
     function showMessage(msg, pending = true) {
       resultDiv.style.display = "block";
       resultDiv.className = "result" + (pending ? "" : " success");
