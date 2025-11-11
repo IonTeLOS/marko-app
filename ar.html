@@ -79,6 +79,19 @@
       font-weight: bold;
       font-size: 14px;
     }
+    #copyBtn, #shareBtn {
+      background: #eee;
+      color: #333;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #copyBtn:hover, #shareBtn:hover {
+      background: #ddd;
+    }
   </style>
 </head>
 <body>
@@ -195,20 +208,69 @@
           throw new Error(data.error || "Upload failed");
         }
 
-        showMessage(
-          `
-            ✅ <b>Upload complete!</b><br><br>
-            <b>TX ID:</b> ${data.id}<br>
-            <b>Size:</b> ${(data.size / 1024).toFixed(2)} KB<br>
-            <a href="${data.url}" target="_blank">View on Arweave</a> |
-            <a href="${data.download}" target="_blank">Download</a>
-          `,
-          false
-        );
+        // 🪵 Debug info
+        console.group("📦 CF Dispatch Response");
+        console.log("Status:", res.status);
+        console.log("Response JSON:", data);
+        if (data?.url) console.log("🌐 Arweave URL:", data.url);
+        if (data?.download) console.log("⬇️  Download URL:", data.download);
+        console.groupEnd();
+        
+        // ✅ Enhanced output with copy + share
+        const viewUrl = data.url;
+        const downloadUrl = data.download;
+
+showMessage(
+  `
+    ✅ <b>Upload complete!</b><br><br>
+    <b>TX ID:</b> ${data.id}<br>
+    <b>Size:</b> ${(data.size / 1024).toFixed(2)} KB<br>
+    <a href="${viewUrl}" target="_blank">View on Arweave</a> |
+    <a href="${downloadUrl}" target="_blank">Download</a>
+    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button type="button" id="copyBtn" style="flex:1;">📋 Copy Link</button>
+      <button type="button" id="shareBtn" style="flex:1;">📱 Share</button>
+    </div>
+  `,
+  false
+);
+
+// 🔗 Copy + Share logic
+setTimeout(() => {
+  const copyBtn = document.getElementById("copyBtn");
+  const shareBtn = document.getElementById("shareBtn");
+
+  if (copyBtn) {
+    copyBtn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(viewUrl);
+        copyBtn.textContent = "✅ Copied!";
+        setTimeout(() => (copyBtn.textContent = "📋 Copy Link"), 2000);
       } catch (err) {
-        showError("Upload failed: " + err.message);
+        alert("Failed to copy link: " + err.message);
       }
     };
+  }
+
+  if (shareBtn) {
+    if (navigator.share) {
+      shareBtn.onclick = async () => {
+        try {
+          await navigator.share({
+            title: "Arweave Upload",
+            text: "View my uploaded file on Arweave",
+            url: viewUrl,
+          });
+        } catch (err) {
+          console.warn("Share cancelled or failed", err);
+        }
+      };
+    } else {
+      // Hide share button if not supported
+      shareBtn.style.display = "none";
+    }
+  }
+}, 100);
 
     function showMessage(msg, pending = true) {
       resultDiv.style.display = "block";
