@@ -201,7 +201,7 @@
             <b>TX ID:</b> ${data.id}<br>
             <b>Size:</b> ${(data.size / 1024).toFixed(2)} KB<br>
             <a href="${data.url}" target="_blank">View on Arweave</a> |
-            <a href="https://cf-dispatch-worker.diavlos.workers.dev/download/${data.id}">Download</a>
+            <a href="${data.download}" target="_blank">Download</a>
           `,
           false
         );
