@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arweave Upload (CF Dispatch)</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f6f9fc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2em;
+    }
+    h1 {
+      color: #222;
+    }
+    form {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      padding: 2em;
+      max-width: 600px;
+      width: 100%;
+      display: grid;
+      gap: 1em;
+    }
+    textarea, input[type="text"], input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      font-size: 14px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+    }
+    textarea:focus, input:focus {
+      outline: none;
+      border-color: #4a90e2;
+    }
+    .tag-pair {
+      display: flex;
+      gap: 0.5em;
+    }
+    .tag-pair input {
+      flex: 1;
+    }
+    button {
+      background: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    button:hover {
+      background: #357ab8;
+    }
+    .result {
+      margin-top: 1.5em;
+      padding: 1em;
+      background: #e3f2fd;
+      border: 2px solid #90caf9;
+      border-radius: 8px;
+      display: none;
+    }
+    .error {
+      background: #ffebee;
+      border: 2px solid #ef9a9a;
+    }
+    .file-info {
+      font-size: 13px;
+      color: #555;
+    }
+    .add-tag {
+      background: #ccc;
+      color: #222;
+      font-weight: bold;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🚀 Upload to Arweave (via CF Dispatch)</h1>
+
+  <form id="uploadForm">
+    <label><b>Text Content:</b></label>
+    <textarea id="textInput" placeholder="Type or paste text here..." rows="6"></textarea>
+
+    <div style="text-align:center; font-weight:bold; color:#666;">— OR —</div>
+
+    <label><b>Upload File:</b></label>
+    <input type="file" id="fileInput" accept="*/*" />
+
+    <div class="file-info" id="fileInfo"></div>
+
+    <label><b>Custom Tags:</b></label>
+    <div id="tags"></div>
+    <button type="button" class="add-tag" id="addTag">+ Add Tag</button>
+
+    <button type="submit">Upload</button>
+  </form>
+
+  <div id="result" class="result"></div>
+
+  <script>
+    const WORKER_URL = "https://cf-dispatch-worker.diavlos.workers.dev/"; // change to your Worker
+
+    const textInput = document.getElementById("textInput");
+    const fileInput = document.getElementById("fileInput");
+    const fileInfo = document.getElementById("fileInfo");
+    const resultDiv = document.getElementById("result");
+    const tagsContainer = document.getElementById("tags");
+    const addTagBtn = document.getElementById("addTag");
+
+    // --- Add first default tag ---
+    addTagRow("App-Name", "CFUploader");
+
+    addTagBtn.onclick = () => addTagRow();
+
+    function addTagRow(name = "", value = "") {
+      const row = document.createElement("div");
+      row.className = "tag-pair";
+      row.innerHTML = `
+        <input type="text" placeholder="Tag Name" value="${name}">
+        <input type="text" placeholder="Tag Value" value="${value}">
+      `;
+      tagsContainer.appendChild(row);
+    }
+
+    fileInput.onchange = () => {
+      const file = fileInput.files[0];
+      if (!file) return (fileInfo.textContent = "");
+      if (file.size > 95 * 1024) {
+        alert("❌ File exceeds 95 KB limit!");
+        fileInput.value = "";
+        fileInfo.textContent = "";
+        return;
+      }
+      fileInfo.textContent = `${file.name} — ${(file.size / 1024).toFixed(2)} KB`;
+      textInput.value = "";
+    };
+
+    document.getElementById("uploadForm").onsubmit = async e => {
+      e.preventDefault();
+      resultDiv.style.display = "none";
+
+      const tags = {};
+      document.querySelectorAll(".tag-pair").forEach(pair => {
+        const name = pair.children[0].value.trim();
+        const val = pair.children[1].value.trim();
+        if (name && val) tags[name] = val;
+      });
+
+      let content;
+      let isBase64 = false;
+      let contentType = "text/plain";
+
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const arrBuf = await file.arrayBuffer();
+        const bytes = new Uint8Array(arrBuf);
+        if (bytes.length > 95 * 1024) {
+          return showError("File exceeds 95 KB limit.");
+        }
+        content = btoa(String.fromCharCode(...bytes));
+        isBase64 = true;
+        contentType = file.type || "application/octet-stream";
+      } else if (textInput.value.trim()) {
+        const encoder = new TextEncoder();
+        const bytes = encoder.encode(textInput.value.trim());
+        if (bytes.length > 95 * 1024) {
+          return showError("Text exceeds 95 KB limit.");
+        }
+        content = textInput.value.trim();
+        contentType = "text/plain";
+      } else {
+        return showError("Please provide text or upload a file.");
+      }
+
+      const payload = { content, isBase64, tags, contentType };
+
+      showMessage("Uploading... please wait ⏳");
+
+      try {
+        const res = await fetch(WORKER_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || "Upload failed");
+        }
+
+        showMessage(
+          `
+            ✅ <b>Upload complete!</b><br><br>
+            <b>TX ID:</b> ${data.id}<br>
+            <b>Size:</b> ${(data.size / 1024).toFixed(2)} KB<br>
+            <a href="${data.url}" target="_blank">View on Arweave</a> |
+            <a href="${data.url}" download>Download</a>
+          `,
+          false
+        );
+      } catch (err) {
+        showError("Upload failed: " + err.message);
+      }
+    };
+
+    function showMessage(msg, pending = true) {
+      resultDiv.style.display = "block";
+      resultDiv.className = "result" + (pending ? "" : " success");
+      resultDiv.innerHTML = msg;
+    }
+
+    function showError(msg) {
+      resultDiv.style.display = "block";
+      resultDiv.className = "result error";
+      resultDiv.innerHTML = "❌ " + msg;
+    }
+  </script>
+</body>
+</html>
