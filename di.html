@@ -424,10 +424,21 @@
     });
 
     await webWallet.setUrl('arweave.app');
-    const connection = await webWallet.connect();
-    
-    // ✅ Use returned address instead of getActiveAddress()
-    walletAddr = connection?.address || connection?.addresses?.[0] || '(unknown)';
+await webWallet.connect();
+
+// Try connector-stored address first
+walletAddr = webWallet.address || '(unknown)';
+
+// Fallback: ask arweave.app directly if available
+if (walletAddr === '(unknown)') {
+  try {
+    const res = await fetch('https://arweave.app/api/wallet');
+    const { address } = await res.json();
+    if (address) walletAddr = address;
+  } catch (e) {
+    console.warn('Could not fetch address from arweave.app', e);
+  }
+}
 
     if (typeof webWallet.dispatch !== "function") {
       throw new Error('Connected wallet does not support dispatch(). Please update your mobile wallet.');
