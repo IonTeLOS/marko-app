@@ -199,37 +199,51 @@ function showConnected(addr){
 }
 
 // Dispatch (send payment)
-dispatchForm.addEventListener("submit",async e=>{
+dispatchForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const target=document.getElementById("target").value.trim();
-  const amount=parseFloat(document.getElementById("amount").value.trim());
-  if(!target||target.length<40) return showError("Invalid recipient address.");
-  if(isNaN(amount)||amount<=0) return showError("Invalid amount.");
 
-  const winston=arweave.ar.arToWinston(amount.toString());
-  const tags={};
-  document.querySelectorAll(".tag-pair").forEach(p=>{
-    const k=p.children[0].value.trim(),v=p.children[1].value.trim();
-    if(k&&v) tags[k]=v;
+  const target = document.getElementById("target").value.trim();
+  const amount = parseFloat(document.getElementById("amount").value.trim());
+
+  if (!target || target.length < 40) return showError("Invalid recipient address.");
+  if (isNaN(amount) || amount <= 0) return showError("Invalid amount.");
+
+  const winston = arweave.ar.arToWinston(amount.toString());
+  const tags = {};
+  document.querySelectorAll(".tag-pair").forEach(pair => {
+    const k = pair.children[0].value.trim();
+    const v = pair.children[1].value.trim();
+    if (k && v) tags[k] = v;
   });
 
-  try{
-    dispatchBtn.disabled=true;
-    dispatchBtn.textContent="Sending...";
-    const tx=await arweave.createTransaction({target,quantity:winston});
-    for(const [k,v] of Object.entries(tags)) tx.addTag(k,v);
-    let result;
-    if(walletType==="extension")
-      result=await window.arweaveWallet.sign(tx).then(()=>arweave.transactions.post(tx));
-    else
-      result=await wallet.sign(tx).then(()=>arweave.transactions.post(tx));
-    showSuccess(tx.id);
-  }catch(err){showError("Transaction failed: "+err.message);}
-  finally{
-    dispatchBtn.disabled=false;
-    dispatchBtn.textContent="🚀 Send Payment";
+  try {
+    dispatchBtn.disabled = true;
+    dispatchBtn.textContent = "Sending...";
+
+    const tx = await arweave.createTransaction({ target, quantity: winston });
+    for (const [k, v] of Object.entries(tags)) tx.addTag(k, v);
+
+    let txId;
+
+    if (walletType === "extension") {
+      await window.arweaveWallet.sign(tx);
+      await arweave.transactions.post(tx);
+      txId = tx.id;
+    } else {
+      const result = await wallet.dispatch(tx);
+      txId = result?.id || "(unknown)";
+    }
+
+    showSuccess(txId);
+
+  } catch (err) {
+    showError("Transaction failed: " + err.message);
+  } finally {
+    dispatchBtn.disabled = false;
+    dispatchBtn.textContent = "🚀 Send Payment";
   }
 });
+
 
 disconnectBtn.onclick=async()=>{
   try{
