@@ -171,7 +171,6 @@
   </div>
 
   <script type="module">
-    // --- Setup & Elements ---
     const arweave = Arweave.init({ host: "arweave.net", port: 443, protocol: "https" });
     const SAFETY_BUFFER_AR = 0.1;
 
@@ -193,8 +192,8 @@
     const sendBtn = document.getElementById("sendBtn");
     const resultBox = document.getElementById("resultBox");
 
-    let walletType = null;        // "extension" | "mobile"
-    let wallet = null;            // ArweaveWebWallet instance (mobile) or window.arweaveWallet (extension)
+    let walletType = null;
+    let wallet = null;
     let myAddress = null;
     let myBalanceAR = 0;
 
@@ -228,8 +227,6 @@
       `;
       tagsDiv.appendChild(row);
     }
-
-    // Default tags example (adjust/remove as you wish)
     addTagRow("App-Name", "ArweavePay");
     addTagRow("Purpose", "Payment");
     addTag.onclick = () => addTagRow();
@@ -238,24 +235,32 @@
     window.addEventListener("DOMContentLoaded", async () => {
       try {
         const prev = localStorage.getItem("walletType");
-        if (prev === "extension" && window.arweaveWallet) {
-          await connectExtension(true);
-          return;
-        }
-        if (prev === "mobile") {
-          await connectMobile(true);
-          return;
-        }
-        // Fresh detection:
-        if (!isMobile && window.arweaveWallet) {
-          await connectExtension(false);
-        } else {
-          await connectMobile(false);
-        }
+        if (prev === "extension" && window.arweaveWallet) return await connectExtension(true);
+        if (prev === "mobile") return await connectMobile(true);
+        if (!isMobile && window.arweaveWallet) return await connectExtension(false);
+        await connectMobile(false);
       } catch (e) {
         pill("No wallet detected", "❌");
         balanceBox.className = "status err";
         balanceBox.innerHTML = "No wallet available. Install <a class='link' href='https://www.wander.app/download?tab=download-browser' target='_blank' rel='noopener'>Wander</a> or use arweave.app on mobile.";
+      }
+    });
+
+    // --- Auto refresh balance if authorized ---
+    document.addEventListener("DOMContentLoaded", async () => {
+      try {
+        if (window.arweaveWallet) {
+          const addr = await window.arweaveWallet.getActiveAddress().catch(() => null);
+          if (addr) {
+            wallet = window.arweaveWallet;
+            walletType = "extension";
+            myAddress = addr;
+            disconnectBtn.style.display = "inline-block";
+            await afterConnect();
+          }
+        }
+      } catch (e) {
+        console.warn("Auto-refresh balance failed:", e);
       }
     });
 
@@ -276,12 +281,11 @@
     }
 
     async function connectMobile(reconnect) {
-      const callbackUrl = location.href; // stay on same page; wallet UX will require tab switch if not already authorized
+      const callbackUrl = location.href;
       try {
         pill(reconnect ? "Reconnecting mobile…" : "Connecting mobile…", "📱");
         const ww = new window.ArweaveWebWallet({ name: "Arweave Pay" });
         await ww.setUrl("arweave.app");
-
         if (!reconnect) {
           await ww.connect({
             permissions: ["ACCESS_ADDRESS","SIGN_TRANSACTION"],
@@ -297,133 +301,91 @@
       } catch (e) {
         pill("Mobile connect failed", "❌");
         showResult("err", `Could not connect to arweave.app: ${e.message}`);
-        throw e;
       }
     }
 
     async function afterConnect() {
       pill(`Connected: ${short(myAddress)}`, "✅");
-
-      // Balance
       try {
         const balWinston = await arweave.wallets.getBalance(myAddress);
         myBalanceAR = parseFloat(arweave.ar.winstonToAr(balWinston));
         const statusKind = myBalanceAR < 2 ? "warn" : "ok";
-        const note = myBalanceAR < 2
-          ? `Low balance. Consider topping up.`
-          : `You’re good to go.`;
         balanceBox.className = "status " + statusKind;
         balanceBox.innerHTML = `
           <strong>My Address</strong><br>${myAddress}<br><br>
           <strong>Balance:</strong> ${myBalanceAR.toFixed(6)} AR<br>
-          <span class="muted">${note}</span>
+          <span class="muted">${myBalanceAR < 2 ? "Low balance. Consider topping up." : "You’re good to go."}</span>
         `;
-        // Low-balance helpers
         if (myBalanceAR < 2) {
           lowBalBox.style.display = "block";
           copyMyAddr.onclick = async () => {
-            try {
-              await navigator.clipboard.writeText(myAddress);
-              copyMyAddr.textContent = "✅ Copied!";
-              setTimeout(()=>copyMyAddr.textContent="📋 Copy My Address",1500);
-            } catch {}
+            await navigator.clipboard.writeText(myAddress);
+            copyMyAddr.textContent = "✅ Copied!";
+            setTimeout(()=>copyMyAddr.textContent="📋 Copy My Address",1500);
           };
-        } else {
-          lowBalBox.style.display = "none";
-        }
-      } catch (e) {
+        } else lowBalBox.style.display = "none";
+      } catch {
         balanceBox.className = "status err";
         balanceBox.textContent = "Failed to fetch balance.";
       }
     }
 
     // --- Helpers ---
-    function short(addr) {
-      return addr && addr.length > 20 ? addr.slice(0,10) + "…" + addr.slice(-8) : addr;
-    }
+    function short(addr) { return addr?.length > 20 ? addr.slice(0,10)+"…"+addr.slice(-8):addr; }
     function parseAmount(str) {
       const n = Number(String(str).trim().replace(",", "."));
-      return Number.isFinite(n) && n >= 0 ? n : NaN;
+      return Number.isFinite(n)&&n>=0?n:NaN;
     }
     function tagsFromUI() {
-      const out = [];
-      tagsDiv.querySelectorAll(".tag-pair").forEach(pair => {
-        const k = pair.children[0].value.trim();
-        const v = pair.children[1].value.trim();
-        if (k && v) out.push([k, v]);
-      });
-      return out;
+      const out=[]; tagsDiv.querySelectorAll(".tag-pair").forEach(pair=>{
+        const k=pair.children[0].value.trim(); const v=pair.children[1].value.trim();
+        if(k&&v) out.push([k,v]);
+      }); return out;
     }
 
-    // --- Max button: balance - 0.1 AR ---
-    maxBtn.onclick = () => {
-      const usable = Math.max(0, myBalanceAR - SAFETY_BUFFER_AR);
-      amountAR.value = usable > 0 ? usable.toFixed(6) : "0.000000";
-    };
+    maxBtn.onclick=()=>{ const usable=Math.max(0,myBalanceAR-0.1); amountAR.value=usable>0?usable.toFixed(6):"0.000000"; };
 
-    // --- Disconnect ---
-    disconnectBtn.onclick = async () => {
-      try {
-        if (walletType === "mobile" && wallet?.disconnect) await wallet.disconnect();
-        if (walletType === "extension" && window.arweaveWallet?.disconnect) await window.arweaveWallet.disconnect();
-      } catch {}
-      localStorage.removeItem("walletType");
-      wallet = null; walletType = null; myAddress = null;
-      location.reload();
-    };
+    disconnectBtn.onclick=async()=>{ try{
+      if(walletType==="mobile"&&wallet?.disconnect)await wallet.disconnect();
+      if(walletType==="extension"&&window.arweaveWallet?.disconnect)await window.arweaveWallet.disconnect();
+    }catch{} localStorage.removeItem("walletType"); wallet=null; myAddress=null; walletType=null; location.reload(); };
 
-    // --- Send logic ---
-    sendBtn.onclick = async () => {
+    sendBtn.onclick=async()=>{
       hideResult();
-
-      if (!wallet) {
-        showResult("err", "No wallet connected.");
-        return;
-      }
-      const target = toAddr.value.trim();
-      if (!target) return showResult("err", "Please enter a recipient address.");
-
-      const amt = parseAmount(amountAR.value);
-      if (!Number.isFinite(amt) || amt <= 0) return showResult("err", "Enter a valid AR amount.");
-
-      if (amt + SAFETY_BUFFER_AR > myBalanceAR + 1e-12) {
-        return showResult("err", `Amount + buffer exceeds your balance (${myBalanceAR.toFixed(6)} AR). Lower the amount or top up.`);
-      }
-
-      try {
-        sendBtn.disabled = true;
-        sendBtn.textContent = "Sending…";
-
-        // Create payment tx (no data)
-        const quantityWinston = arweave.ar.arToWinston(amt.toString());
-        const tx = await arweave.createTransaction({ target, quantity: quantityWinston });
+      if(!wallet)return showResult("err","No wallet connected.");
+      const target=toAddr.value.trim(); if(!target)return showResult("err","Please enter recipient.");
+      const amt=parseAmount(amountAR.value); if(!Number.isFinite(amt)||amt<=0)return showResult("err","Invalid AR amount.");
+      if(amt+SAFETY_BUFFER_AR>myBalanceAR)return showResult("err",`Amount+buffer > balance (${myBalanceAR.toFixed(6)} AR).`);
+      try{
+        sendBtn.disabled=true; sendBtn.textContent="Sending…";
+        const quantity = arweave.ar.arToWinston(amt.toString());
+        const tx = await arweave.createTransaction({ target, quantity });
 
         // Add custom tags
         for (const [k, v] of tagsFromUI()) {
           tx.addTag(k, v);
         }
 
-        // Sign (prefer signTransaction; fallback to sign)
+        // --- Sign transaction ---
         if (walletType === "extension") {
           if (typeof wallet.signTransaction === "function") {
             await wallet.signTransaction(tx);
           } else if (typeof wallet.sign === "function") {
             await wallet.sign(tx);
           } else {
-            throw new Error("Wallet does not expose signTransaction/sign.");
+            throw new Error("Wallet does not expose signTransaction/sign");
           }
         } else {
-          // arweave.app connector instance
           if (typeof wallet.signTransaction === "function") {
             await wallet.signTransaction(tx);
           } else if (typeof wallet.sign === "function") {
             await wallet.sign(tx);
           } else {
-            throw new Error("Mobile wallet does not expose signTransaction/sign.");
+            throw new Error("Mobile wallet does not expose signTransaction/sign");
           }
         }
 
-        // Post to gateway
+        // --- Post to gateway ---
         const res = await arweave.transactions.post(tx);
         if (res?.status && res.status >= 200 && res.status < 300) {
           const id = tx.id;
@@ -433,8 +395,14 @@
             <a class="link" target="_blank" href="https://viewblock.io/arweave/tx/${id}">View on ViewBlock</a> &nbsp;•&nbsp;
             <a class="link" target="_blank" href="https://arweave.net/tx/${id}">Gateway status</a>
           `);
-          // optimistic UI: reduce shown balance
+
+          // Update balance optimistically
           myBalanceAR = Math.max(0, myBalanceAR - amt);
+          balanceBox.innerHTML = `
+            <strong>My Address</strong><br>${myAddress}<br><br>
+            <strong>Balance:</strong> ${myBalanceAR.toFixed(6)} AR<br>
+            <span class="muted">(Estimated after transaction)</span>
+          `;
         } else {
           const status = res?.status ?? "unknown";
           throw new Error(`Gateway returned status ${status}`);
