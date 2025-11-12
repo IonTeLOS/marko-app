@@ -135,222 +135,245 @@
   </div>
 
   <script type="module">
-    const arweave = Arweave.init({ host: "arweave.net", port: 443, protocol: "https" });
-    const walletStatus = document.getElementById("walletStatus");
-    const dispatchForm = document.getElementById("dispatchForm");
-    const dataInput = document.getElementById("data");
-    const charCount = document.getElementById("charCount");
-    const resultDiv = document.getElementById("result");
-    const dispatchBtn = document.getElementById("dispatchBtn");
-    const disconnectBtn = document.getElementById("disconnectBtn");
-    const tagsContainer = document.getElementById("tags");
-    const addTagBtn = document.getElementById("addTag");
-    const themeToggle = document.getElementById("themeToggle");
+  const arweave = Arweave.init({ host: "arweave.net", port: 443, protocol: "https" });
+  const walletStatus = document.getElementById("walletStatus");
+  const dispatchForm = document.getElementById("dispatchForm");
+  const dataInput = document.getElementById("data");
+  const charCount = document.getElementById("charCount");
+  const resultDiv = document.getElementById("result");
+  const dispatchBtn = document.getElementById("dispatchBtn");
+  const disconnectBtn = document.getElementById("disconnectBtn");
+  const tagsContainer = document.getElementById("tags");
+  const addTagBtn = document.getElementById("addTag");
+  const themeToggle = document.getElementById("themeToggle");
 
-    let wallet, walletAddr, walletType = null;
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const callbackUrl = "https://marko-app.netlify.app/di3";
+  let wallet, walletAddr, walletType = null;
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const callbackUrl = "https://marko-app.netlify.app/di3";
 
-    // --- Theme Persistence ---
-    const currentTheme = localStorage.getItem("theme") || "light";
-    document.documentElement.setAttribute("data-theme", currentTheme);
-    themeToggle.textContent = currentTheme === "dark" ? "🌞 Light Mode" : "🌓 Dark Mode";
-    themeToggle.onclick = () => {
-      const newTheme = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
-      document.documentElement.setAttribute("data-theme", newTheme);
-      localStorage.setItem("theme", newTheme);
-      themeToggle.textContent = newTheme === "dark" ? "🌞 Light Mode" : "🌓 Dark Mode";
-    };
+  // ---------- Theme ----------
+  const currentTheme = localStorage.getItem("theme") || "light";
+  document.documentElement.setAttribute("data-theme", currentTheme);
+  themeToggle.textContent = currentTheme === "dark" ? "🌞 Light Mode" : "🌓 Dark Mode";
+  themeToggle.onclick = () => {
+    const newTheme = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", newTheme);
+    localStorage.setItem("theme", newTheme);
+    themeToggle.textContent = newTheme === "dark" ? "🌞 Light Mode" : "🌓 Dark Mode";
+  };
 
-    // --- Tag Management ---
-    addTagRow("App-Name", "ArweaveAutoDispatcher");
-    addTagRow("Content-Type", "text/plain");
-    addTagBtn.onclick = () => addTagRow();
+  // ---------- Tag helpers ----------
+  addTagRow("App-Name", "ArweaveAutoDispatcher");
+  addTagRow("Content-Type", "text/plain");
+  addTagBtn.onclick = () => addTagRow();
 
-    function addTagRow(name = "", value = "") {
-      const row = document.createElement("div");
-      row.className = "tag-pair";
-      row.innerHTML = `<input placeholder="Tag Name" value="${name}"><input placeholder="Tag Value" value="${value}">`;
-      tagsContainer.appendChild(row);
+  function addTagRow(name = "", value = "") {
+    const row = document.createElement("div");
+    row.className = "tag-pair";
+    row.innerHTML = `<input placeholder="Tag Name" value="${name}"><input placeholder="Tag Value" value="${value}">`;
+    tagsContainer.appendChild(row);
+  }
+
+  // ---------- Auto Connect ----------
+  window.addEventListener("DOMContentLoaded", async () => {
+    walletType = localStorage.getItem("walletType");
+    if (walletType) walletType === "extension" ? await reconnectExtension() : await reconnectMobile();
+    else await autoDetectWallet();
+  });
+
+  async function autoDetectWallet() {
+    if (isMobile) await connectMobile();
+    else if (window.arweaveWallet) await connectExtension();
+    else await connectMobile();
+  }
+
+  async function connectExtension() {
+    try {
+      walletStatus.textContent = "🔌 Connecting to ArConnect/Wander...";
+      await window.arweaveWallet.connect(["ACCESS_ADDRESS", "DISPATCH"]);
+      walletAddr = await window.arweaveWallet.getActiveAddress();
+      walletType = "extension";
+      localStorage.setItem("walletType", walletType);
+      showConnected(walletAddr);
+    } catch (err) {
+      await connectMobile();
     }
+  }
 
-    // --- Auto Connect ---
-    window.addEventListener("DOMContentLoaded", async () => {
-      walletType = localStorage.getItem("walletType");
-      if (walletType) walletType === "extension" ? await reconnectExtension() : await reconnectMobile();
-      else await autoDetectWallet();
-    });
-
-    async function autoDetectWallet() {
-      if (isMobile) await connectMobile();
-      else if (window.arweaveWallet) await connectExtension();
-      else await connectMobile();
+  async function reconnectExtension() {
+    try {
+      walletAddr = await window.arweaveWallet.getActiveAddress();
+      if (walletAddr) showConnected(walletAddr);
+      else throw new Error("No active extension session");
+    } catch {
+      await connectMobile();
     }
+  }
 
-    async function connectExtension() {
-      try {
-        walletStatus.textContent = "🔌 Connecting to ArConnect/Wander...";
-        await window.arweaveWallet.connect(["ACCESS_ADDRESS", "DISPATCH"]);
-        walletAddr = await window.arweaveWallet.getActiveAddress();
-        walletType = "extension";
-        localStorage.setItem("walletType", walletType);
-        showConnected(walletAddr);
-      } catch (err) {
-        await connectMobile();
-      }
-    }
+  // ---------- Mobile connect with polling ----------
+  async function connectMobile() {
+    try {
+      walletStatus.textContent = "📱 Connecting via arweave.app...";
+      const webWallet = new window.ArweaveWebWallet({
+        name: "Arweave Auto Dispatcher",
+        logo: "https://github.com/IonTeLOS/marko-app/blob/b32d1cc9a37c1c91755051140874cd52cbd3beb4/appLogo_192.png?raw=true",
+      });
+      await webWallet.setUrl("arweave.app");
 
-    async function reconnectExtension() {
-      try {
-        walletAddr = await window.arweaveWallet.getActiveAddress();
-        if (walletAddr) showConnected(walletAddr);
-        else throw new Error("No active extension session");
-      } catch {
-        await connectMobile();
-      }
-    }
-
-    async function connectMobile() {
-      try {
-        walletStatus.textContent = "📱 Connecting via arweave.app...";
-        const webWallet = new window.ArweaveWebWallet({
-          name: "Arweave Auto Dispatcher",
-          logo: "https://github.com/IonTeLOS/marko-app/blob/b32d1cc9a37c1c91755051140874cd52cbd3beb4/appLogo_192.png?raw=true",
-        });
-        await webWallet.setUrl("arweave.app");
-        await webWallet.connect({
-          permissions: ["ACCESS_ADDRESS", "DISPATCH"],
-          redirectUrl: callbackUrl,
-        });
+      // already connected?
+      const existing = localStorage.getItem("arweave-wallet");
+      if (existing) {
         wallet = webWallet;
-        walletAddr = webWallet.address || "(unknown)";
+        walletAddr = JSON.parse(existing)?.address || "(unknown)";
         walletType = "mobile";
         localStorage.setItem("walletType", walletType);
-        showConnected(walletAddr);
-      } catch (err) {
-        showError("Could not connect to arweave.app: " + err.message);
+        return showConnected(walletAddr);
       }
-    }
 
-    async function reconnectMobile() {
-      try {
-        const webWallet = new window.ArweaveWebWallet({ name: "Arweave Auto Dispatcher" });
-        await webWallet.setUrl("arweave.app");
-        wallet = webWallet;
-        walletAddr = webWallet.address || "(unknown)";
-        if (!walletAddr || walletAddr === "(unknown)") throw new Error("Session expired");
-        showConnected(walletAddr);
-      } catch {
-        await connectMobile();
-      }
-    }
-
-    function showConnected(addr) {
-      walletStatus.classList.add("connected");
-      walletStatus.textContent = `✅ Connected: ${addr}`;
-      dispatchForm.style.display = "block";
-    }
-
-    // --- Form + Dispatch Logic ---
-    dataInput.addEventListener("input", () => {
-      const bytes = new Blob([dataInput.value]).size;
-      const kb = (bytes / 1024).toFixed(2);
-      charCount.textContent = `${bytes} bytes (${kb} KB)`;
-      charCount.style.color = bytes > 102400 ? "var(--warn)" : "var(--good)";
-    });
-
-    dispatchForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const data = dataInput.value;
-      const bytes = new Blob([data]).size;
-      if (bytes > 102400) return showError("Transaction too large (max 100 KB).");
-
-      const tags = {};
-      document.querySelectorAll(".tag-pair").forEach(pair => {
-        const k = pair.children[0].value.trim();
-        const v = pair.children[1].value.trim();
-        if (k && v) tags[k] = v;
+      await webWallet.connect({
+        permissions: ["ACCESS_ADDRESS", "DISPATCH"],
+        redirectUrl: callbackUrl,
       });
+      wallet = webWallet;
+      walletAddr = webWallet.address || "(unknown)";
+      walletType = "mobile";
+      localStorage.setItem("walletType", walletType);
+      showConnected(walletAddr);
 
-      try {
-        dispatchBtn.disabled = true;
-        dispatchBtn.textContent = "Dispatching...";
-        const tx = await arweave.createTransaction({ data });
-        for (const [k, v] of Object.entries(tags)) tx.addTag(k, v);
-        const result =
-          walletType === "extension"
-            ? await window.arweaveWallet.dispatch(tx)
-            : await wallet.dispatch(tx);
-        showSuccess(result.id);
-      } catch (err) {
-        showError("Dispatch failed: " + err.message);
-      } finally {
-        dispatchBtn.disabled = false;
-        dispatchBtn.textContent = "🚀 Dispatch Transaction (FREE)";
+      // if new tab was opened, poll for session appearance
+      startSessionPoll();
+    } catch (err) {
+      showError("Could not connect to arweave.app: " + err.message);
+    }
+  }
+
+  function startSessionPoll() {
+    let attempts = 0;
+    const timer = setInterval(() => {
+      const session = localStorage.getItem("arweave-wallet");
+      if (session) {
+        const { address } = JSON.parse(session);
+        if (address) {
+          clearInterval(timer);
+          showConnected(address);
+        }
       }
+      if (++attempts > 90) clearInterval(timer); // stop after 90s
+    }, 1000);
+  }
+
+  async function reconnectMobile() {
+    try {
+      const webWallet = new window.ArweaveWebWallet({ name: "Arweave Auto Dispatcher" });
+      await webWallet.setUrl("arweave.app");
+      const session = localStorage.getItem("arweave-wallet");
+      if (session) {
+        wallet = webWallet;
+        walletAddr = JSON.parse(session)?.address || "(unknown)";
+        showConnected(walletAddr);
+      } else {
+        startSessionPoll();
+      }
+    } catch {
+      await connectMobile();
+    }
+  }
+
+  function showConnected(addr) {
+    walletStatus.classList.add("connected");
+    walletStatus.textContent = `✅ Connected: ${addr}`;
+    dispatchForm.style.display = "block";
+  }
+
+  // ---------- Form + Dispatch ----------
+  dataInput.addEventListener("input", () => {
+    const bytes = new Blob([dataInput.value]).size;
+    const kb = (bytes / 1024).toFixed(2);
+    charCount.textContent = `${bytes} bytes (${kb} KB)`;
+    charCount.style.color = bytes > 102400 ? "var(--warn)" : "var(--good)";
+  });
+
+  dispatchForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const data = dataInput.value;
+    const bytes = new Blob([data]).size;
+    if (bytes > 102400) return showError("Transaction too large (max 100 KB).");
+
+    const tags = {};
+    document.querySelectorAll(".tag-pair").forEach(pair => {
+      const k = pair.children[0].value.trim();
+      const v = pair.children[1].value.trim();
+      if (k && v) tags[k] = v;
     });
 
-    disconnectBtn.onclick = async () => {
-      try {
-        if (walletType === "mobile" && wallet?.disconnect) await wallet.disconnect();
-        if (walletType === "extension" && window.arweaveWallet?.disconnect) await window.arweaveWallet.disconnect();
-      } catch {}
-      localStorage.removeItem("walletType");
-      wallet = null;
-      walletAddr = null;
-      walletType = null;
-      walletStatus.textContent = "👋 Disconnected. Reloading...";
-      setTimeout(() => location.reload(), 800);
-    };
+    try {
+      dispatchBtn.disabled = true;
+      dispatchBtn.textContent = "Dispatching...";
+      const tx = await arweave.createTransaction({ data });
+      for (const [k, v] of Object.entries(tags)) tx.addTag(k, v);
+      const result =
+        walletType === "extension"
+          ? await window.arweaveWallet.dispatch(tx)
+          : await wallet.dispatch(tx);
+      showSuccess(result.id);
+    } catch (err) {
+      showError("Dispatch failed: " + err.message);
+    } finally {
+      dispatchBtn.disabled = false;
+      dispatchBtn.textContent = "🚀 Dispatch Transaction (FREE)";
+    }
+  });
 
-    function showSuccess(id) {
-      const url = `https://arweave.net/${id}`;
-      resultDiv.className = "result success";
-      resultDiv.innerHTML = `
-        <div class="result-title">✅ Transaction Dispatched!</div>
-        <p><strong>ID:</strong> ${id}</p>
-        <p><a class="tx-link" href="https://viewblock.io/arweave/tx/${id}" target="_blank">View on ViewBlock →</a></p>
-        <p><a class="tx-link" href="${url}" target="_blank">View Data →</a></p>
-        <div class="actions">
-          <button type="button" class="mini-btn" id="copyBtn">📋 Copy Link</button>
-          <button type="button" class="mini-btn" id="shareBtn">📱 Share</button>
-        </div>
-      `;
-      resultDiv.style.display = "block";
+  disconnectBtn.onclick = async () => {
+    try {
+      if (walletType === "mobile" && wallet?.disconnect) await wallet.disconnect();
+      if (walletType === "extension" && window.arweaveWallet?.disconnect) await window.arweaveWallet.disconnect();
+    } catch {}
+    localStorage.removeItem("walletType");
+    wallet = null; walletAddr = null; walletType = null;
+    walletStatus.textContent = "👋 Disconnected. Reloading...";
+    setTimeout(() => location.reload(), 800);
+  };
 
-      setTimeout(() => {
-        const copyBtn = document.getElementById("copyBtn");
-        const shareBtn = document.getElementById("shareBtn");
+  // ---------- Helpers ----------
+  function showSuccess(id) {
+    const url = `https://arweave.net/${id}`;
+    resultDiv.className = "result success";
+    resultDiv.innerHTML = `
+      <div class="result-title">✅ Transaction Dispatched!</div>
+      <p><strong>ID:</strong> ${id}</p>
+      <p><a class="tx-link" href="https://viewblock.io/arweave/tx/${id}" target="_blank">View on ViewBlock →</a></p>
+      <p><a class="tx-link" href="${url}" target="_blank">View Data →</a></p>
+      <div class="actions">
+        <button type="button" class="mini-btn" id="copyBtn">📋 Copy Link</button>
+        <button type="button" class="mini-btn" id="shareBtn">📱 Share</button>
+      </div>`;
+    resultDiv.style.display = "block";
 
-        copyBtn.onclick = async () => {
+    setTimeout(() => {
+      const copyBtn = document.getElementById("copyBtn");
+      const shareBtn = document.getElementById("shareBtn");
+      copyBtn.onclick = async () => {
+        try { await navigator.clipboard.writeText(url);
+          copyBtn.textContent = "✅ Copied!";
+          setTimeout(() => (copyBtn.textContent = "📋 Copy Link"), 2000);
+        } catch (err) { alert("Failed to copy: " + err.message); }
+      };
+      if (navigator.share) {
+        shareBtn.onclick = async () => {
           try {
-            await navigator.clipboard.writeText(url);
-            copyBtn.textContent = "✅ Copied!";
-            setTimeout(() => (copyBtn.textContent = "📋 Copy Link"), 2000);
-          } catch (err) {
-            alert("Failed to copy: " + err.message);
-          }
+            await navigator.share({ title: "Arweave Upload", text: "Check out my Arweave transaction", url });
+          } catch {}
         };
+      } else shareBtn.style.display = "none";
+    }, 100);
+  }
 
-        if (navigator.share) {
-          shareBtn.onclick = async () => {
-            try {
-              await navigator.share({
-                title: "Arweave Upload",
-                text: "Check out my Arweave transaction",
-                url,
-              });
-            } catch {}
-          };
-        } else shareBtn.style.display = "none";
-      }, 100);
-    }
-
-    function showError(msg) {
-      resultDiv.className = "result error";
-      resultDiv.innerHTML = `<div class="result-title">❌ Error</div><p>${msg}</p>`;
-      resultDiv.style.display = "block";
-    }
-  </script>
+  function showError(msg) {
+    resultDiv.className = "result error";
+    resultDiv.innerHTML = `<div class="result-title">❌ Error</div><p>${msg}</p>`;
+    resultDiv.style.display = "block";
+  }
+</script>
 </body>
 </html>
