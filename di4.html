@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Arweave Pay (AR Sender)</title>
+  <title>💸 Arweave Pay (AR Sender)</title>
 
   <!-- Arweave SDK -->
   <script src="https://unpkg.com/arweave@1.15.1/bundles/web.bundle.min.js"></script>
@@ -101,11 +101,10 @@
       background: transparent; color: var(--fg);
       border: 2px solid var(--input-border);
     }
-
     .tags { display: grid; gap: 8px; }
     .tag-pair { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
     .muted { color: var(--muted); font-size: 12px; }
-    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: space-between; }
 
     .grid2 { display: grid; gap: 10px; grid-template-columns: 1fr auto; align-items: end; }
     .link { color: var(--accent); text-decoration: none; }
@@ -115,13 +114,13 @@
 <body>
   <div class="card">
     <h1>💸 Arweave Pay</h1>
-    <p class="sub">Send AR to any Arweave address. Works with ArConnect/Wander (desktop) or arweave.app (mobile).</p>
+    <p class="sub">Send AR to any Arweave address. Works with ArConnect/Wander or arweave.app.</p>
 
-    <div class="toolbar" style="justify-content: space-between; margin-bottom: 8px;">
+    <div class="toolbar">
       <span id="walletPill" class="pill">🔌 Detecting wallet…</span>
-      <div class="inline" style="flex: 0 0 auto; gap: 8px;">
+      <div class="inline" style="flex:0 0 auto;gap:8px;">
         <button id="themeBtn" class="btn btn-secondary" style="width:auto;">🌓 Theme</button>
-        <button id="disconnectBtn" class="btn btn-secondary" style="width:auto; display:none;">🔒 Disconnect</button>
+        <button id="disconnectBtn" class="btn btn-secondary" style="width:auto;display:none;">🔒 Disconnect</button>
       </div>
     </div>
 
@@ -129,14 +128,14 @@
 
     <div class="row">
       <label for="toAddr">Recipient Address</label>
-      <input id="toAddr" placeholder="Arweave address (base64url)" autocomplete="off"/>
+      <input id="toAddr" placeholder="Arweave address" autocomplete="off"/>
     </div>
 
     <div class="row grid2">
       <div>
         <label for="amountAR">Amount (AR)</label>
         <input id="amountAR" placeholder="0.0" inputmode="decimal" autocomplete="off"/>
-        <div class="muted">Safety buffer for “Max”: <strong>0.1 AR</strong></div>
+        <div class="muted">Safety buffer: <strong>0.1 AR</strong></div>
       </div>
       <button id="maxBtn" class="btn btn-secondary" type="button" style="width:auto;">Max</button>
     </div>
@@ -148,23 +147,20 @@
       <div class="muted">Tags are written on-chain with the transaction.</div>
     </div>
 
-    <div class="row">
-      <button id="sendBtn" class="btn">🚀 Send AR</button>
-    </div>
+    <button id="sendBtn" class="btn">🚀 Send AR</button>
 
     <div id="lowBalBox" class="status warn" style="display:none;">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
         <div>Balance is under <strong>2 AR</strong>. You may need to top up.</div>
-        <div class="inline" style="gap:8px;flex:0 0 auto;">
+        <div class="inline" style="gap:8px;">
           <button id="copyMyAddr" class="btn btn-secondary" type="button" style="width:auto;">📋 Copy My Address</button>
-          <a id="transakBtn" class="btn btn-secondary" style="width:auto;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;" target="_blank" rel="noopener" href="https://global.transak.com/">🪙 Open Transak</a>
+          <a id="transakBtn" class="btn btn-secondary" style="width:auto;text-decoration:none;" target="_blank" href="https://global.transak.com/">🪙 Open Transak</a>
         </div>
       </div>
-      <div class="muted">Transak availability of AR depends on your region/payment rails.</div>
+      <div class="muted">Transak availability of AR depends on your region.</div>
     </div>
 
     <div id="resultBox" class="status" style="display:none;"></div>
-
     <div class="right" style="margin-top:10px;">
       <a href="https://viewblock.io/arweave/addresses" target="_blank" class="link">View Address Explorer →</a>
     </div>
@@ -173,31 +169,25 @@
   <script type="module">
     const arweave = Arweave.init({ host: "arweave.net", port: 443, protocol: "https" });
     const SAFETY_BUFFER_AR = 0.1;
-
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const walletPill = document.getElementById("walletPill");
-    const disconnectBtn = document.getElementById("disconnectBtn");
-    const themeBtn = document.getElementById("themeBtn");
 
+    const walletPill = document.getElementById("walletPill");
     const balanceBox = document.getElementById("balanceBox");
     const lowBalBox = document.getElementById("lowBalBox");
     const copyMyAddr = document.getElementById("copyMyAddr");
-
+    const disconnectBtn = document.getElementById("disconnectBtn");
+    const themeBtn = document.getElementById("themeBtn");
+    const sendBtn = document.getElementById("sendBtn");
+    const resultBox = document.getElementById("resultBox");
+    const tagsDiv = document.getElementById("tags");
+    const addTag = document.getElementById("addTag");
     const toAddr = document.getElementById("toAddr");
     const amountAR = document.getElementById("amountAR");
     const maxBtn = document.getElementById("maxBtn");
 
-    const tagsDiv = document.getElementById("tags");
-    const addTag = document.getElementById("addTag");
-    const sendBtn = document.getElementById("sendBtn");
-    const resultBox = document.getElementById("resultBox");
+    let wallet, walletType = null, myAddress = null, myBalanceAR = 0;
 
-    let walletType = null;
-    let wallet = null;
-    let myAddress = null;
-    let myBalanceAR = 0;
-
-    // --- Theme persistence ---
+    // --- Theme ---
     const savedTheme = localStorage.getItem("theme") || "light";
     document.documentElement.setAttribute("data-theme", savedTheme);
     themeBtn.onclick = () => {
@@ -206,213 +196,133 @@
       localStorage.setItem("theme", now);
     };
 
-    // --- Helper UI funcs ---
-    function pill(text, icon="🔌") {
-      walletPill.textContent = "";
-      walletPill.innerHTML = `${icon} ${text}`;
-    }
-    function showResult(kind, html) {
-      resultBox.className = "status " + (kind === "ok" ? "ok" : kind === "warn" ? "warn" : "err");
+    function pill(text, icon="🔌"){ walletPill.innerHTML = `${icon} ${text}`; }
+    function showResult(kind, html){
+      resultBox.className = "status "+(kind==="ok"?"ok":kind==="warn"?"warn":"err");
       resultBox.style.display = "block";
       resultBox.innerHTML = html;
     }
     function hideResult(){ resultBox.style.display="none"; }
 
-    function addTagRow(name = "", value = "") {
-      const row = document.createElement("div");
-      row.className = "tag-pair";
-      row.innerHTML = `
-        <input placeholder="Tag name" value="${name}"/>
-        <input placeholder="Tag value" value="${value}"/>
-      `;
+    function addTagRow(name="",value=""){
+      const row=document.createElement("div");
+      row.className="tag-pair";
+      row.innerHTML=`<input placeholder="Tag name" value="${name}"/><input placeholder="Tag value" value="${value}"/>`;
       tagsDiv.appendChild(row);
     }
-    addTagRow("App-Name", "ArweavePay");
-    addTagRow("Purpose", "Payment");
-    addTag.onclick = () => addTagRow();
+    addTagRow("App-Name","ArweavePay");
+    addTagRow("Purpose","Payment");
+    addTag.onclick=()=>addTagRow();
 
-    // --- Wallet detection/connection ---
-    window.addEventListener("DOMContentLoaded", async () => {
-      try {
-        const prev = localStorage.getItem("walletType");
-        if (prev === "extension" && window.arweaveWallet) return await connectExtension(true);
-        if (prev === "mobile") return await connectMobile(true);
-        if (!isMobile && window.arweaveWallet) return await connectExtension(false);
-        await connectMobile(false);
-      } catch (e) {
-        pill("No wallet detected", "❌");
-        balanceBox.className = "status err";
-        balanceBox.innerHTML = "No wallet available. Install <a class='link' href='https://www.wander.app/download?tab=download-browser' target='_blank' rel='noopener'>Wander</a> or use arweave.app on mobile.";
+    const short = a=>a?.length>20?a.slice(0,10)+"…"+a.slice(-8):a;
+    const parseAmount = s => { const n=Number(String(s).trim().replace(",","."));
+      return Number.isFinite(n)&&n>=0?n:NaN; };
+    const tagsFromUI = ()=>{ const arr=[];tagsDiv.querySelectorAll(".tag-pair").forEach(p=>{
+      const k=p.children[0].value.trim(),v=p.children[1].value.trim();if(k&&v)arr.push([k,v]);});return arr;};
+
+    // --- Address resolution helper ---
+    async function resolveAddress(){
+      try{
+        if(walletType==="extension"&&window.arweaveWallet){
+          let addr=await window.arweaveWallet.getActiveAddress().catch(()=>null);
+          for(let i=0;i<3&&!addr;i++){await new Promise(r=>setTimeout(r,500));addr=await window.arweaveWallet.getActiveAddress().catch(()=>null);}
+          if(addr) return addr;
+        }
+        if(walletType==="mobile"&&wallet?.address) return wallet.address;
+        if(walletType==="mobile"){
+          try{
+            const res=await fetch("https://arweave.app/api/wallet");
+            const js=await res.json().catch(()=>null);
+            if(js?.address) return js.address;
+          }catch{}
+        }
+        return localStorage.getItem("lastAddr")||null;
+      }catch{return null;}
+    }
+
+    async function afterConnect(){
+      const addr=await resolveAddress();
+      if(!addr){ pill("Connected (address unknown)","⚠️");
+        balanceBox.className="status warn";
+        balanceBox.textContent="Waiting for wallet to return address…";return;}
+      myAddress=addr; localStorage.setItem("lastAddr",addr);
+      pill(`Connected: ${short(addr)}`,"✅");
+      try{
+        const balW=await arweave.wallets.getBalance(addr);
+        myBalanceAR=parseFloat(arweave.ar.winstonToAr(balW));
+        const kind=myBalanceAR<2?"warn":"ok";
+        balanceBox.className="status "+kind;
+        balanceBox.innerHTML=`<strong>My Address</strong><br>${addr}<br><br><strong>Balance:</strong> ${myBalanceAR.toFixed(6)} AR<br><span class="muted">${myBalanceAR<2?"Low balance. Consider topping up.":"You’re good to go."}</span>`;
+        if(myBalanceAR<2){
+          lowBalBox.style.display="block";
+          copyMyAddr.onclick=async()=>{await navigator.clipboard.writeText(addr);
+            copyMyAddr.textContent="✅ Copied!";setTimeout(()=>copyMyAddr.textContent="📋 Copy My Address",1500);};
+        } else lowBalBox.style.display="none";
+      }catch{balanceBox.className="status err";balanceBox.textContent="Failed to fetch balance.";}
+    }
+
+    // --- Auto connect ---
+    document.addEventListener("DOMContentLoaded",async()=>{
+      try{
+        const prev=localStorage.getItem("walletType");
+        if(prev==="extension"&&window.arweaveWallet){
+          wallet=window.arweaveWallet; walletType="extension";
+          disconnectBtn.style.display="inline-block"; await afterConnect();
+        } else if(prev==="mobile"){
+          const ww=new window.ArweaveWebWallet({name:"Arweave Pay"});
+          await ww.setUrl("arweave.app"); wallet=ww; walletType="mobile";
+          disconnectBtn.style.display="inline-block"; await afterConnect();
+        } else if(!isMobile&&window.arweaveWallet){
+          wallet=window.arweaveWallet; walletType="extension";
+          await wallet.connect(["ACCESS_ADDRESS","SIGN_TRANSACTION"]);
+          localStorage.setItem("walletType","extension"); await afterConnect();
+        } else {
+          const ww=new window.ArweaveWebWallet({name:"Arweave Pay"});
+          await ww.setUrl("arweave.app");
+          await ww.connect({permissions:["ACCESS_ADDRESS","SIGN_TRANSACTION"],redirectUrl:location.href});
+          wallet=ww; walletType="mobile"; localStorage.setItem("walletType","mobile");
+          await afterConnect();
+        }
+      }catch(e){
+        pill("No wallet detected","❌");
+        balanceBox.className="status err";
+        balanceBox.innerHTML="No wallet detected. Install <a class='link' href='https://www.wander.app/download?tab=download-browser' target='_blank'>Wander</a> or use arweave.app on mobile.";
       }
     });
 
-    // --- Auto refresh balance if authorized ---
-    document.addEventListener("DOMContentLoaded", async () => {
-      try {
-        if (window.arweaveWallet) {
-          const addr = await window.arweaveWallet.getActiveAddress().catch(() => null);
-          if (addr) {
-            wallet = window.arweaveWallet;
-            walletType = "extension";
-            myAddress = addr;
-            disconnectBtn.style.display = "inline-block";
-            await afterConnect();
-          }
-        }
-      } catch (e) {
-        console.warn("Auto-refresh balance failed:", e);
-      }
-    });
+    // --- Actions ---
+    maxBtn.onclick=()=>{const usable=Math.max(0,myBalanceAR-0.1);
+      amountAR.value=usable>0?usable.toFixed(6):"0.000000";};
 
-    async function connectExtension(reconnect) {
-      try {
-        pill(reconnect ? "Reconnecting extension…" : "Connecting extension…", "🔌");
-        await window.arweaveWallet.connect(["ACCESS_ADDRESS","SIGN_TRANSACTION"]);
-        myAddress = await window.arweaveWallet.getActiveAddress();
-        wallet = window.arweaveWallet;
-        walletType = "extension";
-        localStorage.setItem("walletType","extension");
-        disconnectBtn.style.display = "inline-block";
-        await afterConnect();
-      } catch (e) {
-        if (!reconnect) return connectMobile(false);
-        throw e;
-      }
-    }
-
-    async function connectMobile(reconnect) {
-      const callbackUrl = location.href;
-      try {
-        pill(reconnect ? "Reconnecting mobile…" : "Connecting mobile…", "📱");
-        const ww = new window.ArweaveWebWallet({ name: "Arweave Pay" });
-        await ww.setUrl("arweave.app");
-        if (!reconnect) {
-          await ww.connect({
-            permissions: ["ACCESS_ADDRESS","SIGN_TRANSACTION"],
-            redirectUrl: callbackUrl,
-          });
-        }
-        wallet = ww;
-        myAddress = ww.address || "(unknown)";
-        walletType = "mobile";
-        localStorage.setItem("walletType","mobile");
-        disconnectBtn.style.display = "inline-block";
-        await afterConnect();
-      } catch (e) {
-        pill("Mobile connect failed", "❌");
-        showResult("err", `Could not connect to arweave.app: ${e.message}`);
-      }
-    }
-
-    async function afterConnect() {
-      pill(`Connected: ${short(myAddress)}`, "✅");
-      try {
-        const balWinston = await arweave.wallets.getBalance(myAddress);
-        myBalanceAR = parseFloat(arweave.ar.winstonToAr(balWinston));
-        const statusKind = myBalanceAR < 2 ? "warn" : "ok";
-        balanceBox.className = "status " + statusKind;
-        balanceBox.innerHTML = `
-          <strong>My Address</strong><br>${myAddress}<br><br>
-          <strong>Balance:</strong> ${myBalanceAR.toFixed(6)} AR<br>
-          <span class="muted">${myBalanceAR < 2 ? "Low balance. Consider topping up." : "You’re good to go."}</span>
-        `;
-        if (myBalanceAR < 2) {
-          lowBalBox.style.display = "block";
-          copyMyAddr.onclick = async () => {
-            await navigator.clipboard.writeText(myAddress);
-            copyMyAddr.textContent = "✅ Copied!";
-            setTimeout(()=>copyMyAddr.textContent="📋 Copy My Address",1500);
-          };
-        } else lowBalBox.style.display = "none";
-      } catch {
-        balanceBox.className = "status err";
-        balanceBox.textContent = "Failed to fetch balance.";
-      }
-    }
-
-    // --- Helpers ---
-    function short(addr) { return addr?.length > 20 ? addr.slice(0,10)+"…"+addr.slice(-8):addr; }
-    function parseAmount(str) {
-      const n = Number(String(str).trim().replace(",", "."));
-      return Number.isFinite(n)&&n>=0?n:NaN;
-    }
-    function tagsFromUI() {
-      const out=[]; tagsDiv.querySelectorAll(".tag-pair").forEach(pair=>{
-        const k=pair.children[0].value.trim(); const v=pair.children[1].value.trim();
-        if(k&&v) out.push([k,v]);
-      }); return out;
-    }
-
-    maxBtn.onclick=()=>{ const usable=Math.max(0,myBalanceAR-0.1); amountAR.value=usable>0?usable.toFixed(6):"0.000000"; };
-
-    disconnectBtn.onclick=async()=>{ try{
-      if(walletType==="mobile"&&wallet?.disconnect)await wallet.disconnect();
-      if(walletType==="extension"&&window.arweaveWallet?.disconnect)await window.arweaveWallet.disconnect();
-    }catch{} localStorage.removeItem("walletType"); wallet=null; myAddress=null; walletType=null; location.reload(); };
+    disconnectBtn.onclick=async()=>{
+      try{
+        if(walletType==="mobile"&&wallet?.disconnect)await wallet.disconnect();
+        if(walletType==="extension"&&window.arweaveWallet?.disconnect)await window.arweaveWallet.disconnect();
+      }catch{}
+      localStorage.removeItem("walletType"); wallet=null; myAddress=null; walletType=null; location.reload();
+    };
 
     sendBtn.onclick=async()=>{
       hideResult();
       if(!wallet)return showResult("err","No wallet connected.");
       const target=toAddr.value.trim(); if(!target)return showResult("err","Please enter recipient.");
-      const amt=parseAmount(amountAR.value); if(!Number.isFinite(amt)||amt<=0)return showResult("err","Invalid AR amount.");
+      const amt=parseAmount(amountAR.value); if(!Number.isFinite(amt)||amt<=0)return showResult("err","Invalid amount.");
       if(amt+SAFETY_BUFFER_AR>myBalanceAR)return showResult("err",`Amount+buffer > balance (${myBalanceAR.toFixed(6)} AR).`);
       try{
         sendBtn.disabled=true; sendBtn.textContent="Sending…";
-        const quantity = arweave.ar.arToWinston(amt.toString());
-        const tx = await arweave.createTransaction({ target, quantity });
-
-        // Add custom tags
-        for (const [k, v] of tagsFromUI()) {
-          tx.addTag(k, v);
-        }
-
-        // --- Sign transaction ---
-        if (walletType === "extension") {
-          if (typeof wallet.signTransaction === "function") {
-            await wallet.signTransaction(tx);
-          } else if (typeof wallet.sign === "function") {
-            await wallet.sign(tx);
-          } else {
-            throw new Error("Wallet does not expose signTransaction/sign");
-          }
-        } else {
-          if (typeof wallet.signTransaction === "function") {
-            await wallet.signTransaction(tx);
-          } else if (typeof wallet.sign === "function") {
-            await wallet.sign(tx);
-          } else {
-            throw new Error("Mobile wallet does not expose signTransaction/sign");
-          }
-        }
-
-        // --- Post to gateway ---
-        const res = await arweave.transactions.post(tx);
-        if (res?.status && res.status >= 200 && res.status < 300) {
-          const id = tx.id;
-          showResult("ok", `
-            ✅ <strong>Transaction submitted!</strong><br><br>
-            <strong>ID:</strong> ${id}<br>
-            <a class="link" target="_blank" href="https://viewblock.io/arweave/tx/${id}">View on ViewBlock</a> &nbsp;•&nbsp;
-            <a class="link" target="_blank" href="https://arweave.net/tx/${id}">Gateway status</a>
-          `);
-
-          // Update balance optimistically
-          myBalanceAR = Math.max(0, myBalanceAR - amt);
-          balanceBox.innerHTML = `
-            <strong>My Address</strong><br>${myAddress}<br><br>
-            <strong>Balance:</strong> ${myBalanceAR.toFixed(6)} AR<br>
-            <span class="muted">(Estimated after transaction)</span>
-          `;
-        } else {
-          const status = res?.status ?? "unknown";
-          throw new Error(`Gateway returned status ${status}`);
-        }
-      } catch (e) {
-        showResult("err", `Transaction failed: ${e.message}`);
-      } finally {
-        sendBtn.disabled = false;
-        sendBtn.textContent = "🚀 Send AR";
-      }
+        const quantity=arweave.ar.arToWinston(amt.toString());
+        const tx=await arweave.createTransaction({target,quantity});
+        for(const [k,v] of tagsFromUI()) tx.addTag(k,v);
+        if(typeof wallet.signTransaction==="function") await wallet.signTransaction(tx);
+        else if(typeof wallet.sign==="function") await wallet.sign(tx);
+        else throw new Error("Wallet does not expose signing method.");
+        const res=await arweave.transactions.post(tx);
+        if(res?.status>=200&&res.status<300){
+          showResult("ok",`✅ <strong>Transaction sent!</strong><br><br><strong>ID:</strong> ${tx.id}<br><a class="link" target="_blank" href="https://viewblock.io/arweave/tx/${tx.id}">View on ViewBlock</a>`);
+          myBalanceAR=Math.max(0,myBalanceAR-amt);
+        }else throw new Error(`Gateway status ${res?.status}`);
+      }catch(e){showResult("err",`Transaction failed: ${e.message}`);}
+      finally{sendBtn.disabled=false;sendBtn.textContent="🚀 Send AR";}
     };
   </script>
 </body>
