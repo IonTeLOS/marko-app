@@ -196,6 +196,19 @@
       localStorage.setItem("theme", now);
     };
 
+    function isInAppBrowser() {
+  const ua = navigator.userAgent || "";
+  return /Wander/i.test(ua) && /wv/i.test(ua);
+}
+if (isInAppBrowser()) {
+  document.body.innerHTML = `
+    <div style="padding:40px;text-align:center;font-family:sans-serif;">
+      <h2>⚠️ Open in your mobile browser</h2>
+      <p>Wander’s in-app browser doesn’t support signing yet.<br>
+      Tap the <strong>Share</strong> icon → <strong>Open in Browser</strong> to continue.</p>
+    </div>`;
+}
+
     function pill(text, icon="🔌"){ walletPill.innerHTML = `${icon} ${text}`; }
     function showResult(kind, html){
       resultBox.className = "status "+(kind==="ok"?"ok":kind==="warn"?"warn":"err");
