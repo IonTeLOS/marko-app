@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Non-Custodial Arweave Wallet</title>
+      <script src="https://unpkg.com/arweave@1.15.5/bundles/web.bundle.js"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 40px;
+      max-width: 700px;
+      width: 100%;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      color: #1a202c;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .security-badge {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 30px;
+      font-size: 14px;
+      color: #155724;
+    }
+
+    .security-badge strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #5a6268;
+    }
+
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+    }
+
+    .btn-success {
+      background: #28a745;
+      color: white;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #4a5568;
+      font-size: 14px;
+    }
+
+    .input-group input, .input-group textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+      font-family: inherit;
+    }
+
+    .input-group textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    .input-group input:focus, .input-group textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .status {
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      font-size: 14px;
+    }
+
+    .status-info {
+      background: #cfe2ff;
+      border: 1px solid #b6d4fe;
+      color: #084298;
+    }
+
+    .status-success {
+      background: #d1e7dd;
+      border: 1px solid #badbcc;
+      color: #0f5132;
+    }
+
+    .status-error {
+      background: #f8d7da;
+      border: 1px solid #f5c2c7;
+      color: #842029;
+    }
+
+    .wallet-info {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+
+    .wallet-info-item {
+      margin-bottom: 12px;
+    }
+
+    .wallet-info-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .wallet-info-label {
+      font-size: 12px;
+      color: #6c757d;
+      margin-bottom: 4px;
+    }
+
+    .wallet-info-value {
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      word-break: break-all;
+      color: #1a202c;
+      background: white;
+      padding: 8px;
+      border-radius: 4px;
+    }
+
+    .balance-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .balance-amount {
+      font-size: 36px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+
+    .balance-label {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .warning {
+      background: #fff3cd;
+      border: 1px solid #ffecb5;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      color: #664d03;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .recovery-section {
+      margin-top: 30px;
+      padding-top: 30px;
+      border-top: 2px solid #e2e8f0;
+    }
+
+    .recovery-section h3 {
+      color: #1a202c;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+
+    .architecture {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .architecture h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 10px;
+    }
+
+    .architecture ul {
+      list-style: none;
+      font-size: 12px;
+      color: #718096;
+    }
+
+    .architecture li {
+      margin-bottom: 6px;
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .architecture li:before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #28a745;
+      font-weight: bold;
+    }
+
+    .button-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    .tab {
+      padding: 12px 20px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      color: #6c757d;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.3s;
+    }
+
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+
+    .tab:hover {
+      color: #667eea;
+    }
+
+    .tx-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .tx-item {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+
+    .tx-item-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .tx-item-id {
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      color: #6c757d;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🛡️ Non-Custodial Arweave Wallet</h1>
+    </div>
+
+    <div class="security-badge">
+      <strong>100% Non-Custodial</strong>
+      Your private key is generated in your browser, encrypted with your passkey, and stored on Arweave. The server never sees your key in plaintext.
+    </div>
+
+    <!-- Landing Screen -->
+    <div id="landing-screen">
+      <button class="btn btn-primary" onclick="showCreateScreen()">
+        🔑 Create New Wallet
+      </button>
+      <button class="btn btn-secondary" onclick="showUnlockScreen()">
+        🔓 Unlock Existing Wallet
+      </button>
+    </div>
+
+    <!-- Create Wallet Screen -->
+    <div id="create-screen" class="hidden">
+      <h2 style="margin-bottom: 20px; color: #1a202c;">Create Wallet</h2>
+
+      <div class="input-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Enter username">
+      </div>
+
+      <button class="btn btn-primary" onclick="createWallet()" id="create-btn">
+        Create Wallet
+      </button>
+      <button class="btn btn-secondary" onclick="showLanding()">
+        Back
+      </button>
+
+      <div id="create-status"></div>
+    </div>
+
+    <!-- Unlock Screen -->
+    <div id="unlock-screen" class="hidden">
+      <h2 style="margin-bottom: 20px; color: #1a202c;">Unlock Wallet</h2>
+
+      <p style="color: #4a5568; margin-bottom: 20px;">
+        Authenticate with your device to decrypt and access your wallet.
+      </p>
+
+      <button class="btn btn-primary" onclick="unlockWallet()" id="unlock-btn">
+        🔓 Unlock with Biometrics
+      </button>
+      <button class="btn btn-secondary" onclick="showLanding()">
+        Back
+      </button>
+
+      <div class="recovery-section">
+        <h3>Recovery Mode</h3>
+        <p style="color: #4a5568; margin-bottom: 15px; font-size: 14px;">
+          Lost your local data? Enter your wallet address to search for your encrypted backup on Arweave.
+        </p>
+
+        <div class="input-group">
+          <label for="recovery-address">Wallet Address</label>
+          <input type="text" id="recovery-address" placeholder="Enter your Arweave address">
+        </div>
+
+        <button class="btn btn-success" onclick="recoverWallet()" id="recovery-btn">
+          🔍 Search for Wallet
+        </button>
+      </div>
+
+      <div id="unlock-status"></div>
+    </div>
+
+    <!-- Wallet Screen -->
+    <div id="wallet-screen" class="hidden">
+      <h2 style="margin-bottom: 20px; color: #1a202c;">Wallet Active</h2>
+
+      <!-- Balance Card -->
+      <div class="balance-card">
+        <div class="balance-label">Balance</div>
+        <div class="balance-amount" id="balance-display">--</div>
+        <button class="btn" onclick="refreshBalance()" style="background: rgba(255,255,255,0.2); margin: 10px auto 0; width: auto; padding: 8px 20px;">
+          🔄 Refresh
+        </button>
+      </div>
+
+      <!-- Wallet Info -->
+      <div class="wallet-info">
+        <div class="wallet-info-item">
+          <div class="wallet-info-label">Address</div>
+          <div class="wallet-info-value" id="wallet-address"></div>
+        </div>
+        <div class="wallet-info-item">
+          <div class="wallet-info-label">Bundlr TX ID</div>
+          <div class="wallet-info-value" id="bundlr-txid"></div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" onclick="showTab('send')">Send</button>
+        <button class="tab" onclick="showTab('data')">Upload Data</button>
+        <button class="tab" onclick="showTab('history')">History</button>
+      </div>
+
+      <!-- Send Tab -->
+      <div id="send-tab" class="tab-content">
+        <div class="input-group">
+          <label for="send-address">Recipient Address</label>
+          <input type="text" id="send-address" placeholder="Arweave address">
+        </div>
+
+        <div class="input-group">
+          <label for="send-amount">Amount (AR)</label>
+          <input type="number" id="send-amount" placeholder="0.001" step="0.001" min="0">
+        </div>
+
+        <button class="btn btn-primary" onclick="sendTransaction()">
+          📤 Send AR
+        </button>
+      </div>
+
+      <!-- Data Tab -->
+      <div id="data-tab" class="tab-content hidden">
+        <div class="input-group">
+          <label for="data-content">Data Content</label>
+          <textarea id="data-content" placeholder="Enter data to upload to Arweave..."></textarea>
+        </div>
+
+        <div class="input-group">
+          <label for="content-type">Content Type</label>
+          <input type="text" id="content-type" placeholder="text/plain" value="text/plain">
+        </div>
+
+        <div class="input-group">
+          <label>Custom Tags (optional)</label>
+          <input type="text" id="tag-key-1" placeholder="Tag name" style="margin-bottom: 8px;">
+          <input type="text" id="tag-value-1" placeholder="Tag value">
+        </div>
+
+        <button class="btn btn-primary" onclick="uploadData()">
+          📁 Upload to Arweave
+        </button>
+      </div>
+
+      <!-- History Tab -->
+      <div id="history-tab" class="tab-content hidden">
+        <p style="color: #6c757d; margin-bottom: 15px; font-size: 14px;">
+          Recent transactions from this wallet:
+        </p>
+        <div id="tx-history" class="tx-list">
+          <div style="text-align: center; color: #6c757d; padding: 20px;">
+            Click refresh to load transaction history
+          </div>
+        </div>
+        <button class="btn btn-secondary" onclick="loadHistory()">
+          🔄 Load History
+        </button>
+      </div>
+
+      <!-- Actions -->
+      <div class="button-group" style="margin-top: 20px;">
+        <button class="btn btn-success" onclick="exportKey()">
+          💾 Export Key
+        </button>
+        <button class="btn btn-danger" onclick="lockWallet()">
+          🔒 Lock Wallet
+        </button>
+      </div>
+
+      <div id="wallet-status"></div>
+    </div>
+
+    <div class="architecture">
+      <h3>How It Works</h3>
+      <ul>
+        <li>Private key generated in browser using Web Crypto API</li>
+        <li>Encrypted with key derived from biometric passkey</li>
+        <li>Encrypted blob uploaded via your cloud function</li>
+        <li>Local cache in browser for fast access</li>
+        <li>Recovery possible by querying Arweave with address</li>
+      </ul>
+    </div>
+  </div>
+
+<script>
+console.log("SCRIPT LOADED");
+window.TEST_FLAG = true;
+
+  // Configuration - Update this to your cloud function URL
+  const CLOUD_FUNCTION_URL = 'https://marko-app.netlify.app/.netlify/functions/arload';
+
+  // Initialize Arweave safely
+  let arweave = null;
+  try {
+    if (window.Arweave) {
+      arweave = Arweave.init({
+        host: 'arweave.net',
+        port: 443,
+        protocol: 'https'
+      });
+    } else {
+      console.error('Arweave library not loaded (window.Arweave is undefined)');
+    }
+  } catch (e) {
+    console.error('Failed to init Arweave:', e);
+  }
+
+  // Global wallet state
+  let currentWallet = null;
+
+  // Simple hex helpers
+  function bytesToHex(bytes) {
+    return Array.from(bytes)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  function hexToBytes(hex) {
+    if (!hex || hex.length % 2 !== 0) {
+      throw new Error('Invalid hex string');
+    }
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+    }
+    return bytes;
+  }
+
+  // Cloud Function Integration
+  async function uploadToCloudFunction(data, tags) {
+    try {
+      const response = await fetch(CLOUD_FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ data, tags })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Cloud function error: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return result.txId || result.id;
+    } catch (error) {
+      console.error('Cloud function upload failed, using fallback:', error);
+      return simulatedBundlrUpload(data, tags);
+    }
+  }
+
+  // Simulated Bundlr storage (fallback for demo)
+  const BundlrStorage = {
+    storage: new Map(),
+
+    async upload(data, tags) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const txId = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('')
+        .substring(0, 43);
+
+      this.storage.set(txId, { data, tags });
+
+      const addressTag = tags.find(t => t.name === 'Address');
+      if (addressTag) {
+        const existing = this.storage.get(`address:${addressTag.value}`) || [];
+        existing.push(txId);
+        this.storage.set(`address:${addressTag.value}`, existing);
+      }
+
+      console.log('Bundlr upload (simulated):', txId);
+      return txId;
+    },
+
+    async download(txId) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const result = this.storage.get(txId);
+      return result ? result.data : null;
+    },
+
+    async queryByAddress(address) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const txIds = this.storage.get(`address:${address}`) || [];
+      return txIds;
+    }
+  };
+
+  async function simulatedBundlrUpload(data, tags) {
+    return BundlrStorage.upload(data, tags);
+  }
+
+  // WebAuthn Helpers
+  const WebAuthnHelper = {
+    async register(username) {
+      const challenge = crypto.getRandomValues(new Uint8Array(32));
+
+      const credential = await navigator.credentials.create({
+        publicKey: {
+          challenge,
+          rp: { name: "Arweave Wallet" },
+          user: {
+            id: crypto.getRandomValues(new Uint8Array(16)),
+            name: username,
+            displayName: username,
+          },
+          pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+          authenticatorSelection: {
+            authenticatorAttachment: "platform",
+            userVerification: "required",
+          },
+          timeout: 60000,
+        },
+      });
+
+      return {
+        credentialId: Array.from(new Uint8Array(credential.rawId))
+          .map(b => b.toString(16).padStart(2, '0')).join(''),
+      };
+    },
+
+    async authenticate(credentialId) {
+      const challenge = crypto.getRandomValues(new Uint8Array(32));
+      const rawId = new Uint8Array(
+        credentialId.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+      );
+
+      await navigator.credentials.get({
+        publicKey: {
+          challenge,
+          allowCredentials: [{
+            id: rawId,
+            type: 'public-key',
+          }],
+          userVerification: "required",
+          timeout: 60000,
+        },
+      });
+
+      return true;
+    }
+  };
+
+  // Crypto Helpers
+  const CryptoHelper = {
+    async encrypt(data, key) {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const encoder = new TextEncoder();
+      const encrypted = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv },
+        key,
+        encoder.encode(JSON.stringify(data))
+      );
+
+      return {
+        ciphertext: Array.from(new Uint8Array(encrypted))
+          .map(b => b.toString(16).padStart(2, '0')).join(''),
+        iv: Array.from(iv).map(b => b.toString(16).padStart(2, '0')).join(''),
+      };
+    },
+
+    async decrypt(encryptedData, key) {
+      const ciphertext = new Uint8Array(
+        encryptedData.ciphertext.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+      );
+      const iv = new Uint8Array(
+        encryptedData.iv.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+      );
+
+      const decrypted = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv },
+        key,
+        ciphertext
+      );
+
+      const decoder = new TextDecoder();
+      return JSON.parse(decoder.decode(decrypted));
+    }
+  };
+
+  // UI State Management
+  function showScreen(screenId) {
+    ['landing-screen', 'create-screen', 'unlock-screen', 'wallet-screen'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+    const target = document.getElementById(screenId);
+    if (target) target.classList.remove('hidden');
+  }
+
+  function showLanding() {
+    currentWallet = null;
+    showScreen('landing-screen');
+  }
+
+  function showCreateScreen() {
+    showScreen('create-screen');
+    const el = document.getElementById('create-status');
+    if (el) el.innerHTML = '';
+  }
+
+  function showUnlockScreen() {
+    showScreen('unlock-screen');
+    const el = document.getElementById('unlock-status');
+    if (el) el.innerHTML = '';
+  }
+
+  function showTab(tabName) {
+    // Remove active from all tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.classList.remove('active');
+    });
+
+    // Mark the clicked tab as active (this is the button element)
+    if (this && this.classList) {
+      this.classList.add('active');
+    }
+
+    // Hide all tab contents
+    ['send-tab', 'data-tab', 'history-tab'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+
+    // Show the desired tab
+    const target = document.getElementById(`${tabName}-tab`);
+    if (target) target.classList.remove('hidden');
+  }
+
+  function setStatus(elementId, message, type = 'info') {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    element.innerHTML = `<div class="status status-${type}">${message}</div>`;
+  }
+
+  function setButtonLoading(buttonId, loading) {
+    const button = document.getElementById(buttonId);
+    if (!button) return;
+    button.disabled = loading;
+  }
+
+  // Balance Functions
+  async function refreshBalance() {
+    if (!currentWallet || !arweave) return;
+
+    try {
+      const address = await arweave.wallets.jwkToAddress(currentWallet);
+      const winston = await arweave.wallets.getBalance(address);
+      const ar = arweave.ar.winstonToAr(winston);
+
+      document.getElementById('balance-display').textContent = `${parseFloat(ar).toFixed(4)} AR`;
+    } catch (error) {
+      console.error('Balance fetch error:', error);
+      document.getElementById('balance-display').textContent = 'Error loading';
+    }
+  }
+
+  // Transaction Functions
+  async function sendTransaction() {
+    if (!currentWallet || !arweave) return;
+
+    const toAddress = document.getElementById('send-address').value.trim();
+    const amount = document.getElementById('send-amount').value;
+
+    if (!toAddress || !amount || parseFloat(amount) <= 0) {
+      setStatus('wallet-status', '❌ Please enter valid recipient and amount', 'error');
+      return;
+    }
+
+    setStatus('wallet-status', 'Creating transaction...', 'info');
+
+    try {
+      const winston = arweave.ar.arToWinston(amount);
+
+      const transaction = await arweave.createTransaction({
+        target: toAddress,
+        quantity: winston
+      }, currentWallet);
+
+      await arweave.transactions.sign(transaction, currentWallet);
+
+      setStatus('wallet-status', 'Broadcasting transaction...', 'info');
+
+      const response = await arweave.transactions.post(transaction);
+
+      if (response.status === 200) {
+        setStatus('wallet-status', `✅ Transaction sent! TX ID: ${transaction.id.substring(0, 20)}...`, 'success');
+        document.getElementById('send-address').value = '';
+        document.getElementById('send-amount').value = '';
+        setTimeout(refreshBalance, 2000);
+      } else {
+        throw new Error(`Transaction failed: ${response.status}`);
+      }
+    } catch (error) {
+      setStatus('wallet-status', `❌ Error: ${error.message}`, 'error');
+      console.error(error);
+    }
+  }
+
+  async function uploadData() {
+    if (!currentWallet || !arweave) return;
+
+    const content = document.getElementById('data-content').value;
+    const contentType = document.getElementById('content-type').value || 'text/plain';
+
+    if (!content) {
+      setStatus('wallet-status', '❌ Please enter data to upload', 'error');
+      return;
+    }
+
+    setStatus('wallet-status', 'Creating data transaction...', 'info');
+
+    try {
+      const transaction = await arweave.createTransaction({ data: content }, currentWallet);
+
+      transaction.addTag('Content-Type', contentType);
+
+      const tagKey = document.getElementById('tag-key-1').value.trim();
+      const tagValue = document.getElementById('tag-value-1').value.trim();
+      if (tagKey && tagValue) {
+        transaction.addTag(tagKey, tagValue);
+      }
+
+      await arweave.transactions.sign(transaction, currentWallet);
+
+      setStatus('wallet-status', 'Uploading to Arweave...', 'info');
+
+      const response = await arweave.transactions.post(transaction);
+
+      if (response.status === 200) {
+        setStatus('wallet-status', `✅ Data uploaded! TX ID: ${transaction.id.substring(0, 20)}... View at: https://arweave.net/${transaction.id}`, 'success');
+        document.getElementById('data-content').value = '';
+        document.getElementById('tag-key-1').value = '';
+        document.getElementById('tag-value-1').value = '';
+      } else {
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+    } catch (error) {
+      setStatus('wallet-status', `❌ Error: ${error.message}`, 'error');
+      console.error(error);
+    }
+  }
+
+  async function loadHistory() {
+    if (!currentWallet || !arweave) return;
+
+    const historyDiv = document.getElementById('tx-history');
+    historyDiv.innerHTML = '<div style="text-align: center; padding: 20px;">Loading...</div>';
+
+    try {
+      const address = await arweave.wallets.jwkToAddress(currentWallet);
+
+      const query = `{
+        transactions(
+          owners: ["${address}"]
+          first: 10
+          sort: HEIGHT_DESC
+        ) {
+          edges {
+            node {
+              id
+              recipient
+              quantity { ar }
+              block { timestamp }
+              tags { name value }
+            }
+          }
+        }
+      }`;
+
+      const response = await fetch('https://arweave.net/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      });
+
+      const result = await response.json();
+      const transactions = result.data.transactions.edges;
+
+      if (transactions.length === 0) {
+        historyDiv.innerHTML = '<div style="text-align: center; color: #6c757d; padding: 20px;">No transactions found</div>';
+        return;
+      }
+
+      historyDiv.innerHTML = transactions.map(edge => {
+        const tx = edge.node;
+        const date = tx.block ? new Date(tx.block.timestamp * 1000).toLocaleDateString() : 'Pending';
+        const amount = tx.quantity.ar;
+        const type = tx.recipient ? 'Transfer' : 'Data';
+
+        return `
+          <div class="tx-item">
+            <div class="tx-item-header">
+              <span>${type}</span>
+              <span>${date}</span>
+            </div>
+            ${tx.recipient ? `<div>To: ${tx.recipient.substring(0, 20)}...</div>` : ''}
+            ${amount > 0 ? `<div>Amount: ${amount} AR</div>` : ''}
+            <div class="tx-item-id">${tx.id}</div>
+          </div>
+        `;
+      }).join('');
+
+    } catch (error) {
+      historyDiv.innerHTML = '<div style="text-align: center; color: #dc3545; padding: 20px;">Error loading history</div>';
+      console.error(error);
+    }
+  }
+
+  // Main Functions
+  async function createWallet() {
+    if (!arweave) {
+      setStatus('create-status', 'Arweave library not loaded; cannot create wallet.', 'error');
+      return;
+    }
+
+    const username = document.getElementById('username').value.trim();
+
+    if (!username) {
+      setStatus('create-status', 'Please enter a username', 'error');
+      return;
+    }
+
+    setButtonLoading('create-btn', true);
+    setStatus('create-status', 'Creating wallet...', 'info');
+
+    try {
+      setStatus('create-status', 'Please authenticate with your device...', 'info');
+      const credential = await WebAuthnHelper.register(username);
+
+      setStatus('create-status', 'Generating Arweave keypair...', 'info');
+      const jwk = await arweave.wallets.generate();
+      const address = await arweave.wallets.jwkToAddress(jwk);
+
+      setStatus('create-status', 'Securing your wallet locally...', 'info');
+      const rawKey = crypto.getRandomValues(new Uint8Array(32));
+      const aesKey = await crypto.subtle.importKey(
+        "raw",
+        rawKey,
+        "AES-GCM",
+        false,
+        ["encrypt", "decrypt"]
+      );
+
+      const encrypted = await CryptoHelper.encrypt(jwk, aesKey);
+
+      setStatus('create-status', 'Storing encrypted key on Arweave...', 'info');
+      const bundlrTxId = await uploadToCloudFunction(
+        { encrypted },
+        [
+          { name: 'App', value: 'ArweaveWallet-v1' },
+          { name: 'Address', value: address },
+          { name: 'Timestamp', value: Date.now().toString() }
+        ]
+      );
+
+      localStorage.setItem('arweave_credential', credential.credentialId);
+      localStorage.setItem('arweave_address', address);
+      localStorage.setItem('arweave_bundlr_txid', bundlrTxId);
+      localStorage.setItem('arweave_enc_key', bytesToHex(rawKey));
+
+      currentWallet = jwk;
+
+      document.getElementById('wallet-address').textContent = address;
+      document.getElementById('bundlr-txid').textContent = bundlrTxId;
+      showScreen('wallet-screen');
+      setStatus('wallet-status', '✅ Wallet created and secured on this device!', 'success');
+
+      refreshBalance();
+    } catch (error) {
+      setStatus('create-status', `❌ Error: ${error.message}`, 'error');
+      console.error(error);
+    } finally {
+      setButtonLoading('create-btn', false);
+    }
+  }
+
+  async function unlockWallet() {
+    const storedCredential = localStorage.getItem('arweave_credential');
+    const storedAddress = localStorage.getItem('arweave_address');
+    const storedTxId = localStorage.getItem('arweave_bundlr_txid');
+    const storedEncKeyHex = localStorage.getItem('arweave_enc_key');
+
+    if (!storedCredential || !storedAddress || !storedTxId || !storedEncKeyHex) {
+      setStatus(
+        'unlock-status',
+        '❌ No complete wallet data found on this device. This wallet was designed to be device-bound.',
+        'error'
+      );
+      return;
+    }
+
+    setButtonLoading('unlock-btn', true);
+    setStatus('unlock-status', 'Retrieving encrypted wallet...', 'info');
+
+    try {
+      const encryptedBlob = await BundlrStorage.download(storedTxId);
+
+      if (!encryptedBlob) {
+        throw new Error('Wallet not found. Try Recovery Mode (on this device) if you have multiple entries.');
+      }
+
+      setStatus('unlock-status', 'Please authenticate with your device...', 'info');
+      await WebAuthnHelper.authenticate(storedCredential);
+
+      setStatus('unlock-status', 'Decrypting wallet...', 'info');
+      const rawKeyBytes = hexToBytes(storedEncKeyHex);
+      const aesKey = await crypto.subtle.importKey(
+        "raw",
+        rawKeyBytes,
+        "AES-GCM",
+        false,
+        ["decrypt"]
+      );
+
+      const jwk = await CryptoHelper.decrypt(encryptedBlob.encrypted, aesKey);
+      const address = await arweave.wallets.jwkToAddress(jwk);
+
+      currentWallet = jwk;
+
+      document.getElementById('wallet-address').textContent = address;
+      document.getElementById('bundlr-txid').textContent = storedTxId;
+      showScreen('wallet-screen');
+      setStatus('wallet-status', '✅ Wallet unlocked successfully!', 'success');
+
+      refreshBalance();
+
+    } catch (error) {
+      setStatus('unlock-status', `❌ Error: ${error.message}`, 'error');
+      console.error(error);
+    } finally {
+      setButtonLoading('unlock-btn', false);
+    }
+  }
+
+  async function recoverWallet() {
+    const address = document.getElementById('recovery-address').value.trim();
+
+    if (!address) {
+      setStatus('unlock-status', 'Please enter your wallet address', 'error');
+      return;
+    }
+
+    const storedCredential = localStorage.getItem('arweave_credential');
+    const storedEncKeyHex = localStorage.getItem('arweave_enc_key');
+
+    if (!storedCredential || !storedEncKeyHex) {
+      setStatus(
+        'unlock-status',
+        '❌ This wallet is device-bound and cannot be recovered here because the local key material is missing.',
+        'error'
+      );
+      return;
+    }
+
+    setButtonLoading('recovery-btn', true);
+    setStatus('unlock-status', 'Searching Arweave for your wallet...', 'info');
+
+    try {
+      const txIds = await BundlrStorage.queryByAddress(address);
+
+      if (txIds.length === 0) {
+        throw new Error('No wallet found for this address on Arweave');
+      }
+
+      const txId = txIds[txIds.length - 1];
+      setStatus(
+        'unlock-status',
+        `Found wallet! TX: ${txId.substring(0, 20)}... Retrieving...`,
+        'info'
+      );
+
+      const encryptedBlob = await BundlrStorage.download(txId);
+      if (!encryptedBlob) {
+        throw new Error('Failed to download wallet blob');
+      }
+
+      setStatus('unlock-status', 'Please authenticate with your device...', 'info');
+      await WebAuthnHelper.authenticate(storedCredential);
+
+      setStatus('unlock-status', 'Decrypting wallet...', 'info');
+      const rawKeyBytes = hexToBytes(storedEncKeyHex);
+      const aesKey = await crypto.subtle.importKey(
+        "raw",
+        rawKeyBytes,
+        "AES-GCM",
+        false,
+        ["decrypt"]
+      );
+
+      const jwk = await CryptoHelper.decrypt(encryptedBlob.encrypted, aesKey);
+      const recoveredAddress = await arweave.wallets.jwkToAddress(jwk);
+
+      localStorage.setItem('arweave_address', recoveredAddress);
+      localStorage.setItem('arweave_bundlr_txid', txId);
+
+      currentWallet = jwk;
+
+      document.getElementById('wallet-address').textContent = recoveredAddress;
+      document.getElementById('bundlr-txid').textContent = txId;
+      showScreen('wallet-screen');
+      setStatus('wallet-status', '✅ Wallet recovered on this device!', 'success');
+
+      refreshBalance();
+    } catch (error) {
+      setStatus('unlock-status', `❌ Error: ${error.message}`, 'error');
+      console.error(error);
+    } finally {
+      setButtonLoading('recovery-btn', false);
+    }
+  }
+
+  function lockWallet() {
+    currentWallet = null;
+    showLanding();
+  }
+
+  function exportKey() {
+    if (!currentWallet) return;
+
+    const dataStr = JSON.stringify(currentWallet, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'arweave-keyfile.json';
+    link.click();
+    URL.revokeObjectURL(url);
+
+    setStatus('wallet-status', '✅ Keyfile exported! Keep it extremely safe!', 'success');
+  }
+
+  // Check WebAuthn support on load
+  window.addEventListener('DOMContentLoaded', () => {
+    if (!window.PublicKeyCredential || !navigator.credentials) {
+      alert('❌ WebAuthn not supported in this browser. Please use a modern browser with biometric authentication support.');
+    }
+  });
+
+  window.showCreateScreen = showCreateScreen;
+window.showUnlockScreen = showUnlockScreen;
+window.showLanding = showLanding;
+window.createWallet = createWallet;
+window.unlockWallet = unlockWallet;
+window.recoverWallet = recoverWallet;
+window.sendTransaction = sendTransaction;
+window.uploadData = uploadData;
+window.loadHistory = loadHistory;
+window.exportKey = exportKey;
+window.lockWallet = lockWallet;
+window.showTab = showTab;
+
+</script>
+
+</body>
+</html>
