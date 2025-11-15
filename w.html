@@ -849,48 +849,87 @@ body: JSON.stringify({
   }
 
   async function uploadData() {
-    if (!currentWallet || !arweave) return;
+  if (!currentWallet || !arweave) return;
 
-    const content = document.getElementById('data-content').value;
-    const contentType = document.getElementById('content-type').value || 'text/plain';
+  const content = document.getElementById('data-content').value;
+  const contentType = document.getElementById('content-type').value || 'text/plain';
 
-    if (!content) {
-      setStatus('wallet-status', '❌ Please enter data to upload', 'error');
-      return;
-    }
-
-    setStatus('wallet-status', 'Creating data transaction...', 'info');
-
-    try {
-      const transaction = await arweave.createTransaction({ data: content }, currentWallet);
-
-      transaction.addTag('Content-Type', contentType);
-
-      const tagKey = document.getElementById('tag-key-1').value.trim();
-      const tagValue = document.getElementById('tag-value-1').value.trim();
-      if (tagKey && tagValue) {
-        transaction.addTag(tagKey, tagValue);
-      }
-
-      await arweave.transactions.sign(transaction, currentWallet);
-
-      setStatus('wallet-status', 'Uploading to Arweave...', 'info');
-
-      const response = await arweave.transactions.post(transaction);
-
-      if (response.status === 200) {
-        setStatus('wallet-status', `✅ Data uploaded! TX ID: ${transaction.id.substring(0, 20)}... View at: https://arweave.net/${transaction.id}`, 'success');
-        document.getElementById('data-content').value = '';
-        document.getElementById('tag-key-1').value = '';
-        document.getElementById('tag-value-1').value = '';
-      } else {
-        throw new Error(`Upload failed: ${response.status}`);
-      }
-    } catch (error) {
-      setStatus('wallet-status', `❌ Error: ${error.message}`, 'error');
-      console.error(error);
-    }
+  if (!content) {
+    setStatus('wallet-status', '❌ Please enter data to upload', 'error');
+    return;
   }
+
+  setStatus('wallet-status', 'Preparing upload...', 'info');
+
+  try {
+    // Convert content to UTF-8
+    const utf8Bytes = new TextEncoder().encode(content);
+    const base64Content = btoa(String.fromCharCode(...utf8Bytes));
+
+    // Prepare user tags
+    const userTagKey = document.getElementById('tag-key-1').value.trim();
+    const userTagValue = document.getElementById('tag-value-1').value.trim();
+
+    const address = await arweave.wallets.jwkToAddress(currentWallet);
+
+    // Build tag object {key: value, ...}
+    const tagObj = {
+      "Content-Type": contentType,
+      "App": "ArweaveWallet-v1",
+      "Wallet-Address": address,
+      "Timestamp": Date.now().toString(),
+    };
+
+    if (userTagKey && userTagValue) {
+      tagObj[userTagKey] = userTagValue;
+    }
+
+    setStatus('wallet-status', 'Uploading through Turbo...', 'info');
+
+    // 🚀 Call your working cloud function
+    const response = await fetch(CLOUD_FUNCTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: base64Content,
+        isBase64: true,
+        encrypt: false,           // We are not encrypting user-uploaded data
+        extraTags: tagObj
+      })
+    });
+
+    const resultText = await response.text();
+    console.log("Turbo upload response raw:", resultText);
+
+    let result;
+    try {
+      result = JSON.parse(resultText);
+    } catch (parseErr) {
+      throw new Error("Invalid JSON from cloud function");
+    }
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "Cloud function upload failed");
+    }
+
+    const txId = result.arweaveId;
+    setStatus(
+      'wallet-status',
+      `✅ Uploaded via Turbo! TX ID: ${txId}<br><a href="https://arweave.net/${txId}" target="_blank">View on Arweave</a>`,
+      'success'
+    );
+
+    // Clear fields
+    document.getElementById('data-content').value = '';
+    document.getElementById('tag-key-1').value = '';
+    document.getElementById('tag-value-1').value = '';
+
+  } catch (error) {
+    console.error(error);
+    setStatus('wallet-status', `❌ Upload error: ${error.message}`, 'error');
+  }
+}
+
 
   async function loadHistory() {
     if (!currentWallet || !arweave) return;
