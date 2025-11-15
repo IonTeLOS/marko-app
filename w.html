@@ -1006,131 +1006,162 @@ window.TEST_FLAG = true;
     }
   }
 
-  // Main Functions
+
   async function createWallet() {
-    if (!arweave) {
-      setStatus('create-status', 'Arweave library not loaded; cannot create wallet.', 'error');
-      return;
-    }
-
-    const username = document.getElementById('username').value.trim();
-
-    if (!username) {
-      setStatus('create-status', 'Please enter a username', 'error');
-      return;
-    }
-
-    setButtonLoading('create-btn', true);
-    setStatus('create-status', 'Creating wallet...', 'info');
-
-    try {
-      setStatus('create-status', 'Please authenticate with your device...', 'info');
-      const credential = await WebAuthnHelper.register(username);
-
-      setStatus('create-status', 'Generating Arweave keypair...', 'info');
-      const jwk = await arweave.wallets.generate();
-      const address = await arweave.wallets.jwkToAddress(jwk);
-
-      setStatus('create-status', 'Securing your wallet locally...', 'info');
-      const rawKey = crypto.getRandomValues(new Uint8Array(32));
-      const aesKey = await crypto.subtle.importKey(
-        "raw",
-        rawKey,
-        "AES-GCM",
-        false,
-        ["encrypt", "decrypt"]
-      );
-
-      const encrypted = await CryptoHelper.encrypt(jwk, aesKey);
-
-      setStatus('create-status', 'Storing encrypted key on Arweave...', 'info');
-      const bundlrTxId = await uploadToCloudFunction(
-        { encrypted },
-        [
-          { name: 'App', value: 'ArweaveWallet-v1' },
-          { name: 'Address', value: address },
-          { name: 'Timestamp', value: Date.now().toString() }
-        ]
-      );
-
-      localStorage.setItem('arweave_credential', credential.credentialId);
-      localStorage.setItem('arweave_address', address);
-      localStorage.setItem('arweave_bundlr_txid', bundlrTxId);
-      localStorage.setItem('arweave_enc_key', bytesToHex(rawKey));
-
-      currentWallet = jwk;
-
-      document.getElementById('wallet-address').textContent = address;
-      document.getElementById('bundlr-txid').textContent = bundlrTxId;
-      showScreen('wallet-screen');
-      setStatus('wallet-status', '✅ Wallet created and secured on this device!', 'success');
-
-      refreshBalance();
-    } catch (error) {
-      setStatus('create-status', `❌ Error: ${error.message}`, 'error');
-      console.error(error);
-    } finally {
-      setButtonLoading('create-btn', false);
-    }
+  if (!arweave) {
+    setStatus('create-status', 'Arweave library not loaded; cannot create wallet.', 'error');
+    return;
   }
 
-  async function unlockWallet() {
-    const storedCredential = localStorage.getItem('arweave_credential');
-    const storedAddress = localStorage.getItem('arweave_address');
-    const storedTxId = localStorage.getItem('arweave_bundlr_txid');
-    const storedEncKeyHex = localStorage.getItem('arweave_enc_key');
+  const username = document.getElementById('username').value.trim();
 
-    if (!storedCredential || !storedAddress || !storedTxId || !storedEncKeyHex) {
-      setStatus(
-        'unlock-status',
-        '❌ No complete wallet data found on this device. This wallet was designed to be device-bound.',
-        'error'
-      );
-      return;
-    }
-
-    setButtonLoading('unlock-btn', true);
-    setStatus('unlock-status', 'Retrieving encrypted wallet...', 'info');
-
-    try {
-      const encryptedBlob = await BundlrStorage.download(storedTxId);
-
-      if (!encryptedBlob) {
-        throw new Error('Wallet not found. Try Recovery Mode (on this device) if you have multiple entries.');
-      }
-
-      setStatus('unlock-status', 'Please authenticate with your device...', 'info');
-      await WebAuthnHelper.authenticate(storedCredential);
-
-      setStatus('unlock-status', 'Decrypting wallet...', 'info');
-      const rawKeyBytes = hexToBytes(storedEncKeyHex);
-      const aesKey = await crypto.subtle.importKey(
-        "raw",
-        rawKeyBytes,
-        "AES-GCM",
-        false,
-        ["decrypt"]
-      );
-
-      const jwk = await CryptoHelper.decrypt(encryptedBlob.encrypted, aesKey);
-      const address = await arweave.wallets.jwkToAddress(jwk);
-
-      currentWallet = jwk;
-
-      document.getElementById('wallet-address').textContent = address;
-      document.getElementById('bundlr-txid').textContent = storedTxId;
-      showScreen('wallet-screen');
-      setStatus('wallet-status', '✅ Wallet unlocked successfully!', 'success');
-
-      refreshBalance();
-
-    } catch (error) {
-      setStatus('unlock-status', `❌ Error: ${error.message}`, 'error');
-      console.error(error);
-    } finally {
-      setButtonLoading('unlock-btn', false);
-    }
+  if (!username) {
+    setStatus('create-status', 'Please enter a username', 'error');
+    return;
   }
+
+  setButtonLoading('create-btn', true);
+  setStatus('create-status', 'Creating wallet...', 'info');
+
+  try {
+    // 1) WebAuthn registration
+    setStatus('create-status', 'Please authenticate with your device...', 'info');
+    const credential = await WebAuthnHelper.register(username);
+
+    // 2) Generate Arweave JWK
+    setStatus('create-status', 'Generating Arweave keypair...', 'info');
+    const jwk = await arweave.wallets.generate();
+    const address = await arweave.wallets.jwkToAddress(jwk);
+
+    // 3) Generate local AES key
+    setStatus('create-status', 'Securing your wallet locally...', 'info');
+    const rawKey = crypto.getRandomValues(new Uint8Array(32));
+    const aesKey = await crypto.subtle.importKey(
+      "raw",
+      rawKey,
+      "AES-GCM",
+      false,
+      ["encrypt", "decrypt"]
+    );
+
+    // 4) Encrypt wallet JWK locally
+    const encrypted = await CryptoHelper.encrypt(jwk, aesKey);
+
+    // 5) Upload encrypted blob to your Turbo function
+    setStatus('create-status', 'Storing encrypted key on Arweave...', 'info');
+
+    const uploadResult = await uploadToCloudFunction(
+      { encrypted },
+      [
+        { name: 'App', value: 'ArweaveWallet-v1' },
+        { name: 'Address', value: address },
+        { name: 'Timestamp', value: Date.now().toString() }
+      ]
+    );
+
+    // VERY IMPORTANT: use the real Arweave TX ID:
+    const txId = uploadResult.arweaveId;
+
+    // 6) Save local data for unlock
+    localStorage.setItem('arweave_credential', credential.credentialId);
+    localStorage.setItem('arweave_address', address);
+    localStorage.setItem('arweave_bundlr_txid', txId);
+    localStorage.setItem('arweave_enc_key', bytesToHex(rawKey));
+
+    currentWallet = jwk;
+
+    // 7) Update UI
+    document.getElementById('wallet-address').textContent = address;
+    document.getElementById('bundlr-txid').textContent = txId;
+    showScreen('wallet-screen');
+    setStatus('wallet-status', '✅ Wallet created and secured on this device!', 'success');
+
+    refreshBalance();
+  } catch (error) {
+    setStatus('create-status', `❌ Error: ${error.message}`, 'error');
+    console.error(error);
+  } finally {
+    setButtonLoading('create-btn', false);
+  }
+}
+async function unlockWallet() {
+  const storedCredential = localStorage.getItem('arweave_credential');
+  const storedAddress = localStorage.getItem('arweave_address');
+  const storedTxId = localStorage.getItem('arweave_bundlr_txid');
+  const storedEncKeyHex = localStorage.getItem('arweave_enc_key');
+
+  if (!storedCredential || !storedAddress || !storedTxId || !storedEncKeyHex) {
+    setStatus(
+      'unlock-status',
+      '❌ No complete wallet data found on this device. This wallet was designed to be device-bound.',
+      'error'
+    );
+    return;
+  }
+
+  setButtonLoading('unlock-btn', true);
+  setStatus('unlock-status', 'Retrieving encrypted wallet...', 'info');
+
+  try {
+
+    // 1) Fetch encrypted wallet from Arweave gateway
+    const res = await fetch(`https://arweave.net/${storedTxId}`);
+    if (!res.ok) {
+      throw new Error('Failed to fetch encrypted wallet from Arweave');
+    }
+
+    const encryptedText = await res.text();
+
+    let encryptedBlob;
+    try {
+      encryptedBlob = JSON.parse(encryptedText);
+    } catch {
+      throw new Error('Invalid encrypted wallet structure on Arweave');
+    }
+
+    if (!encryptedBlob.encrypted) {
+      throw new Error('Encrypted wallet missing expected field');
+    }
+
+    // 2) Authenticate the user via biometrics/WebAuthn
+    setStatus('unlock-status', 'Please authenticate with your device...', 'info');
+    await WebAuthnHelper.authenticate(storedCredential);
+
+    // 3) Rebuild AES key
+    setStatus('unlock-status', 'Decrypting wallet...', 'info');
+    const rawKeyBytes = hexToBytes(storedEncKeyHex);
+    const aesKey = await crypto.subtle.importKey(
+      "raw",
+      rawKeyBytes,
+      "AES-GCM",
+      false,
+      ["decrypt"]
+    );
+
+    // 4) Decrypt the Arweave JWK
+    const jwk = await CryptoHelper.decrypt(encryptedBlob.encrypted, aesKey);
+    const address = await arweave.wallets.jwkToAddress(jwk);
+
+    currentWallet = jwk;
+
+    // 5) Show wallet UI
+    document.getElementById('wallet-address').textContent = address;
+    document.getElementById('bundlr-txid').textContent = storedTxId;
+
+    showScreen('wallet-screen');
+    setStatus('wallet-status', '✅ Wallet unlocked successfully!', 'success');
+
+    refreshBalance();
+
+  } catch (error) {
+    setStatus('unlock-status', `❌ Error: ${error.message}`, 'error');
+    console.error(error);
+
+  } finally {
+    setButtonLoading('unlock-btn', false);
+  }
+}
+
 
 async function recoverWallet() {
   const address = document.getElementById('recovery-address').value.trim();
