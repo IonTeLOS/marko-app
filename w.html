@@ -577,7 +577,13 @@ window.TEST_FLAG = true;
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ data, tags })
+body: JSON.stringify({
+  content: JSON.stringify(data),   // raw encrypted wallet blob
+  isBase64: false,
+  encrypt: false,                  // we already encrypted!
+  note: "Encrypted Wallet Blob",
+  extraTags: Object.fromEntries(tags.map(t => [t.name, t.value]))
+})
       });
       console.log("Cloud function status:", response.status, response.statusText);
 
