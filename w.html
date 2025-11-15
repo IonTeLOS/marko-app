@@ -571,33 +571,42 @@ window.TEST_FLAG = true;
 
   // Cloud Function Integration
   async function uploadToCloudFunction(data, tags) {
-    try {
-      const response = await fetch(CLOUD_FUNCTION_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-body: JSON.stringify({
-  content: JSON.stringify(data),   // raw encrypted wallet blob
-  isBase64: false,
-  encrypt: false,                  // we already encrypted!
-  note: "Encrypted Wallet Blob",
-  extraTags: Object.fromEntries(tags.map(t => [t.name, t.value]))
-})
-      });
-      console.log("Cloud function status:", response.status, response.statusText);
-
-      if (!response.ok) {
-        throw new Error(`Cloud function error: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      return result.txId || result.id;
-    } catch (error) {
-      console.error('Cloud function upload failed, using fallback:', error);
-      return simulatedBundlrUpload(data, tags);
+  // tags is currently an array like [{name:'App', value:'ArweaveWallet-v1'}, ...]
+  const extraTags = {};
+  (tags || []).forEach(t => {
+    if (t.name && t.value != null) {
+      extraTags[t.name] = String(t.value);
     }
+  });
+
+  const body = {
+    // we send the encrypted blob as JSON string
+    content: JSON.stringify(data),
+    isBase64: false,
+    encrypt: false,          // already encrypted in the browser
+    extraTags                // this becomes Arweave tags
+  };
+
+  const response = await fetch(CLOUD_FUNCTION_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error(`Cloud function error: ${response.status}`);
   }
+
+  if (!response.ok || !result.success) {
+    throw new Error(result.message || `Cloud function error: ${response.status}`);
+  }
+
+  // IMPORTANT: return the full object (has arweaveId)
+  return result;
+}
 
   // Simulated Bundlr storage (fallback for demo)
   const BundlrStorage = {
