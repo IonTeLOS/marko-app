@@ -484,6 +484,9 @@
           📁 Upload to Arweave
         </button>
       </div>
+<button class="btn btn-secondary" onclick="dispatchData()">
+  ⚡ Dispatch (Free <100KB)
+</button>
 
       <!-- History Tab -->
       <div id="history-tab" class="tab-content hidden">
@@ -935,6 +938,79 @@ async function uploadToCloudFunction(data, tagsObject) {
   }
 }
 
+  async function dispatchData() {
+  if (!currentWallet || !arweave) {
+    setStatus('wallet-status', '❌ Wallet not unlocked', 'error');
+    return;
+  }
+
+  const content = document.getElementById('data-content').value.trim();
+  const contentType = document.getElementById('content-type').value.trim() || "text/plain";
+
+  if (!content) {
+    setStatus('wallet-status', '❌ No content to dispatch', 'error');
+    return;
+  }
+
+  // Convert to bytes to measure size properly
+  const encoder = new TextEncoder();
+  const dataBytes = encoder.encode(content);
+
+  // Dispatch must be <100 KB
+  if (dataBytes.length > 100 * 1024) {
+    setStatus('wallet-status', '⚠️ Content too large for dispatch (<100KB). Use Upload.', 'error');
+    return;
+  }
+
+  // Build transaction
+  setStatus('wallet-status', 'Preparing dispatch transaction...', 'info');
+
+  try {
+    const tx = await arweave.createTransaction({ data: dataBytes }, currentWallet);
+
+    // Required tags
+    tx.addTag('Content-Type', contentType);
+    tx.addTag('App-Name', 'ArweaveWallet-v1');
+    tx.addTag('Dispatch-Type', 'UserData');
+
+    // Custom tag from UI
+    const customTagKey = document.getElementById('tag-key-1').value.trim();
+    const customTagVal = document.getElementById('tag-value-1').value.trim();
+    if (customTagKey && customTagVal) {
+      tx.addTag(customTagKey, customTagVal);
+    }
+
+    // Sign with local JWK
+    await arweave.transactions.sign(tx, currentWallet);
+
+    setStatus('wallet-status', '🔄 Dispatching (via Bundlr)...', 'info');
+
+    // Actual dispatch request
+    const result = await arweave.transactions.dispatch(tx);
+
+    if (!result || !result.id) {
+      throw new Error("No dispatch ID returned");
+    }
+
+    const txId = result.id;
+
+    setStatus(
+      'wallet-status',
+      `✅ Dispatch successful!<br>TX ID: ${txId}<br><a href="https://arweave.net/${txId}" target="_blank">View on Arweave</a>`,
+      'success'
+    );
+
+    // Clear inputs
+    document.getElementById('data-content').value = '';
+    document.getElementById('tag-key-1').value = '';
+    document.getElementById('tag-value-1').value = '';
+
+  } catch (err) {
+    console.error(err);
+    setStatus('wallet-status', `❌ Dispatch failed: ${err.message}`, 'error');
+  }
+}
+
 
   async function loadHistory() {
     if (!currentWallet || !arweave) return;
@@ -1362,6 +1438,8 @@ window.unlockWallet = unlockWallet;
 window.recoverWallet = recoverWallet;
 window.sendTransaction = sendTransaction;
 window.uploadData = uploadData;
+  window.dispatchData = dispatchData;
+
 window.loadHistory = loadHistory;
 window.exportKey = exportKey;
 window.lockWallet = lockWallet;
