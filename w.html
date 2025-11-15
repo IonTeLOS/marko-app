@@ -5,9 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Non-Custodial Arweave Wallet</title>
       <script src="https://unpkg.com/arweave@1.15.5/bundles/web.bundle.js"></script>
-<!-- ArBundles (required for createData + ArweaveSigner) -->
-<script src="https://unpkg.com/arbundles@0.11.2/web.bundle.js"></script>
-<script src="https://unpkg.com/@ardrive/turbo-sdk@1.3.0/dist/turbo.web.js"></script>
+<script src="https://unpkg.com/@ardrive/turbo-sdk@1.3.0/dist/turbo.web.min.js"></script>
+
 
 
   <style>
@@ -943,54 +942,71 @@ async function uploadToCloudFunction(data, tagsObject) {
 }
 
   async function dispatchData() {
-  if (!currentWallet) {
-    setStatus('wallet-status', 'Wallet not unlocked', 'error');
+  if (!currentWallet || !arweave) {
+    setStatus('wallet-status', '❌ Wallet not unlocked', 'error');
     return;
   }
 
-  const content = document.getElementById('data-content').value;
-  const contentType = document.getElementById('content-type').value || 'text/plain';
+  let content = document.getElementById('data-content').value;
+  let contentType = document.getElementById('content-type').value || 'text/plain';
 
   if (!content) {
-    setStatus('wallet-status', 'Please enter some data to dispatch', 'error');
+    setStatus('wallet-status', '❌ No content to dispatch', 'error');
     return;
   }
 
   try {
-    setStatus('wallet-status', 'Preparing dispatch...', 'info');
+    setStatus('wallet-status', '📦 Preparing dispatch...', 'info');
 
-    const { createData, ArweaveSigner } = window.arbundles;
-    const turbo = new Turbo({ url: "https://upload.ardrive.io" });
+    // Convert to Uint8Array
+    const dataBytes = new TextEncoder().encode(content);
 
-    const signer = new ArweaveSigner(currentWallet);
+    // Convert UI tags → Turbo tags
+    const tagKey = document.getElementById('tag-key-1').value.trim();
+    const tagValue = document.getElementById('tag-value-1').value.trim();
 
-    // Encode content
-    const dataBuffer = new TextEncoder().encode(content);
+    const address = await arweave.wallets.jwkToAddress(currentWallet);
 
-    const dataItem = createData(dataBuffer, signer, {
-      tags: [
-        { name: "Content-Type", value: contentType },
-        { name: "App-Name", value: "Arweave-WebAuthn-Wallet" },
-        { name: "Timestamp", value: Date.now().toString() }
-      ]
+    const tags = [
+      { name: 'Content-Type', value: contentType },
+      { name: 'App', value: 'ArweaveWallet-v1' },
+      { name: 'Sender-Address', value: address }
+    ];
+
+    if (tagKey && tagValue) {
+      tags.push({ name: tagKey, value: tagValue });
+    }
+
+    // 1️⃣ Create Turbo transaction (DataItem)
+    const tx = await Turbo.createTransaction({
+      data: dataBytes,
+      tags
     });
 
-    await dataItem.sign(signer);
+    // 2️⃣ Sign with user's decrypted JWK
+    await Turbo.sign(tx, currentWallet);
 
-    setStatus('wallet-status', 'Sending...', 'info');
-    const res = await turbo.send(dataItem);
+    // 3️⃣ Dispatch using Turbo free tier
+    const result = await Turbo.send(tx);
 
     setStatus(
       'wallet-status',
-      `✔️ Dispatched! TX: <a target="_blank" href="https://arweave.net/${res.id}">${res.id}</a>`,
+      `✅ Dispatched successfully! ID: ${result.id}<br>
+       <a href="https://arweave.net/${result.id}" target="_blank">View on Arweave</a>`,
       'success'
     );
 
+    // Cleanup UI
+    document.getElementById('data-content').value = '';
+    document.getElementById('tag-key-1').value = '';
+    document.getElementById('tag-value-1').value = '';
+
   } catch (err) {
     console.error(err);
-    setStatus('wallet-status', '❌ Dispatch failed: ' + err.message, 'error');
+    setStatus('wallet-status', `❌ Dispatch failed: ${err.message}`, 'error');
   }
 }
+
 
 
 
