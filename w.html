@@ -8,12 +8,14 @@
 <script type="module">
   import {
     TurboFactory,
-    developmentTurboConfiguration
-  } from "https://unpkg.com/@ardrive/turbo-sdk";
+    configuration as TurboConfiguration
+  } from "https://unpkg.com/@ardrive/turbo-sdk/dist/index.mjs";
 
+  // Make available to your non-module wallet script
   window.TurboFactory = TurboFactory;
-  window.TurboDevConfig = developmentTurboConfiguration;
+  window.TurboConfiguration = TurboConfiguration;
 </script>
+
 
   <style>
     * {
