@@ -1123,82 +1123,136 @@ body: JSON.stringify({
     }
   }
 
-  async function recoverWallet() {
-    const address = document.getElementById('recovery-address').value.trim();
+async function recoverWallet() {
+  const address = document.getElementById('recovery-address').value.trim();
 
-    if (!address) {
-      setStatus('unlock-status', 'Please enter your wallet address', 'error');
-      return;
-    }
-
-    const storedCredential = localStorage.getItem('arweave_credential');
-    const storedEncKeyHex = localStorage.getItem('arweave_enc_key');
-
-    if (!storedCredential || !storedEncKeyHex) {
-      setStatus(
-        'unlock-status',
-        '❌ This wallet is device-bound and cannot be recovered here because the local key material is missing.',
-        'error'
-      );
-      return;
-    }
-
-    setButtonLoading('recovery-btn', true);
-    setStatus('unlock-status', 'Searching Arweave for your wallet...', 'info');
-
-    try {
-      const txIds = await BundlrStorage.queryByAddress(address);
-
-      if (txIds.length === 0) {
-        throw new Error('No wallet found for this address on Arweave');
-      }
-
-      const txId = txIds[txIds.length - 1];
-      setStatus(
-        'unlock-status',
-        `Found wallet! TX: ${txId.substring(0, 20)}... Retrieving...`,
-        'info'
-      );
-
-      const encryptedBlob = await BundlrStorage.download(txId);
-      if (!encryptedBlob) {
-        throw new Error('Failed to download wallet blob');
-      }
-
-      setStatus('unlock-status', 'Please authenticate with your device...', 'info');
-      await WebAuthnHelper.authenticate(storedCredential);
-
-      setStatus('unlock-status', 'Decrypting wallet...', 'info');
-      const rawKeyBytes = hexToBytes(storedEncKeyHex);
-      const aesKey = await crypto.subtle.importKey(
-        "raw",
-        rawKeyBytes,
-        "AES-GCM",
-        false,
-        ["decrypt"]
-      );
-
-      const jwk = await CryptoHelper.decrypt(encryptedBlob.encrypted, aesKey);
-      const recoveredAddress = await arweave.wallets.jwkToAddress(jwk);
-
-      localStorage.setItem('arweave_address', recoveredAddress);
-      localStorage.setItem('arweave_bundlr_txid', txId);
-
-      currentWallet = jwk;
-
-      document.getElementById('wallet-address').textContent = recoveredAddress;
-      document.getElementById('bundlr-txid').textContent = txId;
-      showScreen('wallet-screen');
-      setStatus('wallet-status', '✅ Wallet recovered on this device!', 'success');
-
-      refreshBalance();
-    } catch (error) {
-      setStatus('unlock-status', `❌ Error: ${error.message}`, 'error');
-      console.error(error);
-    } finally {
-      setButtonLoading('recovery-btn', false);
-    }
+  if (!address) {
+    setStatus('unlock-status', 'Please enter your wallet address', 'error');
+    return;
   }
+
+  const storedCredential = localStorage.getItem('arweave_credential');
+  const storedEncKeyHex = localStorage.getItem('arweave_enc_key');
+
+  if (!storedCredential || !storedEncKeyHex) {
+    setStatus(
+      'unlock-status',
+      '❌ This wallet is device-bound. Local key material missing.',
+      'error'
+    );
+    return;
+  }
+
+  setButtonLoading('recovery-btn', true);
+  setStatus('unlock-status', 'Searching Arweave for your wallet...', 'info');
+
+  try {
+    //------------------------------------------------------
+    // 1. Query Arweave for all TXs tagged with this address
+    //------------------------------------------------------
+
+    const gql = {
+      query: `
+      query {
+        transactions(
+          tags: [
+            { name: "App", values: ["ArweaveWallet-v1"] },
+            { name: "Address", values: ["${address}"] }
+          ],
+          first: 5,
+          sort: HEIGHT_DESC
+        ) {
+          edges {
+            node {
+              id
+              block { height }
+            }
+          }
+        }
+      }`
+    };
+
+    const res = await fetch("https://arweave.net/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(gql)
+    });
+
+    const result = await res.json();
+    const edges = result.data.transactions.edges;
+
+    if (!edges.length) {
+      throw new Error('No wallet found for this address on Arweave');
+    }
+
+    //-----------------------------------------------
+    // 2. Pick the latest encrypted wallet blob
+    //-----------------------------------------------
+    const txId = edges[0].node.id;
+
+    setStatus(
+      'unlock-status',
+      `Found wallet! TX: ${txId.substring(0, 20)}... Retrieving...`,
+      'info'
+    );
+
+    //-----------------------------------------------
+    // 3. Fetch the encrypted blob from Arweave
+    //-----------------------------------------------
+    const encryptedBlobRes = await fetch(`https://arweave.net/${txId}`);
+    const encryptedBlobText = await encryptedBlobRes.text();
+    const encryptedBlob = JSON.parse(encryptedBlobText);
+
+    if (!encryptedBlob.encrypted) {
+      throw new Error("Invalid encrypted blob format");
+    }
+
+    //-----------------------------------------------
+    // 4. Authenticate via biometrics
+    //-----------------------------------------------
+    setStatus('unlock-status', 'Please authenticate with your device...', 'info');
+    await WebAuthnHelper.authenticate(storedCredential);
+
+    //-----------------------------------------------
+    // 5. Decrypt
+    //-----------------------------------------------
+    const rawKeyBytes = hexToBytes(storedEncKeyHex);
+    const aesKey = await crypto.subtle.importKey(
+      "raw",
+      rawKeyBytes,
+      "AES-GCM",
+      false,
+      ["decrypt"]
+    );
+
+    const jwk = await CryptoHelper.decrypt(encryptedBlob.encrypted, aesKey);
+    const recoveredAddress = await arweave.wallets.jwkToAddress(jwk);
+
+    //-----------------------------------------------
+    // 6. Save for next unlock
+    //-----------------------------------------------
+    localStorage.setItem('arweave_address', recoveredAddress);
+    localStorage.setItem('arweave_bundlr_txid', txId);
+
+    //-----------------------------------------------
+    // 7. Show wallet UI
+    //-----------------------------------------------
+    currentWallet = jwk;
+
+    document.getElementById('wallet-address').textContent = recoveredAddress;
+    document.getElementById('bundlr-txid').textContent = txId;
+    showScreen('wallet-screen');
+    setStatus('wallet-status', '✅ Wallet recovered on this device!', 'success');
+
+    refreshBalance();
+  } catch (error) {
+    setStatus('unlock-status', `❌ Error: ${error.message}`, 'error');
+    console.error(error);
+  } finally {
+    setButtonLoading('recovery-btn', false);
+  }
+}
+
 
   function lockWallet() {
     currentWallet = null;
