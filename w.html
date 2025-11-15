@@ -570,21 +570,16 @@ window.TEST_FLAG = true;
   }
 
   // Cloud Function Integration
-  async function uploadToCloudFunction(data, tags) {
-  // tags is currently an array like [{name:'App', value:'ArweaveWallet-v1'}, ...]
-  const extraTags = {};
-  (tags || []).forEach(t => {
-    if (t.name && t.value != null) {
-      extraTags[t.name] = String(t.value);
-    }
-  });
+// Cloud Function Integration
+async function uploadToCloudFunction(data, tagsObject) {
+  // tagsObject should already be a plain object: { App: "...", Address: "...", ... }
 
   const body = {
     // we send the encrypted blob as JSON string
     content: JSON.stringify(data),
     isBase64: false,
     encrypt: false,          // already encrypted in the browser
-    extraTags                // this becomes Arweave tags
+    extraTags: tagsObject    // this becomes Arweave tags on the server
   };
 
   const response = await fetch(CLOUD_FUNCTION_URL, {
@@ -604,9 +599,10 @@ window.TEST_FLAG = true;
     throw new Error(result.message || `Cloud function error: ${response.status}`);
   }
 
-  // IMPORTANT: return the full object (has arweaveId)
+  // Netlify returns: { success, arweaveId, url, ... }
   return result;
 }
+
 
   // Simulated Bundlr storage (fallback for demo)
   const BundlrStorage = {
@@ -1050,14 +1046,15 @@ window.TEST_FLAG = true;
     // 5) Upload encrypted blob to your Turbo function
     setStatus('create-status', 'Storing encrypted key on Arweave...', 'info');
 
-    const uploadResult = await uploadToCloudFunction(
-      { encrypted },
-      [
-        { name: 'App', value: 'ArweaveWallet-v1' },
-        { name: 'Address', value: address },
-        { name: 'Timestamp', value: Date.now().toString() }
-      ]
-    );
+const uploadResult = await uploadToCloudFunction(
+  { encrypted },
+  {
+    App: 'ArweaveWallet-v1',
+    Address: address,
+    Timestamp: Date.now().toString()
+  }
+);
+
 
     // VERY IMPORTANT: use the real Arweave TX ID:
     const txId = uploadResult.arweaveId;
