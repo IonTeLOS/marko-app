@@ -1515,13 +1515,19 @@ async function finishRecovery(txId) {
     // Note: user must optionally upload encrypted blob if they want backup on Arweave again
     // not done automatically
 
-    currentWallet = jwk;
+currentWallet = jwk;
 
-    document.getElementById("wallet-address").textContent = address;
-    document.getElementById("bundlr-txid").textContent = "(not uploaded)";
-    showScreen("wallet-screen");
+document.getElementById("wallet-address").textContent = address;
+document.getElementById("bundlr-txid").textContent = "(pending upload)";
+showScreen("wallet-screen");
 
-    setStatus("wallet-status", "✅ Keyfile imported and secured with biometrics!", "success");
+setStatus("wallet-status", "Encrypting wallet and backing up to Arweave...", "info");
+
+// upload new encrypted blob using new AES and new passkey
+await uploadRecoveryBackup();
+
+setStatus("wallet-status", "✅ Keyfile imported & new encrypted backup created!", "success");
+
 
     refreshBalance();
 
