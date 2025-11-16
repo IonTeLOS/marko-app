@@ -418,6 +418,9 @@
           🔍 Search for Wallet
         </button>
       </div>
+<button class="btn btn-primary" onclick="uploadRecoveryBackup()">
+  🔄 Re-upload Backup to Arweave
+</button>
 
       <div id="unlock-status"></div>
     </div>
@@ -1527,6 +1530,68 @@ async function finishRecovery(txId) {
   }
 }
 
+async function uploadRecoveryBackup() {
+  if (!currentWallet) {
+    setStatus("wallet-status", "❌ No wallet loaded", "error");
+    return;
+  }
+
+  const address = await arweave.wallets.jwkToAddress(currentWallet);
+
+  const storedEncKeyHex = localStorage.getItem("arweave_enc_key");
+  if (!storedEncKeyHex) {
+    setStatus("wallet-status", "❌ Missing local AES key", "error");
+    return;
+  }
+
+  try {
+    setStatus("wallet-status", "Encrypting keyfile...", "info");
+
+    // Rebuild AES key
+    const rawKey = hexToBytes(storedEncKeyHex);
+    const aesKey = await crypto.subtle.importKey(
+      "raw",
+      rawKey,
+      "AES-GCM",
+      false,
+      ["encrypt"]
+    );
+
+    // Encrypt JWK again for upload
+    const encrypted = await CryptoHelper.encrypt(currentWallet, aesKey);
+
+    setStatus("wallet-status", "Uploading encrypted backup to Arweave...", "info");
+
+    // Lookup username hint if any
+    const username = localStorage.getItem("arweave_username") || "";
+
+    // Public encryption key if present
+    const publicEncKey = localStorage.getItem("arweave_pub_enc_key") || "none";
+
+    const tagList = [
+      { name: 'App-Name', value: 'ArweaveWallet-v1' },
+      { name: 'User-Address', value: address },
+      { name: 'User-Name', value: username },
+      { name: 'User-EncKey', value: publicEncKey },
+      { name: 'Timestamp', value: Date.now().toString() },
+      { name: 'Version', value: '1' }
+    ];
+
+    const uploadResult = await uploadToCloudFunction(
+      { encrypted },
+      tagList
+    );
+
+    const txId = uploadResult.arweaveId;
+    localStorage.setItem("arweave_bundlr_txid", txId);
+
+    setStatus("wallet-status", `✅ Backup stored! TX: ${txId}`, "success");
+
+  } catch (err) {
+    setStatus("wallet-status", `❌ Backup upload failed: ${err.message}`, "error");
+    console.error(err);
+  }
+}
 
 
 
