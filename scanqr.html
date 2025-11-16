@@ -63,6 +63,11 @@
 import QrScanner from "https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js";
 
 const WALLET_URL = window.location.origin + "/w1.html";
+// --- sound + vibration setup ---
+const beepAudio = new Audio(
+  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA="
+);
+// Very tiny "tick" sound encoded to WAV
 
 let scanner = null;
 let cameras = [];
@@ -70,6 +75,7 @@ let currentIndex = 0;
 let torchOn = false;
 let already = false;
 
+  
 async function init() {
   document.getElementById("status").textContent = "Initializing camera…";
 
@@ -135,9 +141,26 @@ async function startCameraWithPriority() {
   }
 }
 
+function feedback() {
+  // Vibration (Android + iOS 16+)
+  if (navigator.vibrate) {
+    navigator.vibrate([30, 30, 30]); // triple pulse
+  }
+
+  // Beep
+  try {
+    beepAudio.currentTime = 0;
+    beepAudio.play().catch(() => {});
+  } catch {}
+}
+
 function onScan(result) {
   if (!result || already) return;
   already = true;
+
+  // Haptic + sound ---------------------------------
+  feedback();
+  //-----------------------------------------------
 
   document.getElementById("status").textContent = "QR detected…";
 
@@ -152,6 +175,7 @@ function onScan(result) {
     already = false;
   }
 }
+
 
 function openWallet(arUri) {
   const final = WALLET_URL + "?link=" + encodeURIComponent(arUri);
