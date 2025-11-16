@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Payment QR Generator v4</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<style>
+:root {
+  --brand-bg: #ffffff;
+  --brand-fg: #111111;
+  --brand-accent: #2a7cff;
+  --brand-muted: #666666;
+  --qr-bg: #ffffff;
+  --qr-fg: #000000;
+}
+
+/* Layout */
+body {
+  background: var(--brand-bg);
+  color: var(--brand-fg);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  padding: 20px;
+  max-width: 720px;
+  margin: auto;
+  transition: 0.25s ease all;
+}
+
+h2 { margin-top: 0; }
+
+.brand-logo-top {
+  width: 160px;
+  height: auto;
+  margin: 0 auto 12px auto;
+  display: none;
+}
+
+.brand-logo-top.show {
+  display: block;
+}
+
+.input {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+label {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+input, select, textarea {
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 15px;
+  border: 1px solid #ccc;
+  outline: none;
+  background: rgba(255,255,255,0.9);
+  color: inherit;
+}
+
+textarea { resize: vertical; }
+
+button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 10px;
+  border: none;
+  color: #fff;
+  background: var(--brand-accent);
+  cursor: pointer;
+  font-size: 16px;
+}
+
+button.secondary {
+  background: #444;
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Layout rows */
+.row {
+  display: flex;
+  gap: 10px;
+}
+@media (max-width: 600px) {
+  .row { flex-direction: column; }
+}
+
+/* QR container + center logo */
+#qr-container {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  margin: 20px auto;
+}
+#qr {
+  width: 100%;
+  height: 100%;
+}
+#qr canvas {
+  image-rendering: pixelated;
+}
+.qr-center-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 72px;
+  height: 72px;
+  transform: translate(-50%, -50%);
+  border-radius: 16px;
+  object-fit: contain;
+  background: rgba(255,255,255,0.85);
+  display: none;
+}
+
+/* Result link */
+#resultLink {
+  font-size: 13px;
+  word-break: break-all;
+  margin-top: 8px;
+  color: var(--brand-fg);
+}
+
+/* Small text */
+.small {
+  font-size: 12px;
+  color: var(--brand-muted);
+}
+
+/* Embed mode */
+.embed body {
+  max-width: 100%;
+  padding: 10px;
+}
+</style>
+</head>
+<body>
+
+<img id="brandLogo" class="brand-logo-top" />
+
+<h2 id="title">Payment QR Generator</h2>
+
+<!-- CHAIN -->
+<div class="input">
+  <label>Chain</label>
+  <select id="chain" onchange="updateQRWrapper()">
+    <option value="arweave">Arweave</option>
+    <option value="ethereum">Ethereum</option>
+    <option value="polygon">Polygon</option>
+    <option value="base">Base</option>
+    <option value="optimism">Optimism</option>
+  </select>
+</div>
+
+<!-- ADDRESS -->
+<div class="input">
+  <label>Recipient Address</label>
+  <input id="address" placeholder="0x... or Arweave address" oninput="updateQRWrapper()" />
+</div>
+
+<!-- AMOUNT + TOKEN -->
+<div class="row">
+  <div class="input" style="flex:1;">
+    <label>Amount</label>
+    <input id="amount" type="number" step="0.000001" placeholder="1.5" oninput="updateQRWrapper()" />
+  </div>
+  <div class="input" style="flex:1;">
+    <label>Token</label>
+    <input id="token" placeholder="ETH / MATIC / USDC / AR" oninput="updateQRWrapper()" />
+  </div>
+</div>
+
+<!-- TOKEN ADDRESS -->
+<div class="input">
+  <label>Token Address (ERC-20 contract, optional)</label>
+  <input id="tokenAddress" placeholder="0x... (for custom token)" oninput="updateQRWrapper()" />
+</div>
+
+<!-- MESSAGE -->
+<div class="input">
+  <label>Message</label>
+  <textarea id="message" rows="2" placeholder="Payment message…" oninput="updateQRWrapper()"></textarea>
+</div>
+
+<!-- ADVANCED: ENCRYPTION + SIGNING -->
+<div class="row">
+  <div class="input" style="flex:1;">
+    <label>
+      <input type="checkbox" id="encryptMessage" onchange="updateQRWrapper()" />
+      Encrypt message
+    </label>
+    <div class="small" id="encryptHint"></div>
+  </div>
+  <div class="input" style="flex:1;">
+    <label>
+      <input type="checkbox" id="signRequest" onchange="updateQRWrapper()" />
+      Sign request & set expiry
+    </label>
+    <input id="expiryMinutes" type="number" min="1" step="1" value="15" />
+    <div class="small" id="signHint"></div>
+  </div>
+</div>
+
+<button onclick="updateQRWrapper()">Generate QR</button>
+
+<div id="qr-container">
+  <div id="qr"></div>
+  <img id="qrCenterLogo" class="qr-center-logo" />
+</div>
+
+<div id="resultLink"></div>
+
+<button class="secondary" onclick="copyLink()">Copy Link</button>
+<button class="secondary" onclick="downloadQR()">Download PNG</button>
+<button class="secondary" onclick="shareLink()">Share</button>
+<button class="secondary" onclick="openInWallet()">Open in Wallet</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script>
+// ------------------------------
+// Utils: URL params, encodings
+// ------------------------------
+function getParams() {
+  const url = new URL(window.location.href);
+  const p = {};
+  for (let [k, v] of url.searchParams.entries()) p[k] = v;
+  return p;
+}
+
+function chainToId(chain) {
+  return {
+    ethereum: "1",
+    polygon: "137",
+    base: "8453",
+    optimism: "10"
+  }[chain] || "";
+}
+
+function toWei(amount) {
+  if (!amount) return "";
+  return BigInt(Math.round(parseFloat(amount) * 1e18)).toString();
+}
+
+function utf8(str) {
+  return new TextEncoder().encode(str);
+}
+
+function base64url(buf) {
+  let b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function hexToBytes(hex) {
+  if (!hex) return new Uint8Array(0);
+  if (hex.startsWith("0x")) hex = hex.slice(2);
+  const arr = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < arr.length; i++) {
+    arr[i] = parseInt(hex.substr(i * 2, 2), 16);
+  }
+  return arr;
+}
+
+// ------------------------------
+// Build base payment link (no enc/sign)
+// ------------------------------
+function buildBasePaymentLink({ chain, address, amount, token, tokenAddress, message }) {
+  if (!address) return "";
+
+  // ARWEAVE (single recipient)
+  if (chain === "arweave") {
+    const p = new URLSearchParams();
+    if (amount) p.set("amount", amount);
+    if (token) p.set("token", token);
+    if (message) p.set("message", message);
+    const qs = p.toString();
+    return qs ? `ar://${address}?${qs}` : `ar://${address}`;
+  }
+
+  // EVM
+  const chainId = chainToId(chain);
+  const p = new URLSearchParams();
+
+  // ERC-20
+  if (tokenAddress) {
+    if (amount) {
+      const wei = toWei(amount);
+      const data =
+        "0xa9059cbb" +
+        address.replace("0x", "").padStart(64, "0") +
+        BigInt(wei).toString(16).padStart(64, "0");
+
+      p.set("data", data);
+    }
+    if (token) p.set("token", token);
+    if (message) p.set("message", message);
+
+    const qs = p.toString();
+    return `ethereum:${tokenAddress}@${chainId}` + (qs ? `?${qs}` : "");
+  }
+
+  // Native token
+  if (amount) p.set("value", toWei(amount));
+  if (token) p.set("token", token);
+  if (message) p.set("message", message);
+
+  const qs = p.toString();
+  return `ethereum:${address}@${chainId}` + (qs ? `?${qs}` : "");
+}
+
+// ------------------------------
+// Encryption: encrypt message param into enc_msg, salt, iv
+// ------------------------------
+async function encryptMessageInLink(link, encKey) {
+  if (!encKey) return link;
+
+  const [prefix, qs] = link.split("?");
+  if (!qs) return link;
+
+  const params = new URLSearchParams(qs);
+  const msg = params.get("message");
+  if (!msg) return link;
+
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    utf8(encKey),
+    { name: "PBKDF2" },
+    false,
+    ["deriveKey"]
+  );
+
+  const key = await crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt,
+      iterations: 100000,
+      hash: "SHA-256"
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt"]
+  );
+
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    utf8(msg)
+  );
+
+  params.delete("message");
+  params.set("enc", "1");
+  params.set("enc_msg", base64url(ciphertext));
+  params.set("salt", base64url(salt));
+  params.set("iv", base64url(iv));
+
+  const newQs = params.toString();
+  return newQs ? `${prefix}?${newQs}` : prefix;
+}
+
+// ------------------------------
+// Signing: add expires + sig (HMAC-SHA256)
+// ------------------------------
+async function signLink(link, signKey, expiryMinutes) {
+  if (!signKey) return link;
+
+  const [prefix, qs] = link.split("?");
+  const params = new URLSearchParams(qs || "");
+
+  const now = Math.floor(Date.now() / 1000);
+  const expires = now + Math.max(1, parseInt(expiryMinutes || "15", 10)) * 60;
+
+  params.set("expires", String(expires));
+  params.delete("sig"); // ensure no previous sig
+
+  // Canonical string: prefix + ?sortedParamsWithoutSig
+  const entries = Array.from(params.entries()).sort(([a],[b]) => a.localeCompare(b));
+  const canonicalQs = new URLSearchParams(entries).toString();
+  const toSign = `${prefix}?${canonicalQs}`;
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    utf8(signKey),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const sigBuf = await crypto.subtle.sign("HMAC", key, utf8(toSign));
+  const sig = base64url(sigBuf);
+  params.set("sig", sig);
+
+  const finalQs = params.toString();
+  return `${prefix}?${finalQs}`;
+}
+
+// ------------------------------
+// QR rendering
+// ------------------------------
+let qrObj = null;
+
+function renderQR(link) {
+  document.getElementById("resultLink").innerText = link || "";
+
+  const target = document.getElementById("qr");
+  target.innerHTML = "";
+  if (!link) return;
+
+  qrObj = new QRCode(target, {
+    text: link,
+    width: 260,
+    height: 260,
+    colorDark: getComputedStyle(document.documentElement).getPropertyValue("--qr-fg") || "#000",
+    colorLight: getComputedStyle(document.documentElement).getPropertyValue("--qr-bg") || "#fff",
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  // Center logo (if set)
+  const qrLogo = document.getElementById("qrCenterLogo");
+  const p = getParams();
+  if (p.qrlogo) {
+    qrLogo.src = p.qrlogo;
+    qrLogo.style.display = "block";
+  } else {
+    qrLogo.style.display = "none";
+  }
+}
+
+// ------------------------------
+// Main update flow (build -> encrypt -> sign -> render)
+// ------------------------------
+async function updateQR() {
+  const chain = document.getElementById("chain").value;
+  const address = document.getElementById("address").value.trim();
+  const amount = document.getElementById("amount").value.trim();
+  const token = document.getElementById("token").value.trim();
+  const tokenAddress = document.getElementById("tokenAddress").value.trim();
+  const message = document.getElementById("message").value.trim();
+
+  const encryptChecked = document.getElementById("encryptMessage").checked;
+  const signChecked = document.getElementById("signRequest").checked;
+  const expiryMinutes = document.getElementById("expiryMinutes").value;
+  const p = getParams();
+  const encKey = p.encKey || "";
+  const signKey = p.signKey || "";
+
+  const encryptHint = document.getElementById("encryptHint");
+  const signHint = document.getElementById("signHint");
+  encryptHint.textContent = encryptChecked
+    ? (encKey ? "Using encKey from URL." : "encKey missing in URL. No encryption will be applied.")
+    : "";
+  signHint.textContent = signChecked
+    ? (signKey ? "Using signKey from URL." : "signKey missing in URL. Request will be unsigned.")
+    : "";
+
+  let link = buildBasePaymentLink({ chain, address, amount, token, tokenAddress, message });
+  if (!link) {
+    renderQR("");
+    return;
+  }
+
+  if (encryptChecked && encKey) {
+    link = await encryptMessageInLink(link, encKey);
+  }
+
+  if (signChecked && signKey) {
+    link = await signLink(link, signKey, expiryMinutes);
+  }
+
+  renderQR(link);
+}
+
+function updateQRWrapper() {
+  updateQR().catch(console.error);
+}
+
+// ------------------------------
+// Buttons
+// ------------------------------
+async function copyLink() {
+  const text = document.getElementById("resultLink").innerText;
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    alert("Copied!");
+  } catch {
+    alert("Copy failed.");
+  }
+}
+
+function downloadQR() {
+  const canvas = document.querySelector("#qr canvas");
+  if (!canvas) return;
+  const link = document.createElement("a");
+  link.download = "payment-qr.png";
+  link.href = canvas.toDataURL();
+  link.click();
+}
+
+function shareLink() {
+  const text = document.getElementById("resultLink").innerText;
+  if (!text) return;
+  if (navigator.share) {
+    navigator.share({ text }).catch(() => {});
+  } else {
+    alert("Sharing not supported on this device.");
+  }
+}
+
+// Deep link into your wallet: yourwallet://pay?link=<encoded_uri>
+function openInWallet() {
+  const text = document.getElementById("resultLink").innerText;
+  if (!text) return;
+
+  const p = getParams();
+  const deep = p.deepLink || "yourwallet://pay";
+  window.location.href = `${deep}?link=${encodeURIComponent(text)}`;
+}
+
+// ------------------------------
+// Init: branding, embed, autofill
+// ------------------------------
+(function init() {
+  const p = getParams();
+
+  // Branding via URL params
+  if (p.bg) document.documentElement.style.setProperty("--brand-bg", p.bg);
+  if (p.fg) document.documentElement.style.setProperty("--brand-fg", p.fg);
+  if (p.accent) document.documentElement.style.setProperty("--brand-accent", p.accent);
+  if (p.qrfg) document.documentElement.style.setProperty("--qr-fg", p.qrfg);
+  if (p.qrbg) document.documentElement.style.setProperty("--qr-bg", p.qrbg);
+
+  // Top logo
+  if (p.logo) {
+    const logo = document.getElementById("brandLogo");
+    logo.src = p.logo;
+    logo.classList.add("show");
+  }
+
+  // Embed mode
+  if (p.embed === "true") {
+    document.body.classList.add("embed");
+    document.getElementById("title").style.display = "none";
+  }
+
+  // Autofill fields
+  if (p.chain) document.getElementById("chain").value = p.chain;
+  if (p.address) document.getElementById("address").value = p.address;
+  if (p.amount) document.getElementById("amount").value = p.amount;
+  if (p.token) document.getElementById("token").value = p.token;
+  if (p.tokenAddress) document.getElementById("tokenAddress").value = p.tokenAddress;
+  if (p.message) document.getElementById("message").value = p.message;
+
+  updateQRWrapper();
+})();
+</script>
+
+</body>
+</html>
