@@ -4,139 +4,237 @@
 <meta charset="UTF-8" />
 <title>Scan Payment QR</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+
 <style>
   body {
     margin: 0;
     font-family: system-ui, -apple-system, sans-serif;
-    background: #111;
+    background: #000;
     color: #fff;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     height: 100vh;
-    overflow: hidden;
   }
-  #preview {
+
+  #videoWrapper {
+    position: relative;
     flex: 1;
     width: 100%;
-    object-fit: cover;
     background: #000;
   }
-  #status {
-    padding: 15px;
-    text-align: center;
-    font-size: 14px;
-    background: rgba(0,0,0,0.7);
+
+  #preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
+
+  /* scanning frame */
+  .scan-frame {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 260px;
+    height: 260px;
+    transform: translate(-50%, -50%);
+    border: 4px solid rgba(255,255,255,0.5);
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.6);
+  }
+
+  /* bottom UI */
+  #controls {
+    background: rgba(0,0,0,0.7);
+    padding: 10px 15px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+
   button {
-    margin: 10px;
-    padding: 12px;
-    border-radius: 10px;
     background: #2a7cff;
-    color: #fff;
     border: none;
-    font-size: 16px;
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  button.secondary {
+    background: #333;
+  }
+
+  #status {
+    text-align: center;
+    padding: 12px;
+    font-size: 14px;
+    background: rgba(0,0,0,0.6);
   }
 </style>
 </head>
+
 <body>
 
-<video id="preview" autoplay playsinline></video>
-<div id="status">Point your camera at a payment QR…</div>
+<div id="videoWrapper">
+  <video id="preview" autoplay playsinline></video>
+  <div class="scan-frame"></div>
+</div>
+
+<div id="status">Starting camera…</div>
+
+<div id="controls">
+  <button onclick="toggleCamera()">Switch Camera</button>
+  <button class="secondary" onclick="toggleFlash()" id="flashBtn">Flashlight</button>
+</div>
 
 <script>
-/* ---------------------------------------------------------
-   Config — point this to your wallet page
---------------------------------------------------------- */
-const WALLET_URL = window.location.origin + "/w1.html";
+const WALLET_URL = window.location.origin + "/w1.html";  // Adjust if path differs
+const ZXING_URL = "https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js";
+
+let reader = null;
+let devices = [];
+let camIndex = 0;
+let torchOn = false;
+let currentTrack = null;
+let alreadyScanned = false;
 
 /* ---------------------------------------------------------
-   Load QR decoder (ZXing WASM)
+   Load ZXing
 --------------------------------------------------------- */
-const ZXING = "https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js";
-
-let codeReader = null;
-
-function log(msg) {
-  document.getElementById("status").textContent = msg;
-}
-
-async function startScanner() {
-  log("Starting camera…");
-
-  // Load ZXing
+async function loadZXing() {
   await new Promise(res => {
     const s = document.createElement("script");
-    s.src = ZXING;
+    s.src = ZXING_URL;
     s.onload = res;
     document.body.appendChild(s);
   });
+}
 
-  const { BrowserQRCodeReader } = window.ZXing;
-  codeReader = new BrowserQRCodeReader();
+/* ---------------------------------------------------------
+   Start camera scanning
+--------------------------------------------------------- */
+async function startScanner() {
+  document.getElementById("status").textContent = "Starting camera…";
+
+  await loadZXing();
+
+  const QR = window.ZXing;
+  reader = new QR.BrowserQRCodeReader();
 
   try {
-    const video = document.getElementById("preview");
-    const cameras = await BrowserQRCodeReader.listVideoInputDevices();
-    const camId = cameras?.[0]?.deviceId;
-
-    if (!camId) {
-      log("No camera found");
+    devices = await reader.getVideoInputDevices();
+    if (!devices.length) {
+      document.getElementById("status").textContent = "No cameras found";
       return;
     }
 
-    log("Scanning…");
-
-    codeReader.decodeFromVideoDevice(camId, video, (result, err) => {
-      if (result) handleQR(result.getText());
-    });
+    await startCameraStream();
 
   } catch (err) {
     console.error(err);
-    log("Camera error: " + err.message);
+    document.getElementById("status").textContent = "Camera error: " + err.message;
   }
 }
 
 /* ---------------------------------------------------------
-   Handle the scanned QR text
+   Start a camera by index
 --------------------------------------------------------- */
-function handleQR(text) {
-  console.log("QR scanned:", text);
+async function startCameraStream() {
+  const video = document.getElementById("preview");
 
-  // AR payment URI?
-  if (text.startsWith("ar://")) {
-    openInWallet(text);
+  // stop previous track
+  if (currentTrack) currentTrack.stop();
+
+  const deviceId = devices[camIndex].deviceId;
+
+  document.getElementById("status").textContent = "Scanning…";
+
+  reader.decodeFromVideoDevice(deviceId, video, (result, err, controls) => {
+    currentTrack = controls.stream.getVideoTracks()[0];
+
+    if (result && !alreadyScanned) {
+      alreadyScanned = true;
+      handleQR(result.text);
+    }
+  });
+}
+
+/* ---------------------------------------------------------
+   Camera switch
+--------------------------------------------------------- */
+function toggleCamera() {
+  if (!devices.length) return;
+
+  camIndex = (camIndex + 1) % devices.length;
+  alreadyScanned = false;
+  startCameraStream();
+}
+
+/* ---------------------------------------------------------
+   Toggle flashlight (Android only)
+--------------------------------------------------------- */
+async function toggleFlash() {
+  if (!currentTrack) return;
+
+  const capabilities = currentTrack.getCapabilities();
+  if (!capabilities.torch) {
+    alert("Flashlight not supported on this device.");
     return;
   }
 
-  // If QR contains full wallet link already:
+  torchOn = !torchOn;
+
+  try {
+    await currentTrack.applyConstraints({
+      advanced: [{ torch: torchOn }]
+    });
+  } catch (err) {
+    console.error(err);
+    alert("Flashlight toggle failed.");
+  }
+}
+
+/* ---------------------------------------------------------
+   Handle QR content
+--------------------------------------------------------- */
+function handleQR(text) {
+  console.log("QR:", text);
+
+  // Native ar:// URI
+  if (text.startsWith("ar://")) {
+    openWalletLink(text);
+    return;
+  }
+
+  // Full wallet link already
   if (text.includes("?link=ar://")) {
     window.location.href = text;
     return;
   }
 
-  log("Not a payment QR.");
+  document.getElementById("status").textContent = "Not a valid payment QR.";
+  alreadyScanned = false;
 }
 
 /* ---------------------------------------------------------
-   Open wallet using ?link=<URI>
+   Open the wallet with ?link=<ar://...>
 --------------------------------------------------------- */
-function openInWallet(arUri) {
-  log("Opening wallet…");
+function openWalletLink(arUri) {
+  document.getElementById("status").textContent = "Opening wallet…";
 
-  const encoded = encodeURIComponent(arUri);
-  const finalUrl = `${WALLET_URL}?link=${encoded}`;
+  const finalUrl = WALLET_URL + "?link=" + encodeURIComponent(arUri);
 
-  // Mobile safe redirect
   setTimeout(() => {
     window.location.href = finalUrl;
-  }, 300);
+  }, 200);
 }
 
 /* ---------------------------------------------------------
-   Start scanning on load
+   Init
 --------------------------------------------------------- */
 startScanner();
 </script>
-
 </body>
 </html>
