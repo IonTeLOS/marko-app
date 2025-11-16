@@ -171,7 +171,9 @@ let currentIndex = 0;
 let torchOn = false;
 let scanLocked = false;
 let isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+let isIOSChrome = isIOS && /CriOS/.test(navigator.userAgent);
 let cameraActive = false;
+let permissionStream = null;
 
 // Preload audio on iOS
 if (isIOS) {
@@ -193,29 +195,25 @@ window.enableHaptics = async () => {
   status.textContent = "Requesting camera access...";
 
   try {
-    // iOS Chrome needs the video element to actually play a stream
-    // before QrScanner can work
-    const permStream = await navigator.mediaDevices.getUserMedia({ 
+    // Get permission with rear camera preference
+    permissionStream = await navigator.mediaDevices.getUserMedia({ 
       video: { 
-        facingMode: { exact: "environment" }
+        facingMode: { ideal: "environment" }
       } 
-    }).catch(() => {
-      // If exact fails, try ideal
-      return navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } }
-      });
     });
 
-    // For iOS Chrome: play the stream briefly
-    if (isIOS && /CriOS|Chrome/.test(navigator.userAgent)) {
-      video.srcObject = permStream;
-      await video.play().catch(() => {});
-      await new Promise(r => setTimeout(r, 100));
+    // iOS Chrome: KEEP the stream playing, don't stop it
+    if (isIOSChrome) {
+      video.srcObject = permissionStream;
+      await video.play();
+      // Give it more time to stabilize
+      await new Promise(r => setTimeout(r, 300));
+    } else {
+      // Safari and Android: stop the permission stream
+      permissionStream.getTracks().forEach(t => t.stop());
+      permissionStream = null;
+      video.srcObject = null;
     }
-    
-    // Stop permission stream
-    permStream.getTracks().forEach(t => t.stop());
-    video.srcObject = null;
 
     // Smooth fade out
     overlay.style.transition = "opacity 0.35s ease-out";
@@ -230,7 +228,6 @@ window.enableHaptics = async () => {
     console.error("Camera permission error:", err);
     status.textContent = "Camera access denied";
     
-    // Show permission instructions
     setTimeout(() => {
       alert("Camera permission is required. Please allow camera access in your browser settings and reload the page.");
     }, 300);
@@ -280,6 +277,7 @@ async function startScanner() {
   const video = document.getElementById("video");
   const status = document.getElementById("status");
 
+  // Stop existing scanner
   if (scanner) {
     await scanner.stop();
     scanner.destroy();
@@ -287,43 +285,58 @@ async function startScanner() {
   }
 
   try {
-    // Create scanner with rear camera priority
-    scanner = new QrScanner(
-      video, 
-      result => onScan(result),
-      {
-        returnDetailedScanResult: true,
-        highlightScanRegion: false,
-        highlightCodeOutline: false,
-        maxScansPerSecond: 5,
-        preferredCamera: cameras[currentIndex] ? cameras[currentIndex].id : "environment"
-      }
-    );
-    
-    // Start with explicit rear camera constraint
-    await scanner.start();
-    
-    // Double-check we got the right camera on iOS Safari
-    if (isIOS && cameras.length > 1) {
-      const track = video.srcObject?.getVideoTracks()[0];
-      const settings = track?.getSettings();
-      
-      // If we got front camera, switch to rear
-      if (settings?.facingMode === "user") {
-        const rearCam = cameras.find(c => 
-          c.label.toLowerCase().includes('back') ||
-          c.label.toLowerCase().includes('rear')
-        );
-        
-        if (rearCam) {
-          await scanner.setCamera(rearCam.id);
-          currentIndex = cameras.indexOf(rearCam);
+    // iOS Chrome: Use the existing stream that's already playing
+    if (isIOSChrome && permissionStream) {
+      scanner = new QrScanner(
+        video, 
+        result => onScan(result),
+        {
+          returnDetailedScanResult: true,
+          highlightScanRegion: false,
+          highlightCodeOutline: false,
+          maxScansPerSecond: 5,
         }
+      );
+      
+      // Don't call start(), the stream is already active
+      cameraActive = true;
+      status.textContent = "Scanning for QR codes...";
+      
+      // Begin scanning manually
+      scanner._qrEnginePromise.then(() => {
+        scanner._scanRegion = scanner._calculateScanRegion(video);
+        scanner._updateOverlay();
+        scanner._scanFrame();
+      });
+      
+    } else {
+      // Safari & Android: Normal flow
+      const rearCam = cameras.find(c => 
+        c.label.toLowerCase().includes('back') ||
+        c.label.toLowerCase().includes('rear') ||
+        c.label.toLowerCase().includes('environment')
+      );
+      
+      if (rearCam) {
+        currentIndex = cameras.indexOf(rearCam);
       }
+      
+      scanner = new QrScanner(
+        video, 
+        result => onScan(result),
+        {
+          returnDetailedScanResult: true,
+          highlightScanRegion: false,
+          highlightCodeOutline: false,
+          maxScansPerSecond: 5,
+          preferredCamera: cameras[currentIndex] ? cameras[currentIndex].id : "environment"
+        }
+      );
+      
+      await scanner.start();
+      cameraActive = true;
+      status.textContent = "Scanning for QR codes...";
     }
-    
-    cameraActive = true;
-    status.textContent = "Scanning for QR codes...";
     
     // Enable buttons
     document.getElementById("switchBtn").disabled = cameras.length <= 1;
@@ -449,6 +462,9 @@ window.addEventListener("beforeunload", () => {
   if (scanner) {
     scanner.stop();
     scanner.destroy();
+  }
+  if (permissionStream) {
+    permissionStream.getTracks().forEach(t => t.stop());
   }
 });
 
