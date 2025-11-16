@@ -908,21 +908,45 @@ const WalletCore = (function() {
     return `${parseFloat(ar).toFixed(4)} AR`;
   }
 
-  async function sendArTransaction(toAddress, amountAr) {
-    if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
+async function sendArTransaction(toAddress, amountAr) {
+  if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
 
-    const winston = arweave.ar.arToWinston(amountAr);
-    const transaction = await arweave.createTransaction({ target: toAddress, quantity: winston }, walletJwk);
+  const winstonAmount = arweave.ar.arToWinston(amountAr);
 
-    await arweave.transactions.sign(transaction, walletJwk);
-    const response = await arweave.transactions.post(transaction);
+  const address = await arweave.wallets.jwkToAddress(walletJwk);
+  const balanceWinston = await arweave.wallets.getBalance(address);
+  const balanceAr = parseFloat(arweave.ar.winstonToAr(balanceWinston));
 
-    if (response.status === 200) {
-      return transaction.id;
-    } else {
-      throw new Error(`Transaction failed: ${response.status}`);
-    }
+  // Create draft to compute fee
+  const draftTx = await arweave.createTransaction({
+    target: toAddress,
+    quantity: winstonAmount
+  }, walletJwk);
+
+  const feeWinston = draftTx.reward;
+  const feeAr = parseFloat(arweave.ar.winstonToAr(feeWinston));
+
+  const totalRequiredAr = parseFloat(amountAr) + feeAr;
+
+  if (balanceAr < totalRequiredAr) {
+    throw new Error(
+      `Insufficient balance. Needed ${totalRequiredAr.toFixed(6)} AR (amount + fee), ` +
+      `but you have ${balanceAr.toFixed(6)} AR.`
+    );
   }
+
+  // Now sign & send
+  await arweave.transactions.sign(draftTx, walletJwk);
+
+  const response = await arweave.transactions.post(draftTx);
+
+  if (response.status === 200 || response.status === 202) {
+    return draftTx.id;
+  } else {
+    throw new Error(`Transaction failed: ${response.status}`);
+  }
+}
+
 
   async function uploadDataItem(content, contentType, userTagKey, userTagValue) {
     if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
