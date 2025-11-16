@@ -171,17 +171,28 @@ let already = false;
 /* ---------------------------------------------------------
    Tap → enable haptics + sound
 --------------------------------------------------------- */
-window.enableHaptics = () => {
+window.enableHaptics = async () => {
   try { navigator.vibrate?.(20); } catch {}
 
   const overlay = document.getElementById("tapOverlay");
 
-  // Fade out animation
-  overlay.style.transition = "opacity 0.35s ease-out";
-  overlay.style.opacity = "0";
+  try {
+    // 🔥 MUST BE CALLED HERE — inside the tap gesture!
+    await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" }
+    });
+  } catch (err) {
+    alert("Camera permission is required to scan QR codes.");
+    console.error("Permission error:", err);
+    return;
+  }
 
+  // Smooth fade-out
+  overlay.style.transition = "opacity 0.35s ease";
+  overlay.style.opacity = "0";
   setTimeout(() => overlay.style.display = "none", 350);
 };
+
 
 
 /* ---------------------------------------------------------
