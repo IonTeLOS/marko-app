@@ -18,13 +18,16 @@
   }
   #videoWrapper { position: relative; flex: 1; }
   #video { width: 100%; height: 100%; object-fit: cover; }
+
   .frame {
     position: absolute; top: 50%; left: 50%;
     width: 260px; height: 260px;
     transform: translate(-50%, -50%);
     border: 4px solid rgba(255,255,255,0.6);
     border-radius: 15px;
+    pointer-events: none;
   }
+
   #controls {
     padding: 8px;
     background: rgba(0,0,0,0.6);
@@ -32,20 +35,50 @@
     gap: 10px;
     justify-content: center;
   }
+
   button {
     padding: 10px 14px;
-    background: #2a7cff; border: none; color: #fff;
-    border-radius: 8px; font-size: 14px;
+    background: #2a7cff; border: none;
+    color: #fff; border-radius: 8px;
+    font-size: 14px;
   }
   button.secondary { background: #444; }
+
   #status {
-    padding: 10px; text-align: center; background: rgba(0,0,0,0.5);
+    padding: 10px;
+    text-align: center;
+    background: rgba(0,0,0,0.5);
     font-size: 14px;
+  }
+
+  /* tap overlay */
+  #tapOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    text-align: center;
+    padding: 20px;
+    font-family: system-ui, sans-serif;
   }
 </style>
 </head>
 
 <body>
+
+<!-- TAP TO ENABLE HAPTICS -->
+<div id="tapOverlay" onclick="enableHaptics()">
+  <div style="font-size:18px; font-weight:500; margin-bottom:10px;">
+    Tap to enable sound & vibration
+  </div>
+  <div style="font-size:13px; opacity:0.7;">
+    Required by your browser before scanning
+  </div>
+</div>
 
 <div id="videoWrapper">
   <video id="video" autoplay playsinline></video>
@@ -63,11 +96,13 @@
 import QrScanner from "https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js";
 
 const WALLET_URL = window.location.origin + "/w1.html";
-// --- sound + vibration setup ---
+
+/* ---------------------------------------------------------
+   SCI-FI BLIP SOUND (base64 WAV)
+--------------------------------------------------------- */
 const beepAudio = new Audio(
-  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA="
+  "data:audio/wav;base64,UklGRqgAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YSgAAACAgICAf4B/gH+B/4CAgICAgIB/gH+A/4CAgICAgH+Af4B/gICAgH+Af4CAgH+Af4B/gICAf4B/gH+AgIB/gH+Af4CAgH+Af4B/gICAL4AAP//AAD//wAA//8AAP//AAD//wAA//8AAP//AAD//wAA"
 );
-// Very tiny "tick" sound encoded to WAV
 
 let scanner = null;
 let cameras = [];
@@ -75,13 +110,25 @@ let currentIndex = 0;
 let torchOn = false;
 let already = false;
 
-  
+/* ---------------------------------------------------------
+   Tap → enable haptics + sound
+--------------------------------------------------------- */
+window.enableHaptics = () => {
+  try { navigator.vibrate?.(20); } catch {}
+  try { beepAudio.play().catch(()=>{}); } catch {}
+
+  const overlay = document.getElementById("tapOverlay");
+  overlay.style.display = "none";
+};
+
+/* ---------------------------------------------------------
+   Init scanner
+--------------------------------------------------------- */
 async function init() {
   document.getElementById("status").textContent = "Initializing camera…";
 
   cameras = await QrScanner.listCameras(true);
 
-  // If no cameras → error
   if (!cameras.length) {
     document.getElementById("status").textContent = "No cameras found.";
     return;
@@ -90,77 +137,57 @@ async function init() {
   await startCameraWithPriority();
 }
 
+/* ---------------------------------------------------------
+   Camera start logic (rear first)
+--------------------------------------------------------- */
 async function startCameraWithPriority() {
   const video = document.getElementById("video");
   const status = document.getElementById("status");
 
   if (scanner) scanner.stop();
 
-  // Try 1: exact environment
-  try {
-    scanner = new QrScanner(
-      video,
-      r => onScan(r),
-      {
-        preferredCamera: "environment",
-        returnDetailedScanResult: true,
-      }
-    );
-    await scanner.start();
-    status.textContent = "Scanning (environment camera)…";
-    return;
-  } catch {}
+  // Try rear camera preferences
+  const tries = [
+    { preferredCamera: "environment" },
+    { facingMode: { ideal: "environment" }},
+    { deviceId: cameras[0].id }
+  ];
 
-  // Try 2: ideal environment
-  try {
-    scanner = new QrScanner(
-      video,
-      r => onScan(r),
-      {
-        facingMode: { ideal: "environment" },
+  for (const t of tries) {
+    try {
+      scanner = new QrScanner(video, r => onScan(r), {
         returnDetailedScanResult: true,
-      }
-    );
-    await scanner.start();
-    status.textContent = "Scanning (rear camera preferred)…";
-    return;
-  } catch {}
-
-  // Try 3: fallback: camera by deviceId
-  try {
-    currentIndex = 0;
-    scanner = new QrScanner(
-      video,
-      r => onScan(r),
-      { deviceId: cameras[0].id, returnDetailedScanResult: true }
-    );
-    await scanner.start();
-    status.textContent = "Scanning…";
-  } catch (err) {
-    status.textContent = "Failed to start camera: " + err.message;
+        ...t
+      });
+      await scanner.start();
+      status.textContent = "Scanning…";
+      return;
+    } catch (e) {}
   }
+
+  status.textContent = "Unable to access camera.";
 }
 
+/* ---------------------------------------------------------
+   Sound + vibration
+--------------------------------------------------------- */
 function feedback() {
-  // Vibration (Android + iOS 16+)
-  if (navigator.vibrate) {
-    navigator.vibrate([30, 30, 30]); // triple pulse
-  }
+  try { navigator.vibrate?.(50); } catch {}
 
-  // Beep
   try {
     beepAudio.currentTime = 0;
-    beepAudio.play().catch(() => {});
+    beepAudio.play().catch(()=>{});
   } catch {}
 }
 
+/* ---------------------------------------------------------
+   QR scan handler
+--------------------------------------------------------- */
 function onScan(result) {
   if (!result || already) return;
   already = true;
 
-  // Haptic + sound ---------------------------------
   feedback();
-  //-----------------------------------------------
 
   document.getElementById("status").textContent = "QR detected…";
 
@@ -176,34 +203,41 @@ function onScan(result) {
   }
 }
 
-
+/* ---------------------------------------------------------
+   Deep link into wallet
+--------------------------------------------------------- */
 function openWallet(arUri) {
   const final = WALLET_URL + "?link=" + encodeURIComponent(arUri);
-  document.getElementById("status").textContent = "Opening wallet…";
   setTimeout(() => window.location.href = final, 350);
 }
 
+/* ---------------------------------------------------------
+   Camera switch
+--------------------------------------------------------- */
 async function switchCamera() {
   if (!cameras.length || !scanner) return;
   already = false;
 
   currentIndex = (currentIndex + 1) % cameras.length;
-
   await scanner.setCamera(cameras[currentIndex].id);
+
   document.getElementById("status").textContent = "Scanning…";
 }
 
+/* ---------------------------------------------------------
+   Flashlight toggle
+--------------------------------------------------------- */
 async function toggleFlash() {
   if (!scanner) return;
 
   const hasFlash = await scanner.hasFlash();
   if (!hasFlash) {
-    alert("Flash not supported");
+    alert("Flashlight not supported");
     return;
   }
 
-  scanner.toggleFlash();
   torchOn = !torchOn;
+  scanner.toggleFlash();
 }
 
 init();
