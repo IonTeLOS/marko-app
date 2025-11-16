@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Scan Payment QR</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #111;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+  #preview {
+    flex: 1;
+    width: 100%;
+    object-fit: cover;
+    background: #000;
+  }
+  #status {
+    padding: 15px;
+    text-align: center;
+    font-size: 14px;
+    background: rgba(0,0,0,0.7);
+  }
+  button {
+    margin: 10px;
+    padding: 12px;
+    border-radius: 10px;
+    background: #2a7cff;
+    color: #fff;
+    border: none;
+    font-size: 16px;
+  }
+</style>
+</head>
+<body>
+
+<video id="preview" autoplay playsinline></video>
+<div id="status">Point your camera at a payment QR…</div>
+
+<script>
+/* ---------------------------------------------------------
+   Config — point this to your wallet page
+--------------------------------------------------------- */
+const WALLET_URL = window.location.origin + "/w1.html";
+
+/* ---------------------------------------------------------
+   Load QR decoder (ZXing WASM)
+--------------------------------------------------------- */
+const ZXING = "https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js";
+
+let codeReader = null;
+
+function log(msg) {
+  document.getElementById("status").textContent = msg;
+}
+
+async function startScanner() {
+  log("Starting camera…");
+
+  // Load ZXing
+  await new Promise(res => {
+    const s = document.createElement("script");
+    s.src = ZXING;
+    s.onload = res;
+    document.body.appendChild(s);
+  });
+
+  const { BrowserQRCodeReader } = window.ZXing;
+  codeReader = new BrowserQRCodeReader();
+
+  try {
+    const video = document.getElementById("preview");
+    const cameras = await BrowserQRCodeReader.listVideoInputDevices();
+    const camId = cameras?.[0]?.deviceId;
+
+    if (!camId) {
+      log("No camera found");
+      return;
+    }
+
+    log("Scanning…");
+
+    codeReader.decodeFromVideoDevice(camId, video, (result, err) => {
+      if (result) handleQR(result.getText());
+    });
+
+  } catch (err) {
+    console.error(err);
+    log("Camera error: " + err.message);
+  }
+}
+
+/* ---------------------------------------------------------
+   Handle the scanned QR text
+--------------------------------------------------------- */
+function handleQR(text) {
+  console.log("QR scanned:", text);
+
+  // AR payment URI?
+  if (text.startsWith("ar://")) {
+    openInWallet(text);
+    return;
+  }
+
+  // If QR contains full wallet link already:
+  if (text.includes("?link=ar://")) {
+    window.location.href = text;
+    return;
+  }
+
+  log("Not a payment QR.");
+}
+
+/* ---------------------------------------------------------
+   Open wallet using ?link=<URI>
+--------------------------------------------------------- */
+function openInWallet(arUri) {
+  log("Opening wallet…");
+
+  const encoded = encodeURIComponent(arUri);
+  const finalUrl = `${WALLET_URL}?link=${encoded}`;
+
+  // Mobile safe redirect
+  setTimeout(() => {
+    window.location.href = finalUrl;
+  }, 300);
+}
+
+/* ---------------------------------------------------------
+   Start scanning on load
+--------------------------------------------------------- */
+startScanner();
+</script>
+
+</body>
+</html>
