@@ -645,6 +645,14 @@ function hexToBytes(hex) {
   return bytes;
 }
 
+function getCurrentKeyMode() {
+  const storedMode = localStorage.getItem('arweave_key_mode');
+  if (storedMode === 'prf' || storedMode === 'wrapped') return storedMode;
+
+  const hasEncKey = !!localStorage.getItem('arweave_enc_key');
+  return hasEncKey ? 'wrapped' : 'prf';
+}
+
 // ---------------------------------------------------------------------------
 //  CLOUD FUNCTION INTEGRATION
 // ---------------------------------------------------------------------------
@@ -1217,10 +1225,6 @@ const WalletCore = (function() {
     return txId;
   }
 
-  async function uploadRecoveryBackup() {
-    return uploadRecoveryBackupInternal();
-  }
-
   // Balance
   async function refreshBalance() {
     if (!walletJwk || !arweave) {
@@ -1586,16 +1590,38 @@ async function recoverWallet() {
     return;
   }
 
-  const credentialId = await WalletStorage.get('credentialId');
-  const aesKeyHex = await WalletStorage.get('aesKeyHex');
-
-  if (!credentialId || !aesKeyHex) {
+  const storedCredential = localStorage.getItem('arweave_credential');
+  if (!storedCredential) {
     setStatus(
       'unlock-status',
-      '❌ Recovery failed. This wallet is device-bound and key material is missing on this device.',
+      '❌ Recovery failed. No WebAuthn credential bound to this wallet on this device.',
       'error'
     );
     return;
+  }
+
+  const keyMode = getCurrentKeyMode();
+
+  if (keyMode === 'wrapped') {
+    const storedEncKeyHex = localStorage.getItem('arweave_enc_key');
+    if (!storedEncKeyHex) {
+      setStatus(
+        'unlock-status',
+        '❌ Recovery failed. Missing local AES key for wrapped mode.',
+        'error'
+      );
+      return;
+    }
+  } else {
+    const storedPrfSaltHex = localStorage.getItem('arweave_prf_salt');
+    if (!storedPrfSaltHex) {
+      setStatus(
+        'unlock-status',
+        '❌ Recovery failed. Missing PRF salt for this PRF-protected wallet.',
+        'error'
+      );
+      return;
+    }
   }
 
   setButtonLoading('recovery-btn', true);
@@ -1609,7 +1635,7 @@ async function recoverWallet() {
       query {
         transactions(
           tags: [
-            { name: "App-Name", values: ["${WALLET_APP_NAME}"]},
+            { name: "App-Name", values: ["ArweaveWallet-v1"]},
             { name: "User-Address", values: ["${input}"]}
           ],
           first: 10,
@@ -1624,7 +1650,7 @@ async function recoverWallet() {
       query {
         transactions(
           tags: [
-            { name: "App-Name", values: ["${WALLET_APP_NAME}"]},
+            { name: "App-Name", values: ["ArweaveWallet-v1"]},
             { name: "User-Name", values: ["${input}"]}
           ],
           first: 10,
@@ -1639,9 +1665,9 @@ async function recoverWallet() {
         }
       }`;
 
-    const fetchRes = await fetch('https://arweave.net/graphql', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const fetchRes = await fetch("https://arweave.net/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: gqlQuery })
     });
 
@@ -1649,13 +1675,13 @@ async function recoverWallet() {
     const edges = gqlResult.data.transactions.edges;
 
     if (!edges.length) {
-      throw new Error('No wallet found for this search');
+      throw new Error("No wallet found for this search");
     }
 
     if (!isAddress && edges.length > 1) {
-      let html = '<strong>Multiple matches found:</strong><br><br>';
+      let html = "<strong>Multiple matches found:</strong><br><br>";
 
-      edges.forEach(e => {
+      edges.forEach((e) => {
         const txid = e.node.id;
         const tagMap = {};
         e.node.tags.forEach(t => tagMap[t.name] = t.value);
@@ -1663,22 +1689,23 @@ async function recoverWallet() {
         html += `
           <div style="margin-bottom:10px;">
             <button class="btn btn-secondary" onclick="finishRecovery('${txid}')">
-              Recover wallet: ${tagMap['User-Address'] || '???'}<br>
+              Recover wallet: ${tagMap["User-Address"] || "???"}<br>
               <small>${txid.substring(0,20)}…</small>
             </button>
           </div>
         `;
       });
 
-      setStatus('unlock-status', html, 'info');
+      setStatus("unlock-status", html, "info");
       return;
     }
 
     const txId = edges[0].node.id;
     await finishRecovery(txId);
+
   } catch (error) {
-    console.error(error);
     setStatus('unlock-status', `❌ Error: ${error.message}`, 'error');
+    console.error(error);
   } finally {
     setButtonLoading('recovery-btn', false);
   }
@@ -1688,27 +1715,117 @@ async function finishRecovery(txId) {
   try {
     setStatus('unlock-status', 'Fetching encrypted wallet…', 'info');
 
-    const { address, backupTxId } = await WalletCore.recoverByTxId(txId);
+    const encryptedRes = await fetch(`https://arweave.net/${txId}`);
+    if (!encryptedRes.ok) throw new Error("Failed to fetch encrypted blob");
+
+    const encryptedText = await encryptedRes.text();
+    const encryptedBlob = JSON.parse(encryptedText);
+
+    if (!encryptedBlob.encrypted)
+      throw new Error("Encrypted blob missing required structure");
+
+    const keyMode = getCurrentKeyMode();
+    const storedCredential = localStorage.getItem('arweave_credential');
+
+    if (!storedCredential) {
+      throw new Error("No WebAuthn credential bound on this device");
+    }
+
+    let aesKey;
+
+    if (keyMode === 'prf') {
+      // 🔐 Derive AES key via PRF on authenticator
+      const storedPrfSaltHex = localStorage.getItem('arweave_prf_salt');
+      if (!storedPrfSaltHex) {
+        throw new Error("Missing PRF salt for PRF-protected wallet");
+      }
+
+      const saltBytes = hexToBytes(storedPrfSaltHex);
+      const challenge = crypto.getRandomValues(new Uint8Array(32));
+      const rawId = hexToBytes(storedCredential);
+
+      setStatus('unlock-status', 'Please authenticate with your device…', 'info');
+
+      const assertion = await navigator.credentials.get({
+        publicKey: {
+          challenge,
+          allowCredentials: [{ id: rawId, type: "public-key" }],
+          userVerification: "required",
+          timeout: 60000,
+          extensions: {
+            prf: {
+              eval: { first: saltBytes }
+            }
+          }
+        }
+      });
+
+      const ext = assertion.getClientExtensionResults
+        ? assertion.getClientExtensionResults()
+        : null;
+
+      if (!ext || !ext.prf || !ext.prf.results || !ext.prf.results.first) {
+        throw new Error('Authenticator PRF extension not available');
+      }
+
+      const prfBytes = new Uint8Array(ext.prf.results.first);
+      aesKey = await crypto.subtle.importKey(
+        "raw",
+        prfBytes,
+        "AES-GCM",
+        false,
+        ["decrypt"]
+      );
+
+    } else {
+      // 🔁 Wrapped-mode recovery (existing behavior)
+      const storedEncKeyHex = localStorage.getItem('arweave_enc_key');
+      if (!storedEncKeyHex) {
+        throw new Error("Missing local AES key for wrapped mode");
+      }
+
+      setStatus('unlock-status', 'Please authenticate with your device…', 'info');
+      await WebAuthnHelper.authenticate(storedCredential);
+
+      const rawKeyBytes = hexToBytes(storedEncKeyHex);
+      aesKey = await crypto.subtle.importKey(
+        "raw",
+        rawKeyBytes,
+        "AES-GCM",
+        false,
+        ["decrypt"]
+      );
+    }
+
+    // Decrypt wallet
+    const jwk = await CryptoHelper.decrypt(encryptedBlob.encrypted, aesKey);
+    const address = await arweave.wallets.jwkToAddress(jwk);
+
+    currentWallet = jwk;
+
+    localStorage.setItem('arweave_address', address);
+    localStorage.setItem('arweave_bundlr_txid', txId);
 
     document.getElementById('wallet-address').textContent = address;
-    document.getElementById('bundlr-txid').textContent = backupTxId;
+    document.getElementById('bundlr-txid').textContent = txId;
 
     showScreen('wallet-screen');
     setStatus('wallet-status', '✅ Wallet recovered successfully!', 'success');
 
-    await refreshBalance();
+    refreshBalance();
+
   } catch (err) {
-    console.error(err);
     setStatus('unlock-status', `❌ ${err.message}`, 'error');
+    console.error(err);
   }
 }
 
 async function recoverByKeyfile() {
-  const fileInput = document.getElementById('keyfile-upload');
+  const fileInput = document.getElementById("keyfile-upload");
   const file = fileInput.files[0];
 
   if (!file) {
-    setStatus('unlock-status', 'Please select a keyfile JSON', 'error');
+    setStatus("unlock-status", "Please select a keyfile JSON", "error");
     return;
   }
 
@@ -1716,34 +1833,212 @@ async function recoverByKeyfile() {
     const text = await file.text();
     const jwk = JSON.parse(text);
 
-    setStatus('unlock-status', 'Create new biometric protection for this wallet…', 'info');
+    if (!arweave) {
+      throw new Error("Arweave not initialized");
+    }
 
-    const { address, backupTxId } = await WalletCore.importFromKeyfile(jwk);
+    // Derive address from file
+    const address = await arweave.wallets.jwkToAddress(jwk);
 
-    document.getElementById('wallet-address').textContent = address;
-    document.getElementById('bundlr-txid').textContent = backupTxId || '(pending upload)';
-    showScreen('wallet-screen');
+    // Ask user to create new WebAuthn credential on THIS device
+    setStatus("unlock-status", "Create new biometric protection for this wallet…", "info");
+    const username = "imported-" + address.substring(0, 6);
+    const credential = await WebAuthnHelper.register(username);
 
-    setStatus('wallet-status', '✅ Keyfile imported & new encrypted backup created!', 'success');
+    const { credentialId, prfKeyHex, prfSaltHex } = credential;
 
-    await refreshBalance();
+    let aesKey;
+    let keyMode;
+
+    if (prfKeyHex) {
+      // ✅ PRF-SUPPORTED MODE
+      keyMode = 'prf';
+
+      const prfBytes = hexToBytes(prfKeyHex);
+      aesKey = await crypto.subtle.importKey(
+        "raw",
+        prfBytes,
+        "AES-GCM",
+        false,
+        ["encrypt", "decrypt"]
+      );
+
+      // Ensure we don't leave an old wrapped key around
+      localStorage.removeItem("arweave_enc_key");
+      localStorage.setItem("arweave_prf_salt", prfSaltHex);
+    } else {
+      // 🔁 FALLBACK WRAPPED MODE
+      keyMode = 'wrapped';
+
+      const rawKey = crypto.getRandomValues(new Uint8Array(32));
+      aesKey = await crypto.subtle.importKey(
+        "raw",
+        rawKey,
+        "AES-GCM",
+        false,
+        ["encrypt", "decrypt"]
+      );
+      localStorage.setItem("arweave_enc_key", bytesToHex(rawKey));
+      localStorage.removeItem("arweave_prf_salt");
+    }
+
+    // Encrypt JWK locally
+    setStatus("wallet-status", "Encrypting imported keyfile…", "info");
+    const encrypted = await CryptoHelper.encrypt(jwk, aesKey);
+
+    // Prepare tags
+    const usernameHint = username;
+    const publicEncKey = localStorage.getItem("arweave_pub_enc_key") || "none";
+
+    const tagList = [
+      { name: 'App-Name', value: 'ArweaveWallet-v1' },
+      { name: 'User-Address', value: address },
+      { name: 'User-Name', value: usernameHint },
+      { name: 'User-EncKey', value: publicEncKey },
+      { name: 'Timestamp', value: Date.now().toString() },
+      { name: 'Version', value: '1' }
+    ];
+
+    setStatus("wallet-status", "Uploading encrypted backup to Arweave…", "info");
+
+    const uploadResult = await uploadToCloudFunction(
+      { encrypted },
+      tagList
+    );
+
+    const txId = uploadResult.arweaveId;
+
+    // Persist local references
+    localStorage.setItem("arweave_credential", credentialId);
+    localStorage.setItem("arweave_address", address);
+    localStorage.setItem("arweave_bundlr_txid", txId);
+    localStorage.setItem("arweave_key_mode", keyMode);
+    localStorage.setItem("arweave_username", usernameHint);
+
+    // Update in-memory state and UI
+    currentWallet = jwk;
+    document.getElementById("wallet-address").textContent = address;
+    document.getElementById("bundlr-txid").textContent = txId;
+
+    showScreen("wallet-screen");
+    setStatus("wallet-status", "✅ Keyfile imported & protected with your device!", "success");
+
+    refreshBalance();
+
   } catch (err) {
+    setStatus("unlock-status", `❌ Error importing keyfile: ${err.message}`, "error");
     console.error(err);
-    setStatus('unlock-status', `❌ Error importing keyfile: ${err.message}`, 'error');
   }
 }
 
 async function uploadRecoveryBackup() {
+  if (!currentWallet || !arweave) {
+    setStatus("wallet-status", "❌ No wallet loaded", "error");
+    return;
+  }
+
+  const address = await arweave.wallets.jwkToAddress(currentWallet);
+  const keyMode = getCurrentKeyMode();
+
+  let aesKey;
+
   try {
-    setStatus('wallet-status', 'Encrypting wallet and backing up to Arweave...', 'info');
-    const txId = await WalletCore.uploadRecoveryBackup();
-    setStatus('wallet-status', `✅ Backup stored! TX: ${txId}`, 'success');
-    document.getElementById('bundlr-txid').textContent = txId;
+    setStatus("wallet-status", "Preparing encryption key…", "info");
+
+    if (keyMode === "prf") {
+      const storedCredential = localStorage.getItem("arweave_credential");
+      const storedPrfSaltHex = localStorage.getItem("arweave_prf_salt");
+
+      if (!storedCredential || !storedPrfSaltHex) {
+        throw new Error("Missing PRF metadata for this wallet");
+      }
+
+      const saltBytes = hexToBytes(storedPrfSaltHex);
+      const challenge = crypto.getRandomValues(new Uint8Array(32));
+      const rawId = hexToBytes(storedCredential);
+
+      setStatus("wallet-status", "Please authenticate with your device…", "info");
+
+      const assertion = await navigator.credentials.get({
+        publicKey: {
+          challenge,
+          allowCredentials: [{ id: rawId, type: "public-key" }],
+          userVerification: "required",
+          timeout: 60000,
+          extensions: {
+            prf: {
+              eval: { first: saltBytes }
+            }
+          }
+        }
+      });
+
+      const ext = assertion.getClientExtensionResults
+        ? assertion.getClientExtensionResults()
+        : null;
+
+      if (!ext || !ext.prf || !ext.prf.results || !ext.prf.results.first) {
+        throw new Error("Authenticator PRF extension not available");
+      }
+
+      const prfBytes = new Uint8Array(ext.prf.results.first);
+      aesKey = await crypto.subtle.importKey(
+        "raw",
+        prfBytes,
+        "AES-GCM",
+        false,
+        ["encrypt"]
+      );
+
+    } else {
+      const storedEncKeyHex = localStorage.getItem("arweave_enc_key");
+      if (!storedEncKeyHex) {
+        throw new Error("Missing local AES key for wrapped mode");
+      }
+
+      const rawKey = hexToBytes(storedEncKeyHex);
+      aesKey = await crypto.subtle.importKey(
+        "raw",
+        rawKey,
+        "AES-GCM",
+        false,
+        ["encrypt"]
+      );
+    }
+
+    setStatus("wallet-status", "Encrypting keyfile…", "info");
+    const encrypted = await CryptoHelper.encrypt(currentWallet, aesKey);
+
+    setStatus("wallet-status", "Uploading encrypted backup to Arweave…", "info");
+
+    const username = localStorage.getItem("arweave_username") || "";
+    const publicEncKey = localStorage.getItem("arweave_pub_enc_key") || "none";
+
+    const tagList = [
+      { name: 'App-Name', value: 'ArweaveWallet-v1' },
+      { name: 'User-Address', value: address },
+      { name: 'User-Name', value: username },
+      { name: 'User-EncKey', value: publicEncKey },
+      { name: 'Timestamp', value: Date.now().toString() },
+      { name: 'Version', value: '1' }
+    ];
+
+    const uploadResult = await uploadToCloudFunction(
+      { encrypted },
+      tagList
+    );
+
+    const txId = uploadResult.arweaveId;
+    localStorage.setItem("arweave_bundlr_txid", txId);
+
+    setStatus("wallet-status", `✅ Backup stored! TX: ${txId}`, "success");
+
   } catch (err) {
+    setStatus("wallet-status", `❌ Backup upload failed: ${err.message}`, "error");
     console.error(err);
-    setStatus('wallet-status', `❌ Backup upload failed: ${err.message}`, 'error');
   }
 }
+
 
 function lockWallet() {
   showLanding();
