@@ -65,6 +65,66 @@
     padding: 20px;
     font-family: system-ui, sans-serif;
   }
+
+ /* Enhanced animated tap overlay */
+#tapOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  text-align: center;
+  padding: 20px;
+  animation: overlayFadeIn 0.3s ease-out;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* TAP circle */
+.tap-circle {
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  color: white;
+  font-size: 24px;
+  letter-spacing: 2px;
+  font-weight: 600;
+  user-select: none;
+
+  /* pulse animation */
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%   { transform: scale(1);     box-shadow: 0 0 0px rgba(0,150,255,0.0); }
+  50%  { transform: scale(1.08);  box-shadow: 0 0 20px rgba(0,150,255,0.5); }
+  100% { transform: scale(1);     box-shadow: 0 0 0px rgba(0,150,255,0.0); }
+}
+
+.tap-text {
+  font-size: 16px;
+  opacity: 0.85;
+}
+
+.tap-sub {
+  margin-top: 6px;
+  font-size: 13px;
+  opacity: 0.6;
+}
+ 
 </style>
 </head>
 
@@ -72,13 +132,11 @@
 
 <!-- TAP TO ENABLE HAPTICS -->
 <div id="tapOverlay" onclick="enableHaptics()">
-  <div style="font-size:18px; font-weight:500; margin-bottom:10px;">
-    Scan
-  </div>
-  <div style="font-size:13px; opacity:0.7;">
-   ____
-  </div>
+  <div class="tap-circle">SCAN</div>
+  <div class="tap-text">Tap to activate scanner</div>
+  <div class="tap-sub">Camera • Sound • Vibration</div>
 </div>
+
 
 <div id="videoWrapper">
   <video id="video" autoplay playsinline></video>
@@ -115,11 +173,16 @@ let already = false;
 --------------------------------------------------------- */
 window.enableHaptics = () => {
   try { navigator.vibrate?.(20); } catch {}
-  // try { beepAudio.play().catch(()=>{}); } catch {}
 
   const overlay = document.getElementById("tapOverlay");
-  overlay.style.display = "none";
+
+  // Fade out animation
+  overlay.style.transition = "opacity 0.35s ease-out";
+  overlay.style.opacity = "0";
+
+  setTimeout(() => overlay.style.display = "none", 350);
 };
+
 
 /* ---------------------------------------------------------
    Init scanner
