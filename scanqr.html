@@ -73,7 +73,7 @@
 <!-- TAP TO ENABLE HAPTICS -->
 <div id="tapOverlay" onclick="enableHaptics()">
   <div style="font-size:18px; font-weight:500; margin-bottom:10px;">
-    Tap to enable sound & vibration
+    Scan
   </div>
   <div style="font-size:13px; opacity:0.7;">
     Required by your browser before scanning
@@ -115,7 +115,7 @@ let already = false;
 --------------------------------------------------------- */
 window.enableHaptics = () => {
   try { navigator.vibrate?.(20); } catch {}
-  try { beepAudio.play().catch(()=>{}); } catch {}
+  // try { beepAudio.play().catch(()=>{}); } catch {}
 
   const overlay = document.getElementById("tapOverlay");
   overlay.style.display = "none";
