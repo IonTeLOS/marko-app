@@ -8,41 +8,23 @@
 <style>
   body {
     margin: 0;
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family: system-ui, sans-serif;
     background: #000;
     color: #fff;
     overflow: hidden;
+    height: 100vh;
     display: flex;
     flex-direction: column;
-    height: 100vh;
   }
-
-  #video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    background: #000;
-  }
-
-  .scan-frame {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 260px;
-    height: 260px;
+  #videoWrapper { position: relative; flex: 1; }
+  #video { width: 100%; height: 100%; object-fit: cover; }
+  .frame {
+    position: absolute; top: 50%; left: 50%;
+    width: 260px; height: 260px;
     transform: translate(-50%, -50%);
-    border: 4px solid rgba(255,255,255,0.5);
-    border-radius: 12px;
-    pointer-events: none;
+    border: 4px solid rgba(255,255,255,0.6);
+    border-radius: 15px;
   }
-
-  #status {
-    padding: 12px;
-    text-align: center;
-    background: rgba(0,0,0,0.6);
-    font-size: 14px;
-  }
-
   #controls {
     padding: 8px;
     background: rgba(0,0,0,0.6);
@@ -50,33 +32,30 @@
     gap: 10px;
     justify-content: center;
   }
-
   button {
-    background: #2a7cff;
-    border: none;
-    padding: 10px 16px;
-    border-radius: 8px;
-    color: #fff;
-    font-size: 14px;
+    padding: 10px 14px;
+    background: #2a7cff; border: none; color: #fff;
+    border-radius: 8px; font-size: 14px;
   }
-
-  button.secondary {
-    background: #333;
+  button.secondary { background: #444; }
+  #status {
+    padding: 10px; text-align: center; background: rgba(0,0,0,0.5);
+    font-size: 14px;
   }
 </style>
 </head>
 
 <body>
 
-<div style="position:relative; flex:1;">
-  <video id="video" autoplay playsinline muted></video>
-  <div class="scan-frame"></div>
+<div id="videoWrapper">
+  <video id="video" autoplay playsinline></video>
+  <div class="frame"></div>
 </div>
 
 <div id="status">Loading scanner…</div>
 
 <div id="controls">
-  <button onclick="toggleCamera()">Switch Camera</button>
+  <button onclick="switchCamera()">Switch Camera</button>
   <button class="secondary" onclick="toggleFlash()" id="flashBtn">Flashlight</button>
 </div>
 
@@ -85,80 +64,125 @@ import QrScanner from "https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.
 
 const WALLET_URL = window.location.origin + "/w1.html";
 
-let currentCam = null;
-let cameras = [];
 let scanner = null;
-let alreadyScanned = false;
+let cameras = [];
+let currentIndex = 0;
 let torchOn = false;
+let already = false;
 
-async function startScanner() {
-  document.getElementById("status").textContent = "Starting camera…";
+async function init() {
+  document.getElementById("status").textContent = "Initializing camera…";
 
   cameras = await QrScanner.listCameras(true);
+
+  // If no cameras → error
   if (!cameras.length) {
-    document.getElementById("status").textContent = "No camera found";
+    document.getElementById("status").textContent = "No cameras found.";
     return;
   }
 
-  currentCam = cameras[0].id;
-
-  scanner = new QrScanner(
-    document.getElementById("video"),
-    result => handleQR(result),
-    { preferredCamera: currentCam }
-  );
-
-  await scanner.start();
-  document.getElementById("status").textContent = "Scanning…";
+  await startCameraWithPriority();
 }
 
-function handleQR(text) {
-  if (alreadyScanned) return;
-  alreadyScanned = true;
+async function startCameraWithPriority() {
+  const video = document.getElementById("video");
+  const status = document.getElementById("status");
+
+  if (scanner) scanner.stop();
+
+  // Try 1: exact environment
+  try {
+    scanner = new QrScanner(
+      video,
+      r => onScan(r),
+      {
+        preferredCamera: "environment",
+        returnDetailedScanResult: true,
+      }
+    );
+    await scanner.start();
+    status.textContent = "Scanning (environment camera)…";
+    return;
+  } catch {}
+
+  // Try 2: ideal environment
+  try {
+    scanner = new QrScanner(
+      video,
+      r => onScan(r),
+      {
+        facingMode: { ideal: "environment" },
+        returnDetailedScanResult: true,
+      }
+    );
+    await scanner.start();
+    status.textContent = "Scanning (rear camera preferred)…";
+    return;
+  } catch {}
+
+  // Try 3: fallback: camera by deviceId
+  try {
+    currentIndex = 0;
+    scanner = new QrScanner(
+      video,
+      r => onScan(r),
+      { deviceId: cameras[0].id, returnDetailedScanResult: true }
+    );
+    await scanner.start();
+    status.textContent = "Scanning…";
+  } catch (err) {
+    status.textContent = "Failed to start camera: " + err.message;
+  }
+}
+
+function onScan(result) {
+  if (!result || already) return;
+  already = true;
+
   document.getElementById("status").textContent = "QR detected…";
 
-  console.log("QR:", text);
+  const text = result.data;
 
   if (text.startsWith("ar://")) {
     openWallet(text);
   } else if (text.includes("?link=ar://")) {
     window.location.href = text;
   } else {
-    document.getElementById("status").textContent = "Not a valid payment QR";
-    alreadyScanned = false;
+    document.getElementById("status").textContent = "Invalid payment QR.";
+    already = false;
   }
 }
 
 function openWallet(arUri) {
-  const url = WALLET_URL + "?link=" + encodeURIComponent(arUri);
+  const final = WALLET_URL + "?link=" + encodeURIComponent(arUri);
   document.getElementById("status").textContent = "Opening wallet…";
-  setTimeout(() => window.location.href = url, 300);
+  setTimeout(() => window.location.href = final, 350);
 }
 
-async function toggleCamera() {
-  if (!cameras.length) return;
-  alreadyScanned = false;
+async function switchCamera() {
+  if (!cameras.length || !scanner) return;
+  already = false;
 
-  const idx = cameras.findIndex(cam => cam.id === currentCam);
-  const next = cameras[(idx + 1) % cameras.length];
+  currentIndex = (currentIndex + 1) % cameras.length;
 
-  currentCam = next.id;
-  await scanner.setCamera(next.id);
-
+  await scanner.setCamera(cameras[currentIndex].id);
   document.getElementById("status").textContent = "Scanning…";
 }
 
 async function toggleFlash() {
+  if (!scanner) return;
+
   const hasFlash = await scanner.hasFlash();
   if (!hasFlash) {
-    alert("Flashlight not supported");
+    alert("Flash not supported");
     return;
   }
-  torchOn = !torchOn;
+
   scanner.toggleFlash();
+  torchOn = !torchOn;
 }
 
-startScanner();
+init();
 </script>
 
 </body>
