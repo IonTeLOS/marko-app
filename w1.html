@@ -1560,6 +1560,11 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+window.requestPayment = (uri) => {
+    pendingPaymentRequest = parseArPaymentUri(uri);
+    showUnlockScreen();
+};
+
 // Expose for HTML
 window.showCreateScreen = showCreateScreen;
 window.showUnlockScreen = showUnlockScreen;
