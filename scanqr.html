@@ -176,16 +176,37 @@ window.enableHaptics = async () => {
 
   const overlay = document.getElementById("tapOverlay");
 
+  let tempStream = null;
+
   try {
-    // 🔥 MUST BE CALLED HERE — inside the tap gesture!
-    await navigator.mediaDevices.getUserMedia({
+    // 🔥 REQUIRED FOR BOTH SAFARI + iOS CHROME
+    tempStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: "environment" }
     });
+
+    // 🔥 REQUIRED ONLY FOR iOS CHROME → activate <video> element
+    const vid = document.getElementById("video");
+    vid.srcObject = tempStream;
+    await vid.play().catch(()=>{});
+    
+    // Give Chrome a tiny moment to “unlock” camera
+    await new Promise(r => setTimeout(r, 80));
+
+    // Stop temporary camera stream BEFORE QrScanner takes over
+    tempStream.getTracks().forEach(t => t.stop());
+
   } catch (err) {
     alert("Camera permission is required to scan QR codes.");
     console.error("Permission error:", err);
     return;
   }
+
+  // Smooth fade out once permission is granted
+  overlay.style.transition = "opacity 0.35s ease-out";
+  overlay.style.opacity = "0";
+  setTimeout(() => overlay.style.display = "none", 350);
+};
+
 
   // Smooth fade-out
   overlay.style.transition = "opacity 0.35s ease";
