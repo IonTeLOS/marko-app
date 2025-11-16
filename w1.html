@@ -280,6 +280,9 @@ try {
   console.error('Failed to init Arweave:', e);
 }
 
+// Pending payment request parsed from URL (ar:// or query params)
+let pendingPaymentRequest = null;
+  
 // ---------------------------------------------------------------------------
 //  STORAGE ABSTRACTION (localforage -> localStorage)
 // ---------------------------------------------------------------------------
@@ -321,6 +324,85 @@ function hexToBytes(hex) {
   return bytes;
 }
 
+function parseArPaymentUri(uri) {
+  // Expected: ar://ADDRESS?amount=...&message=...&token=AR&...
+  const m = uri.match(/^ar:\/\/([^?]+)(\?(.*))?$/i);
+  if (!m) return null;
+
+  const address = m[1];
+  const qs = m[3] || '';
+  const params = new URLSearchParams(qs);
+
+  const amount = params.get('amount') || '';
+  const message = params.get('message') || '';
+  const token = params.get('token') || '';
+
+  // We only support AR right now; ignore other tokens
+  if (token && token.toUpperCase() !== 'AR') {
+    return {
+      chain: 'arweave',
+      address,
+      amount,
+      message,
+      unsupportedToken: token
+    };
+  }
+
+  return {
+    chain: 'arweave',
+    address,
+    amount,
+    message
+  };
+}
+
+function parsePaymentRequestFromUrl() {
+  const url = new URL(window.location.href);
+  const params = url.searchParams;
+
+  // Highest priority: deep link parameter like ?link=ar://...
+  const link = params.get('link');
+
+  if (link) {
+    if (link.toLowerCase().startsWith('ar://')) {
+      const parsed = parseArPaymentUri(link);
+      if (parsed) {
+        pendingPaymentRequest = parsed;
+      }
+    } else if (link.toLowerCase().startsWith('ethereum:')) {
+      // EVM payment requests: show info but we don't support them yet
+      pendingPaymentRequest = { chain: 'evm', raw: link, unsupported: true };
+      console.warn('EVM payments not yet supported in this wallet. Link:', link);
+    }
+  } else {
+    // Fallback: plain query params like ?chain=arweave&address=...&amount=...
+    const chain = (params.get('chain') || '').toLowerCase();
+    const address = params.get('address');
+    const amount = params.get('amount') || '';
+    const message = params.get('message') || '';
+
+    if (chain === 'arweave' && address) {
+      pendingPaymentRequest = {
+        chain: 'arweave',
+        address,
+        amount,
+        message
+      };
+    }
+  }
+
+  // If we got an unsupported EVM request, just show a message on unlock/create
+  if (pendingPaymentRequest && pendingPaymentRequest.unsupported) {
+    const msg = 'Received EVM payment request, but this wallet currently only supports Arweave payments.';
+    console.warn(msg);
+    // If we're already on unlock screen, show it there; otherwise it will show later
+    const unlockStatus = document.getElementById('unlock-status');
+    if (unlockStatus) {
+      unlockStatus.innerHTML = `<div class="status status-info">${msg}</div>`;
+    }
+  }
+}
+
 // Netlify function wrapper
 async function uploadToCloudFunction(data, tagsInput) {
   let extraTags = {};
@@ -343,6 +425,45 @@ async function uploadToCloudFunction(data, tagsInput) {
     throw new Error(result.message || `Cloud function error: ${response.status}`);
   }
   return result;
+}
+
+async function applyPendingPaymentRequestIfAny() {
+  if (!pendingPaymentRequest) return;
+
+  // Only handle Arweave for now
+  if (pendingPaymentRequest.chain !== 'arweave') {
+    pendingPaymentRequest = null;
+    return;
+  }
+
+  const { address, amount, message, unsupportedToken } = pendingPaymentRequest;
+  pendingPaymentRequest = null;
+
+  // Ensure wallet screen + Send tab visible
+  showScreen('wallet-screen');
+  showTab('send');
+
+  if (address) {
+    const addrInput = document.getElementById('send-address');
+    if (addrInput) addrInput.value = address;
+  }
+
+  if (amount) {
+    const amtInput = document.getElementById('send-amount');
+    if (amtInput) amtInput.value = amount;
+  }
+
+  let statusMsg = 'Payment request loaded. Please review and confirm.';
+
+  if (message) {
+    statusMsg += `<br>Message: ${message}`;
+  }
+
+  if (unsupportedToken) {
+    statusMsg += `<br><strong>Warning:</strong> Token "${unsupportedToken}" is not supported; treating this as AR.`;
+  }
+
+  setStatus('wallet-status', statusMsg, 'info');
 }
 
 // ---------------------------------------------------------------------------
@@ -917,7 +1038,8 @@ const WalletCore = (function() {
     loadDataUploadsHistory,
     getCurrentWallet,
     getAddress,
-    setWallet
+    setWallet,
+    confirmBiometricForPayment    // <-- NEW EXPORT
   };
 })();
 
@@ -991,6 +1113,7 @@ async function createWallet() {
     setStatus('wallet-status', '✅ Wallet created and secured on this device!', 'success');
 
     await refreshBalance();
+    await applyPendingPaymentRequestIfAny();   // NEW
   } catch (error) {
     console.error(error);
     setStatus('create-status', `❌ Error: ${error.message}`, 'error');
@@ -1016,6 +1139,7 @@ async function unlockWallet() {
     setStatus('wallet-status', '✅ Wallet unlocked successfully!', 'success');
 
     await refreshBalance();
+    await applyPendingPaymentRequestIfAny();   // NEW
   } catch (error) {
     console.error(error);
     setStatus('unlock-status', `❌ Error: ${error.message}`, 'error');
@@ -1046,19 +1170,27 @@ async function sendTransaction() {
     return;
   }
 
-  setStatus('wallet-status', 'Creating transaction...', 'info');
+  setStatus('wallet-status', 'Confirm this payment on your device…', 'info');
 
   try {
+    // NEW: biometric confirmation on each payment
+    await WalletCore.confirmBiometricForPayment();
+
+    setStatus('wallet-status', 'Creating transaction...', 'info');
+
     const txId = await WalletCore.sendArTransaction(toAddress, amount);
     setStatus('wallet-status', `✅ Transaction sent! TX ID: ${txId.substring(0, 20)}...`, 'success');
+
     document.getElementById('send-address').value = '';
     document.getElementById('send-amount').value = '';
+
     setTimeout(refreshBalance, 2000);
   } catch (error) {
     console.error(error);
     setStatus('wallet-status', `❌ Error: ${error.message}`, 'error');
   }
 }
+
 
 // ---------------------------------------------------------------------------
 //  UI: UPLOAD DATA
@@ -1359,6 +1491,15 @@ async function recoverByKeyfile() {
   }
 }
 
+async function confirmBiometricForPayment() {
+    const credentialId = await WalletStorage.get(STORAGE_KEYS.credentialId);
+    if (!credentialId) {
+      throw new Error('No WebAuthn credential bound to wallet on this device.');
+    }
+    // Ask user to confirm via WebAuthn before sending
+    await WebAuthnHelper.authenticate(credentialId);
+  }
+
 // ---------------------------------------------------------------------------
 //  RE-UPLOAD BACKUP
 // ---------------------------------------------------------------------------
@@ -1407,6 +1548,16 @@ window.addEventListener('DOMContentLoaded', () => {
   if (!window.PublicKeyCredential || !navigator.credentials) {
     alert('❌ WebAuthn not supported in this browser. Please use a modern browser with biometric authentication support.');
   }
+
+  // Detect incoming payment request from URL (ar:// or query params)
+  parsePaymentRequestFromUrl();
+
+  // If there is a pending AR payment and user is not logged in,
+  // you can optionally auto-open the unlock screen:
+  if (pendingPaymentRequest && pendingPaymentRequest.chain === 'arweave') {
+    showUnlockScreen();
+    setStatus('unlock-status', 'Payment request detected. Please unlock your wallet to continue.', 'info');
+  }
 });
 
 // Expose for HTML
@@ -1417,6 +1568,8 @@ window.createWallet = createWallet;
 window.unlockWallet = unlockWallet;
 window.recoverWallet = recoverWallet;
 window.sendTransaction = sendTransaction;
+window.parsePaymentRequestFromUrl = parsePaymentRequestFromUrl;
+window.applyPendingPaymentRequestIfAny = applyPendingPaymentRequestIfAny;
 window.uploadData = uploadData;
 window.loadHistory = loadHistory;
 window.exportKey = exportKey;
