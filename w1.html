@@ -866,21 +866,31 @@ const CryptoHelper = {
 
 // User encryption keypair (for future encrypted messaging, etc.)
 async function generateUserEncryptionKey() {
+  // Generate ECDH keypair using P-256 (browser compatible)
   const keyPair = await crypto.subtle.generateKey(
-    { name: 'ECDH', namedCurve: 'X25519' },
+    {
+      name: "ECDH",
+      namedCurve: "P-256"        // Supported in Chrome / Firefox / Safari
+    },
     true,
-    ['deriveBits']
+    ["deriveBits"]
   );
 
-  const jwkPriv = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
-  await WalletStorage.set('encPrivKeyJwk', JSON.stringify(jwkPriv));
+  // Store private key locally for future decryptions
+  const jwkPriv = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
+  await WalletStorage.set("encPrivKeyJwk", JSON.stringify(jwkPriv));
 
-  const rawPub = await crypto.subtle.exportKey('raw', keyPair.publicKey);
+  // Export compact public key (raw)
+  const rawPub = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+
+  // Convert to base64 string for tag
   const pubB64 = btoa(String.fromCharCode(...new Uint8Array(rawPub)));
-  await WalletStorage.set('encPubKey', pubB64);
+
+  await WalletStorage.set("encPubKey", pubB64);
 
   return pubB64;
 }
+
 
 // ---------------------------------------------------------------------------
 //  WALLET CORE (ENGINE) – CHAIN-AGNOSTIC NAMING
