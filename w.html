@@ -583,15 +583,26 @@ window.TEST_FLAG = true;
 
   // Cloud Function Integration
 // Cloud Function Integration
-async function uploadToCloudFunction(data, tagsObject) {
-  // tagsObject should already be a plain object: { App: "...", Address: "...", ... }
+async function uploadToCloudFunction(data, tagsInput) {
+  let extraTags = {};
+
+  if (Array.isArray(tagsInput)) {
+    // Convert [{name, value}] → { name: value, ... }
+    tagsInput.forEach(t => {
+      if (t && t.name && t.value != null) {
+        extraTags[t.name] = String(t.value);
+      }
+    });
+  } else if (tagsInput && typeof tagsInput === 'object') {
+    // Already an object { key: value }
+    extraTags = { ...tagsInput };
+  }
 
   const body = {
-    // we send the encrypted blob as JSON string
     content: JSON.stringify(data),
     isBase64: false,
-    encrypt: false,          // already encrypted in the browser
-    extraTags: tagsObject    // this becomes Arweave tags on the server
+    encrypt: false,      // already encrypted in the browser
+    extraTags            // this becomes Arweave tags on the server
   };
 
   const response = await fetch(CLOUD_FUNCTION_URL, {
@@ -611,9 +622,9 @@ async function uploadToCloudFunction(data, tagsObject) {
     throw new Error(result.message || `Cloud function error: ${response.status}`);
   }
 
-  // Netlify returns: { success, arweaveId, url, ... }
   return result;
 }
+
 
 
   // Simulated Bundlr storage (fallback for demo)
@@ -1573,6 +1584,10 @@ async function uploadRecoveryBackup() {
 
     // Public encryption key if present
     const publicEncKey = localStorage.getItem("arweave_pub_enc_key") || "none";
+
+    localStorage.setItem("arweave_pub_enc_key", publicEncKey);
+    localStorage.setItem("arweave_username", username);
+
 
     const tagList = [
       { name: 'App-Name', value: 'ArweaveWallet-v1' },
