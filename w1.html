@@ -619,6 +619,16 @@ const WalletCore = (function() {
     return pub;
   }
 
+  async function confirmBiometricForPayment() {
+    const credentialId = await WalletStorage.get(STORAGE_KEYS.credentialId);
+    if (!credentialId) {
+      throw new Error('No WebAuthn credential found. Wallet not initialized properly.');
+    }
+
+    // Trigger biometric (assertion)
+    await WebAuthnHelper.authenticate(credentialId);
+  }
+
   // -------------------------------------------------------------------------
   //  CREATE WALLET (PRF-FIRST, WITH META IN BACKUP)
   // -------------------------------------------------------------------------
@@ -1490,15 +1500,6 @@ async function recoverByKeyfile() {
     console.error(err);
   }
 }
-
-async function confirmBiometricForPayment() {
-    const credentialId = await WalletStorage.get(STORAGE_KEYS.credentialId);
-    if (!credentialId) {
-      throw new Error('No WebAuthn credential bound to wallet on this device.');
-    }
-    // Ask user to confirm via WebAuthn before sending
-    await WebAuthnHelper.authenticate(credentialId);
-  }
 
 // ---------------------------------------------------------------------------
 //  RE-UPLOAD BACKUP
