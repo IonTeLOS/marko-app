@@ -1560,10 +1560,45 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-window.requestPayment = (uri) => {
-    pendingPaymentRequest = parseArPaymentUri(uri);
-    showUnlockScreen();
+// Accept a payment request URI programmatically
+window.requestPayment = function (uri) {
+  try {
+    // 1. Parse the incoming URI
+    if (typeof uri !== "string") throw new Error("URI must be a string.");
+
+    // Only Arweave supported for now
+    if (uri.toLowerCase().startsWith("ar://")) {
+      const parsed = parseArPaymentUri(uri);
+      if (!parsed) throw new Error("Invalid AR payment URI");
+      pendingPaymentRequest = parsed;
+    } else if (uri.toLowerCase().startsWith("ethereum:")) {
+      pendingPaymentRequest = { unsupported: true, raw: uri };
+    } else {
+      throw new Error("Unsupported payment URI format");
+    }
+
+    // 2. If wallet is locked → show unlock screen
+    const walletLoaded = WalletCore.getCurrentWallet() ? true : false;
+
+    if (!walletLoaded) {
+      showUnlockScreen();
+      setStatus(
+        "unlock-status",
+        "Payment request detected. Please unlock your wallet.",
+        "info"
+      );
+    } else {
+      // Already logged in → apply instantly
+      applyPendingPaymentRequestIfAny();
+    }
+
+    return true; // Success signal
+  } catch (err) {
+    console.error("requestPayment error:", err);
+    return false; // Failure signal
+  }
 };
+
 
 // Expose for HTML
 window.showCreateScreen = showCreateScreen;
