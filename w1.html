@@ -135,6 +135,23 @@
     .tx-item { background: #f8f9fa; border-radius: 8px; padding: 12px; margin-bottom: 10px; font-size: 13px; }
     .tx-item-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 600; }
     .tx-item-id { font-family: 'Courier New', monospace; font-size: 11px; color: #6c757d; word-break: break-all; }
+
+#fabScan {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #667eea;
+  color: #fff;
+  border: none;
+  font-size: 24px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+#fabScan:active { opacity: 0.8; }
+</style>
+
   </style>
 </head>
 <body>
@@ -260,6 +277,8 @@
       <div id="wallet-status"></div>
     </div>
   </div>
+  
+  <button id="fabScan" onclick="openScanner()">📷</button>
 
 <script>
 console.log("SCRIPT LOADED");
@@ -1624,6 +1643,12 @@ window.requestPayment = function (uri) {
   }
 };
 
+function openScanner() {
+  // Same domain – scanner returns with ?link=...
+  window.location.href = "scanqr.html";
+}
+
+window.openScanner = openScanner;
 
 // Expose for HTML
 window.showCreateScreen = showCreateScreen;
