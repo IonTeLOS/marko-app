@@ -207,7 +207,7 @@ window.enableHaptics = async () => {
       video.srcObject = permissionStream;
       await video.play();
       // Give it more time to stabilize
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 50));
     } else {
       // Safari and Android: stop the permission stream
       permissionStream.getTracks().forEach(t => t.stop());
