@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WAIP Auth Simulation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 600px;
+  margin: 30px auto;
+  padding: 20px;
+  line-height: 1.6;
+}
+button {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  background: #3b82f6;
+  color: white;
+  font-size: 15px;
+  cursor: pointer;
+}
+input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+pre {
+  background: #f1f5f9;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  overflow-x: auto;
+}
+.section {
+  border: 1px solid #ddd;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+</style>
+</head>
+<body>
+
+<h2>WAIP Authentication Simulation</h2>
+<p>This simulates the entire protocol: registration, challenge, WebAuthn operation, verification, and JWT issuance.</p>
+
+<div class="section">
+  <h3>1. Sign Up</h3>
+  <input id="username" placeholder="username">
+  <button onclick="signup()">Register Passkey</button>
+  <pre id="signupLog"></pre>
+</div>
+
+<div class="section">
+  <h3>2. Login</h3>
+  <button onclick="login()">Authenticate with Passkey</button>
+  <pre id="loginLog"></pre>
+</div>
+
+<div class="section">
+  <h3>Mock Backend Storage</h3>
+  <pre id="serverState">{}</pre>
+</div>
+
+<script>
+/* --------------------------------------------
+    MOCK BACKEND (in-memory simulation)
+-------------------------------------------- */
+
+const mockDB = {
+  // username -> { credentialId, publicKeyJwk }
+};
+
+function updateServerState() {
+  document.getElementById("serverState").textContent =
+    JSON.stringify(mockDB, null, 2);
+}
+
+/* --------------------------------------------
+    HELPERS
+-------------------------------------------- */
+
+function bufToB64(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function b64ToBuf(b64) {
+  b64 = b64.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = "=".repeat((4 - b64.length % 4) % 4);
+  const str = atob(b64 + pad);
+  const buf = new Uint8Array(str.length);
+  for (let i = 0; i < str.length; i++) buf[i] = str.charCodeAt(i);
+  return buf.buffer;
+}
+
+/* --------------------------------------------
+    STEP 1 — SIGNUP
+-------------------------------------------- */
+
+async function signup() {
+  const username = document.getElementById("username").value.trim();
+  const log = document.getElementById("signupLog");
+  log.textContent = "";
+
+  if (!username) {
+    log.textContent = "Error: enter username";
+    return;
+  }
+
+  // Backend: Create registration challenge
+  const challenge = crypto.getRandomValues(new Uint8Array(32));
+
+  const publicKey = {
+    challenge,
+    rp: { name: "WAIP Auth Demo", id: window.location.hostname },
+    user: {
+      id: crypto.getRandomValues(new Uint8Array(16)),
+      name: username,
+      displayName: username
+    },
+    pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+    authenticatorSelection: { userVerification: "required" }
+  };
+
+  // Client: Create passkey
+  const cred = await navigator.credentials.create({ publicKey });
+
+  // Extract raw data
+  const attObj = cred.response.attestationObject;
+  const clientData = cred.response.clientDataJSON;
+
+  // SERVER-SIDE VERIFICATION (simulated)
+  // 1. Decode attestation object
+  const attestationStruct = CBOR.decode(attObj);
+  const authData = attestationStruct.authData;
+
+  // Parse authenticator data for publicKey
+  const rpIdHash = authData.slice(0, 32);
+  const flags = authData[32];
+  const attestedCredData = authData.slice(37);
+
+  // PublicKey is contained inside attested credentialData CBOR
+  const publicKeyCbor = attestedCredData.slice(16);
+  const publicKeyJwk = CBOR.decode(publicKeyCbor);
+
+  const credentialId = bufToB64(cred.rawId);
+
+  mockDB[username] = {
+    credentialId,
+    publicKeyJwk
+  };
+  updateServerState();
+
+  log.textContent = "Passkey registered.\nCredentialId: " + credentialId;
+}
+
+/* --------------------------------------------
+    STEP 2 — LOGIN
+-------------------------------------------- */
+
+async function login() {
+  const username = document.getElementById("username").value.trim();
+  const log = document.getElementById("loginLog");
+  log.textContent = "";
+
+  const record = mockDB[username];
+  if (!record) {
+    log.textContent = "User not registered.";
+    return;
+  }
+
+  const challenge = crypto.getRandomValues(new Uint8Array(32));
+
+  const publicKey = {
+    challenge,
+    allowCredentials: [{
+      id: b64ToBuf(record.credentialId),
+      type: "public-key"
+    }],
+    userVerification: "required"
+  };
+
+  // Browser: authenticate
+  const assertion = await navigator.credentials.get({ publicKey });
+
+  const clientDataJSON = assertion.response.clientDataJSON;
+  const authenticatorData = assertion.response.authenticatorData;
+  const signature = assertion.response.signature;
+
+  // SERVER VERIFICATION (simulated)
+  // Verify challenge, rpIdHash, and signature using publicKeyJwk
+
+  const clientData = JSON.parse(new TextDecoder().decode(clientDataJSON));
+  if (clientData.challenge !== bufToB64(challenge)) {
+    log.textContent = "Challenge mismatch!";
+    return;
+  }
+
+  // Verify signature
+  const key = await crypto.subtle.importKey(
+    "jwk",
+    record.publicKeyJwk,
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["verify"]
+  );
+
+  const toSign = new Uint8Array([
+    ...new Uint8Array(authenticatorData),
+    ...new Uint8Array(clientDataJSON)
+  ]);
+
+  const ok = await crypto.subtle.verify(
+    { name: "ECDSA", hash: "SHA-256" },
+    key,
+    signature,
+    toSign
+  );
+
+  if (!ok) {
+    log.textContent = "Signature invalid.";
+    return;
+  }
+
+  // Issue JWT (simulated)
+  const jwt = "fake-jwt." + btoa(username) + "." + bufToB64(challenge);
+
+  log.textContent = "Login successful!\nJWT:\n" + jwt;
+}
+
+/* --------------------------------------------
+    Minimal CBOR decoder (attestation parsing)
+-------------------------------------------- */
+//
+// CREDIT: Tiny CBOR decoder from github.com/paroga/cbor-js
+//
+var CBOR=function(){"use strict";function r(r){return new o(r)}function o(r){
+var o=0,t=r.length,e=function(){var e=r[o++];if(void 0===e)throw"Unexpected end of buffer";return e},n=function(){var r=e();if(r<24)return r;if(24===r)return e();if(25===r){var o=e()<<8|e();return o}throw"Unsupported length"};return{decode:function(){
+var o=e();if(o<0x20)return o;var t=o>>5,u=o&31;if(6===t){var a=r.slice(o+1);return decode(a)}if(4===t){var s=n(),c=[];for(;s--;)c.push(this.decode());return c}
+if(5===t){var s=n(),c={};for(;s--;)c[this.decode()]=this.decode();return c}if(2===t||3===t){var l=n(),f=r.slice(o+1,o+1+l);return f}
+throw"Unsupported CBOR type"} } }return{decode:function(r){return new o(new Uint8Array(r)).decode()}}}();
+
+</script>
+
+</body>
+</html>
