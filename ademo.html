@@ -96,6 +96,69 @@ function b64ToBuf(b64) {
   return buf.buffer;
 }
 
+/**
+ * Convert a DER-encoded ECDSA signature (WebAuthn gives this)
+ * into raw r||s format (WebCrypto expects this).
+ *
+ * Assumes P-256 → r and s are 32 bytes each after padding.
+ */
+function derToRawEcdsaSignature(derSig, keySize = 32) {
+  const bytes = new Uint8Array(derSig);
+
+  if (bytes[0] !== 0x30) {
+    throw new Error("Invalid DER signature (no SEQUENCE)");
+  }
+
+  let offset = 1;
+  let seqLen = bytes[offset++];
+
+  if (seqLen & 0x80) {
+    // Long-form length; read the next (seqLen & 0x7f) bytes
+    const numLenBytes = seqLen & 0x7f;
+    seqLen = 0;
+    for (let i = 0; i < numLenBytes; i++) {
+      seqLen = (seqLen << 8) | bytes[offset++];
+    }
+  }
+
+  if (bytes[offset++] !== 0x02) {
+    throw new Error("Invalid DER signature (no INTEGER for r)");
+  }
+
+  let rLen = bytes[offset++];
+  let r = bytes.slice(offset, offset + rLen);
+  offset += rLen;
+
+  if (bytes[offset++] !== 0x02) {
+    throw new Error("Invalid DER signature (no INTEGER for s)");
+  }
+
+  let sLen = bytes[offset++];
+  let s = bytes.slice(offset, offset + sLen);
+
+  // Strip leading zeros (if any), then left-pad to keySize
+  function padTo(b, size) {
+    // Strip leading 0x00
+    while (b.length > 1 && b[0] === 0x00) {
+      b = b.subarray(1);
+    }
+    if (b.length > size) {
+      throw new Error("Invalid ECDSA signature length");
+    }
+    const out = new Uint8Array(size);
+    out.set(b, size - b.length);
+    return out;
+  }
+
+  const rPadded = padTo(r, keySize);
+  const sPadded = padTo(s, keySize);
+
+  const raw = new Uint8Array(keySize * 2);
+  raw.set(rPadded, 0);
+  raw.set(sPadded, keySize);
+  return raw.buffer;
+}
+
 /* --------------------------------------------
     SIGNUP (REGISTRATION)
 -------------------------------------------- */
@@ -114,21 +177,26 @@ async function signup() {
   const challenge = crypto.getRandomValues(new Uint8Array(32));
 
   const publicKey = {
-    challenge,
+    challenge: challenge.buffer,
     rp: { name: "WAIP Auth Demo", id: window.location.hostname },
     user: {
       id: crypto.getRandomValues(new Uint8Array(16)),
       name: username,
       displayName: username
     },
-    pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+    pubKeyCredParams: [{ type: "public-key", alg: -7 }], // ES256
     authenticatorSelection: { userVerification: "required" }
   };
 
   // Browser creates passkey
   const cred = await navigator.credentials.create({ publicKey });
 
-  // Extract public key via WebAuthn built-in method (DER-encoded)
+  if (!cred) {
+    log.textContent = "Passkey creation cancelled or failed.";
+    return;
+  }
+
+  // Extract public key via WebAuthn built-in method (DER-encoded SPKI)
   const publicKeyDER = cred.response.getPublicKey();
   if (!publicKeyDER) {
     log.textContent = "Browser did not provide public key.";
@@ -171,10 +239,11 @@ async function login() {
     return;
   }
 
+  // Backend generates challenge
   const challenge = crypto.getRandomValues(new Uint8Array(32));
 
   const publicKey = {
-    challenge,
+    challenge: challenge.buffer,
     allowCredentials: [{
       id: b64ToBuf(record.credentialId),
       type: "public-key"
@@ -184,18 +253,23 @@ async function login() {
 
   const assertion = await navigator.credentials.get({ publicKey });
 
+  if (!assertion) {
+    log.textContent = "Authentication cancelled or failed.";
+    return;
+  }
+
   const clientDataJSON = assertion.response.clientDataJSON;
   const authenticatorData = assertion.response.authenticatorData;
-  const signature = assertion.response.signature;
+  const signatureDER = assertion.response.signature;
 
   // Parse client data to verify challenge
   const clientData = JSON.parse(new TextDecoder().decode(clientDataJSON));
-  if (clientData.challenge !== bufToB64(challenge)) {
+  if (clientData.challenge !== bufToB64(challenge.buffer)) {
     log.textContent = "Challenge mismatch!";
     return;
   }
 
-  // Reconstruct public key
+  // Reconstruct public key from stored JWK
   const key = await crypto.subtle.importKey(
     "jwk",
     record.publicKeyJwk,
@@ -204,27 +278,25 @@ async function login() {
     ["verify"]
   );
 
-  // Data that was signed = authenticatorData || clientDataJSON
-  // Hash clientDataJSON (WebAuthn requirement)
-const clientDataHash = await crypto.subtle.digest(
-  "SHA-256",
-  clientDataJSON
-);
+  // Data that was signed = authenticatorData || SHA256(clientDataJSON)
+  const clientDataHash = await crypto.subtle.digest("SHA-256", clientDataJSON);
 
-// Construct the signed payload = authenticatorData || clientDataHash
-const toSign = new Uint8Array([
-  ...new Uint8Array(authenticatorData),
-  ...new Uint8Array(clientDataHash)
-]);
+  const authBytes = new Uint8Array(authenticatorData);
+  const hashBytes = new Uint8Array(clientDataHash);
+  const toSign = new Uint8Array(authBytes.length + hashBytes.length);
+  toSign.set(authBytes, 0);
+  toSign.set(hashBytes, authBytes.length);
 
-// Verify signature
-const ok = await crypto.subtle.verify(
-  { name: "ECDSA", hash: "SHA-256" },
-  key,
-  signature,
-  toSign
-);
+  // Convert DER signature → raw r||s for WebCrypto
+  const rawSig = derToRawEcdsaSignature(signatureDER, 32);
 
+  // Verify signature
+  const ok = await crypto.subtle.verify(
+    { name: "ECDSA", hash: "SHA-256" },
+    key,
+    rawSig,
+    toSign
+  );
 
   if (!ok) {
     log.textContent = "Signature invalid.";
