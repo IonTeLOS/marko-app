@@ -205,17 +205,26 @@ async function login() {
   );
 
   // Data that was signed = authenticatorData || clientDataJSON
-  const toSign = new Uint8Array([
-    ...new Uint8Array(authenticatorData),
-    ...new Uint8Array(clientDataJSON)
-  ]);
+  // Hash clientDataJSON (WebAuthn requirement)
+const clientDataHash = await crypto.subtle.digest(
+  "SHA-256",
+  clientDataJSON
+);
 
-  const ok = await crypto.subtle.verify(
-    { name: "ECDSA", hash: "SHA-256" },
-    key,
-    signature,
-    toSign
-  );
+// Construct the signed payload = authenticatorData || clientDataHash
+const toSign = new Uint8Array([
+  ...new Uint8Array(authenticatorData),
+  ...new Uint8Array(clientDataHash)
+]);
+
+// Verify signature
+const ok = await crypto.subtle.verify(
+  { name: "ECDSA", hash: "SHA-256" },
+  key,
+  signature,
+  toSign
+);
+
 
   if (!ok) {
     log.textContent = "Signature invalid.";
