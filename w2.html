@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Non-Custodial Arweave Wallet</title>
+  <script src="https://unpkg.com/arweave@1.15.5/bundles/web.bundle.js"></script>
+  <script src="https://unpkg.com/localforage/dist/localforage.min.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 40px;
+      max-width: 700px;
+      width: 100%;
+    }
+    .header { text-align: center; margin-bottom: 30px; }
+    .header h1 { color: #1a202c; font-size: 28px; margin-bottom: 10px; }
+    .security-badge {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 30px;
+      font-size: 14px;
+      color: #155724;
+    }
+    .security-badge strong { display: block; margin-bottom: 5px; }
+    .btn {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary { background: #667eea; color: white; }
+    .btn-primary:hover:not(:disabled) {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    .btn-secondary { background: #6c757d; color: white; }
+    .btn-secondary:hover:not(:disabled) { background: #5a6268; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-success { background: #28a745; color: white; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .input-group { margin-bottom: 20px; }
+    .input-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #4a5568;
+      font-size: 14px;
+    }
+    .input-group input, .input-group textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+      font-family: inherit;
+    }
+    .input-group textarea { resize: vertical; min-height: 100px; }
+    .input-group input:focus, .input-group textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    .status { padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 14px; }
+    .status-info { background: #cfe2ff; border: 1px solid #b6d4fe; color: #084298; }
+    .status-success { background: #d1e7dd; border: 1px solid #badbcc; color: #0f5132; }
+    .status-error { background: #f8d7da; border: 1px solid #f5c2c7; color: #842029; }
+    .wallet-info { background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
+    .wallet-info-item { margin-bottom: 12px; }
+    .wallet-info-item:last-child { margin-bottom: 0; }
+    .wallet-info-label { font-size: 12px; color: #6c757d; margin-bottom: 4px; }
+    .wallet-info-value {
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      word-break: break-all;
+      color: #1a202c;
+      background: white;
+      padding: 8px;
+      border-radius: 4px;
+    }
+    .balance-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .balance-amount { font-size: 36px; font-weight: bold; margin: 10px 0; }
+    .balance-label { font-size: 14px; opacity: 0.9; }
+    .hidden { display: none; }
+    .recovery-section { margin-top: 30px; padding-top: 30px; border-top: 2px solid #e2e8f0; }
+    .recovery-section h3 { color: #1a202c; margin-bottom: 15px; font-size: 18px; }
+    .button-group { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; }
+    .tab {
+      padding: 12px 20px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      color: #6c757d;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.3s;
+    }
+    .tab.active { color: #667eea; border-bottom-color: #667eea; }
+    .tab:hover { color: #667eea; }
+    .tx-list { max-height: 300px; overflow-y: auto; }
+    .tx-item { background: #f8f9fa; border-radius: 8px; padding: 12px; margin-bottom: 10px; font-size: 13px; }
+    .tx-item-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 600; }
+    .tx-item-id { font-family: 'Courier New', monospace; font-size: 11px; color: #6c757d; word-break: break-all; }
+
+    #fabScan {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #667eea;
+      color: #fff;
+      border: none;
+      font-size: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    #fabScan:active { opacity: 0.8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🛡️ Non-Custodial Arweave Wallet</h1>
+    </div>
+
+    <div class="security-badge">
+      <strong>100% Non-Custodial</strong>
+      Your private key is generated in your browser, encrypted with your passkey, and stored on Arweave.
+    </div>
+
+    <div id="landing-screen">
+      <button class="btn btn-primary" onclick="showCreateScreen()">🔑 Create New Wallet</button>
+      <button class="btn btn-secondary" onclick="showUnlockScreen()">🔓 Unlock Existing Wallet</button>
+    </div>
+
+    <div id="create-screen" class="hidden">
+      <h2 style="margin-bottom: 20px; color: #1a202c;">Create Wallet</h2>
+      <div class="input-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Enter username">
+      </div>
+      <button class="btn btn-primary" onclick="createWallet()" id="create-btn">Create Wallet</button>
+      <button class="btn btn-secondary" onclick="showLanding()">Back</button>
+      <div id="create-status"></div>
+    </div>
+
+    <div id="unlock-screen" class="hidden">
+      <h2 style="margin-bottom: 20px; color: #1a202c;">Unlock Wallet</h2>
+      <p style="color: #4a5568; margin-bottom: 20px;">Authenticate with your device to decrypt and access your wallet.</p>
+      <button class="btn btn-primary" onclick="unlockWallet()" id="unlock-btn">🔓 Unlock with Biometrics</button>
+      <button class="btn btn-secondary" onclick="showLanding()">Back</button>
+
+      <div class="recovery-section">
+        <h3>Recovery Mode</h3>
+        <div class="input-group" style="margin-top:20px;">
+          <label for="keyfile-upload">Recover from Keyfile (for new devices)</label>
+          <input type="file" id="keyfile-upload" accept="application/json">
+        </div>
+        <button class="btn btn-success" onclick="recoverByKeyfile()" id="keyfile-btn">📁 Import Keyfile</button>
+
+        <div class="input-group">
+          <label for="recovery-address">Wallet Address</label>
+          <input type="text" id="recovery-address" placeholder="Enter your Arweave address">
+        </div>
+        <button class="btn btn-success" onclick="recoverWallet()" id="recovery-btn">🔍 Search for Wallet</button>
+      </div>
+
+      <button class="btn btn-primary" onclick="uploadRecoveryBackup()">🔄 Re-upload Backup to Arweave</button>
+      <div id="unlock-status"></div>
+    </div>
+
+    <div id="wallet-screen" class="hidden">
+      <h2 style="margin-bottom: 20px; color: #1a202c;">Wallet Active</h2>
+
+      <div class="balance-card">
+        <div class="balance-label">Balance</div>
+        <div class="balance-amount" id="balance-display">--</div>
+        <button class="btn" onclick="refreshBalance()" style="background: rgba(255,255,255,0.2); margin: 10px auto 0; width: auto; padding: 8px 20px;">🔄 Refresh</button>
+      </div>
+
+      <div class="wallet-info">
+        <div class="wallet-info-item">
+          <div class="wallet-info-label">Address</div>
+          <div class="wallet-info-value" id="wallet-address"></div>
+        </div>
+        <div class="wallet-info-item">
+          <div class="wallet-info-label">Backup TX ID</div>
+          <div class="wallet-info-value" id="bundlr-txid"></div>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" onclick="showTab('send')">Send</button>
+        <button class="tab" onclick="showTab('data')">Upload Data</button>
+        <button class="tab" onclick="showTab('sign')">Sign Message</button>
+        <button class="tab" onclick="showTab('history')">History</button>
+      </div>
+
+      <div id="send-tab" class="tab-content">
+        <div class="input-group">
+          <label for="send-address">Recipient Address</label>
+          <input type="text" id="send-address" placeholder="Arweave address">
+        </div>
+        <div class="input-group">
+          <label for="send-amount">Amount (AR)</label>
+          <input type="number" id="send-amount" placeholder="0.001" step="0.001" min="0">
+        </div>
+        <button class="btn btn-primary" onclick="sendTransaction()">📤 Send AR</button>
+      </div>
+
+      <div id="data-tab" class="tab-content hidden">
+        <div class="input-group">
+          <label for="data-content">Data Content</label>
+          <textarea id="data-content" placeholder="Enter data to upload to Arweave..."></textarea>
+        </div>
+        <div class="input-group">
+          <label for="content-type">Content Type</label>
+          <input type="text" id="content-type" placeholder="text/plain" value="text/plain">
+        </div>
+        <div class="input-group">
+          <label>Custom Tags (optional)</label>
+          <input type="text" id="tag-key-1" placeholder="Tag name" style="margin-bottom: 8px;">
+          <input type="text" id="tag-value-1" placeholder="Tag value">
+        </div>
+        <button class="btn btn-primary" onclick="uploadData()">📁 Upload to Arweave</button>
+      </div>
+
+      <div id="sign-tab" class="tab-content hidden">
+        <div class="input-group">
+          <label for="sign-message">Message to Sign</label>
+          <textarea id="sign-message" placeholder="Enter message to sign with your wallet..."></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="signMessage()">✍️ Sign Message</button>
+        
+        <div id="signature-result" style="display: none; margin-top: 20px;">
+          <div class="wallet-info">
+            <div class="wallet-info-item">
+              <div class="wallet-info-label">Signed Message</div>
+              <div class="wallet-info-value" id="signed-message"></div>
+            </div>
+            <div class="wallet-info-item">
+              <div class="wallet-info-label">Signature</div>
+              <div class="wallet-info-value" id="signature-value"></div>
+            </div>
+            <div class="wallet-info-item">
+              <div class="wallet-info-label">Public Key</div>
+              <div class="wallet-info-value" id="public-key-value"></div>
+            </div>
+            <div class="wallet-info-item">
+              <div class="wallet-info-label">Timestamp</div>
+              <div class="wallet-info-value" id="signature-timestamp"></div>
+            </div>
+          </div>
+          <button class="btn btn-secondary" onclick="copySignature()">📋 Copy Signature JSON</button>
+        </div>
+      </div>
+
+      <div id="history-tab" class="tab-content hidden">
+        <p style="color: #6c757d; margin-bottom: 15px; font-size: 14px;">Recent transactions from this wallet:</p>
+        <div id="tx-history" class="tx-list">
+          <div style="text-align: center; color: #6c757d; padding: 20px;">Click refresh to load transaction history</div>
+        </div>
+        <button class="btn btn-secondary" onclick="loadHistory()">🔄 Load History</button>
+      </div>
+
+      <div class="button-group" style="margin-top: 20px;">
+        <button class="btn btn-success" onclick="exportKey()">💾 Export Key</button>
+        <button class="btn btn-danger" onclick="lockWallet()">🔒 Lock Wallet</button>
+      </div>
+
+      <div id="wallet-status"></div>
+    </div>
+  </div>
+  
+  <button id="fabScan" onclick="openScanner()">📷</button>
+
+<script>
+console.log("SCRIPT LOADED");
+window.TEST_FLAG = true;
+
+// ---------------------------------------------------------------------------
+//  CONFIG & ARWEAVE INIT
+// ---------------------------------------------------------------------------
+const CLOUD_FUNCTION_URL = 'https://marko-app.netlify.app/.netlify/functions/arload';
+const WALLET_APP_NAME = 'ArweaveWallet-v1';
+
+let arweave = null;
+try {
+  if (window.Arweave) {
+    arweave = Arweave.init({ host: 'arweave.net', port: 443, protocol: 'https' });
+  }
+} catch (e) {
+  console.error('Failed to init Arweave:', e);
+}
+
+// Pending payment request parsed from URL (ar:// or query params)
+let pendingPaymentRequest = null;
+
+// Pending sign message request from URL
+let pendingSignRequest = null;
+  
+// ---------------------------------------------------------------------------
+//  STORAGE ABSTRACTION (localforage -> localStorage fallback)
+// ---------------------------------------------------------------------------
+const WalletStorage = (function() {
+  const prefix = 'biowallet:';
+  const hasLocalforage = typeof window !== 'undefined' && window.localforage;
+
+  async function get(key) {
+    const full = prefix + key;
+    return hasLocalforage ? await window.localforage.getItem(full) : localStorage.getItem(full);
+  }
+
+  async function set(key, value) {
+    const full = prefix + key;
+    hasLocalforage ? await window.localforage.setItem(full, value) : localStorage.setItem(full, value);
+  }
+
+  async function remove(key) {
+    const full = prefix + key;
+    hasLocalforage ? await window.localforage.removeItem(full) : localStorage.removeItem(full);
+  }
+
+  return { get, set, remove };
+})();
+
+// ---------------------------------------------------------------------------
+//  UTILS
+// ---------------------------------------------------------------------------
+function bytesToHex(bytes) {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function hexToBytes(hex) {
+  if (!hex || hex.length % 2 !== 0) throw new Error('Invalid hex string');
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  }
+  return bytes;
+}
+
+function parseArPaymentUri(uri) {
+  const m = uri.match(/^ar:\/\/([^?]+)(\?(.*))?$/i);
+  if (!m) return null;
+
+  const address = m[1];
+  const qs = m[3] || '';
+  const params = new URLSearchParams(qs);
+
+  const amount = params.get('amount') || '';
+  const message = params.get('message') || '';
+  const token = params.get('token') || '';
+
+  if (token && token.toUpperCase() !== 'AR') {
+    return {
+      chain: 'arweave',
+      address,
+      amount,
+      message,
+      unsupportedToken: token
+    };
+  }
+
+  return {
+    chain: 'arweave',
+    address,
+    amount,
+    message
+  };
+}
+
+function parsePaymentRequestFromUrl() {
+  const url = new URL(window.location.href);
+  const params = url.searchParams;
+
+  // Check for sign message request
+  const signMessage = params.get('signMessage') || params.get('sign');
+  if (signMessage) {
+    pendingSignRequest = {
+      message: decodeURIComponent(signMessage),
+      origin: params.get('origin') || params.get('app') || 'Unknown'
+    };
+  }
+
+  const link = params.get('link');
+
+  if (link) {
+    if (link.toLowerCase().startsWith('ar://')) {
+      const parsed = parseArPaymentUri(link);
+      if (parsed) {
+        pendingPaymentRequest = parsed;
+      }
+    } else if (link.toLowerCase().startsWith('ethereum:')) {
+      pendingPaymentRequest = { chain: 'evm', raw: link, unsupported: true };
+      console.warn('EVM payments not yet supported in this wallet. Link:', link);
+    }
+  } else {
+    const chain = (params.get('chain') || '').toLowerCase();
+    const address = params.get('address');
+    const amount = params.get('amount') || '';
+    const message = params.get('message') || '';
+
+    if (chain === 'arweave' && address) {
+      pendingPaymentRequest = {
+        chain: 'arweave',
+        address,
+        amount,
+        message
+      };
+    }
+  }
+
+  if (pendingPaymentRequest && pendingPaymentRequest.unsupported) {
+    const msg = 'Received EVM payment request, but this wallet currently only supports Arweave payments.';
+    console.warn(msg);
+    const unlockStatus = document.getElementById('unlock-status');
+    if (unlockStatus) {
+      unlockStatus.innerHTML = `<div class="status status-info">${msg}</div>`;
+    }
+  }
+}
+
+// Netlify function wrapper
+async function uploadToCloudFunction(data, tagsInput) {
+  let extraTags = {};
+  if (Array.isArray(tagsInput)) {
+    tagsInput.forEach(t => {
+      if (t && t.name && t.value != null) extraTags[t.name] = String(t.value);
+    });
+  } else if (tagsInput && typeof tagsInput === 'object') {
+    extraTags = { ...tagsInput };
+  }
+
+  const response = await fetch(CLOUD_FUNCTION_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: JSON.stringify(data), isBase64: false, encrypt: false, extraTags })
+  });
+
+  const result = await response.json();
+  if (!response.ok || !result.success) {
+    throw new Error(result.message || `Cloud function error: ${response.status}`);
+  }
+  return result;
+}
+
+async function applyPendingPaymentRequestIfAny() {
+  // Handle sign request first
+  if (pendingSignRequest) {
+    const { message, origin } = pendingSignRequest;
+    pendingSignRequest = null;
+
+    showScreen('wallet-screen');
+    showTab('sign');
+
+    const messageInput = document.getElementById('sign-message');
+    if (messageInput) {
+      messageInput.value = message;
+    }
+
+    let statusMsg = `Sign request from: ${origin}<br>Please review the message and sign.`;
+    setStatus('wallet-status', statusMsg, 'info');
+    return;
+  }
+
+  // Handle payment request
+  if (!pendingPaymentRequest) return;
+
+  if (pendingPaymentRequest.chain !== 'arweave') {
+    pendingPaymentRequest = null;
+    return;
+  }
+
+  const { address, amount, message, unsupportedToken } = pendingPaymentRequest;
+  pendingPaymentRequest = null;
+
+  showScreen('wallet-screen');
+  showTab('send');
+
+  if (address) {
+    const addrInput = document.getElementById('send-address');
+    if (addrInput) addrInput.value = address;
+  }
+
+  if (amount) {
+    const amtInput = document.getElementById('send-amount');
+    if (amtInput) amtInput.value = amount;
+  }
+
+  let statusMsg = 'Payment request loaded. Please review and confirm.';
+
+  if (message) {
+    statusMsg += `<br>Message: ${message}`;
+  }
+
+  if (unsupportedToken) {
+    statusMsg += `<br><strong>Warning:</strong> Token "${unsupportedToken}" is not supported; treating this as AR.`;
+  }
+
+  setStatus('wallet-status', statusMsg, 'info');
+}
+
+// ---------------------------------------------------------------------------
+//  WEBAUTHN HELPERS
+// ---------------------------------------------------------------------------
+const WebAuthnHelper = {
+  async register(username) {
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const prfSalt = crypto.getRandomValues(new Uint8Array(32));
+
+    const credential = await navigator.credentials.create({
+      publicKey: {
+        challenge,
+        rp: { name: 'Arweave Wallet' },
+        user: {
+          id: crypto.getRandomValues(new Uint8Array(16)),
+          name: username,
+          displayName: username
+        },
+        pubKeyCredParams: [{ alg: -7, type: 'public-key' }],
+        authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+        timeout: 60000,
+        extensions: { prf: { eval: { first: prfSalt } } }
+      }
+    });
+
+    const credentialIdHex = bytesToHex(new Uint8Array(credential.rawId));
+    let prfKeyHex = null;
+
+    if (typeof credential.getClientExtensionResults === 'function') {
+      const ext = credential.getClientExtensionResults();
+      if (ext?.prf?.results?.first) {
+        prfKeyHex = bytesToHex(new Uint8Array(ext.prf.results.first));
+      }
+    }
+
+    return { credentialId: credentialIdHex, prfKeyHex, prfSaltHex: bytesToHex(prfSalt) };
+  },
+
+  async authenticate(credentialIdHex) {
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    await navigator.credentials.get({
+      publicKey: {
+        challenge,
+        allowCredentials: [{ id: hexToBytes(credentialIdHex), type: 'public-key' }],
+        userVerification: 'required',
+        timeout: 60000
+      }
+    });
+    return true;
+  },
+
+  async evaluatePrf(credentialIdHex, saltBytes) {
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge,
+        allowCredentials: [{ id: hexToBytes(credentialIdHex), type: 'public-key' }],
+        userVerification: 'required',
+        timeout: 60000,
+        extensions: { prf: { eval: { first: saltBytes } } }
+      }
+    });
+
+    const ext = assertion.getClientExtensionResults?.();
+    if (!ext?.prf?.results?.first) {
+      throw new Error('Authenticator PRF extension not available');
+    }
+    return new Uint8Array(ext.prf.results.first);
+  }
+};
+
+// ---------------------------------------------------------------------------
+//  CRYPTO HELPERS
+// ---------------------------------------------------------------------------
+const CryptoHelper = {
+  async encrypt(data, key) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      new TextEncoder().encode(JSON.stringify(data))
+    );
+
+    return {
+      ciphertext: bytesToHex(new Uint8Array(encrypted)),
+      iv: bytesToHex(iv)
+    };
+  },
+
+  async decrypt(encryptedData, key) {
+    const ciphertext = hexToBytes(encryptedData.ciphertext);
+    const iv = hexToBytes(encryptedData.iv);
+
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+    return JSON.parse(new TextDecoder().decode(decrypted));
+  }
+};
+
+// ---------------------------------------------------------------------------
+//  PER-USER ENCRYPTION KEY (ECDH) FOR FUTURE USE
+// ---------------------------------------------------------------------------
+async function generateUserEncryptionKey() {
+  const keyPair = await crypto.subtle.generateKey(
+    { name: "ECDH", namedCurve: "P-256" },
+    true,
+    ["deriveBits"]
+  );
+
+  const jwkPriv = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
+  await WalletStorage.set("encPrivKeyJwk", JSON.stringify(jwkPriv));
+
+  const rawPub = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+  const pubB64 = btoa(String.fromCharCode(...new Uint8Array(rawPub)));
+
+  await WalletStorage.set("encPubKey", pubB64);
+  return pubB64;
+}
+
+// ---------------------------------------------------------------------------
+//  WALLET CORE
+// ---------------------------------------------------------------------------
+const WalletCore = (function() {
+  const STORAGE_KEYS = {
+    credentialId: 'credentialId',
+    address: 'address',
+    backupTxId: 'backupTxId',
+    keyMode: 'keyMode',
+    aesKeyHex: 'aesKeyHex',
+    prfSaltHex: 'prfSaltHex',
+    username: 'username',
+    encPubKey: 'encPubKey'
+  };
+
+  let walletJwk = null;
+
+  function setWallet(jwk) {
+    walletJwk = jwk;
+  }
+
+  function getCurrentWallet() {
+    return walletJwk;
+  }
+
+  async function getAddress() {
+    if (!walletJwk || !arweave) return null;
+    return await arweave.wallets.jwkToAddress(walletJwk);
+  }
+
+  async function ensureUserEncKey() {
+    let pub = await WalletStorage.get(STORAGE_KEYS.encPubKey);
+    if (!pub) pub = await generateUserEncryptionKey();
+    return pub;
+  }
+
+  async function confirmBiometricForPayment() {
+    const credentialId = await WalletStorage.get(STORAGE_KEYS.credentialId);
+    if (!credentialId) {
+      throw new Error('No WebAuthn credential found. Wallet not initialized properly.');
+    }
+    await WebAuthnHelper.authenticate(credentialId);
+  }
+
+  async function createWallet(username) {
+    if (!arweave) throw new Error('Arweave library not loaded');
+
+    const credential = await WebAuthnHelper.register(username);
+    const { credentialId, prfKeyHex, prfSaltHex } = credential;
+
+    const jwk = await arweave.wallets.generate();
+    const address = await arweave.wallets.jwkToAddress(jwk);
+
+    let aesKey;
+    let keyMode;
+
+    if (prfKeyHex) {
+      keyMode = 'prf';
+      aesKey = await crypto.subtle.importKey(
+        'raw',
+        hexToBytes(prfKeyHex),
+        'AES-GCM',
+        false,
+        ['encrypt', 'decrypt']
+      );
+    } else {
+      keyMode = 'wrapped';
+      const rawKey = crypto.getRandomValues(new Uint8Array(32));
+      aesKey = await crypto.subtle.importKey(
+        'raw',
+        rawKey,
+        'AES-GCM',
+        false,
+        ['encrypt', 'decrypt']
+      );
+      await WalletStorage.set(STORAGE_KEYS.aesKeyHex, bytesToHex(rawKey));
+    }
+
+    const encrypted = await CryptoHelper.encrypt(jwk, aesKey);
+    const publicEncKey = await ensureUserEncKey();
+
+    const meta = {
+      version: '1',
+      keyMode,
+      credentialId,
+      prfSaltHex: keyMode === 'prf' ? prfSaltHex : null,
+      username: username || '',
+      address,
+      encPubKey: publicEncKey
+    };
+
+    const backupPayload = { meta, encrypted };
+
+    const tagList = [
+      { name: 'App-Name', value: WALLET_APP_NAME },
+      { name: 'User-Address', value: address },
+      { name: 'User-Name', value: username || '' },
+      { name: 'User-EncKey', value: publicEncKey },
+      { name: 'Wallet-KeyMode', value: keyMode },
+      { name: 'Timestamp', value: Date.now().toString() },
+      { name: 'Version', value: '1' }
+    ];
+
+    const uploadResult = await uploadToCloudFunction(backupPayload, tagList);
+    const txId = uploadResult.arweaveId;
+
+    await WalletStorage.set(STORAGE_KEYS.credentialId, credentialId);
+    await WalletStorage.set(STORAGE_KEYS.address, address);
+    await WalletStorage.set(STORAGE_KEYS.backupTxId, txId);
+    await WalletStorage.set(STORAGE_KEYS.keyMode, keyMode);
+    await WalletStorage.set(STORAGE_KEYS.username, username || '');
+
+    if (keyMode === 'prf' && prfSaltHex) {
+      await WalletStorage.set(STORAGE_KEYS.prfSaltHex, prfSaltHex);
+      await WalletStorage.remove(STORAGE_KEYS.aesKeyHex);
+    }
+
+    walletJwk = jwk;
+    return { address, backupTxId: txId, keyMode };
+  }
+
+  async function unlockWallet() {
+    const credentialId = await WalletStorage.get(STORAGE_KEYS.credentialId);
+    const storedAddress = await WalletStorage.get(STORAGE_KEYS.address);
+    const backupTxId = await WalletStorage.get(STORAGE_KEYS.backupTxId);
+
+    if (!credentialId || !storedAddress || !backupTxId) {
+      throw new Error('No complete wallet data found on this device.');
+    }
+
+    const res = await fetch(`https://arweave.net/${backupTxId}`);
+    if (!res.ok) throw new Error('Failed to fetch encrypted wallet from Arweave');
+
+    const encryptedBlob = JSON.parse(await res.text());
+    if (!encryptedBlob.encrypted) throw new Error('Encrypted wallet missing expected field');
+
+    const meta = encryptedBlob.meta || {};
+
+    let keyMode = await WalletStorage.get(STORAGE_KEYS.keyMode);
+    if (!keyMode && meta.keyMode) keyMode = meta.keyMode;
+    if (!keyMode) {
+      throw new Error('Missing key mode information for this wallet');
+    }
+
+    let aesKey;
+    let prfSaltHex = await WalletStorage.get(STORAGE_KEYS.prfSaltHex);
+    if (!prfSaltHex && meta.prfSaltHex) prfSaltHex = meta.prfSaltHex;
+
+    const aesKeyHex = await WalletStorage.get(STORAGE_KEYS.aesKeyHex);
+
+    if (keyMode === 'prf') {
+      if (!prfSaltHex) throw new Error('Missing PRF salt for this wallet');
+
+      const prfBytes = await WebAuthnHelper.evaluatePrf(credentialId, hexToBytes(prfSaltHex));
+      aesKey = await crypto.subtle.importKey('raw', prfBytes, 'AES-GCM', false, ['decrypt']);
+    } else if (keyMode === 'wrapped') {
+      if (!aesKeyHex) throw new Error('Missing local AES key material');
+      await WebAuthnHelper.authenticate(credentialId);
+      aesKey = await crypto.subtle.importKey('raw', hexToBytes(aesKeyHex), 'AES-GCM', false, ['decrypt']);
+    } else {
+      throw new Error(`Unsupported key mode: ${keyMode}`);
+    }
+
+    const jwk = await CryptoHelper.decrypt(encryptedBlob.encrypted, aesKey);
+    const address = await arweave.wallets.jwkToAddress(jwk);
+
+    walletJwk = jwk;
+
+    await WalletStorage.set(STORAGE_KEYS.address, address);
+    await WalletStorage.set(STORAGE_KEYS.backupTxId, backupTxId);
+    await WalletStorage.set(STORAGE_KEYS.keyMode, keyMode);
+    if (prfSaltHex) await WalletStorage.set(STORAGE_KEYS.prfSaltHex, prfSaltHex);
+
+    return { address, backupTxId, keyMode };
+  }
+
+  async function importFromKeyfile(jwk) {
+    if (!arweave) throw new Error('Arweave not initialized');
+
+    const address = await arweave.wallets.jwkToAddress(jwk);
+    const username = 'imported-' + address.substring(0, 6);
+
+    const { credentialId, prfKeyHex, prfSaltHex } = await WebAuthnHelper.register(username);
+
+    let aesKey;
+    let keyMode;
+
+    if (prfKeyHex) {
+      keyMode = 'prf';
+      aesKey = await crypto.subtle.importKey(
+        'raw',
+        hexToBytes(prfKeyHex),
+        'AES-GCM',
+        false,
+        ['encrypt', 'decrypt']
+      );
+      await WalletStorage.set(STORAGE_KEYS.prfSaltHex, prfSaltHex);
+      await WalletStorage.remove(STORAGE_KEYS.aesKeyHex);
+    } else {
+      keyMode = 'wrapped';
+      const rawKey = crypto.getRandomValues(new Uint8Array(32));
+      aesKey = await crypto.subtle.importKey(
+        'raw',
+        rawKey,
+        'AES-GCM',
+        false,
+        ['encrypt', 'decrypt']
+      );
+      await WalletStorage.set(STORAGE_KEYS.aesKeyHex, bytesToHex(rawKey));
+      await WalletStorage.remove(STORAGE_KEYS.prfSaltHex);
+    }
+
+    const encrypted = await CryptoHelper.encrypt(jwk, aesKey);
+
+    await WalletStorage.set(STORAGE_KEYS.credentialId, credentialId);
+    await WalletStorage.set(STORAGE_KEYS.address, address);
+    await WalletStorage.set(STORAGE_KEYS.keyMode, keyMode);
+    await WalletStorage.set(STORAGE_KEYS.username, username);
+
+    await ensureUserEncKey();
+    walletJwk = jwk;
+
+    const backupTxId = await uploadRecoveryBackupInternal();
+
+    return { address, backupTxId, keyMode };
+  }
+
+  async function uploadRecoveryBackupInternal() {
+    if (!walletJwk) throw new Error('No wallet loaded');
+    if (!arweave) throw new Error('Arweave not initialized');
+
+    const address = await arweave.wallets.jwkToAddress(walletJwk);
+
+    let keyMode = await WalletStorage.get(STORAGE_KEYS.keyMode);
+    if (!keyMode) {
+      const prfSaltHex = await WalletStorage.get(STORAGE_KEYS.prfSaltHex);
+      const aesKeyHex = await WalletStorage.get(STORAGE_KEYS.aesKeyHex);
+      if (prfSaltHex) keyMode = 'prf';
+      else if (aesKeyHex) keyMode = 'wrapped';
+      else throw new Error('Missing key mode and key material for backup');
+    }
+
+    let aesKey;
+
+    if (keyMode === 'prf') {
+      const credentialId = await WalletStorage.get(STORAGE_KEYS.credentialId);
+      const prfSaltHex = await WalletStorage.get(STORAGE_KEYS.prfSaltHex);
+      if (!credentialId || !prfSaltHex) throw new Error('Missing PRF credentials for backup');
+
+      const prfBytes = await WebAuthnHelper.evaluatePrf(credentialId, hexToBytes(prfSaltHex));
+      aesKey = await crypto.subtle.importKey('raw', prfBytes, 'AES-GCM', false, ['encrypt']);
+    } else if (keyMode === 'wrapped') {
+      const aesKeyHex = await WalletStorage.get(STORAGE_KEYS.aesKeyHex);
+      if (!aesKeyHex) throw new Error('Missing local AES key.');
+      aesKey = await crypto.subtle.importKey('raw', hexToBytes(aesKeyHex), 'AES-GCM', false, ['encrypt']);
+    } else {
+      throw new Error(`Unsupported key mode: ${keyMode}`);
+    }
+
+    const encrypted = await CryptoHelper.encrypt(walletJwk, aesKey);
+    const username = (await WalletStorage.get(STORAGE_KEYS.username)) || '';
+    const publicEncKey = await ensureUserEncKey();
+    const credentialId = await WalletStorage.get(STORAGE_KEYS.credentialId);
+    const prfSaltHex = await WalletStorage.get(STORAGE_KEYS.prfSaltHex);
+
+    const meta = {
+      version: '1',
+      keyMode,
+      credentialId,
+      prfSaltHex: keyMode === 'prf' ? prfSaltHex : null,
+      username,
+      address,
+      encPubKey: publicEncKey
+    };
+
+    const backupPayload = { meta, encrypted };
+
+    const tagList = [
+      { name: 'App-Name', value: WALLET_APP_NAME },
+      { name: 'User-Address', value: address },
+      { name: 'User-Name', value: username },
+      { name: 'User-EncKey', value: publicEncKey },
+      { name: 'Wallet-KeyMode', value: keyMode },
+      { name: 'Timestamp', value: Date.now().toString() },
+      { name: 'Version', value: '1' }
+    ];
+
+    const uploadResult = await uploadToCloudFunction(backupPayload, tagList);
+    const txId = uploadResult.arweaveId;
+
+    await WalletStorage.set(STORAGE_KEYS.backupTxId, txId);
+    return txId;
+  }
+
+  async function refreshBalance() {
+    if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
+    const address = await arweave.wallets.jwkToAddress(walletJwk);
+    const winston = await arweave.wallets.getBalance(address);
+    const ar = arweave.ar.winstonToAr(winston);
+    return `${parseFloat(ar).toFixed(4)} AR`;
+  }
+
+  async function sendArTransaction(toAddress, amountAr) {
+    if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
+
+    const winstonAmount = arweave.ar.arToWinston(amountAr);
+
+    const address = await arweave.wallets.jwkToAddress(walletJwk);
+    const balanceWinston = await arweave.wallets.getBalance(address);
+    const balanceAr = parseFloat(arweave.ar.winstonToAr(balanceWinston));
+
+    const draftTx = await arweave.createTransaction({
+      target: toAddress,
+      quantity: winstonAmount
+    }, walletJwk);
+
+    const feeWinston = draftTx.reward;
+    const feeAr = parseFloat(arweave.ar.winstonToAr(feeWinston));
+
+    const totalRequiredAr = parseFloat(amountAr) + feeAr;
+
+    if (balanceAr < totalRequiredAr) {
+      throw new Error(
+        `Insufficient balance. Needed ${totalRequiredAr.toFixed(6)} AR (amount + fee), ` +
+        `but you have ${balanceAr.toFixed(6)} AR.`
+      );
+    }
+
+    await arweave.transactions.sign(draftTx, walletJwk);
+
+    const response = await arweave.transactions.post(draftTx);
+
+    if (response.status === 200 || response.status === 202) {
+      return draftTx.id;
+    } else {
+      throw new Error(`Transaction failed: ${response.status}`);
+    }
+  }
+
+  async function uploadDataItem(content, contentType, userTagKey, userTagValue) {
+    if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
+
+    const utf8Bytes = new TextEncoder().encode(content);
+    const base64Content = btoa(String.fromCharCode(...utf8Bytes));
+
+    const address = await arweave.wallets.jwkToAddress(walletJwk);
+
+    const tagObj = {
+      'Content-Type': contentType || 'text/plain',
+      'App': WALLET_APP_NAME,
+      'Wallet-Address': address,
+      'Timestamp': Date.now().toString()
+    };
+
+    if (userTagKey && userTagValue) {
+      tagObj[userTagKey] = userTagValue;
+    }
+
+    const response = await fetch(CLOUD_FUNCTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: base64Content,
+        isBase64: true,
+        encrypt: false,
+        extraTags: tagObj
+      })
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Cloud function upload failed');
+    }
+
+    return result.arweaveId;
+  }
+
+  async function loadHistory(first = 10) {
+    if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
+
+    const address = await arweave.wallets.jwkToAddress(walletJwk);
+
+    const query = `{
+      transactions(
+        owners: ["${address}"]
+        first: ${first}
+        sort: HEIGHT_DESC
+      ) {
+        edges {
+          node {
+            id
+            recipient
+            quantity { ar }
+            block { timestamp }
+            tags { name value }
+          }
+        }
+      }
+    }`;
+
+    const response = await fetch('https://arweave.net/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+
+    const result = await response.json();
+    return result.data.transactions.edges || [];
+  }
+
+  async function loadDataUploadsHistory(first = 10) {
+    if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
+
+    const address = await arweave.wallets.jwkToAddress(walletJwk);
+
+    const query = `{
+      transactions(
+        tags: [
+          { name: "App", values: ["${WALLET_APP_NAME}"] },
+          { name: "Wallet-Address", values: ["${address}"] }
+        ],
+        first: ${first},
+        sort: HEIGHT_DESC
+      ) {
+        edges {
+          node {
+            id
+            block { timestamp }
+            tags { name value }
+          }
+        }
+      }
+    }`;
+
+    const response = await fetch('https://arweave.net/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+
+    const result = await response.json();
+    return result.data.transactions.edges || [];
+  }
+
+  async function signMessage(message) {
+    if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
+
+    const messageBytes = new TextEncoder().encode(message);
+    
+    const signature = await arweave.crypto.sign(walletJwk, messageBytes);
+    
+    const signatureB64 = arweave.utils.bufferTob64Url(signature);
+    
+    const address = await arweave.wallets.jwkToAddress(walletJwk);
+    
+    return {
+      message,
+      signature: signatureB64,
+      publicKey: walletJwk.n,
+      address,
+      timestamp: Date.now()
+    };
+  }
+
+  return {
+    createWallet,
+    unlockWallet,
+    importFromKeyfile,
+    uploadRecoveryBackup: uploadRecoveryBackupInternal,
+    refreshBalance,
+    sendArTransaction,
+    uploadDataItem,
+    loadHistory,
+    loadDataUploadsHistory,
+    getCurrentWallet,
+    getAddress,
+    setWallet,
+    confirmBiometricForPayment,
+    signMessage
+  };
+})();
+
+// ---------------------------------------------------------------------------
+//  UI HELPERS
+// ---------------------------------------------------------------------------
+function showScreen(screenId) {
+  ['landing-screen', 'create-screen', 'unlock-screen', 'wallet-screen'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
+  });
+  const target = document.getElementById(screenId);
+  if (target) target.classList.remove('hidden');
+}
+
+function showLanding() { showScreen('landing-screen'); }
+function showCreateScreen() { showScreen('create-screen'); document.getElementById('create-status').innerHTML = ''; }
+function showUnlockScreen() { showScreen('unlock-screen'); document.getElementById('unlock-status').innerHTML = ''; }
+
+function showTab(tabName) {
+  document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+  
+  const allTabs = document.querySelectorAll('.tabs .tab');
+  allTabs.forEach(btn => {
+    if (btn.textContent.trim().toLowerCase().includes(tabName)) {
+      btn.classList.add('active');
+    }
+  });
+
+  ['send-tab', 'data-tab', 'sign-tab', 'history-tab'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
+  });
+
+  const target = document.getElementById(`${tabName}-tab`);
+  if (target) target.classList.remove('hidden');
+}
+
+function setStatus(elementId, message, type = 'info') {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+  element.innerHTML = `<div class="status status-${type}">${message}</div>`;
+}
+
+function setButtonLoading(buttonId, loading) {
+  const button = document.getElementById(buttonId);
+  if (!button) return;
+  button.disabled = loading;
+}
+
+// ---------------------------------------------------------------------------
+//  UI: CREATE WALLET
+// ---------------------------------------------------------------------------
+async function createWallet() {
+  const username = document.getElementById('username').value.trim();
+
+  if (!username) {
+    setStatus('create-status', 'Please enter a username', 'error');
+    return;
+  }
+
+  setButtonLoading('create-btn', true);
+  setStatus('create-status', 'Creating wallet...', 'info');
+
+  try {
+    const { address, backupTxId } = await WalletCore.createWallet(username);
+
+    document.getElementById('wallet-address').textContent = address;
+    document.getElementById('bundlr-txid').textContent = backupTxId;
+    showScreen('wallet-screen');
+    setStatus('wallet-status', '✅ Wallet created and secured on this device!', 'success');
+
+    await refreshBalance();
+    await applyPendingPaymentRequestIfAny();
+  } catch (error) {
+    console.error(error);
+    setStatus('create-status', `❌ Error: ${error.message}`, 'error');
+  } finally {
+    setButtonLoading('create-btn', false);
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  UI: UNLOCK WALLET
+// ---------------------------------------------------------------------------
+async function unlockWallet() {
+  setButtonLoading('unlock-btn', true);
+  setStatus('unlock-status', 'Retrieving encrypted wallet...', 'info');
+
+  try {
+    const { address, backupTxId } = await WalletCore.unlockWallet();
+
+    document.getElementById('wallet-address').textContent = address;
+    document.getElementById('bundlr-txid').textContent = backupTxId;
+
+    showScreen('wallet-screen');
+    setStatus('wallet-status', '✅ Wallet unlocked successfully!', 'success');
+
+    await refreshBalance();
+    await applyPendingPaymentRequestIfAny();
+  } catch (error) {
+    console.error(error);
+    setStatus('unlock-status', `❌ Error: ${error.message}`, 'error');
+  } finally {
+    setButtonLoading('unlock-btn', false);
+  }
+}
+
+async function refreshBalance() {
+  try {
+    const balance = await WalletCore.refreshBalance();
+    document.getElementById('balance-display').textContent = balance;
+  } catch (error) {
+    console.error(error);
+    document.getElementById('balance-display').textContent = 'Error loading';
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  UI: SEND TX
+// ---------------------------------------------------------------------------
+async function sendTransaction() {
+  const toAddress = document.getElementById('send-address').value.trim();
+  const amount = document.getElementById('send-amount').value;
+
+  if (!toAddress || !amount || parseFloat(amount) <= 0) {
+    setStatus('wallet-status', '❌ Please enter valid recipient and amount', 'error');
+    return;
+  }
+
+  setStatus('wallet-status', 'Confirm this payment on your device…', 'info');
+
+  try {
+    await WalletCore.confirmBiometricForPayment();
+
+    setStatus('wallet-status', 'Creating transaction...', 'info');
+
+    const txId = await WalletCore.sendArTransaction(toAddress, amount);
+    setStatus('wallet-status', `✅ Transaction sent! TX ID: ${txId.substring(0, 20)}...`, 'success');
+
+    document.getElementById('send-address').value = '';
+    document.getElementById('send-amount').value = '';
+
+    setTimeout(refreshBalance, 2000);
+  } catch (error) {
+    console.error(error);
+    setStatus('wallet-status', `❌ Error: ${error.message}`, 'error');
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  UI: UPLOAD DATA
+// ---------------------------------------------------------------------------
+async function uploadData() {
+  const content = document.getElementById('data-content').value;
+  const contentType = document.getElementById('content-type').value || 'text/plain';
+  const userTagKey = document.getElementById('tag-key-1').value.trim();
+  const userTagValue = document.getElementById('tag-value-1').value.trim();
+
+  if (!content) {
+    setStatus('wallet-status', '❌ Please enter data to upload', 'error');
+    return;
+  }
+
+  setStatus('wallet-status', 'Preparing upload...', 'info');
+
+  try {
+    const txId = await WalletCore.uploadDataItem(content, contentType, userTagKey || null, userTagValue || null);
+    setStatus('wallet-status', `✅ Uploaded! TX ID: ${txId}<br><a href="https://arweave.net/${txId}" target="_blank">View on Arweave</a>`, 'success');
+
+    document.getElementById('data-content').value = '';
+    document.getElementById('tag-key-1').value = '';
+    document.getElementById('tag-value-1').value = '';
+  } catch (error) {
+    console.error(error);
+    setStatus('wallet-status', `❌ Upload error: ${error.message}`, 'error');
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  UI: SIGN MESSAGE
+// ---------------------------------------------------------------------------
+async function signMessage() {
+  const message = document.getElementById('sign-message').value.trim();
+
+  if (!message) {
+    setStatus('wallet-status', '❌ Please enter a message to sign', 'error');
+    return;
+  }
+
+  setStatus('wallet-status', 'Confirm signing on your device…', 'info');
+
+  try {
+    await WalletCore.confirmBiometricForPayment();
+
+    setStatus('wallet-status', 'Signing message...', 'info');
+
+    const result = await WalletCore.signMessage(message);
+
+    console.log('Message Signature:', result);
+
+    document.getElementById('signed-message').textContent = result.message;
+    document.getElementById('signature-value').textContent = result.signature;
+    document.getElementById('public-key-value').textContent = result.publicKey.substring(0, 100) + '...';
+    document.getElementById('signature-timestamp').textContent = new Date(result.timestamp).toLocaleString();
+    
+    document.getElementById('signature-result').style.display = 'block';
+
+    window.lastSignatureResult = result;
+
+    setStatus('wallet-status', `✅ Message signed successfully! See signature below.`, 'success');
+  } catch (error) {
+    console.error(error);
+    setStatus('wallet-status', `❌ Error: ${error.message}`, 'error');
+  }
+}
+
+function copySignature() {
+  if (!window.lastSignatureResult) {
+    setStatus('wallet-status', '❌ No signature to copy', 'error');
+    return;
+  }
+
+  const json = JSON.stringify(window.lastSignatureResult, null, 2);
+  
+  navigator.clipboard.writeText(json).then(() => {
+    setStatus('wallet-status', '✅ Signature JSON copied to clipboard!', 'success');
+  }).catch(err => {
+    console.error('Copy failed:', err);
+    setStatus('wallet-status', '❌ Failed to copy to clipboard', 'error');
+  });
+}
+
+// ---------------------------------------------------------------------------
+//  UI: HISTORY (TX + DATA UPLOADS)
+// ---------------------------------------------------------------------------
+async function loadHistory() {
+  const historyDiv = document.getElementById('tx-history');
+  historyDiv.innerHTML = '<div style="text-align: center; padding: 20px;">Loading...</div>';
+
+  try {
+    const txEdges = await WalletCore.loadHistory(10);
+    const dataEdges = await WalletCore.loadDataUploadsHistory(10);
+
+    if ((!txEdges || !txEdges.length) && (!dataEdges || !dataEdges.length)) {
+      historyDiv.innerHTML = '<div style="text-align: center; color: #6c757d; padding: 20px;">No transactions or uploads found</div>';
+      return;
+    }
+
+    let html = '';
+
+    if (txEdges && txEdges.length) {
+      html += '<h4 style="margin-bottom:8px;">Wallet transactions</h4>';
+      html += txEdges.map(edge => {
+        const tx = edge.node;
+        const date = tx.block ? new Date(tx.block.timestamp * 1000).toLocaleString() : 'Pending';
+        const amount = tx.quantity.ar;
+        const type = tx.recipient ? 'Transfer' : 'Data';
+
+        return `
+          <div class="tx-item">
+            <div class="tx-item-header">
+              <span>${type}</span>
+              <span>${date}</span>
+            </div>
+            ${tx.recipient ? `<div>To: ${tx.recipient.substring(0, 20)}...</div>` : ''}
+            ${amount > 0 ? `<div>Amount: ${amount} AR</div>` : ''}
+            <div class="tx-item-id">${tx.id}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    if (dataEdges && dataEdges.length) {
+      if (html) html += '<hr style="margin:12px 0;">';
+      html += '<h4 style="margin-bottom:8px;">Data uploads (via app)</h4>';
+      html += dataEdges.map(edge => {
+        const tx = edge.node;
+        const date = tx.block ? new Date(tx.block.timestamp * 1000).toLocaleString() : 'Pending';
+        const tags = tx.tags || [];
+        const tagMap = {};
+        tags.forEach(t => { tagMap[t.name] = t.value; });
+        const ctype = tagMap['Content-Type'] || 'unknown';
+
+        return `
+          <div class="tx-item">
+            <div class="tx-item-header">
+              <span>Data Upload</span>
+              <span>${date}</span>
+            </div>
+            <div>Content-Type: ${ctype}</div>
+            <div class="tx-item-id">${tx.id}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    historyDiv.innerHTML = html;
+  } catch (error) {
+    console.error(error);
+    historyDiv.innerHTML = '<div style="text-align: center; color: #dc3545; padding: 20px;">Error loading history</div>';
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  UI: RECOVERY BY ADDRESS / USERNAME (SAME DEVICE + PASSKEY)
+// ---------------------------------------------------------------------------
+async function recoverWallet() {
+  const input = document.getElementById('recovery-address').value.trim();
+
+  if (!input) {
+    setStatus('unlock-status', 'Please enter your wallet address or username', 'error');
+    return;
+  }
+
+  setButtonLoading('recovery-btn', true);
+  setStatus('unlock-status', 'Searching Arweave for wallet backups...', 'info');
+
+  try {
+    const isAddress = /^[a-z0-9-_]{43}$/i.test(input);
+
+    const gqlQuery = isAddress
+      ? `query {
+          transactions(
+            tags: [
+              { name: "App-Name", values: ["${WALLET_APP_NAME}"]},
+              { name: "User-Address", values: ["${input}"]}
+            ],
+            first: 10,
+            sort: HEIGHT_DESC
+          ) {
+            edges { node { id } }
+          }
+        }`
+      : `query {
+          transactions(
+            tags: [
+              { name: "App-Name", values: ["${WALLET_APP_NAME}"]},
+              { name: "User-Name", values: ["${input}"]}
+            ],
+            first: 10,
+            sort: HEIGHT_DESC
+          ) {
+            edges {
+              node {
+                id
+                tags { name value }
+              }
+            }
+          }
+        }`;
+
+    const fetchRes = await fetch("https://arweave.net/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: gqlQuery })
+    });
+
+    const gqlResult = await fetchRes.json();
+    const edges = gqlResult.data.transactions.edges;
+
+    if (!edges.length) {
+      throw new Error("No wallet backup found for this search");
+    }
+
+    if (!isAddress && edges.length > 1) {
+      let html = "<strong>Multiple matches found:</strong><br><br>";
+
+      edges.forEach((e) => {
+        const txid = e.node.id;
+        const tagMap = {};
+        (e.node.tags || []).forEach(t => tagMap[t.name] = t.value);
+
+        html += `
+          <div style="margin-bottom:10px;">
+            <button class="btn btn-secondary" onclick="finishRecovery('${txid}')">
+              Recover wallet: ${tagMap["User-Address"] || "Unknown address"}<br>
+              <small>${txid.substring(0,20)}…</small>
+            </button>
+          </div>
+        `;
+      });
+
+      setStatus("unlock-status", html, "info");
+      return;
+    }
+
+    const txId = edges[0].node.id;
+    await finishRecovery(txId);
+
+  } catch (error) {
+    setStatus('unlock-status', `❌ Error: ${error.message}`, 'error');
+    console.error(error);
+  } finally {
+    setButtonLoading('recovery-btn', false);
+  }
+}
+
+async function finishRecovery(txId) {
+  try {
+    setStatus('unlock-status', 'Fetching encrypted wallet…', 'info');
+
+    const encryptedRes = await fetch(`https://arweave.net/${txId}`);
+    if (!encryptedRes.ok) throw new Error("Failed to fetch encrypted backup");
+
+    const encryptedBlob = JSON.parse(await encryptedRes.text());
+    if (!encryptedBlob.encrypted) throw new Error("Encrypted blob missing required structure");
+
+    const meta = encryptedBlob.meta || {};
+
+    let keyMode = meta.keyMode || await WalletStorage.get('keyMode');
+    if (!keyMode) throw new Error("Missing key mode information in backup");
+
+    let credentialId = meta.credentialId || await WalletStorage.get('credentialId');
+    if (!credentialId) throw new Error("No WebAuthn credential bound to this wallet on this device");
+
+    let aesKey;
+
+    if (keyMode === 'prf') {
+      let prfSaltHex = meta.prfSaltHex || await WalletStorage.get('prfSaltHex');
+      if (!prfSaltHex) throw new Error("Missing PRF salt for PRF-protected wallet");
+
+      setStatus('unlock-status', 'Please authenticate with your device…', 'info');
+      const prfBytes = await WebAuthnHelper.evaluatePrf(credentialId, hexToBytes(prfSaltHex));
+      aesKey = await crypto.subtle.importKey("raw", prfBytes, "AES-GCM", false, ["decrypt"]);
+
+      await WalletStorage.set('prfSaltHex', prfSaltHex);
+    } else if (keyMode === 'wrapped') {
+      const storedEncKeyHex = await WalletStorage.get('aesKeyHex');
+      if (!storedEncKeyHex) throw new Error("Missing local AES key for wrapped-mode wallet");
+
+      setStatus('unlock-status', 'Please authenticate with your device…', 'info');
+      await WebAuthnHelper.authenticate(credentialId);
+      aesKey = await crypto.subtle.importKey("raw", hexToBytes(storedEncKeyHex), "AES-GCM", false, ["decrypt"]);
+    } else {
+      throw new Error(`Unsupported key mode: ${keyMode}`);
+    }
+
+    const jwk = await CryptoHelper.decrypt(encryptedBlob.encrypted, aesKey);
+    const address = meta.address || await arweave.wallets.jwkToAddress(jwk);
+    const username = meta.username || (await WalletStorage.get('username')) || '';
+
+    WalletCore.setWallet(jwk);
+
+    await WalletStorage.set('address', address);
+    await WalletStorage.set('backupTxId', txId);
+    await WalletStorage.set('keyMode', keyMode);
+    await WalletStorage.set('credentialId', credentialId);
+    await WalletStorage.set('username', username);
+
+    document.getElementById('wallet-address').textContent = address;
+    document.getElementById('bundlr-txid').textContent = txId;
+
+    showScreen('wallet-screen');
+    setStatus('wallet-status', '✅ Wallet recovered successfully on this device!', 'success');
+
+    refreshBalance();
+
+  } catch (err) {
+    setStatus('unlock-status', `❌ ${err.message}`, 'error');
+    console.error(err);
+  }
+}
+
+async function recoverByKeyfile() {
+  const fileInput = document.getElementById("keyfile-upload");
+  const file = fileInput.files[0];
+
+  if (!file) {
+    setStatus("unlock-status", "Please select a keyfile JSON", "error");
+    return;
+  }
+
+  try {
+    const text = await file.text();
+    const jwk = JSON.parse(text);
+
+    setStatus("unlock-status", "Importing wallet via WalletCore...", "info");
+    
+    const result = await WalletCore.importFromKeyfile(jwk);
+
+    document.getElementById("wallet-address").textContent = result.address;
+    document.getElementById("bundlr-txid").textContent = result.backupTxId;
+
+    showScreen("wallet-screen");
+    setStatus("wallet-status", "✅ Keyfile imported & protected with your device!", "success");
+
+    refreshBalance();
+
+  } catch (err) {
+    setStatus("unlock-status", `❌ Error importing keyfile: ${err.message}`, "error");
+    console.error(err);
+  }
+}
+
+async function uploadRecoveryBackup() {
+  try {
+    setStatus("wallet-status", "Uploading backup via WalletCore...", "info");
+    
+    const txId = await WalletCore.uploadRecoveryBackup();
+    
+    document.getElementById("bundlr-txid").textContent = txId;
+    setStatus("wallet-status", `✅ Backup stored! TX: ${txId}`, "success");
+
+  } catch (err) {
+    setStatus("wallet-status", `❌ Backup upload failed: ${err.message}`, "error");
+    console.error(err);
+  }
+}
+
+function lockWallet() {
+  showLanding();
+}
+
+function exportKey() {
+  const jwk = WalletCore.getCurrentWallet();
+  if (!jwk) return;
+
+  const dataStr = JSON.stringify(jwk, null, 2);
+  const dataBlob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(dataBlob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'arweave-keyfile.json';
+  link.click();
+  URL.revokeObjectURL(url);
+
+  setStatus('wallet-status', '✅ Keyfile exported! Keep it extremely safe!', 'success');
+}
+
+function openScanner() {
+  window.location.href = "scanqr.html";
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  if (!window.PublicKeyCredential || !navigator.credentials) {
+    alert('❌ WebAuthn not supported in this browser. Please use a modern browser with biometric authentication support.');
+  }
+
+  parsePaymentRequestFromUrl();
+
+  if (pendingPaymentRequest && pendingPaymentRequest.chain === 'arweave') {
+    showUnlockScreen();
+    setStatus('unlock-status', 'Payment request detected. Please unlock your wallet to continue.', 'info');
+  }
+
+  if (pendingSignRequest) {
+    showUnlockScreen();
+    setStatus('unlock-status', 'Sign request detected. Please unlock your wallet to continue.', 'info');
+  }
+});
+
+window.requestPayment = function (uri) {
+  try {
+    if (typeof uri !== "string") throw new Error("URI must be a string.");
+
+    if (uri.toLowerCase().startsWith("ar://")) {
+      const parsed = parseArPaymentUri(uri);
+      if (!parsed) throw new Error("Invalid AR payment URI");
+      pendingPaymentRequest = parsed;
+    } else if (uri.toLowerCase().startsWith("ethereum:")) {
+      pendingPaymentRequest = { unsupported: true, raw: uri };
+    } else {
+      throw new Error("Unsupported payment URI format");
+    }
+
+    const walletLoaded = WalletCore.getCurrentWallet() ? true : false;
+
+    if (!walletLoaded) {
+      showUnlockScreen();
+      setStatus(
+        "unlock-status",
+        "Payment request detected. Please unlock your wallet.",
+        "info"
+      );
+    } else {
+      applyPendingPaymentRequestIfAny();
+    }
+
+    return true;
+  } catch (err) {
+    console.error("requestPayment error:", err);
+    return false;
+  }
+};
+
+window.requestSignature = function (message, origin = 'Unknown') {
+  try {
+    if (typeof message !== "string") throw new Error("Message must be a string.");
+
+    pendingSignRequest = {
+      message,
+      origin
+    };
+
+    const walletLoaded = WalletCore.getCurrentWallet() ? true : false;
+
+    if (!walletLoaded) {
+      showUnlockScreen();
+      setStatus(
+        "unlock-status",
+        "Sign request detected. Please unlock your wallet.",
+        "info"
+      );
+    } else {
+      applyPendingPaymentRequestIfAny();
+    }
+
+    return true;
+  } catch (err) {
+    console.error("requestSignature error:", err);
+    return false;
+  }
+};
+
+window.showCreateScreen = showCreateScreen;
+window.showUnlockScreen = showUnlockScreen;
+window.showLanding = showLanding;
+window.createWallet = createWallet;
+window.unlockWallet = unlockWallet;
+window.recoverWallet = recoverWallet;
+window.sendTransaction = sendTransaction;
+window.parsePaymentRequestFromUrl = parsePaymentRequestFromUrl;
+window.applyPendingPaymentRequestIfAny = applyPendingPaymentRequestIfAny;
+window.uploadData = uploadData;
+window.loadHistory = loadHistory;
+window.exportKey = exportKey;
+window.lockWallet = lockWallet;
+window.showTab = showTab;
+window.recoverByKeyfile = recoverByKeyfile;
+window.uploadRecoveryBackup = uploadRecoveryBackup;
+window.finishRecovery = finishRecovery;
+window.refreshBalance = refreshBalance;
+window.signMessage = signMessage;
+window.copySignature = copySignature;
+window.openScanner = openScanner;
+</script>
+
+</body>
+</html>
