@@ -1100,35 +1100,68 @@ const WalletCore = (function() {
 async function signMessage(message, options = {}) {
   if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
 
-  // Construct CAIP-122 structured message if options provided, else use arbitrary message
-  let signedMessage = message;
-  if (options.domain || options.uri) {
-    const {
-      domain = window.location.host,  // Default to current domain
-      statement, uri = window.location.href, version = '1', chainId, nonce, timestamp = new Date().toISOString(), 
-      expirationTime, notBefore, requestId, resources = [], type = 'arweave:rsa-pss'
-    } = options;
-
-    let resourcesStr = '';
-    if (resources.length > 0) {
-      resourcesStr = 'Resources:\n' + resources.map(r => `- ${r}`).join('\n');
-    }
-
-    signedMessage = `${domain} wants you to sign in with your Arweave account:\n${address}\n\n${statement || ''}\n\nURI: ${uri}\nVersion: ${version}\n${chainId ? `Chain ID: ${chainId}\n` : ''}Nonce: ${nonce || ''}\nIssued At: ${timestamp}\n${expirationTime ? `Expiration Time: ${expirationTime}\n` : ''}${notBefore ? `Not Before: ${notBefore}\n` : ''}${requestId ? `Request ID: ${requestId}\n` : ''}${resourcesStr}\n\nType: ${type}\nSignature: ${signatureB64}`;
-  }
-
-  const messageBytes = new TextEncoder().encode(signedMessage);
-  const signature = await arweave.crypto.sign(walletJwk, messageBytes);
-  const signatureB64 = arweave.utils.bufferTob64Url(signature);
   const address = await arweave.wallets.jwkToAddress(walletJwk);
 
+  // Construct CAIP-122 compliant Sign-In with Arweave (SIWAr) message if options provided
+  let messageToSign = message;
+  let isCAIP122 = false;
+
+  if (options.domain || options.uri || options.statement) {
+    isCAIP122 = true;
+    const {
+      domain = window.location.host,
+      statement,
+      uri = window.location.href,
+      version = '1',
+      chainId = 'arweave:1', // Arweave mainnet
+      nonce = crypto.randomUUID(),
+      issuedAt = new Date().toISOString(),
+      expirationTime,
+      notBefore,
+      requestId,
+      resources = []
+    } = options;
+
+    // Build CAIP-122 message structure (EIP-4361 inspired format)
+    let parts = [];
+    parts.push(`${domain} wants you to sign in with your Arweave account:`);
+    parts.push(address);
+    parts.push('');
+    if (statement) {
+      parts.push(statement);
+      parts.push('');
+    }
+    parts.push(`URI: ${uri}`);
+    parts.push(`Version: ${version}`);
+    parts.push(`Chain ID: ${chainId}`);
+    parts.push(`Nonce: ${nonce}`);
+    parts.push(`Issued At: ${issuedAt}`);
+    
+    if (expirationTime) parts.push(`Expiration Time: ${expirationTime}`);
+    if (notBefore) parts.push(`Not Before: ${notBefore}`);
+    if (requestId) parts.push(`Request ID: ${requestId}`);
+    
+    if (resources.length > 0) {
+      parts.push('Resources:');
+      resources.forEach(r => parts.push(`- ${r}`));
+    }
+
+    messageToSign = parts.join('\n');
+  }
+
+  // Sign the message with Arweave's RSA-PSS signature
+  const messageBytes = new TextEncoder().encode(messageToSign);
+  const signature = await arweave.crypto.sign(walletJwk, messageBytes);
+  const signatureB64 = arweave.utils.bufferTob64Url(signature);
+
   return {
-    message: signedMessage,  // Full signed message (structured for CAIP-122)
+    message: messageToSign,
     signature: signatureB64,
-    owner: walletJwk.n,
+    owner: walletJwk.n, // RSA public key modulus (n)
     publicKey: { kty: "RSA", e: "AQAB", n: walletJwk.n },
     address,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    isCAIP122
   };
 }
 
