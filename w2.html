@@ -1097,23 +1097,36 @@ const WalletCore = (function() {
     return result.data.transactions.edges || [];
   }
 
-async function signMessage(message) {
+async function signMessage(message, options = {}) {
   if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
-  const messageBytes = new TextEncoder().encode(message);
+
+  // Construct CAIP-122 structured message if options provided, else use arbitrary message
+  let signedMessage = message;
+  if (options.domain || options.uri) {
+    const {
+      domain = window.location.host,  // Default to current domain
+      statement, uri = window.location.href, version = '1', chainId, nonce, timestamp = new Date().toISOString(), 
+      expirationTime, notBefore, requestId, resources = [], type = 'arweave:rsa-pss'
+    } = options;
+
+    let resourcesStr = '';
+    if (resources.length > 0) {
+      resourcesStr = 'Resources:\n' + resources.map(r => `- ${r}`).join('\n');
+    }
+
+    signedMessage = `${domain} wants you to sign in with your Arweave account:\n${address}\n\n${statement || ''}\n\nURI: ${uri}\nVersion: ${version}\n${chainId ? `Chain ID: ${chainId}\n` : ''}Nonce: ${nonce || ''}\nIssued At: ${timestamp}\n${expirationTime ? `Expiration Time: ${expirationTime}\n` : ''}${notBefore ? `Not Before: ${notBefore}\n` : ''}${requestId ? `Request ID: ${requestId}\n` : ''}${resourcesStr}\n\nType: ${type}\nSignature: ${signatureB64}`;
+  }
+
+  const messageBytes = new TextEncoder().encode(signedMessage);
   const signature = await arweave.crypto.sign(walletJwk, messageBytes);
   const signatureB64 = arweave.utils.bufferTob64Url(signature);
   const address = await arweave.wallets.jwkToAddress(walletJwk);
 
-  // ← 2025 STANDARD FORMAT (used by ArConnect, Wander, sig.arweave.dev, etc.)
   return {
-    message,
+    message: signedMessage,  // Full signed message (structured for CAIP-122)
     signature: signatureB64,
-    owner: walletJwk.n,                    // raw modulus for arweave.net/verify & old tools
-    publicKey: {                           // full JWK fragment for proper WebCrypto verification
-      kty: "RSA",
-      e: "AQAB",
-      n: walletJwk.n
-    },
+    owner: walletJwk.n,
+    publicKey: { kty: "RSA", e: "AQAB", n: walletJwk.n },
     address,
     timestamp: Date.now()
   };
@@ -1317,7 +1330,6 @@ async function uploadData() {
 //  UI: SIGN MESSAGE
 // ---------------------------------------------------------------------------
 
-// UI: SIGN MESSAGE – FINAL FIXED VERSION
 async function signMessage() {
   const message = document.getElementById('sign-message').value.trim();
   if (!message) {
@@ -1325,32 +1337,31 @@ async function signMessage() {
     return;
   }
 
+  // Optional: Collect CAIP-122 options from additional inputs if added to HTML
+  const options = { 
+    // domain: document.getElementById('domain').value,
+    // nonce: document.getElementById('nonce').value,
+    // etc.
+  };
+
   setStatus('wallet-status', 'Confirm signing on your device…', 'info');
-
   try {
-    // One single biometric prompt
     await WalletCore.confirmBiometricForPayment();
-
     setStatus('wallet-status', 'Signing message...', 'info');
-    const result = await WalletCore.signMessage(message);
-
-    // Save for copy button
-    window.lastSignatureResult = result;
-
-    // Display results
+    const result = await WalletCore.signMessage(message, options);
     document.getElementById('signed-message').textContent = result.message;
     document.getElementById('signature-value').textContent = result.signature;
     document.getElementById('public-key-value').textContent = JSON.stringify(result.publicKey, null, 2);
     document.getElementById('signature-timestamp').textContent = new Date(result.timestamp).toLocaleString();
 
-    // Add/show Owner field (needed for arweave.net/verify)
+    // Add Owner field
     let ownerDiv = document.getElementById('owner-field');
     if (!ownerDiv) {
       ownerDiv = document.createElement('div');
       ownerDiv.id = 'owner-field';
       ownerDiv.className = 'wallet-info-item';
       ownerDiv.innerHTML = `
-        <div class="wallet-info-label">Owner (for arweave.net/verify)</div>
+        <div class="wallet-info-label">Owner (for verification)</div>
         <div class="wallet-info-value" id="owner-value"></div>
       `;
       document.querySelector('#signature-result .wallet-info').appendChild(ownerDiv);
@@ -1358,15 +1369,14 @@ async function signMessage() {
     document.getElementById('owner-value').textContent = result.owner;
 
     document.getElementById('signature-result').style.display = 'block';
-
-    setStatus('wallet-status', '✅ Message signed! Copy Signature + Owner → paste at arweave.net/verify', 'success');
-
+    window.lastSignatureResult = result;
+    setStatus('wallet-status', `✅ Signed (CAIP-122 standard if options used)! Verify at sig.arweave.dev.`, 'success');
   } catch (error) {
-    console.error('Sign error:', error);
-    setStatus('wallet-status', `❌ Signing failed: ${error.message}`, 'error');
+    console.error(error);
+    setStatus('wallet-status', `❌ Error: ${error.message}`, 'error');
   }
 }
-
+  
 function copySignature() {
   if (!window.lastSignatureResult) {
     setStatus('wallet-status', '❌ No signature to copy', 'error');
