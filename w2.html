@@ -1097,25 +1097,23 @@ const WalletCore = (function() {
     return result.data.transactions.edges || [];
   }
 
-  async function signMessage(message) {
-    if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
+async function signMessage(message) {
+  if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
+  const messageBytes = new TextEncoder().encode(message);
+  const signature = await arweave.crypto.sign(walletJwk, messageBytes);
+  const signatureB64 = arweave.utils.bufferTob64Url(signature);
+  const address = await arweave.wallets.jwkToAddress(walletJwk);
 
-    const messageBytes = new TextEncoder().encode(message);
-    
-    const signature = await arweave.crypto.sign(walletJwk, messageBytes);
-    
-    const signatureB64 = arweave.utils.bufferTob64Url(signature);
-    
-    const address = await arweave.wallets.jwkToAddress(walletJwk);
-    
-    return {
-      message,
-      signature: signatureB64,
-      publicKey: walletJwk.n,
-      address,
-      timestamp: Date.now()
-    };
-  }
+  // ← THIS IS THE 2024–2025 STANDARD FORMAT
+  return {
+    message,
+    signature: signatureB64,
+    owner: walletJwk.n,                    // ← crucial for arweave.net/verify
+    publicKey: { kty: "RSA", e: "AQAB", n: walletJwk.n },  // nice for devs
+    address,
+    timestamp: Date.now()
+  };
+}
 
   return {
     createWallet,
@@ -1314,38 +1312,59 @@ async function uploadData() {
 // ---------------------------------------------------------------------------
 //  UI: SIGN MESSAGE
 // ---------------------------------------------------------------------------
+
 async function signMessage() {
   const message = document.getElementById('sign-message').value.trim();
-
   if (!message) {
     setStatus('wallet-status', '❌ Please enter a message to sign', 'error');
     return;
   }
 
   setStatus('wallet-status', 'Confirm signing on your device…', 'info');
-
   try {
-    await WalletCore.confirmBiometricForPayment();
+    try {
+      await WalletCore.confirmBiometricForPayment(); // ← one biometric prompt only
+      setStatus('wallet-status', 'Signing message...', 'info');
 
-    setStatus('wallet-status', 'Signing message...', 'info');
+      const result = await WalletCore.signMessage(message);
 
-    const result = await WalletCore.signMessage(message);
+      // Save for copy button & dev tools
+      window.lastSignatureResult = result;
 
-    console.log('Message Signature:', result);
+      // 1. Signed Message
+      document.getElementById('signed-message').textContent = result.message;
 
-    document.getElementById('signed-message').textContent = result.message;
-    document.getElementById('signature-value').textContent = result.signature;
-    document.getElementById('public-key-value').textContent = result.publicKey.substring(0, 100) + '...';
-    document.getElementById('signature-timestamp').textContent = new Date(result.timestamp).toLocaleString();
-    
-    document.getElementById('signature-result').style.display = 'block';
+      // 2. Signature (base64url)
+      document.getElementById('signature-value').textContent = result.signature;
 
-    window.lastSignatureResult = result;
+      // 3. Full Public Key (pretty JSON) – great for developers)
+      document.getElementById('public-key-value').textContent = JSON.stringify(result.publicKey, null, 2);
 
-    setStatus('wallet-status', `✅ Message signed successfully! See signature below.`, 'success');
-  } catch (error) {
-    console.error(error);
-    setStatus('wallet-status', `❌ Error: ${error.message}`, 'error');
+      // 4. Timestamp
+      document.getElementById('signature-timestamp').textContent = new Date(result.timestamp).toLocaleString();
+
+      // 5. Add the crucial "Owner" field for arweave.net/verify (most users need this)
+      let ownerDiv = document.getElementById('owner-field');
+      if (!ownerDiv) {
+        ownerDiv = document.createElement('div');
+        ownerDiv.id = 'owner-field';
+        ownerDiv.className = 'wallet-info-item';
+        ownerDiv.innerHTML = `
+          <div class="wallet-info-label">Owner (for arweave.net/verify)</div>
+          <div class="wallet-info-value" id="owner-value"></div>
+        `;
+        document.querySelector('#signature-result .wallet-info').appendChild(ownerDiv);
+      }
+      document.getElementById('owner-value').textContent = result.owner;
+
+      // Show result box
+      document.getElementById('signature-result').style.display = 'block';
+
+      setStatus('wallet-status', '✅ Message signed successfully! You can now paste Signature + Owner into arweave.net/verify', 'success');
+    } catch (error) {
+      console.error(error);
+      setStatus('wallet-status', `❌ Signing failed: ${error.message}`, 'error');
+    }
   }
 }
 
