@@ -1104,12 +1104,16 @@ async function signMessage(message) {
   const signatureB64 = arweave.utils.bufferTob64Url(signature);
   const address = await arweave.wallets.jwkToAddress(walletJwk);
 
-  // ← THIS IS THE 2024–2025 STANDARD FORMAT
+  // ← 2025 STANDARD FORMAT (used by ArConnect, Wander, sig.arweave.dev, etc.)
   return {
     message,
     signature: signatureB64,
-    owner: walletJwk.n,                    // ← crucial for arweave.net/verify
-    publicKey: { kty: "RSA", e: "AQAB", n: walletJwk.n },  // nice for devs
+    owner: walletJwk.n,                    // raw modulus for arweave.net/verify & old tools
+    publicKey: {                           // full JWK fragment for proper WebCrypto verification
+      kty: "RSA",
+      e: "AQAB",
+      n: walletJwk.n
+    },
     address,
     timestamp: Date.now()
   };
