@@ -418,7 +418,18 @@ function parsePaymentRequestFromUrl() {
   if (signMessage) {
     pendingSignRequest = {
       message: decodeURIComponent(signMessage),
-      origin: params.get('origin') || params.get('app') || 'Unknown'
+      origin: params.get('origin') || params.get('app') || 'Unknown',
+      // Optional CAIP-122 fields
+      options: {
+        domain: params.get('domain'),
+        statement: params.get('statement'),
+        uri: params.get('uri'),
+        nonce: params.get('nonce'),
+        chainId: params.get('chainId'),
+        issuedAt: params.get('issuedAt'),
+        expirationTime: params.get('expirationTime'),
+        requestId: params.get('requestId')
+      }
     };
   }
 
@@ -487,21 +498,24 @@ async function uploadToCloudFunction(data, tagsInput) {
 async function applyPendingPaymentRequestIfAny() {
   // Handle sign request first
   if (pendingSignRequest) {
-    const { message, origin } = pendingSignRequest;
-    pendingSignRequest = null;
+  const { message, origin, options } = pendingSignRequest;
+  pendingSignRequest = null;
 
-    showScreen('wallet-screen');
-    showTab('sign');
+  showScreen('wallet-screen');
+  showTab('sign');
 
-    const messageInput = document.getElementById('sign-message');
-    if (messageInput) {
-      messageInput.value = message;
-    }
-
-    let statusMsg = `Sign request from: ${origin}<br>Please review the message and sign.`;
-    setStatus('wallet-status', statusMsg, 'info');
-    return;
+  const messageInput = document.getElementById('sign-message');
+  if (messageInput) {
+    messageInput.value = message;
   }
+
+  // Store options for later use
+  window.pendingSignOptions = options;
+
+  let statusMsg = `Sign request from: ${origin}<br>Please review the message and sign.`;
+  setStatus('wallet-status', statusMsg, 'info');
+  return;
+}
 
   // Handle payment request
   if (!pendingPaymentRequest) return;
@@ -1405,11 +1419,9 @@ async function signMessage() {
   }
 
   // Optional: Collect CAIP-122 options from additional inputs if added to HTML
-  const options = { 
-    // domain: document.getElementById('domain').value,
-    // nonce: document.getElementById('nonce').value,
-    // etc.
-  };
+   // Use pending options if available (from URL), otherwise empty
+  const options = window.pendingSignOptions || {};
+  window.pendingSignOptions = null; // Clear after use
 
   setStatus('wallet-status', 'Confirm signing on your device…', 'info');
   try {
