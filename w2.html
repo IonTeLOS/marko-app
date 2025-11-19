@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -278,7 +279,7 @@
               <div class="wallet-info-value" id="signature-value"></div>
             </div>
             <div class="wallet-info-item">
-              <div class="wallet-info-label">Public Key</div>
+              <div class="wallet-info-label">Public Key (Owner)</div>
               <div class="wallet-info-value" id="public-key-value"></div>
             </div>
             <div class="wallet-info-item">
@@ -286,7 +287,10 @@
               <div class="wallet-info-value" id="signature-timestamp"></div>
             </div>
           </div>
-          <button class="btn btn-secondary" onclick="copySignature()">📋 Copy Signature JSON</button>
+          <div class="button-group">
+            <button class="btn btn-secondary" onclick="copySignature()">📋 Copy JSON</button>
+            <button class="btn btn-success" onclick="verifySignature()">✅ Verify Signature</button>
+          </div>
         </div>
       </div>
 
@@ -1165,6 +1169,36 @@ async function signMessage(message, options = {}) {
   };
 }
 
+// to verify, not implemented  
+async function verifyArweaveMessageSignatureNative() {
+  if (!window.lastSignatureResult) {
+    alert("Sign a message first!");
+    return;
+  }
+  
+  const { message, signature, owner } = window.lastSignatureResult;
+  
+  try {
+    // Arweave's built-in verification method
+    const valid = await arweave.crypto.verify(
+      owner,  // Public key (n value from JWK)
+      new TextEncoder().encode(message),
+      arweave.utils.b64UrlToBuffer(signature)
+    );
+    
+    alert(valid ? "✅ SIGNATURE VALID (Arweave native verify)" : "❌ Invalid");
+    console.log("Valid:", valid);
+    
+    return valid;
+  } catch (error) {
+    alert(`❌ Verification error: ${error.message}`);
+    console.error("Verification error:", error);
+    return false;
+  }
+}
+
+// Run it
+// verifyArweaveMessageSignatureNative();
   return {
     createWallet,
     unlockWallet,
@@ -1426,6 +1460,37 @@ function copySignature() {
   });
 }
 
+async function verifySignature() {
+  if (!window.lastSignatureResult) {
+    setStatus('wallet-status', '❌ No signature to verify', 'error');
+    return;
+  }
+  
+  const { message, signature, owner } = window.lastSignatureResult;
+  
+  try {
+    setStatus('wallet-status', 'Verifying signature...', 'info');
+    
+    // Use Arweave's native verification method
+    const valid = await arweave.crypto.verify(
+      owner,  // Public key (n value from JWK)
+      new TextEncoder().encode(message),
+      arweave.utils.b64UrlToBuffer(signature)
+    );
+    
+    if (valid) {
+      setStatus('wallet-status', '✅ Signature is VALID! Verified using Arweave native crypto.', 'success');
+    } else {
+      setStatus('wallet-status', '❌ Signature verification FAILED!', 'error');
+    }
+    
+    return valid;
+  } catch (error) {
+    console.error('Verification error:', error);
+    setStatus('wallet-status', `❌ Verification error: ${error.message}`, 'error');
+    return false;
+  }
+}  
 // ---------------------------------------------------------------------------
 //  UI: HISTORY (TX + DATA UPLOADS)
 // ---------------------------------------------------------------------------
@@ -1808,6 +1873,7 @@ window.requestSignature = function (message, origin = 'Unknown') {
   }
 };
 
+  
 window.showCreateScreen = showCreateScreen;
 window.showUnlockScreen = showUnlockScreen;
 window.showLanding = showLanding;
@@ -1827,6 +1893,7 @@ window.uploadRecoveryBackup = uploadRecoveryBackup;
 window.finishRecovery = finishRecovery;
 window.refreshBalance = refreshBalance;
 window.signMessage = signMessage;
+window.verifySignature = verifySignature;  
 window.copySignature = copySignature;
 window.openScanner = openScanner;
 </script>
