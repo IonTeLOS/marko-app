@@ -1313,6 +1313,7 @@ async function uploadData() {
 //  UI: SIGN MESSAGE
 // ---------------------------------------------------------------------------
 
+// UI: SIGN MESSAGE – FINAL FIXED VERSION
 async function signMessage() {
   const message = document.getElementById('sign-message').value.trim();
   if (!message) {
@@ -1321,50 +1322,44 @@ async function signMessage() {
   }
 
   setStatus('wallet-status', 'Confirm signing on your device…', 'info');
+
   try {
-    try {
-      await WalletCore.confirmBiometricForPayment(); // ← one biometric prompt only
-      setStatus('wallet-status', 'Signing message...', 'info');
+    // One single biometric prompt
+    await WalletCore.confirmBiometricForPayment();
 
-      const result = await WalletCore.signMessage(message);
+    setStatus('wallet-status', 'Signing message...', 'info');
+    const result = await WalletCore.signMessage(message);
 
-      // Save for copy button & dev tools
-      window.lastSignatureResult = result;
+    // Save for copy button
+    window.lastSignatureResult = result;
 
-      // 1. Signed Message
-      document.getElementById('signed-message').textContent = result.message;
+    // Display results
+    document.getElementById('signed-message').textContent = result.message;
+    document.getElementById('signature-value').textContent = result.signature;
+    document.getElementById('public-key-value').textContent = JSON.stringify(result.publicKey, null, 2);
+    document.getElementById('signature-timestamp').textContent = new Date(result.timestamp).toLocaleString();
 
-      // 2. Signature (base64url)
-      document.getElementById('signature-value').textContent = result.signature;
-
-      // 3. Full Public Key (pretty JSON) – great for developers)
-      document.getElementById('public-key-value').textContent = JSON.stringify(result.publicKey, null, 2);
-
-      // 4. Timestamp
-      document.getElementById('signature-timestamp').textContent = new Date(result.timestamp).toLocaleString();
-
-      // 5. Add the crucial "Owner" field for arweave.net/verify (most users need this)
-      let ownerDiv = document.getElementById('owner-field');
-      if (!ownerDiv) {
-        ownerDiv = document.createElement('div');
-        ownerDiv.id = 'owner-field';
-        ownerDiv.className = 'wallet-info-item';
-        ownerDiv.innerHTML = `
-          <div class="wallet-info-label">Owner (for arweave.net/verify)</div>
-          <div class="wallet-info-value" id="owner-value"></div>
-        `;
-        document.querySelector('#signature-result .wallet-info').appendChild(ownerDiv);
-      }
-      document.getElementById('owner-value').textContent = result.owner;
-
-      // Show result box
-      document.getElementById('signature-result').style.display = 'block';
-
-      setStatus('wallet-status', '✅ Message signed successfully! You can now paste Signature + Owner into arweave.net/verify', 'success');
-    } catch (error) {
-      console.error(error);
-      setStatus('wallet-status', `❌ Signing failed: ${error.message}`, 'error');
+    // Add/show Owner field (needed for arweave.net/verify)
+    let ownerDiv = document.getElementById('owner-field');
+    if (!ownerDiv) {
+      ownerDiv = document.createElement('div');
+      ownerDiv.id = 'owner-field';
+      ownerDiv.className = 'wallet-info-item';
+      ownerDiv.innerHTML = `
+        <div class="wallet-info-label">Owner (for arweave.net/verify)</div>
+        <div class="wallet-info-value" id="owner-value"></div>
+      `;
+      document.querySelector('#signature-result .wallet-info').appendChild(ownerDiv);
     }
+    document.getElementById('owner-value').textContent = result.owner;
+
+    document.getElementById('signature-result').style.display = 'block';
+
+    setStatus('wallet-status', '✅ Message signed! Copy Signature + Owner → paste at arweave.net/verify', 'success');
+
+  } catch (error) {
+    console.error('Sign error:', error);
+    setStatus('wallet-status', `❌ Signing failed: ${error.message}`, 'error');
   }
 }
 
