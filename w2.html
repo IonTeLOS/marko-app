@@ -970,55 +970,88 @@ const WalletCore = (function() {
 
 
   async function importFromKeyfile(jwk) {
-    if (!arweave) throw new Error('Arweave not initialized');
+  if (!arweave) throw new Error('Arweave not initialized');
 
-    const address = await arweave.wallets.jwkToAddress(jwk);
-    const username = 'imported-' + address.substring(0, 6);
+  const address = await arweave.wallets.jwkToAddress(jwk);
+  const username = 'imported-' + address.substring(0, 6);
 
-    const { credentialId, prfKeyHex, prfSaltHex } = await WebAuthnHelper.register(username);
+  // WebAuthn registration for this imported wallet
+  const { credentialId, prfKeyHex, prfSaltHex } = await WebAuthnHelper.register(username);
 
-    let aesKey;
-    let keyMode;
+  let aesKey;
+  let keyMode;
 
-    if (prfKeyHex) {
-      keyMode = 'prf';
-      aesKey = await crypto.subtle.importKey(
-        'raw',
-        hexToBytes(prfKeyHex),
-        'AES-GCM',
-        false,
-        ['encrypt', 'decrypt']
-      );
-      await WalletStorage.set(STORAGE_KEYS.prfSaltHex, prfSaltHex);
-      await WalletStorage.remove(STORAGE_KEYS.aesKeyHex);
-    } else {
-      keyMode = 'wrapped';
-      const rawKey = crypto.getRandomValues(new Uint8Array(32));
-      aesKey = await crypto.subtle.importKey(
-        'raw',
-        rawKey,
-        'AES-GCM',
-        false,
-        ['encrypt', 'decrypt']
-      );
-      await WalletStorage.set(STORAGE_KEYS.aesKeyHex, bytesToHex(rawKey));
-      await WalletStorage.remove(STORAGE_KEYS.prfSaltHex);
-    }
+  if (prfKeyHex) {
+    //----------------------------------------------------
+    // 🔐 PRF MODE — use HKDF(prfBytes, prfSaltHex) -> AES-256-GCM
+    //----------------------------------------------------
+    keyMode = 'prf';
 
-    const encrypted = await CryptoHelper.encrypt(jwk, aesKey);
+    const prfBytes = hexToBytes(prfKeyHex);
 
-    await WalletStorage.set(STORAGE_KEYS.credentialId, credentialId);
-    await WalletStorage.set(STORAGE_KEYS.address, address);
-    await WalletStorage.set(STORAGE_KEYS.keyMode, keyMode);
-    await WalletStorage.set(STORAGE_KEYS.username, username);
+    const hkdfKey = await crypto.subtle.importKey(
+      "raw",
+      prfBytes,
+      "HKDF",
+      false,
+      ["deriveKey"]
+    );
 
-    await ensureUserEncKey();
-    walletJwk = jwk;
+    aesKey = await crypto.subtle.deriveKey(
+      {
+        name: "HKDF",
+        hash: "SHA-256",
+        salt: hexToBytes(prfSaltHex),
+        info: new Uint8Array([]),
+      },
+      hkdfKey,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"]
+    );
 
-    const backupTxId = await uploadRecoveryBackupInternal();
+    // store salt, drop wrapped key if any
+    await WalletStorage.set(STORAGE_KEYS.prfSaltHex, prfSaltHex);
+    await WalletStorage.remove(STORAGE_KEYS.aesKeyHex);
 
-    return { address, backupTxId, keyMode };
+  } else {
+    //----------------------------------------------------
+    // 🔐 WRAPPED MODE — random AES key, stored locally
+    //----------------------------------------------------
+    keyMode = 'wrapped';
+
+    const rawKey = crypto.getRandomValues(new Uint8Array(32));
+    aesKey = await crypto.subtle.importKey(
+      'raw',
+      rawKey,
+      'AES-GCM',
+      false,
+      ['encrypt', 'decrypt']
+    );
+
+    await WalletStorage.set(STORAGE_KEYS.aesKeyHex, bytesToHex(rawKey));
+    await WalletStorage.remove(STORAGE_KEYS.prfSaltHex);
   }
+
+  // Encrypt imported JWK with derived aesKey
+  const encrypted = await CryptoHelper.encrypt(jwk, aesKey);
+
+  // Persist core metadata
+  await WalletStorage.set(STORAGE_KEYS.credentialId, credentialId);
+  await WalletStorage.set(STORAGE_KEYS.address, address);
+  await WalletStorage.set(STORAGE_KEYS.keyMode, keyMode);
+  await WalletStorage.set(STORAGE_KEYS.username, username);
+
+  // Ensure per-user ECDH keypair exists (for recipient encryption)
+  await ensureUserEncKey();
+
+  walletJwk = jwk;
+
+  // Immediately back it up to Arweave using the same key derivation
+  const backupTxId = await uploadRecoveryBackupInternal();
+
+  return { address, backupTxId, keyMode };
+}
 
   async function uploadRecoveryBackupInternal() {
     if (!walletJwk) throw new Error('No wallet loaded');
@@ -1037,21 +1070,53 @@ const WalletCore = (function() {
 
     let aesKey;
 
-    if (keyMode === 'prf') {
-      const credentialId = await WalletStorage.get(STORAGE_KEYS.credentialId);
-      const prfSaltHex = await WalletStorage.get(STORAGE_KEYS.prfSaltHex);
-      if (!credentialId || !prfSaltHex) throw new Error('Missing PRF credentials for backup');
+if (keyMode === 'prf') {
+  const credentialId = await WalletStorage.get(STORAGE_KEYS.credentialId);
+  const prfSaltHex = await WalletStorage.get(STORAGE_KEYS.prfSaltHex);
+  if (!credentialId || !prfSaltHex) {
+    throw new Error('Missing PRF credentials for backup');
+  }
 
-      const prfBytes = await WebAuthnHelper.evaluatePrf(credentialId, hexToBytes(prfSaltHex));
-      aesKey = await crypto.subtle.importKey('raw', prfBytes, 'AES-GCM', false, ['encrypt']);
-    } else if (keyMode === 'wrapped') {
-      const aesKeyHex = await WalletStorage.get(STORAGE_KEYS.aesKeyHex);
-      if (!aesKeyHex) throw new Error('Missing local AES key.');
-      aesKey = await crypto.subtle.importKey('raw', hexToBytes(aesKeyHex), 'AES-GCM', false, ['encrypt']);
-    } else {
-      throw new Error(`Unsupported key mode: ${keyMode}`);
-    }
+  const prfBytes = await WebAuthnHelper.evaluatePrf(
+    credentialId,
+    hexToBytes(prfSaltHex)
+  );
 
+  const hkdfKey = await crypto.subtle.importKey(
+    "raw",
+    prfBytes,
+    "HKDF",
+    false,
+    ["deriveKey"]
+  );
+
+  aesKey = await crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: hexToBytes(prfSaltHex),
+      info: new Uint8Array([]),
+    },
+    hkdfKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt"]
+  );
+
+} else if (keyMode === 'wrapped') {
+  // unchanged wrapped-mode branch
+  const aesKeyHex = await WalletStorage.get(STORAGE_KEYS.aesKeyHex);
+  if (!aesKeyHex) throw new Error('Missing local AES key.');
+  aesKey = await crypto.subtle.importKey(
+    'raw',
+    hexToBytes(aesKeyHex),
+    'AES-GCM',
+    false,
+    ['encrypt']
+  );
+} else {
+  throw new Error(`Unsupported key mode: ${keyMode}`);
+}
     const encrypted = await CryptoHelper.encrypt(walletJwk, aesKey);
     const username = (await WalletStorage.get(STORAGE_KEYS.username)) || '';
     const publicEncKey = await ensureUserEncKey();
@@ -1542,10 +1607,35 @@ async function uploadData() {
 
   let aesKey;
   if (keyMode === "prf") {
-    const prfSaltHex = await WalletStorage.get("prfSaltHex");
-    const prfBytes = await WebAuthnHelper.evaluatePrf(credentialId, hexToBytes(prfSaltHex));
-    aesKey = await crypto.subtle.importKey("raw", prfBytes, "AES-GCM", false, ["encrypt"]);
-  } else {
+  const prfSaltHex = await WalletStorage.get("prfSaltHex");
+  if (!prfSaltHex) throw new Error("Missing PRF salt");
+
+  const prfBytes = await WebAuthnHelper.evaluatePrf(
+    credentialId,
+    hexToBytes(prfSaltHex)
+  );
+
+  const hkdfKey = await crypto.subtle.importKey(
+    "raw",
+    prfBytes,
+    "HKDF",
+    false,
+    ["deriveKey"]
+  );
+
+  aesKey = await crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: hexToBytes(prfSaltHex),
+      info: new Uint8Array([]),
+    },
+    hkdfKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt"]
+  );
+} else {
     await WebAuthnHelper.authenticate(credentialId);
     const aesKeyHex = await WalletStorage.get("aesKeyHex");
     aesKey = await crypto.subtle.importKey("raw", hexToBytes(aesKeyHex), "AES-GCM", false, ["encrypt"]);
