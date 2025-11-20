@@ -332,7 +332,7 @@ const WalletStorage = {
         }
 
         // --------- SELF MODE ----------
-        if (encType === 'self') {
+        if (encType === 'self') || (encType === 'recipient') {
           setStatus('Attempting self-decryption (using your wallet key)…', 'info');
 
           const credentialId = await WalletStorage.get('credentialId');
