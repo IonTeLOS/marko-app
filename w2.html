@@ -249,6 +249,27 @@
           <label for="data-content">Data Content</label>
           <textarea id="data-content" placeholder="Enter data to upload to Arweave..."></textarea>
         </div>
+
+        <div class="input-group">
+  <label for="data-encryption-mode">Encryption</label>
+  <select id="data-encryption-mode">
+    <option value="none">🔓 No encryption</option>
+    <option value="self">🔐 Encrypt for me</option>
+    <option value="password">🔑 Encrypt with password</option>
+    <option value="recipient">🤝 Encrypt for another user</option>
+  </select>
+</div>
+
+<div class="input-group hidden" id="password-field">
+  <label for="data-password">Password (AES-GCM)</label>
+  <input type="text" id="data-password" placeholder="Enter password">
+</div>
+
+<div class="input-group hidden" id="recipient-field">
+  <label for="recipient-address">Recipient Arweave Address</label>
+  <input type="text" id="recipient-address" placeholder="Recipient address">
+</div>
+
         <div class="input-group">
           <label for="content-type">Content Type</label>
           <input type="text" id="content-type" placeholder="text/plain" value="text/plain">
@@ -854,10 +875,26 @@ const WalletCore = (function() {
       const prfBytes = await WebAuthnHelper.evaluatePrf(credentialId, hexToBytes(prfSaltHex));
       aesKey = await crypto.subtle.importKey('raw', prfBytes, 'AES-GCM', false, ['decrypt']);
     } else if (keyMode === 'wrapped') {
-      if (!aesKeyHex) throw new Error('Missing local AES key material');
-      await WebAuthnHelper.authenticate(credentialId);
-      aesKey = await crypto.subtle.importKey('raw', hexToBytes(aesKeyHex), 'AES-GCM', false, ['decrypt']);
-    } else {
+    let aesKeyHex = await WalletStorage.get('aesKeyHex');
+
+    if (!aesKeyHex) {
+        // New device scenario – ask user to authenticate and rebuild AES key
+        setStatus('unlock-status', 'This wallet was imported on another device. Creating new AES encryption key...', 'info');
+        await WebAuthnHelper.authenticate(credentialId);
+
+        const rawKey = crypto.getRandomValues(new Uint8Array(32));
+        aesKeyHex = bytesToHex(rawKey);
+        await WalletStorage.set('aesKeyHex', aesKeyHex);
+    }
+
+    const aesKey = await crypto.subtle.importKey(
+        "raw",
+        hexToBytes(aesKeyHex),
+        "AES-GCM",
+        false,
+        ["decrypt"]
+    );
+} else {
       throw new Error(`Unsupported key mode: ${keyMode}`);
     }
 
@@ -1276,6 +1313,19 @@ function setButtonLoading(buttonId, loading) {
   button.disabled = loading;
 }
 
+document.getElementById("data-encryption-mode").addEventListener("change", e => {
+  const mode = e.target.value;
+
+  document.getElementById("password-field").classList.add("hidden");
+  document.getElementById("recipient-field").classList.add("hidden");
+
+  if (mode === "password") {
+    document.getElementById("password-field").classList.remove("hidden");
+  } else if (mode === "recipient") {
+    document.getElementById("recipient-field").classList.remove("hidden");
+  }
+});
+  
 // ---------------------------------------------------------------------------
 //  UI: CREATE WALLET
 // ---------------------------------------------------------------------------
@@ -1379,8 +1429,40 @@ async function sendTransaction() {
 // ---------------------------------------------------------------------------
 //  UI: UPLOAD DATA
 // ---------------------------------------------------------------------------
+async function deriveKeyFromPassword(password) {
+  const enc = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+
+  const baseKey = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(password),
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+
+  const aesKey = await crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt,
+      iterations: 100000,
+      hash: "SHA-256"
+    },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+
+  return { aesKey, salt: bytesToHex(salt) };
+}
+
 async function uploadData() {
+  let finalContent = null;
+  let encryptedContent = null;
+  let statusAppend = "";
   const content = document.getElementById('data-content').value;
+  const encMode = document.getElementById("data-encryption-mode").value;
   const contentType = document.getElementById('content-type').value || 'text/plain';
   const userTagKey = document.getElementById('tag-key-1').value.trim();
   const userTagValue = document.getElementById('tag-value-1').value.trim();
@@ -1393,7 +1475,81 @@ async function uploadData() {
   setStatus('wallet-status', 'Preparing upload...', 'info');
 
   try {
-    const txId = await WalletCore.uploadDataItem(content, contentType, userTagKey || null, userTagValue || null);
+    if (encMode === "self") {
+  const walletKey = WalletCore.getCurrentWallet();
+  if (!walletKey) throw new Error("Wallet not loaded");
+
+  const credentialId = await WalletStorage.get("credentialId");
+  const keyMode = await WalletStorage.get("keyMode");
+
+  let aesKey;
+  if (keyMode === "prf") {
+    const prfSaltHex = await WalletStorage.get("prfSaltHex");
+    const prfBytes = await WebAuthnHelper.evaluatePrf(credentialId, hexToBytes(prfSaltHex));
+    aesKey = await crypto.subtle.importKey("raw", prfBytes, "AES-GCM", false, ["encrypt"]);
+  } else {
+    await WebAuthnHelper.authenticate(credentialId);
+    const aesKeyHex = await WalletStorage.get("aesKeyHex");
+    aesKey = await crypto.subtle.importKey("raw", hexToBytes(aesKeyHex), "AES-GCM", false, ["encrypt"]);
+  }
+
+  encryptedContent = await CryptoHelper.encrypt({ text: content }, aesKey);
+  finalContent = JSON.stringify({ enc: "self", data: encryptedContent });
+
+}
+if (encMode === "password") {
+  const password = document.getElementById("data-password").value.trim();
+  if (!password) throw new Error("Password required.");
+
+  const { aesKey, salt } = await deriveKeyFromPassword(password);
+  const encrypted = await CryptoHelper.encrypt({ text: content }, aesKey);
+
+  finalContent = JSON.stringify({ enc: "pw", salt, data: encrypted });
+  statusAppend = `#${password}`;
+}
+
+if (encMode === "recipient") {
+  const target = document.getElementById("recipient-address").value.trim();
+  if (!target) throw new Error("Recipient address required.");
+
+  const encryptedRes = await fetch("https://arweave.net/graphql", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      query:`{
+        transactions(tags:[
+          {name:"User-Address",values:["${target}"]},
+          {name:"App-Name",values:["${WALLET_APP_NAME}"]}
+        ], first:1, sort:HEIGHT_DESC){edges{node{tags{name value}}}}}`
+    })
+  });
+
+  const parsed = await encryptedRes.json();
+  const tags = parsed.data.transactions.edges[0].node.tags;
+
+  const pubKeyB64 = tags.find(t => t.name === "User-EncKey")?.value;
+  if (!pubKeyB64) throw new Error("Recipient does not support encryption.");
+
+  const rawPub = Uint8Array.from(atob(pubKeyB64), c => c.charCodeAt(0));
+  const recipientKey = await crypto.subtle.importKey("raw", rawPub, {name:"ECDH", namedCurve:"P-256"}, false, []);
+  const privJwk = JSON.parse(await WalletStorage.get("encPrivKeyJwk"));
+  const privKey = await crypto.subtle.importKey(privJwk, {name:"ECDH", namedCurve:"P-256"}, false, ["deriveBits"]);
+
+  const sharedBits = await crypto.subtle.deriveBits({name:"ECDH", public: recipientKey}, privKey, 256);
+  const aesKey = await crypto.subtle.importKey("raw", sharedBits, "AES-GCM", false, ["encrypt"]);
+
+  const encrypted = await CryptoHelper.encrypt({ text: content }, aesKey);
+  finalContent = JSON.stringify({ enc:"recipient", to:target, data: encrypted });
+
+}
+if (encMode === "none") {
+  finalContent = content;
+}
+
+const txId = await WalletCore.uploadDataItem(finalContent, contentType, userTagKey || null, userTagValue || null);
+
+let link = `https://arweave.net/${txId}`;
+if (statusAppend) link += statusAppend; // for password case
     setStatus('wallet-status', `✅ Uploaded! TX ID: ${txId}<br><a href="https://arweave.net/${txId}" target="_blank">View on Arweave</a>`, 'success');
 
     document.getElementById('data-content').value = '';
@@ -1745,6 +1901,7 @@ async function finishRecovery(txId) {
     const username = meta.username || (await WalletStorage.get('username')) || '';
 
     WalletCore.setWallet(jwk);
+    await ensureUserEncKey();
 
     await WalletStorage.set('address', address);
     await WalletStorage.set('backupTxId', txId);
