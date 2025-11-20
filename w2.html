@@ -1512,36 +1512,97 @@ if (encMode === "recipient") {
   const target = document.getElementById("recipient-address").value.trim();
   if (!target) throw new Error("Recipient address required.");
 
+  // 1) Fetch latest wallet backup tx for that address that has User-EncKey
   const encryptedRes = await fetch("https://arweave.net/graphql", {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({
-      query:`{
-        transactions(tags:[
-          {name:"User-Address",values:["${target}"]},
-          {name:"App-Name",values:["${WALLET_APP_NAME}"]}
-        ], first:1, sort:HEIGHT_DESC){edges{node{tags{name value}}}}}`
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query: `{
+        transactions(
+          tags:[
+            { name:"User-Address", values:["${target}"] },
+            { name:"App-Name", values:["${WALLET_APP_NAME}"] }
+          ],
+          first:1,
+          sort:HEIGHT_DESC
+        ){
+          edges{
+            node{
+              tags { name value }
+            }
+          }
+        }
+      }`
     })
   });
 
   const parsed = await encryptedRes.json();
-  const tags = parsed.data.transactions.edges[0].node.tags;
+  const edges = parsed?.data?.transactions?.edges || [];
 
-  const pubKeyB64 = tags.find(t => t.name === "User-EncKey")?.value;
-  if (!pubKeyB64) throw new Error("Recipient does not support encryption.");
+  if (!edges.length) {
+    throw new Error("Recipient wallet not found or does not have a backup with encryption key.");
+  }
 
-  const rawPub = Uint8Array.from(atob(pubKeyB64), c => c.charCodeAt(0));
-  const recipientKey = await crypto.subtle.importKey("raw", rawPub, {name:"ECDH", namedCurve:"P-256"}, false, []);
-  const privJwk = JSON.parse(await WalletStorage.get("encPrivKeyJwk"));
-  const privKey = await crypto.subtle.importKey(privJwk, {name:"ECDH", namedCurve:"P-256"}, false, ["deriveBits"]);
+  const tags = edges[0].node.tags || [];
+  const pubKeyB64 = (tags.find(t => t.name === "User-EncKey") || {}).value;
 
-  const sharedBits = await crypto.subtle.deriveBits({name:"ECDH", public: recipientKey}, privKey, 256);
-  const aesKey = await crypto.subtle.importKey("raw", sharedBits, "AES-GCM", false, ["encrypt"]);
+  if (!pubKeyB64 || typeof pubKeyB64 !== "string") {
+    throw new Error("Recipient does not support encryption (no public encryption key found).");
+  }
 
+  // 2) Decode recipient public ECDH key (raw P-256)
+  let rawPub;
+  try {
+    rawPub = Uint8Array.from(atob(pubKeyB64), c => c.charCodeAt(0));
+  } catch (e) {
+    console.error("Failed to base64-decode User-EncKey:", pubKeyB64, e);
+    throw new Error("Recipient encryption key is malformed.");
+  }
+
+  const recipientKey = await crypto.subtle.importKey(
+    "raw",
+    rawPub,
+    { name: "ECDH", namedCurve: "P-256" },
+    false,
+    [] // public ECDH key has no usages
+  );
+
+  // 3) Load *our* ECDH private key from local storage (created by generateUserEncryptionKey)
+  const privJwkStr = await WalletStorage.get("encPrivKeyJwk");
+  if (!privJwkStr) {
+    throw new Error("Local encryption key not found on this device. Try re-creating or re-importing your wallet.");
+  }
+
+  const privJwk = JSON.parse(privJwkStr);
+
+  const privKey = await crypto.subtle.importKey(
+    "jwk",
+    privJwk,
+    { name: "ECDH", namedCurve: "P-256" },
+    false,
+    ["deriveBits"]
+  );
+
+  // 4) Derive shared secret → AES-GCM key
+  const sharedBits = await crypto.subtle.deriveBits(
+    { name: "ECDH", public: recipientKey },
+    privKey,
+    256
+  );
+
+  const aesKey = await crypto.subtle.importKey(
+    "raw",
+    sharedBits,
+    "AES-GCM",
+    false,
+    ["encrypt"]
+  );
+
+  // 5) Encrypt payload for that recipient
   const encrypted = await CryptoHelper.encrypt({ text: content }, aesKey);
-  finalContent = JSON.stringify({ enc:"recipient", to:target, data: encrypted });
-
+  finalContent = JSON.stringify({ enc: "recipient", to: target, data: encrypted });
 }
+
 if (encMode === "none") {
   finalContent = content;
 }
