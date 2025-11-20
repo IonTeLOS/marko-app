@@ -1694,20 +1694,37 @@ if (encMode === "recipient") {
   }
 
   const tags = edges[0].node.tags;
-  const pubKeyB64 = tags.find(t => t.name === "User-EncKey")?.value;
-  console.log("Fetched User-EncKey for recipient:", pubKeyB64);
+let pubKeyB64 = tags.find(t => t.name === "User-EncKey")?.value;
 
-  if (!pubKeyB64) {
-    throw new Error("Recipient does not support encryption (User-EncKey tag missing).");
-  }
+if (!pubKeyB64) {
+  throw new Error("Recipient does not support encryption (User-EncKey tag missing).");
+}
 
-  // --- 2. Import RECIPIENT'S PUBLIC KEY ---
-  let rawRecipientPub;
-  try {
-    rawRecipientPub = Uint8Array.from(atob(pubKeyB64), c => c.charCodeAt(0));
-  } catch (err) {
-    throw new Error("Recipient encryption key is malformed.");
-  }
+console.log("Fetched User-EncKey for recipient (raw):", pubKeyB64);
+
+// --- 2. Normalise base64 and import RECIPIENT'S PUBLIC KEY ---
+let cleanB64 = pubKeyB64
+  // remove whitespace / line breaks
+  .replace(/\s+/g, '')
+  // convert URL-safe base64 to standard, just in case
+  .replace(/-/g, '+')
+  .replace(/_/g, '/');
+
+// pad to multiple of 4 chars if needed
+while (cleanB64.length % 4 !== 0) {
+  cleanB64 += '=';
+}
+
+let rawRecipientPub;
+try {
+  rawRecipientPub = Uint8Array.from(
+    atob(cleanB64),
+    c => c.charCodeAt(0)
+  );
+} catch (err) {
+  console.error("Failed to decode recipient key:", err, "cleanB64:", cleanB64);
+  throw new Error("Recipient encryption key is malformed.");
+}
 
   const recipientPubKey = await crypto.subtle.importKey(
     "raw",
