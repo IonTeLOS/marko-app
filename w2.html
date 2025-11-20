@@ -840,7 +840,7 @@ const WalletCore = (function() {
     return { address, backupTxId: txId, keyMode };
   }
 
-  async function unlockWallet() {
+    async function unlockWallet() {
     const credentialId = await WalletStorage.get(STORAGE_KEYS.credentialId);
     const storedAddress = await WalletStorage.get(STORAGE_KEYS.address);
     const backupTxId = await WalletStorage.get(STORAGE_KEYS.backupTxId);
@@ -857,47 +857,67 @@ const WalletCore = (function() {
 
     const meta = encryptedBlob.meta || {};
 
+    // Determine keyMode from storage or meta
     let keyMode = await WalletStorage.get(STORAGE_KEYS.keyMode);
     if (!keyMode && meta.keyMode) keyMode = meta.keyMode;
     if (!keyMode) {
       throw new Error('Missing key mode information for this wallet');
     }
 
+    // Common variables
     let aesKey;
     let prfSaltHex = await WalletStorage.get(STORAGE_KEYS.prfSaltHex);
     if (!prfSaltHex && meta.prfSaltHex) prfSaltHex = meta.prfSaltHex;
 
-    const aesKeyHex = await WalletStorage.get(STORAGE_KEYS.aesKeyHex);
+    let aesKeyHex = await WalletStorage.get(STORAGE_KEYS.aesKeyHex);
 
     if (keyMode === 'prf') {
       if (!prfSaltHex) throw new Error('Missing PRF salt for this wallet');
 
-      const prfBytes = await WebAuthnHelper.evaluatePrf(credentialId, hexToBytes(prfSaltHex));
-      aesKey = await crypto.subtle.importKey('raw', prfBytes, 'AES-GCM', false, ['decrypt']);
-    } else if (keyMode === 'wrapped') {
-    let aesKeyHex = await WalletStorage.get('aesKeyHex');
+      // Derive key from PRF
+      const prfBytes = await WebAuthnHelper.evaluatePrf(
+        credentialId,
+        hexToBytes(prfSaltHex)
+      );
 
-    if (!aesKeyHex) {
+      aesKey = await crypto.subtle.importKey(
+        'raw',
+        prfBytes,
+        'AES-GCM',
+        false,
+        ['decrypt']
+      );
+    } else if (keyMode === 'wrapped') {
+      // Wrapped mode: use locally stored AES key, or create one on this device
+      if (!aesKeyHex) {
         // New device scenario – ask user to authenticate and rebuild AES key
-        setStatus('unlock-status', 'This wallet was imported on another device. Creating new AES encryption key...', 'info');
+        setStatus(
+          'unlock-status',
+          'This wallet was imported on another device. Creating new AES encryption key...',
+          'info'
+        );
         await WebAuthnHelper.authenticate(credentialId);
 
         const rawKey = crypto.getRandomValues(new Uint8Array(32));
         aesKeyHex = bytesToHex(rawKey);
-        await WalletStorage.set('aesKeyHex', aesKeyHex);
-    }
+        await WalletStorage.set(STORAGE_KEYS.aesKeyHex, aesKeyHex);
+      } else {
+        // Existing device: still require authentication
+        await WebAuthnHelper.authenticate(credentialId);
+      }
 
-    const aesKey = await crypto.subtle.importKey(
-        "raw",
+      aesKey = await crypto.subtle.importKey(
+        'raw',
         hexToBytes(aesKeyHex),
-        "AES-GCM",
+        'AES-GCM',
         false,
-        ["decrypt"]
-    );
-} else {
+        ['decrypt']
+      );
+    } else {
       throw new Error(`Unsupported key mode: ${keyMode}`);
     }
 
+    // Now aesKey is guaranteed to be a CryptoKey
     const jwk = await CryptoHelper.decrypt(encryptedBlob.encrypted, aesKey);
     const address = await arweave.wallets.jwkToAddress(jwk);
 
@@ -906,10 +926,13 @@ const WalletCore = (function() {
     await WalletStorage.set(STORAGE_KEYS.address, address);
     await WalletStorage.set(STORAGE_KEYS.backupTxId, backupTxId);
     await WalletStorage.set(STORAGE_KEYS.keyMode, keyMode);
-    if (prfSaltHex) await WalletStorage.set(STORAGE_KEYS.prfSaltHex, prfSaltHex);
+    if (prfSaltHex) {
+      await WalletStorage.set(STORAGE_KEYS.prfSaltHex, prfSaltHex);
+    }
 
     return { address, backupTxId, keyMode };
   }
+
 
   async function importFromKeyfile(jwk) {
     if (!arweave) throw new Error('Arweave not initialized');
