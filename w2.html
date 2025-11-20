@@ -1508,11 +1508,13 @@ if (encMode === "password") {
   statusAppend = `#${password}`;
 }
 
+
+
 if (encMode === "recipient") {
   const target = document.getElementById("recipient-address").value.trim();
   if (!target) throw new Error("Recipient address required.");
 
-  // 1) Fetch latest wallet backup tx for that address that has User-EncKey
+  // 1) Fetch latest wallet backup tx for that address (contains User-EncKey)
   const encryptedRes = await fetch("https://arweave.net/graphql", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1540,53 +1542,47 @@ if (encMode === "recipient") {
   const edges = parsed?.data?.transactions?.edges || [];
 
   if (!edges.length) {
-    throw new Error("Recipient wallet not found or does not have a backup with encryption key.");
+    throw new Error("Recipient wallet not found or does not have a public encryption key.");
   }
 
-  const tags = edges[0].node.tags || [];
-  const pubKeyB64 = (tags.find(t => t.name === "User-EncKey") || {}).value;
+  const tags = edges[0].node.tags;
+  const pubKeyB64 = tags.find(t => t.name === "User-EncKey")?.value;
 
-  if (!pubKeyB64 || typeof pubKeyB64 !== "string") {
-    throw new Error("Recipient does not support encryption (no public encryption key found).");
+  if (!pubKeyB64) {
+    throw new Error("Recipient does not support encryption (User-EncKey tag missing).");
   }
 
-  // 2) Decode recipient public ECDH key (raw P-256)
-  let rawPub;
+  // --- 2. Import RECIPIENT'S PUBLIC KEY ---
+  let rawRecipientPub;
   try {
-    rawPub = Uint8Array.from(atob(pubKeyB64), c => c.charCodeAt(0));
-  } catch (e) {
-    console.error("Failed to base64-decode User-EncKey:", pubKeyB64, e);
+    rawRecipientPub = Uint8Array.from(atob(pubKeyB64), c => c.charCodeAt(0));
+  } catch (err) {
     throw new Error("Recipient encryption key is malformed.");
   }
 
-  const recipientKey = await crypto.subtle.importKey(
+  const recipientPubKey = await crypto.subtle.importKey(
     "raw",
-    rawPub,
+    rawRecipientPub,
     { name: "ECDH", namedCurve: "P-256" },
     false,
-    [] // public ECDH key has no usages
+    []
   );
 
-  // 3) Load *our* ECDH private key from local storage (created by generateUserEncryptionKey)
-  const privJwkStr = await WalletStorage.get("encPrivKeyJwk");
-  if (!privJwkStr) {
-    throw new Error("Local encryption key not found on this device. Try re-creating or re-importing your wallet.");
-  }
-
-  const privJwk = JSON.parse(privJwkStr);
-
-  const privKey = await crypto.subtle.importKey(
-    "jwk",
-    privJwk,
+  // --- 3. Generate EPHEMERAL keypair for this message ---
+  const ephemeral = await crypto.subtle.generateKey(
     { name: "ECDH", namedCurve: "P-256" },
-    false,
+    true,
     ["deriveBits"]
   );
 
-  // 4) Derive shared secret → AES-GCM key
+  // Export ephemeral PUBLIC key (to embed in blob)
+  const ephemeralRaw = await crypto.subtle.exportKey("raw", ephemeral.publicKey);
+  const fromPubB64 = btoa(String.fromCharCode(...new Uint8Array(ephemeralRaw)));
+
+  // --- 4. Derive SHARED SECRET using ephemeral PRIVATE + recipient PUBLIC ---
   const sharedBits = await crypto.subtle.deriveBits(
-    { name: "ECDH", public: recipientKey },
-    privKey,
+    { name: "ECDH", public: recipientPubKey },
+    ephemeral.privateKey,
     256
   );
 
@@ -1598,10 +1594,18 @@ if (encMode === "recipient") {
     ["encrypt"]
   );
 
-  // 5) Encrypt payload for that recipient
+  // --- 5. Encrypt content ---
   const encrypted = await CryptoHelper.encrypt({ text: content }, aesKey);
-  finalContent = JSON.stringify({ enc: "recipient", to: target, data: encrypted });
+
+  // --- 6. Build final content including ephemeral public key ---
+  finalContent = JSON.stringify({
+    enc: "recipient",
+    to: target,
+    fromPub: fromPubB64,
+    data: encrypted
+  });
 }
+
 
 if (encMode === "none") {
   finalContent = content;
