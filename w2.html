@@ -1695,6 +1695,7 @@ if (encMode === "recipient") {
 
   const tags = edges[0].node.tags;
   const pubKeyB64 = tags.find(t => t.name === "User-EncKey")?.value;
+  console.log("Fetched User-EncKey for recipient:", pubKeyB64);
 
   if (!pubKeyB64) {
     throw new Error("Recipient does not support encryption (User-EncKey tag missing).");
