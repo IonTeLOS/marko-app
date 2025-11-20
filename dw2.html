@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Decrypt Arweave Password/Self-Protected Content</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://unpkg.com/localforage/dist/localforage.min.js"></script>
 
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -143,11 +144,13 @@
 
   <script>
     // ---------- Simple storage wrapper (compatible with wallet) ----------
-    const WalletStorage = {
-      async get(key) {
-        return localStorage.getItem('biowallet:' + key);
-      }
-    };
+// Use the same storage backend as the wallet
+const WalletStorage = {
+  async get(key) {
+    return window.localforage.getItem("biowallet:" + key);
+  }
+};
+
 
     // ---------- Helpers ----------
     function setStatus(message, type = 'info') {
