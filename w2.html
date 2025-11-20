@@ -416,20 +416,41 @@ function parsePaymentRequestFromUrl() {
   // Check for sign message request
   const signMessage = params.get('signMessage') || params.get('sign');
   if (signMessage) {
+    const options = {};
+    
+    // Only include defined values
+    const domain = params.get('domain');
+    const statement = params.get('statement');
+    const uri = params.get('uri');
+    const nonce = params.get('nonce');
+    const chainId = params.get('chainId');
+    const issuedAt = params.get('issuedAt');
+    const expirationTime = params.get('expirationTime');
+    const requestId = params.get('requestId');
+    
+    if (domain) options.domain = domain;
+    if (statement) options.statement = statement;
+    if (uri) options.uri = uri;
+    if (nonce) options.nonce = nonce;
+    if (chainId) options.chainId = chainId;
+    if (issuedAt) options.issuedAt = issuedAt;
+    if (expirationTime) options.expirationTime = expirationTime;
+    if (requestId) options.requestId = requestId;
+    
+    // Parse resources array (resource0, resource1, resource2, etc.)
+    const resources = [];
+    let i = 0;
+    while (params.has(`resource${i}`)) {
+      resources.push(params.get(`resource${i}`));
+      i++;
+    }
+    if (resources.length > 0) options.resources = resources;
+    
     pendingSignRequest = {
       message: decodeURIComponent(signMessage),
       origin: params.get('origin') || params.get('app') || 'Unknown',
-      // Optional CAIP-122 fields
-      options: {
-        domain: params.get('domain'),
-        statement: params.get('statement'),
-        uri: params.get('uri'),
-        nonce: params.get('nonce'),
-        chainId: params.get('chainId'),
-        issuedAt: params.get('issuedAt'),
-        expirationTime: params.get('expirationTime'),
-        requestId: params.get('requestId')
-      }
+      callbackUrl: params.get('callback') || params.get('redirect'),
+      options
     };
   }
 
@@ -498,7 +519,7 @@ async function uploadToCloudFunction(data, tagsInput) {
 async function applyPendingPaymentRequestIfAny() {
   // Handle sign request first
   if (pendingSignRequest) {
-  const { message, origin, options } = pendingSignRequest;
+    const { message, origin, options = {}, callbackUrl } = pendingSignRequest;
   pendingSignRequest = null;
 
   showScreen('wallet-screen');
@@ -511,11 +532,17 @@ async function applyPendingPaymentRequestIfAny() {
 
   // Store options for later use
   window.pendingSignOptions = options;
+  window.pendingCallbackUrl = callbackUrl; // Store callback separately
 
-  let statusMsg = `Sign request from: ${origin}<br>Please review the message and sign.`;
-  setStatus('wallet-status', statusMsg, 'info');
-  return;
-}
+  let statusMsg = `<strong>🔗 External Sign Request</strong><br>`;
+    statusMsg += `From: <strong>${origin}</strong><br>`;
+    if (callbackUrl) {
+      statusMsg += `Will redirect to: ${new URL(callbackUrl).origin}<br>`;
+    }
+    statusMsg += `Please review and sign.`;
+    setStatus('wallet-status', statusMsg, 'info');
+    return;
+  }
 
   // Handle payment request
   if (!pendingPaymentRequest) return;
@@ -1392,13 +1419,16 @@ async function signMessage() {
   // Optional: Collect CAIP-122 options from additional inputs if added to HTML
    // Use pending options if available (from URL), otherwise empty
   const options = window.pendingSignOptions || {};
+  const callbackUrl = window.pendingCallbackUrl; // Get callback
   window.pendingSignOptions = null; // Clear after use
+  window.pendingCallbackUrl = null; // Clear callback
 
   setStatus('wallet-status', 'Confirm signing on your device…', 'info');
   try {
     await WalletCore.confirmBiometricForPayment();
     setStatus('wallet-status', 'Signing message...', 'info');
     const result = await WalletCore.signMessage(message, options);
+    
     document.getElementById('signed-message').textContent = result.message;
     document.getElementById('signature-value').textContent = result.signature;
     document.getElementById('public-key-value').textContent = JSON.stringify(result.publicKey, null, 2);
@@ -1420,7 +1450,38 @@ async function signMessage() {
 
     document.getElementById('signature-result').style.display = 'block';
     window.lastSignatureResult = result;
-    setStatus('wallet-status', `✅ Signed (CAIP-122 standard if options used)! Verify at sig.arweave.dev.`, 'success');
+    if (callbackUrl) {
+      setStatus('wallet-status', 
+        `✅ Signed! Redirecting back to app in 3 seconds...<br>
+        <button class="btn btn-secondary" onclick="window.pendingRedirect = null; setStatus('wallet-status', 'Redirect cancelled', 'info');">Cancel</button>`, 
+        'success'
+      );
+          setTimeout(() => {
+        if (window.pendingRedirect !== null) { // Check if not cancelled
+          try {
+            const redirectUrl = new URL(callbackUrl);
+            
+            // Add signature data to callback URL
+            redirectUrl.searchParams.set('signature', result.signature);
+            redirectUrl.searchParams.set('message', encodeURIComponent(result.message));
+            redirectUrl.searchParams.set('owner', result.owner);
+            redirectUrl.searchParams.set('address', result.address);
+            redirectUrl.searchParams.set('timestamp', result.timestamp.toString());
+            
+            // Redirect
+            window.location.href = redirectUrl.toString();
+          } catch (err) {
+            console.error('Invalid callback URL:', err);
+            setStatus('wallet-status', '❌ Invalid callback URL', 'error');
+          }
+        }
+      }, 3000);
+      
+      window.pendingRedirect = true; // Flag for cancellation
+    } else {
+      setStatus('wallet-status', `✅ Signed successfully!`, 'success');
+    }
+    
   } catch (error) {
     console.error(error);
     setStatus('wallet-status', `❌ Error: ${error.message}`, 'error');
