@@ -1183,36 +1183,7 @@ async function signMessage(message, options = {}) {
   };
 }
 
-// to verify, not implemented  
-async function verifyArweaveMessageSignatureNative() {
-  if (!window.lastSignatureResult) {
-    alert("Sign a message first!");
-    return;
-  }
-  
-  const { message, signature, owner } = window.lastSignatureResult;
-  
-  try {
-    // Arweave's built-in verification method
-    const valid = await arweave.crypto.verify(
-      owner,  // Public key (n value from JWK)
-      new TextEncoder().encode(message),
-      arweave.utils.b64UrlToBuffer(signature)
-    );
-    
-    alert(valid ? "✅ SIGNATURE VALID (Arweave native verify)" : "❌ Invalid");
-    console.log("Valid:", valid);
-    
-    return valid;
-  } catch (error) {
-    alert(`❌ Verification error: ${error.message}`);
-    console.error("Verification error:", error);
-    return false;
-  }
-}
 
-// Run it
-// verifyArweaveMessageSignatureNative();
   return {
     createWallet,
     unlockWallet,
