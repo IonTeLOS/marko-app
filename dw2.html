@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Decrypt Arweave Password-Protected Content</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 30px;
+      max-width: 700px;
+      width: 100%;
+    }
+    h1 {
+      font-size: 22px;
+      margin-bottom: 10px;
+      color: #1a202c;
+    }
+    p {
+      color: #4a5568;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+    .input-group { margin-bottom: 16px; }
+    .input-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      color: #4a5568;
+      font-size: 13px;
+    }
+    .input-group input, .input-group textarea {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 2px solid #e2e8f0;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .input-group input:focus, .input-group textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    .btn {
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: none;
+      background: #667eea;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .status {
+      margin-top: 15px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .status-info { background: #cfe2ff; border: 1px solid #b6d4fe; color: #084298; }
+    .status-success { background: #d1e7dd; border: 1px solid #badbcc; color: #0f5132; }
+    .status-error { background: #f8d7da; border: 1px solid #f5c2c7; color: #842029; }
+    #output {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 8px;
+      background: #f8f9fa;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 350px;
+      overflow-y: auto;
+    }
+    .hint {
+      font-size: 12px;
+      color: #718096;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔐 Decrypt Arweave Password-Protected Content</h1>
+    <p>
+      This tool decrypts blobs uploaded by your wallet with
+      <code>{ enc: "pw", salt, data }</code> format, using only the password.
+      No WebAuthn or device binding is required.
+    </p>
+
+    <div class="input-group">
+      <label for="arweave-url">Arweave URL</label>
+      <input id="arweave-url" type="text" placeholder="https://arweave.net/&lt;TXID&gt;">
+      <div class="hint">
+        If you opened this page from a link like
+        <code>?link=...#password</code>, it will auto-fill.
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label for="password">Password</label>
+      <input id="password" type="text" placeholder="Enter password">
+      <div class="hint">
+        If the sender put the password after <code>#</code> in the URL, it will auto-fill.
+      </div>
+    </div>
+
+    <button class="btn" id="decrypt-btn" onclick="startDecrypt()">
+      🔓 Decrypt
+    </button>
+
+    <div id="status"></div>
+    <div id="output" style="display:none;"></div>
+  </div>
+
+  <script>
+    // ---------- Helpers ----------
+    function setStatus(message, type = 'info') {
+      const el = document.getElementById('status');
+      if (!el) return;
+      el.className = 'status status-' + type;
+      el.innerHTML = message;
+    }
+
+    function bytesToHex(bytes) {
+      return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function hexToBytes(hex) {
+      if (!hex || hex.length % 2 !== 0) throw new Error('Invalid hex string');
+      const out = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < out.length; i++) {
+        out[i] = parseInt(hex.substr(i * 2, 2), 16);
+      }
+      return out;
+    }
+
+    const CryptoHelper = {
+      async decrypt(encryptedData, key) {
+        const ciphertext = hexToBytes(encryptedData.ciphertext);
+        const iv = hexToBytes(encryptedData.iv);
+
+        const plaintextBytes = await crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv },
+          key,
+          ciphertext
+        );
+
+        const decoded = new TextDecoder().decode(plaintextBytes);
+        return JSON.parse(decoded);
+      }
+    };
+
+    async function deriveKeyFromPasswordAndSalt(password, saltHex) {
+      const enc = new TextEncoder();
+      const saltBytes = hexToBytes(saltHex);
+
+      const baseKey = await crypto.subtle.importKey(
+        'raw',
+        enc.encode(password),
+        'PBKDF2',
+        false,
+        ['deriveKey']
+      );
+
+      const aesKey = await crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: saltBytes,
+          iterations: 100000,
+          hash: 'SHA-256'
+        },
+        baseKey,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['decrypt']
+      );
+
+      return aesKey;
+    }
+
+    // ---------- Main logic ----------
+    async function startDecrypt() {
+      const btn = document.getElementById('decrypt-btn');
+      const urlInput = document.getElementById('arweave-url');
+      const passInput = document.getElementById('password');
+      const output = document.getElementById('output');
+
+      const arUrl = urlInput.value.trim();
+      const password = passInput.value.trim();
+
+      if (!arUrl) {
+        setStatus('❌ Please enter the Arweave URL', 'error');
+        return;
+      }
+      if (!password) {
+        setStatus('❌ Please enter the password', 'error');
+        return;
+      }
+
+      btn.disabled = true;
+      setStatus('Fetching encrypted blob from Arweave…', 'info');
+      output.style.display = 'none';
+      output.textContent = '';
+
+      try {
+        const res = await fetch(arUrl);
+        if (!res.ok) {
+          throw new Error('Failed to fetch from Arweave (HTTP ' + res.status + ')');
+        }
+
+        const text = await res.text();
+        let blob;
+        try {
+          blob = JSON.parse(text);
+        } catch (e) {
+          throw new Error('Response is not valid JSON. This is not a wallet-encrypted blob.');
+        }
+
+        // We expect { enc: "pw", salt, data: {ciphertext, iv} }
+        if (!blob || blob.enc !== 'pw' || !blob.salt || !blob.data) {
+          throw new Error('Blob format not recognized as password-encrypted ({ enc: "pw", salt, data }).');
+        }
+
+        setStatus('Deriving key from password…', 'info');
+
+        const aesKey = await deriveKeyFromPasswordAndSalt(password, blob.salt);
+
+        setStatus('Decrypting…', 'info');
+
+        let decrypted;
+        try {
+          decrypted = await CryptoHelper.decrypt(blob.data, aesKey);
+        } catch (e) {
+          // Most likely wrong password or tampered data
+          console.error(e);
+          throw new Error('Decryption failed. The password may be wrong or the data is corrupted.');
+        }
+
+        // decrypted is whatever you encrypted originally, in your uploadData:
+        //   CryptoHelper.encrypt({ text: content }, key)
+        // so we expect { text: "..." } usually.
+        let display;
+        if (decrypted && typeof decrypted === 'object' && 'text' in decrypted) {
+          display = decrypted.text;
+        } else {
+          display = JSON.stringify(decrypted, null, 2);
+        }
+
+        output.textContent = display;
+        output.style.display = 'block';
+        setStatus('✅ Decryption successful!', 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus('❌ ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // ---------- Autofill from URL ----------
+    (function autoInitFromUrl() {
+      const url = new URL(window.location.href);
+      const params = url.searchParams;
+
+      // Expect ?link=<arweave-url> or ?url=<arweave-url>
+      const link = params.get('link') || params.get('url') || '';
+      const arweaveInput = document.getElementById('arweave-url');
+      if (link) {
+        arweaveInput.value = link;
+      }
+
+      // Password passed in URL hash: #password
+      if (window.location.hash && window.location.hash.length > 1) {
+        const raw = window.location.hash.substring(1); // drop '#'
+        try {
+          document.getElementById('password').value = decodeURIComponent(raw);
+        } catch {
+          document.getElementById('password').value = raw;
+        }
+      }
+
+      // Optional: auto-decrypt if both are present
+      if (arweaveInput.value && document.getElementById('password').value) {
+        startDecrypt();
+      }
+    })();
+  </script>
+</body>
+</html>
