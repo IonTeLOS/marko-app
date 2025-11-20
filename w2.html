@@ -1694,64 +1694,80 @@ if (encMode === "recipient") {
   }
 
   const tags = edges[0].node.tags;
-let pubKeyB64 = tags.find(t => t.name === "User-EncKey")?.value;
+  let pubKeyB64 = tags.find(t => t.name === "User-EncKey")?.value;
 
-if (!pubKeyB64) {
-  throw new Error("Recipient does not support encryption (User-EncKey tag missing).");
-}
+  if (!pubKeyB64) {
+    throw new Error("Recipient does not support encryption (User-EncKey tag missing).");
+  }
 
-console.log("Fetched User-EncKey for recipient (raw):", pubKeyB64);
+  console.log("Raw User-EncKey from Arweave:", pubKeyB64);
 
-// --- 2. Normalise base64 and import RECIPIENT'S PUBLIC KEY ---
-let cleanB64 = pubKeyB64
-  // remove whitespace / line breaks
-  .replace(/\s+/g, '')
-  // convert URL-safe base64 to standard, just in case
-  .replace(/-/g, '+')
-  .replace(/_/g, '/');
+  // -----------------------------------------
+  // FIX: Arweave normalizes '+' → ' ' in tags
+  // Must restore '+' or Base64 breaks
+  // -----------------------------------------
+  pubKeyB64 = pubKeyB64.replace(/ /g, "+").trim();
 
-// pad to multiple of 4 chars if needed
-while (cleanB64.length % 4 !== 0) {
-  cleanB64 += '=';
-}
+  console.log("Normalized User-EncKey:", pubKeyB64);
 
-let rawRecipientPub;
-try {
-  rawRecipientPub = Uint8Array.from(
-    atob(cleanB64),
-    c => c.charCodeAt(0)
-  );
-} catch (err) {
-  console.error("Failed to decode recipient key:", err, "cleanB64:", cleanB64);
-  throw new Error("Recipient encryption key is malformed.");
-}
+  // 2. Convert back from Base64 → Uint8Array
+  let rawRecipientPub;
+  try {
+    rawRecipientPub = Uint8Array.from(
+      atob(pubKeyB64),
+      c => c.charCodeAt(0)
+    );
+  } catch (err) {
+    console.error("Base64 decode failed:", err);
+    throw new Error("Recipient encryption key is malformed (base64 decode failed).");
+  }
 
-  const recipientPubKey = await crypto.subtle.importKey(
-    "raw",
-    rawRecipientPub,
-    { name: "ECDH", namedCurve: "P-256" },
-    false,
-    []
-  );
+  // Must be 65 bytes for P-256 uncompressed
+  if (rawRecipientPub.length !== 65 || rawRecipientPub[0] !== 0x04) {
+    console.error("Invalid ECDH public key length or prefix:", rawRecipientPub);
+    throw new Error("Recipient public key is invalid (P-256 key expected).");
+  }
 
-  // --- 3. Generate EPHEMERAL keypair for this message ---
+  // 3. Import RECIPIENT PUBLIC KEY for ECDH
+  let recipientPubKey;
+  try {
+    recipientPubKey = await crypto.subtle.importKey(
+      "raw",
+      rawRecipientPub,
+      { name: "ECDH", namedCurve: "P-256" },
+      false,
+      []
+    );
+  } catch (err) {
+    console.error("importKey error:", err);
+    throw new Error("Recipient encryption key is malformed (importKey failed).");
+  }
+
+  // 4. Generate ephemeral ECDH keypair
   const ephemeral = await crypto.subtle.generateKey(
     { name: "ECDH", namedCurve: "P-256" },
     true,
     ["deriveBits"]
   );
 
-  // Export ephemeral PUBLIC key (to embed in blob)
+  // Export ephemeral public key to send with encrypted content
   const ephemeralRaw = await crypto.subtle.exportKey("raw", ephemeral.publicKey);
   const fromPubB64 = btoa(String.fromCharCode(...new Uint8Array(ephemeralRaw)));
 
-  // --- 4. Derive SHARED SECRET using ephemeral PRIVATE + recipient PUBLIC ---
-  const sharedBits = await crypto.subtle.deriveBits(
-    { name: "ECDH", public: recipientPubKey },
-    ephemeral.privateKey,
-    256
-  );
+  // 5. Derive shared secret
+  let sharedBits;
+  try {
+    sharedBits = await crypto.subtle.deriveBits(
+      { name: "ECDH", public: recipientPubKey },
+      ephemeral.privateKey,
+      256
+    );
+  } catch (err) {
+    console.error("deriveBits error:", err);
+    throw new Error("Recipient encryption failed (deriveBits DataError).");
+  }
 
+  // 6. AES-GCM key from shared secret
   const aesKey = await crypto.subtle.importKey(
     "raw",
     sharedBits,
@@ -1760,10 +1776,10 @@ try {
     ["encrypt"]
   );
 
-  // --- 5. Encrypt content ---
+  // 7. Encrypt content
   const encrypted = await CryptoHelper.encrypt({ text: content }, aesKey);
 
-  // --- 6. Build final content including ephemeral public key ---
+  // 8. Final envelope
   finalContent = JSON.stringify({
     enc: "recipient",
     to: target,
