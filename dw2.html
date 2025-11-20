@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Decrypt Arweave Password/Self-Protected Content</title>
+  <title>Decrypt Arweave Protected Content</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="https://unpkg.com/localforage/dist/localforage.min.js"></script>
+  <script src="https://unpkg.com/localforage/dist/localforage.min.js"></script>
 
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -25,444 +25,236 @@
       max-width: 700px;
       width: 100%;
     }
-    h1 {
-      font-size: 22px;
-      margin-bottom: 10px;
-      color: #1a202c;
-    }
-    p {
-      color: #4a5568;
-      margin-bottom: 15px;
-      font-size: 14px;
-    }
+    h1 { font-size: 22px; margin-bottom: 10px; color: #1a202c; }
+    p { color: #4a5568; margin-bottom: 15px; font-size: 14px; }
     .input-group { margin-bottom: 16px; }
     .input-group label {
-      display: block;
-      margin-bottom: 6px;
-      font-weight: 600;
-      color: #4a5568;
-      font-size: 13px;
+      display: block; margin-bottom: 6px; font-weight: 600;
+      color: #4a5568; font-size: 13px;
     }
-    .input-group input, .input-group textarea {
-      width: 100%;
-      padding: 10px;
-      border-radius: 8px;
-      border: 2px solid #e2e8f0;
-      font-size: 14px;
-      font-family: inherit;
+    .input-group input {
+      width: 100%; padding: 10px; border-radius: 8px;
+      border: 2px solid #e2e8f0; font-size: 14px; font-family: inherit;
     }
-    .input-group input:focus, .input-group textarea:focus {
-      outline: none;
-      border-color: #667eea;
-    }
+    .input-group input:focus { outline: none; border-color: #667eea; }
     .btn {
-      padding: 10px 18px;
-      border-radius: 8px;
-      border: none;
-      background: #667eea;
-      color: white;
-      font-weight: 600;
-      cursor: pointer;
-      font-size: 14px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
+      padding: 10px 18px; border-radius: 8px; border: none;
+      background: #667eea; color: white; font-weight: 600;
+      cursor: pointer; font-size: 14px; gap: 6px;
     }
-    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-    .status {
-      margin-top: 15px;
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 13px;
-    }
-    .status-info { background: #cfe2ff; border: 1px solid #b6d4fe; color: #084298; }
-    .status-success { background: #d1e7dd; border: 1px solid #badbcc; color: #0f5132; }
-    .status-error { background: #f8d7da; border: 1px solid #f5c2c7; color: #842029; }
     #output {
-      margin-top: 20px;
-      padding: 12px;
-      border-radius: 8px;
-      background: #f8f9fa;
+      margin-top: 20px; padding: 12px;
+      border-radius: 8px; background: #f8f9fa;
       font-family: 'Courier New', monospace;
-      font-size: 13px;
-      white-space: pre-wrap;
-      word-break: break-word;
-      max-height: 350px;
-      overflow-y: auto;
+      font-size: 13px; white-space: pre-wrap;
+      max-height: 350px; overflow-y: auto;
+      display:none;
     }
-    .hint {
-      font-size: 12px;
-      color: #718096;
-      margin-top: 4px;
+    .status {
+      margin-top: 15px; padding: 12px; border-radius: 8px; font-size: 13px;
     }
-    code {
-      background: #edf2f7;
-      padding: 2px 4px;
-      border-radius: 4px;
-      font-size: 12px;
-    }
+    .status-info { background: #cfe2ff; color: #084298; }
+    .status-success { background: #d1e7dd; color: #0f5132; }
+    .status-error { background: #f8d7da; color: #842029; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>🔐 Decrypt Arweave Protected Content</h1>
-    <p>
-      This tool decrypts blobs uploaded by your wallet in:
-      <br>
-      • <code>{ enc: "pw", salt, data }</code> (password-only) <br>
-      • <code>{ enc: "self", data }</code> (encrypted for your wallet on this device)
-    </p>
-    <p class="hint">
-      For <code>enc: "self"</code>, you must have already created/unlocked your Non-Custodial Arweave Wallet
-      in this browser (same origin), because it reuses your WebAuthn-bound key.
-    </p>
 
-    <div class="input-group">
-      <label for="arweave-url">Arweave URL</label>
-      <input id="arweave-url" type="text" placeholder="https://arweave.net/&lt;TXID&gt;">
-      <div class="hint">
-        If you opened this page from a link like
-        <code>?link=...#password</code>, it will auto-fill.
-      </div>
-    </div>
+<div class="container">
+  <h1>🔐 Decrypt Arweave Protected Content</h1>
+  <p>
+    Supports all Arweave wallet encryption formats:<br>
+    • <code>{ enc: "pw" }</code> — password encrypted<br>
+    • <code>{ enc: "self" }</code> — encrypted for your own wallet<br>
+    • <code>{ enc: "recipient" }</code> — encrypted specifically for you via ECDH
+  </p>
 
-    <div class="input-group">
-      <label for="password">Password (for <code>enc: "pw"</code>)</label>
-      <input id="password" type="text" placeholder="Enter password (leave empty for self-encrypted blobs)">
-      <div class="hint">
-        If the sender put the password after <code>#</code> in the URL, it will auto-fill.
-      </div>
-    </div>
-
-    <button class="btn" id="decrypt-btn" onclick="startDecrypt()">
-      🔓 Decrypt
-    </button>
-
-    <div id="status"></div>
-    <div id="output" style="display:none;"></div>
+  <div class="input-group">
+    <label for="arweave-url">Arweave URL</label>
+    <input id="arweave-url" type="text" placeholder="https://arweave.net/&lt;TXID&gt;">
   </div>
 
-  <script>
-    // ---------- Simple storage wrapper (compatible with wallet) ----------
-// Use the same storage backend as the wallet
+  <div class="input-group">
+    <label for="password">Password (only for <code>enc: "pw"</code>)</label>
+    <input id="password" type="text" placeholder="Leave empty for self/recipient">
+  </div>
+
+  <button class="btn" id="decrypt-btn" onclick="startDecrypt()">🔓 Decrypt</button>
+  <div id="status"></div>
+  <div id="output"></div>
+</div>
+
+<script>
+// ---------- Storage (same as wallet) ----------
 const WalletStorage = {
-  async get(key) {
-    return window.localforage.getItem("biowallet:" + key);
+  async get(key) { return localforage.getItem("biowallet:" + key); }
+};
+
+// ---------- Helpers ----------
+function setStatus(msg, type="info") {
+  const el = document.getElementById("status");
+  el.className = "status status-" + type;
+  el.innerHTML = msg;
+}
+function hexToBytes(hex) {
+  const u = new Uint8Array(hex.length/2);
+  for (let i=0;i<u.length;i++) u[i]=parseInt(hex.substr(i*2,2),16);
+  return u;
+}
+const CryptoHelper = {
+  async decrypt(enc, key) {
+    const ct = hexToBytes(enc.ciphertext);
+    const iv = hexToBytes(enc.iv);
+    const raw = await crypto.subtle.decrypt({name:"AES-GCM",iv}, key, ct);
+    return JSON.parse(new TextDecoder().decode(raw));
   }
 };
 
-
-    // ---------- Helpers ----------
-    function setStatus(message, type = 'info') {
-      const el = document.getElementById('status');
-      if (!el) return;
-      el.className = 'status status-' + type;
-      el.innerHTML = message;
-    }
-
-    function bytesToHex(bytes) {
-      return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    function hexToBytes(hex) {
-      if (!hex || hex.length % 2 !== 0) throw new Error('Invalid hex string');
-      const out = new Uint8Array(hex.length / 2);
-      for (let i = 0; i < out.length; i++) {
-        out[i] = parseInt(hex.substr(i * 2, 2), 16);
+// ---------- WebAuthn PRF ----------
+const WebAuthnHelper = {
+  async authenticate(credHex) {
+    const challenge=crypto.getRandomValues(new Uint8Array(32));
+    await navigator.credentials.get({
+      publicKey:{
+        challenge,
+        allowCredentials:[{id:hexToBytes(credHex),type:"public-key"}],
+        userVerification:"required"
       }
-      return out;
-    }
-
-    const CryptoHelper = {
-      async decrypt(encryptedData, key) {
-        const ciphertext = hexToBytes(encryptedData.ciphertext);
-        const iv = hexToBytes(encryptedData.iv);
-
-        const plaintextBytes = await crypto.subtle.decrypt(
-          { name: 'AES-GCM', iv },
-          key,
-          ciphertext
-        );
-
-        const decoded = new TextDecoder().decode(plaintextBytes);
-        return JSON.parse(decoded);
+    });
+    return true;
+  },
+  async evaluatePrf(credHex, saltBytes) {
+    const challenge=crypto.getRandomValues(new Uint8Array(32));
+    const res=await navigator.credentials.get({
+      publicKey:{
+        challenge,
+        allowCredentials:[{id:hexToBytes(credHex),type:"public-key"}],
+        userVerification:"required",
+        extensions:{prf:{eval:{first:saltBytes}}}
       }
-    };
-
-    async function deriveKeyFromPasswordAndSalt(password, saltHex) {
-      const enc = new TextEncoder();
-      const saltBytes = hexToBytes(saltHex);
-
-      const baseKey = await crypto.subtle.importKey(
-        'raw',
-        enc.encode(password),
-        'PBKDF2',
-        false,
-        ['deriveKey']
-      );
-
-      const aesKey = await crypto.subtle.deriveKey(
-        {
-          name: 'PBKDF2',
-          salt: saltBytes,
-          iterations: 100000,
-          hash: 'SHA-256'
-        },
-        baseKey,
-        { name: 'AES-GCM', length: 256 },
-        false,
-        ['decrypt']
-      );
-
-      return aesKey;
-    }
-
-    // ---------- Minimal WebAuthn helper (matching wallet) ----------
-    const WebAuthnHelper = {
-      async authenticate(credentialIdHex) {
-        const challenge = crypto.getRandomValues(new Uint8Array(32));
-        await navigator.credentials.get({
-          publicKey: {
-            challenge,
-            allowCredentials: [{ id: hexToBytes(credentialIdHex), type: 'public-key' }],
-            userVerification: 'required',
-            timeout: 60000
-          }
-        });
-        return true;
-      },
-
-      async evaluatePrf(credentialIdHex, saltBytes) {
-        const challenge = crypto.getRandomValues(new Uint8Array(32));
-        const assertion = await navigator.credentials.get({
-          publicKey: {
-            challenge,
-            allowCredentials: [{ id: hexToBytes(credentialIdHex), type: 'public-key' }],
-            userVerification: 'required',
-            timeout: 60000,
-            extensions: { prf: { eval: { first: saltBytes } } }
-          }
-        });
-
-        const ext = assertion.getClientExtensionResults?.();
-        if (!ext || !ext.prf || !ext.prf.results || !ext.prf.results.first) {
-          throw new Error('Authenticator PRF extension not available');
-        }
-        return new Uint8Array(ext.prf.results.first);
-      }
-    };
-
-    // ---------- Main logic ----------
-    async function startDecrypt() {
-      const btn = document.getElementById('decrypt-btn');
-      const urlInput = document.getElementById('arweave-url');
-      const passInput = document.getElementById('password');
-      const output = document.getElementById('output');
-
-      const arUrl = urlInput.value.trim();
-      const password = passInput.value.trim();
-
-      if (!arUrl) {
-        setStatus('❌ Please enter the Arweave URL', 'error');
-        return;
-      }
-
-      btn.disabled = true;
-      setStatus('Fetching encrypted blob from Arweave…', 'info');
-      output.style.display = 'none';
-      output.textContent = '';
-
-      try {
-        const res = await fetch(arUrl);
-        if (!res.ok) {
-          throw new Error('Failed to fetch from Arweave (HTTP ' + res.status + ')');
-        }
-
-        const text = await res.text();
-        let blob;
-        try {
-          blob = JSON.parse(text);
-        } catch (e) {
-          throw new Error('Response is not valid JSON. This is not a wallet-encrypted blob.');
-        }
-
-        // We support:
-        // - { enc: "pw", salt, data: {ciphertext, iv} }
-        // - { enc: "self", data: {ciphertext, iv} }
-        if (!blob || !blob.enc || !blob.data) {
-          throw new Error('Blob format not recognized (missing enc/data).');
-        }
-
-        const encType = blob.enc;
-        setStatus(`Detected encryption type: <code>${encType}</code>`, 'info');
-
-        // --------- PASSWORD MODE ----------
-        if (encType === 'pw') {
-          if (!blob.salt) {
-            throw new Error('Password-encrypted blob missing salt.');
-          }
-          if (!password) {
-            throw new Error('This blob is password-encrypted. Please enter the password.');
-          }
-
-          setStatus('Deriving key from password…', 'info');
-          const aesKey = await deriveKeyFromPasswordAndSalt(password, blob.salt);
-
-          setStatus('Decrypting…', 'info');
-
-          let decrypted;
-          try {
-            decrypted = await CryptoHelper.decrypt(blob.data, aesKey);
-          } catch (e) {
-            console.error(e);
-            throw new Error('Decryption failed. The password may be wrong or the data is corrupted.');
-          }
-
-          let display;
-          if (decrypted && typeof decrypted === 'object' && 'text' in decrypted) {
-            display = decrypted.text;
-          } else {
-            display = JSON.stringify(decrypted, null, 2);
-          }
-
-          output.textContent = display;
-          output.style.display = 'block';
-          setStatus('✅ Decryption successful (password mode)!', 'success');
-          return;
-        }
-
-        // --------- SELF MODE ----------
-        // --------- SELF + RECIPIENT MODE ----------
-if (encType === "self" || encType === "recipient") {
-
-  const credentialId = await WalletStorage.get('credentialId');
-  const keyMode = await WalletStorage.get('keyMode');
-
-  if (!credentialId || !keyMode) {
-    throw new Error('Self/recipient decryption requires that your wallet is already unlocked on this device.');
+    });
+    const out=res.getClientExtensionResults().prf.results.first;
+    return new Uint8Array(out);
   }
+};
 
-  let aesKey = null;
+// ---------- Main ----------
+async function startDecrypt() {
+  const url = document.getElementById("arweave-url").value.trim();
+  const password = document.getElementById("password").value.trim();
+  const output = document.getElementById("output");
+  output.style.display="none";
+  output.textContent="";
 
-  // NORMAL SELF-DECRYPTION
-  if (encType === "self") {
-    if (keyMode === "prf") {
-      const prfSaltHex = await WalletStorage.get("prfSaltHex");
-      if (!prfSaltHex) throw new Error("Missing PRF salt.");
+  if (!url) return setStatus("❌ Enter Arweave URL","error");
 
-      const prfBytes = await WebAuthnHelper.evaluatePrf(
-        credentialId,
-        hexToBytes(prfSaltHex)
+  setStatus("Fetching Arweave content…","info");
+
+  try {
+    const res=await fetch(url);
+    if (!res.ok) throw new Error("HTTP "+res.status);
+    const text=await res.text();
+    const blob=JSON.parse(text);
+
+    if (!blob.enc) throw new Error("Missing enc field");
+    if (!blob.data) throw new Error("Missing data field");
+
+    const encType=blob.enc;
+
+    // ---------- PASSWORD ----------
+    if (encType==="pw") {
+      if (!password) throw new Error("Password required");
+      if (!blob.salt) throw new Error("Missing salt");
+
+      setStatus("Deriving password key…","info");
+
+      const baseKey=await crypto.subtle.importKey(
+        "raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]
       );
+      const aesKey=await crypto.subtle.deriveKey({
+        name:"PBKDF2",salt:hexToBytes(blob.salt),iterations:100000,hash:"SHA-256"
+      }, baseKey, {name:"AES-GCM",length:256}, false, ["decrypt"]);
 
-      aesKey = await crypto.subtle.importKey(
-        "raw",
-        prfBytes,
-        "AES-GCM",
-        false,
-        ["decrypt"]
-      );
-
-    } else if (keyMode === "wrapped") {
-      await WebAuthnHelper.authenticate(credentialId);
-      const aesKeyHex = await WalletStorage.get("aesKeyHex");
-      aesKey = await crypto.subtle.importKey(
-        "raw",
-        hexToBytes(aesKeyHex),
-        "AES-GCM",
-        false,
-        ["decrypt"]
-      );
+      const dec=await CryptoHelper.decrypt(blob.data,aesKey);
+      output.textContent=(dec.text??JSON.stringify(dec,null,2));
+      output.style.display="block";
+      return setStatus("✅ Decrypted (password)","success");
     }
-  }
 
-  // RECIPIENT-DECRYPTION (ECDH)
-  if (encType === "recipient") {
+    // ---------- SELF / RECIPIENT ----------
+    const credentialId=await WalletStorage.get("credentialId");
+    const keyMode=await WalletStorage.get("keyMode");
+    if (!credentialId || !keyMode) throw new Error("Wallet not unlocked on this device");
 
-    if (!blob.fromPub) {
-      throw new Error("Recipient blob missing sender's public key (fromPub)");
+    // SELF MODE
+    if (encType==="self") {
+      let aesKey=null;
+      if (keyMode==="prf") {
+        const salt=await WalletStorage.get("prfSaltHex");
+        const prf=await WebAuthnHelper.evaluatePrf(credentialId, hexToBytes(salt));
+        aesKey=await crypto.subtle.importKey("raw",prf,"AES-GCM",false,["decrypt"]);
+      } else {
+        await WebAuthnHelper.authenticate(credentialId);
+        const hex=await WalletStorage.get("aesKeyHex");
+        aesKey=await crypto.subtle.importKey("raw",hexToBytes(hex),"AES-GCM",false,["decrypt"]);
+      }
+      const dec=await CryptoHelper.decrypt(blob.data,aesKey);
+      output.textContent=(dec.text??JSON.stringify(dec,null,2));
+      output.style.display="block";
+      return setStatus("✅ Decrypted (self)","success");
     }
 
-    // 1. Load our ECC private key
-    const privJwkStr = await WalletStorage.get("encPrivKeyJwk");
-    if (!privJwkStr) throw new Error("Missing ECDH private key.");
+    // ---------- RECIPIENT MODE (ECDH) ----------
+    if (encType==="recipient") {
+      if (!blob.fromPub) throw new Error("Missing sender ephemeral key");
 
-    const privJwk = JSON.parse(privJwkStr);
+      const privJwkStr=await WalletStorage.get("encPrivKeyJwk");
+      if (!privJwkStr) throw new Error("Missing ECDH private key");
 
-    const privKey = await crypto.subtle.importKey(
-      "jwk",
-      privJwk,
-      { name:"ECDH", namedCurve:"P-256" },
-      false,
-      ["deriveBits"]
-    );
+      const privKey=await crypto.subtle.importKey(
+        "jwk", JSON.parse(privJwkStr),
+        {name:"ECDH",namedCurve:"P-256"},
+        false,
+        ["deriveBits"]
+      );
 
-    // 2. Import sender's ephemeral pubkey
-    const senderPubRaw = Uint8Array.from(atob(blob.fromPub), c => c.charCodeAt(0));
+      const senderRaw=Uint8Array.from(atob(blob.fromPub), c=>c.charCodeAt(0));
+      const senderPub=await crypto.subtle.importKey(
+        "raw",senderRaw,
+        {name:"ECDH",namedCurve:"P-256"},
+        false, []
+      );
 
-    const senderPub = await crypto.subtle.importKey(
-      "raw",
-      senderPubRaw,
-      { name:"ECDH", namedCurve:"P-256" },
-      false,
-      []
-    );
+      const bits=await crypto.subtle.deriveBits({name:"ECDH",public:senderPub}, privKey, 256);
+      const aesKey=await crypto.subtle.importKey("raw",bits,"AES-GCM",false,["decrypt"]);
 
-    // 3. Derive shared secret
-    const sharedBits = await crypto.subtle.deriveBits(
-      { name:"ECDH", public: senderPub },
-      privKey,
-      256
-    );
+      const dec=await CryptoHelper.decrypt(blob.data,aesKey);
+      output.textContent=(dec.text??JSON.stringify(dec,null,2));
+      output.style.display="block";
+      return setStatus("✅ Decrypted (recipient)","success");
+    }
 
-    // 4. Turn into AES key
-    aesKey = await crypto.subtle.importKey(
-      "raw",
-      sharedBits,
-      "AES-GCM",
-      false,
-      ["decrypt"]
-    );
+    throw new Error("Unsupported encryption type: "+encType);
+
+  } catch (err) {
+    console.error(err);
+    setStatus("❌ "+err.message,"error");
   }
-
-  // decrypt final
-  const decrypted = await CryptoHelper.decrypt(blob.data, aesKey);
-  const display = decrypted.text ?? JSON.stringify(decrypted, null, 2);
-
-  output.textContent = display;
-  output.style.display = "block";
-  setStatus("✅ Decryption successful!", "success");
-  return;
 }
 
+// ---------- Autofill from URL hash ----------
+(function init() {
+  const url=new URL(window.location.href);
+  const link=url.searchParams.get("link") || url.searchParams.get("url");
+  if (link) document.getElementById("arweave-url").value=link;
 
-    // ---------- Autofill from URL ----------
-    (function autoInitFromUrl() {
-      const url = new URL(window.location.href);
-      const params = url.searchParams;
+  const hash=window.location.hash;
+  if (hash.length>1) {
+    try { document.getElementById("password").value=decodeURIComponent(hash.slice(1)); }
+    catch { document.getElementById("password").value=hash.slice(1); }
+  }
+})();
+</script>
 
-      // Expect ?link=<arweave-url> or ?url=<arweave-url>
-      const link = params.get('link') || params.get('url') || '';
-      const arweaveInput = document.getElementById('arweave-url');
-      if (link) {
-        arweaveInput.value = link;
-      }
-
-      // Password passed in URL hash: #password
-      if (window.location.hash && window.location.hash.length > 1) {
-        const raw = window.location.hash.substring(1); // drop '#'
-        try {
-          document.getElementById('password').value = decodeURIComponent(raw);
-        } catch {
-          document.getElementById('password').value = raw;
-        }
-      }
-
-      // Optional: auto-decrypt if both are present (for pw)
-      if (arweaveInput.value && document.getElementById('password').value) {
-        startDecrypt();
-      }
-    })();
-  </script>
 </body>
 </html>
