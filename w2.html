@@ -2457,6 +2457,7 @@ async function finishRecovery(txId) {
     // ✅ Restore ECDH private key from backup
     if (ecdhPrivKey) {
       await WalletStorage.set(STORAGE_KEYS.encPrivKeyJwk, JSON.stringify(ecdhPrivKey));
+      await storeEncryptedEcdhKey(ecdhPrivKey, aesKey); // this writes encPrivKeyEncrypted
       if (encPubKey) {
         await WalletStorage.set("encPubKey", encPubKey);
       }
