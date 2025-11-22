@@ -767,7 +767,7 @@ const WalletCore = (function() {
     await WebAuthnHelper.authenticate(credentialId);
   }
 
-  async function createWallet(username) {
+ async function createWallet(username) {
   if (!arweave) throw new Error('Arweave library not loaded');
 
   const credential = await WebAuthnHelper.register(username);
@@ -824,9 +824,16 @@ const WalletCore = (function() {
     await WalletStorage.set(STORAGE_KEYS.aesKeyHex, bytesToHex(rawKey));
   }
 
-  // Encrypt JWK
-  const encrypted = await CryptoHelper.encrypt(jwk, aesKey);
+  // Generate ECDH keypair and get private key
   const publicEncKey = await ensureUserEncKey();
+  const ecdhPrivKeyJwk = await WalletStorage.get(STORAGE_KEYS.encPrivKeyJwk);
+
+  // Encrypt BOTH keys together
+  const keysToBackup = {
+    arweaveJwk: jwk,
+    ecdhPrivateKey: ecdhPrivKeyJwk ? JSON.parse(ecdhPrivKeyJwk) : null
+  };
+  const encrypted = await CryptoHelper.encrypt(keysToBackup, aesKey);
 
   const meta = {
     version: '1',
@@ -868,7 +875,7 @@ const WalletCore = (function() {
   return { address, backupTxId: txId, keyMode };
 }
 
-  async function unlockWallet() {
+async function unlockWallet() {
   const credentialId = await WalletStorage.get(STORAGE_KEYS.credentialId);
   const storedAddress = await WalletStorage.get(STORAGE_KEYS.address);
   const backupTxId = await WalletStorage.get(STORAGE_KEYS.backupTxId);
@@ -958,11 +965,29 @@ const WalletCore = (function() {
     throw new Error(`Unsupported key mode: ${keyMode}`);
   }
 
-  // Decrypt JWK
-  const jwk = await CryptoHelper.decrypt(encryptedBlob.encrypted, aesKey);
+  // Decrypt both keys
+  const decrypted = await CryptoHelper.decrypt(encryptedBlob.encrypted, aesKey);
+
+  // Handle both old format (just JWK) and new format (object with both keys)
+  let jwk, ecdhPrivKey;
+  if (decrypted.arweaveJwk) {
+    // New format
+    jwk = decrypted.arweaveJwk;
+    ecdhPrivKey = decrypted.ecdhPrivateKey;
+  } else {
+    // Old format (backward compatibility)
+    jwk = decrypted;
+    ecdhPrivKey = null;
+  }
+
   const address = await arweave.wallets.jwkToAddress(jwk);
 
   walletJwk = jwk;
+
+  // Restore ECDH private key if present
+  if (ecdhPrivKey) {
+    await WalletStorage.set(STORAGE_KEYS.encPrivKeyJwk, JSON.stringify(ecdhPrivKey));
+  }
 
   await WalletStorage.set(STORAGE_KEYS.address, address);
   await WalletStorage.set(STORAGE_KEYS.backupTxId, backupTxId);
@@ -972,8 +997,7 @@ const WalletCore = (function() {
   return { address, backupTxId: backupTxId, keyMode };
 }
 
-
-  async function importFromKeyfile(jwk) {
+async function importFromKeyfile(jwk) {
   if (!arweave) throw new Error('Arweave not initialized');
 
   const address = await arweave.wallets.jwkToAddress(jwk);
@@ -1037,17 +1061,22 @@ const WalletCore = (function() {
     await WalletStorage.remove(STORAGE_KEYS.prfSaltHex);
   }
 
-  // Encrypt imported JWK with derived aesKey
-  const encrypted = await CryptoHelper.encrypt(jwk, aesKey);
+  // Ensure per-user ECDH keypair exists (for recipient encryption)
+  await ensureUserEncKey();
+  const ecdhPrivKeyJwk = await WalletStorage.get(STORAGE_KEYS.encPrivKeyJwk);
+
+  // Encrypt BOTH keys together
+  const keysToBackup = {
+    arweaveJwk: jwk,
+    ecdhPrivateKey: ecdhPrivKeyJwk ? JSON.parse(ecdhPrivKeyJwk) : null
+  };
+  const encrypted = await CryptoHelper.encrypt(keysToBackup, aesKey);
 
   // Persist core metadata
   await WalletStorage.set(STORAGE_KEYS.credentialId, credentialId);
   await WalletStorage.set(STORAGE_KEYS.address, address);
   await WalletStorage.set(STORAGE_KEYS.keyMode, keyMode);
   await WalletStorage.set(STORAGE_KEYS.username, username);
-
-  // Ensure per-user ECDH keypair exists (for recipient encryption)
-  await ensureUserEncKey();
 
   walletJwk = jwk;
 
@@ -1057,104 +1086,114 @@ const WalletCore = (function() {
   return { address, backupTxId, keyMode };
 }
 
-  async function uploadRecoveryBackupInternal() {
-    if (!walletJwk) throw new Error('No wallet loaded');
-    if (!arweave) throw new Error('Arweave not initialized');
+async function uploadRecoveryBackupInternal() {
+  if (!walletJwk) throw new Error('No wallet loaded');
+  if (!arweave) throw new Error('Arweave not initialized');
 
-    const address = await arweave.wallets.jwkToAddress(walletJwk);
+  const address = await arweave.wallets.jwkToAddress(walletJwk);
 
-    let keyMode = await WalletStorage.get(STORAGE_KEYS.keyMode);
-    if (!keyMode) {
-      const prfSaltHex = await WalletStorage.get(STORAGE_KEYS.prfSaltHex);
-      const aesKeyHex = await WalletStorage.get(STORAGE_KEYS.aesKeyHex);
-      if (prfSaltHex) keyMode = 'prf';
-      else if (aesKeyHex) keyMode = 'wrapped';
-      else throw new Error('Missing key mode and key material for backup');
-    }
-
-    let aesKey;
-
-if (keyMode === 'prf') {
-  const credentialId = await WalletStorage.get(STORAGE_KEYS.credentialId);
-  const prfSaltHex = await WalletStorage.get(STORAGE_KEYS.prfSaltHex);
-  if (!credentialId || !prfSaltHex) {
-    throw new Error('Missing PRF credentials for backup');
+  let keyMode = await WalletStorage.get(STORAGE_KEYS.keyMode);
+  if (!keyMode) {
+    const prfSaltHex = await WalletStorage.get(STORAGE_KEYS.prfSaltHex);
+    const aesKeyHex = await WalletStorage.get(STORAGE_KEYS.aesKeyHex);
+    if (prfSaltHex) keyMode = 'prf';
+    else if (aesKeyHex) keyMode = 'wrapped';
+    else throw new Error('Missing key mode and key material for backup');
   }
 
-  const prfBytes = await WebAuthnHelper.evaluatePrf(
-    credentialId,
-    hexToBytes(prfSaltHex)
-  );
+  let aesKey;
 
-  const hkdfKey = await crypto.subtle.importKey(
-    "raw",
-    prfBytes,
-    "HKDF",
-    false,
-    ["deriveKey"]
-  );
-
-  aesKey = await crypto.subtle.deriveKey(
-    {
-      name: "HKDF",
-      hash: "SHA-256",
-      salt: hexToBytes(prfSaltHex),
-      info: new Uint8Array([]),
-    },
-    hkdfKey,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt"]
-  );
-
-} else if (keyMode === 'wrapped') {
-  // unchanged wrapped-mode branch
-  const aesKeyHex = await WalletStorage.get(STORAGE_KEYS.aesKeyHex);
-  if (!aesKeyHex) throw new Error('Missing local AES key.');
-  aesKey = await crypto.subtle.importKey(
-    'raw',
-    hexToBytes(aesKeyHex),
-    'AES-GCM',
-    false,
-    ['encrypt']
-  );
-} else {
-  throw new Error(`Unsupported key mode: ${keyMode}`);
-}
-    const encrypted = await CryptoHelper.encrypt(walletJwk, aesKey);
-    const username = (await WalletStorage.get(STORAGE_KEYS.username)) || '';
-    const publicEncKey = await ensureUserEncKey();
+  if (keyMode === 'prf') {
     const credentialId = await WalletStorage.get(STORAGE_KEYS.credentialId);
     const prfSaltHex = await WalletStorage.get(STORAGE_KEYS.prfSaltHex);
+    if (!credentialId || !prfSaltHex) {
+      throw new Error('Missing PRF credentials for backup');
+    }
 
-    const meta = {
-      version: '1',
-      keyMode,
+    const prfBytes = await WebAuthnHelper.evaluatePrf(
       credentialId,
-      prfSaltHex: keyMode === 'prf' ? prfSaltHex : null,
-      username,
-      address,
-      encPubKey: publicEncKey
-    };
+      hexToBytes(prfSaltHex)
+    );
 
-    const backupPayload = { meta, encrypted };
+    const hkdfKey = await crypto.subtle.importKey(
+      "raw",
+      prfBytes,
+      "HKDF",
+      false,
+      ["deriveKey"]
+    );
 
-    const tagList = [
-      { name: 'App-Name', value: WALLET_APP_NAME },
-      { name: 'User-Address', value: address },
-      { name: 'User-Name', value: username },
-      { name: 'User-EncKey', value: publicEncKey },
-      { name: 'Wallet-KeyMode', value: keyMode },
-      { name: 'Timestamp', value: Date.now().toString() },
-      { name: 'Version', value: '1' }
-    ];
+    aesKey = await crypto.subtle.deriveKey(
+      {
+        name: "HKDF",
+        hash: "SHA-256",
+        salt: hexToBytes(prfSaltHex),
+        info: new Uint8Array([]),
+      },
+      hkdfKey,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt"]
+    );
 
-    const uploadResult = await uploadToCloudFunction(backupPayload, tagList);
-    const txId = uploadResult.arweaveId;
-
-    await WalletStorage.set(STORAGE_KEYS.backupTxId, txId);
-    return txId;
+  } else if (keyMode === 'wrapped') {
+    // unchanged wrapped-mode branch
+    const aesKeyHex = await WalletStorage.get(STORAGE_KEYS.aesKeyHex);
+    if (!aesKeyHex) throw new Error('Missing local AES key.');
+    aesKey = await crypto.subtle.importKey(
+      'raw',
+      hexToBytes(aesKeyHex),
+      'AES-GCM',
+      false,
+      ['encrypt']
+    );
+  } else {
+    throw new Error(`Unsupported key mode: ${keyMode}`);
   }
+
+  // Get ECDH private key
+  const ecdhPrivKeyJwk = await WalletStorage.get(STORAGE_KEYS.encPrivKeyJwk);
+
+  // Encrypt BOTH keys together
+  const keysToBackup = {
+    arweaveJwk: walletJwk,
+    ecdhPrivateKey: ecdhPrivKeyJwk ? JSON.parse(ecdhPrivKeyJwk) : null
+  };
+  const encrypted = await CryptoHelper.encrypt(keysToBackup, aesKey);
+
+  const username = (await WalletStorage.get(STORAGE_KEYS.username)) || '';
+  const publicEncKey = await ensureUserEncKey();
+  const credentialId = await WalletStorage.get(STORAGE_KEYS.credentialId);
+  const prfSaltHex = await WalletStorage.get(STORAGE_KEYS.prfSaltHex);
+
+  const meta = {
+    version: '1',
+    keyMode,
+    credentialId,
+    prfSaltHex: keyMode === 'prf' ? prfSaltHex : null,
+    username,
+    address,
+    encPubKey: publicEncKey
+  };
+
+  const backupPayload = { meta, encrypted };
+
+  const tagList = [
+    { name: 'App-Name', value: WALLET_APP_NAME },
+    { name: 'User-Address', value: address },
+    { name: 'User-Name', value: username },
+    { name: 'User-EncKey', value: publicEncKey },
+    { name: 'Wallet-KeyMode', value: keyMode },
+    { name: 'Timestamp', value: Date.now().toString() },
+    { name: 'Version', value: '1' }
+  ];
+
+  const uploadResult = await uploadToCloudFunction(backupPayload, tagList);
+  const txId = uploadResult.arweaveId;
+
+  await WalletStorage.set(STORAGE_KEYS.backupTxId, txId);
+  return txId;
+}
 
   async function refreshBalance() {
     if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
@@ -2125,6 +2164,7 @@ async function finishRecovery(txId) {
     const credentialId = meta.credentialId;
     const address = meta.address;
     const username = meta.username || '';
+    const encPubKey = meta.encPubKey; // ✅ Get public key from backup
 
     if (!credentialId) throw new Error("Missing credential ID in backup");
     if (!address) throw new Error("Missing address in backup");
@@ -2201,8 +2241,21 @@ async function finishRecovery(txId) {
       throw new Error(`Unsupported key mode: ${keyMode}`);
     }
 
-    // Decrypt the wallet
-    const jwk = await CryptoHelper.decrypt(encryptedBlob.encrypted, aesKey);
+    // Decrypt both keys
+    const decrypted = await CryptoHelper.decrypt(encryptedBlob.encrypted, aesKey);
+
+    // Handle both old format (just JWK) and new format (object with both keys)
+    let jwk, ecdhPrivKey;
+    if (decrypted.arweaveJwk) {
+      // New format
+      jwk = decrypted.arweaveJwk;
+      ecdhPrivKey = decrypted.ecdhPrivateKey;
+    } else {
+      // Old format (backward compatibility)
+      jwk = decrypted;
+      ecdhPrivKey = null;
+    }
+
     const recoveredAddress = await arweave.wallets.jwkToAddress(jwk);
 
     if (recoveredAddress !== address) {
@@ -2212,20 +2265,29 @@ async function finishRecovery(txId) {
     // Set wallet and restore all metadata from Arweave
     WalletCore.setWallet(jwk);
     
-    // Ensure user encryption key exists (for recipient encryption feature)
-    let pub = await WalletStorage.get('encPubKey');
-    if (!pub) {
-      // Generate new ECDH keypair for this recovered wallet
-      const keyPair = await crypto.subtle.generateKey(
-        { name: "ECDH", namedCurve: "P-256" },
-        true,
-        ["deriveBits"]
-      );
-      const jwkPriv = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
-      await WalletStorage.set("encPrivKeyJwk", JSON.stringify(jwkPriv));
-      const rawPub = await crypto.subtle.exportKey("raw", keyPair.publicKey);
-      const pubB64 = btoa(String.fromCharCode(...new Uint8Array(rawPub)));
-      await WalletStorage.set("encPubKey", pubB64);
+    // ✅ Restore ECDH private key from backup
+    if (ecdhPrivKey) {
+      await WalletStorage.set("encPrivKeyJwk", JSON.stringify(ecdhPrivKey));
+      // Restore public key from metadata
+      if (encPubKey) {
+        await WalletStorage.set("encPubKey", encPubKey);
+      }
+    } else {
+      // Old backup without ECDH key - generate new one (won't decrypt old messages)
+      if (encPubKey) {
+        await WalletStorage.set("encPubKey", encPubKey);
+      } else {
+        const keyPair = await crypto.subtle.generateKey(
+          { name: "ECDH", namedCurve: "P-256" },
+          true,
+          ["deriveBits"]
+        );
+        const jwkPriv = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
+        await WalletStorage.set("encPrivKeyJwk", JSON.stringify(jwkPriv));
+        const rawPub = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+        const pubB64 = btoa(String.fromCharCode(...new Uint8Array(rawPub)));
+        await WalletStorage.set("encPubKey", pubB64);
+      }
     }
 
     await WalletStorage.set('address', address);
@@ -2249,6 +2311,7 @@ async function finishRecovery(txId) {
     console.error(err);
   }
 }
+  
 async function recoverByKeyfile() {
   const fileInput = document.getElementById("keyfile-upload");
   const file = fileInput.files[0];
