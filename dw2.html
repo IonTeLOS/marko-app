@@ -192,7 +192,24 @@ async function startDecrypt() {
       if (keyMode==="prf") {
         const salt=await WalletStorage.get("prfSaltHex");
         const prf=await WebAuthnHelper.evaluatePrf(credentialId, hexToBytes(salt));
-        aesKey=await crypto.subtle.importKey("raw",prf,"AES-GCM",false,["decrypt"]);
+        
+        // MUST use HKDF to derive AES key (matching encryption side)
+        const hkdfKey = await crypto.subtle.importKey(
+          "raw", prf, "HKDF", false, ["deriveKey"]
+        );
+        
+        aesKey = await crypto.subtle.deriveKey(
+          {
+            name: "HKDF",
+            hash: "SHA-256",
+            salt: hexToBytes(salt),
+            info: new Uint8Array([]),
+          },
+          hkdfKey,
+          { name: "AES-GCM", length: 256 },
+          false,
+          ["decrypt"]
+        );
       } else {
         await WebAuthnHelper.authenticate(credentialId);
         const hex=await WalletStorage.get("aesKeyHex");
