@@ -1168,6 +1168,13 @@ async function unlockWallet() {
     await WalletStorage.set(STORAGE_KEYS.encPrivKeyJwk, JSON.stringify(ecdhPrivKey));
     // 🔐 Encrypted-at-rest copy for this device
     await storeEncryptedEcdhKey(ecdhPrivKey, aesKey);
+  } else {
+  // For very old backups with no ECDH, create a fresh ECDH keypair
+  const pub = await generateUserEncryptionKey();
+  const raw = await WalletStorage.get(STORAGE_KEYS.encPrivKeyJwk);
+  if (raw) {
+    await storeEncryptedEcdhKey(JSON.parse(raw), aesKey);
+    }
   }
 
 
