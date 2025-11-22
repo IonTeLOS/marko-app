@@ -502,6 +502,7 @@ const CLOUD_FUNCTION_URL = 'https://marko-app.netlify.app/.netlify/functions/arl
 const WALLET_APP_NAME = 'ArweaveWallet-v1';
 
 let arweave = null;
+  
 try {
   if (window.Arweave) {
     arweave = Arweave.init({ host: 'arweave.net', port: 443, protocol: 'https' });
@@ -509,7 +510,18 @@ try {
 } catch (e) {
   console.error('Failed to init Arweave:', e);
 }
-
+const STORAGE_KEYS = {
+  credentialId: 'credentialId',
+  address: 'address',
+  backupTxId: 'backupTxId',
+  keyMode: 'keyMode',
+  aesKeyHex: 'aesKeyHex',
+  prfSaltHex: 'prfSaltHex',
+  username: 'username',
+  encPubKey: 'encPubKey',
+  encPrivKeyJwk: 'encPrivKeyJwk',          // ✅ plain JWK (for backup logic)
+  encPrivKeyEncrypted: 'encPrivKeyEncrypted' // ✅ AES-GCM encrypted JWK (for decrypt page)
+};
 // Pending payment request parsed from URL (ar:// or query params)
 let pendingPaymentRequest = null;
 
@@ -861,6 +873,17 @@ const CryptoHelper = {
 };
 
 // ---------------------------------------------------------------------------
+//  ENCRYPTED ECDH PRIVATE KEY STORAGE
+// ---------------------------------------------------------------------------
+async function storeEncryptedEcdhKey(ecdhPrivKeyJwk, aesKey) {
+  if (!ecdhPrivKeyJwk || !aesKey) return;
+
+  // Wrap the JWK in an object in case you want to evolve the format later
+  const blob = await CryptoHelper.encrypt({ ecdh: ecdhPrivKeyJwk }, aesKey);
+  await WalletStorage.set(STORAGE_KEYS.encPrivKeyEncrypted, JSON.stringify(blob));
+}
+  
+// ---------------------------------------------------------------------------
 //  PER-USER ENCRYPTION KEY (ECDH) FOR FUTURE USE
 // ---------------------------------------------------------------------------
 async function generateUserEncryptionKey() {
@@ -871,7 +894,8 @@ async function generateUserEncryptionKey() {
   );
 
   const jwkPriv = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
-  await WalletStorage.set("encPrivKeyJwk", JSON.stringify(jwkPriv));
+  await WalletStorage.set(STORAGE_KEYS.encPrivKeyJwk, JSON.stringify(jwkPriv));
+
 
   const rawPub = await crypto.subtle.exportKey("raw", keyPair.publicKey);
   const pubB64 = btoa(String.fromCharCode(...new Uint8Array(rawPub)));
@@ -884,16 +908,8 @@ async function generateUserEncryptionKey() {
 //  WALLET CORE
 // ---------------------------------------------------------------------------
 const WalletCore = (function() {
-  const STORAGE_KEYS = {
-    credentialId: 'credentialId',
-    address: 'address',
-    backupTxId: 'backupTxId',
-    keyMode: 'keyMode',
-    aesKeyHex: 'aesKeyHex',
-    prfSaltHex: 'prfSaltHex',
-    username: 'username',
-    encPubKey: 'encPubKey'
-  };
+
+
 
   let walletJwk = null;
 
@@ -983,12 +999,18 @@ const WalletCore = (function() {
 
   // Generate ECDH keypair and get private key
   const publicEncKey = await ensureUserEncKey();
-  const ecdhPrivKeyJwk = await WalletStorage.get(STORAGE_KEYS.encPrivKeyJwk);
+  const ecdhPrivKeyJwkRaw = await WalletStorage.get(STORAGE_KEYS.encPrivKeyJwk);
+  const ecdhPrivKeyJwk = ecdhPrivKeyJwkRaw ? JSON.parse(ecdhPrivKeyJwkRaw) : null;
 
-  // Encrypt BOTH keys together
+  // 🔐 Also store encrypted private key locally for cross-tab decryption
+  if (ecdhPrivKeyJwk) {
+    await storeEncryptedEcdhKey(ecdhPrivKeyJwk, aesKey);
+  }
+
+  // Encrypt BOTH keys together for off-device backup
   const keysToBackup = {
     arweaveJwk: jwk,
-    ecdhPrivateKey: ecdhPrivKeyJwk ? JSON.parse(ecdhPrivKeyJwk) : null
+    ecdhPrivateKey: ecdhPrivKeyJwk
   };
   const encrypted = await CryptoHelper.encrypt(keysToBackup, aesKey);
 
@@ -1144,7 +1166,10 @@ async function unlockWallet() {
   // Restore ECDH private key if present
   if (ecdhPrivKey) {
     await WalletStorage.set(STORAGE_KEYS.encPrivKeyJwk, JSON.stringify(ecdhPrivKey));
+    // 🔐 Encrypted-at-rest copy for this device
+    await storeEncryptedEcdhKey(ecdhPrivKey, aesKey);
   }
+
 
   await WalletStorage.set(STORAGE_KEYS.address, address);
   await WalletStorage.set(STORAGE_KEYS.backupTxId, backupTxId);
@@ -1220,14 +1245,21 @@ async function importFromKeyfile(jwk) {
 
   // Ensure per-user ECDH keypair exists (for recipient encryption)
   await ensureUserEncKey();
-  const ecdhPrivKeyJwk = await WalletStorage.get(STORAGE_KEYS.encPrivKeyJwk);
+  const ecdhPrivKeyJwkRaw = await WalletStorage.get(STORAGE_KEYS.encPrivKeyJwk);
+  const ecdhPrivKeyJwk = ecdhPrivKeyJwkRaw ? JSON.parse(ecdhPrivKeyJwkRaw) : null;
+
+  if (ecdhPrivKeyJwk) {
+    // 🔐 device-local encrypted copy
+    await storeEncryptedEcdhKey(ecdhPrivKeyJwk, aesKey);
+  }
 
   // Encrypt BOTH keys together
   const keysToBackup = {
     arweaveJwk: jwk,
-    ecdhPrivateKey: ecdhPrivKeyJwk ? JSON.parse(ecdhPrivKeyJwk) : null
+    ecdhPrivateKey: ecdhPrivKeyJwk
   };
   const encrypted = await CryptoHelper.encrypt(keysToBackup, aesKey);
+
 
   // Persist core metadata
   await WalletStorage.set(STORAGE_KEYS.credentialId, credentialId);
@@ -2424,12 +2456,13 @@ async function finishRecovery(txId) {
     
     // ✅ Restore ECDH private key from backup
     if (ecdhPrivKey) {
-      await WalletStorage.set("encPrivKeyJwk", JSON.stringify(ecdhPrivKey));
-      // Restore public key from metadata
+      await WalletStorage.set(STORAGE_KEYS.encPrivKeyJwk, JSON.stringify(ecdhPrivKey));
       if (encPubKey) {
         await WalletStorage.set("encPubKey", encPubKey);
       }
-    } else {
+      // 🔐 also store encrypted private key on this device
+      await storeEncryptedEcdhKey(ecdhPrivKey, aesKey);
+      } else {
       // Old backup without ECDH key - generate new one (won't decrypt old messages)
       if (encPubKey) {
         await WalletStorage.set("encPubKey", encPubKey);
