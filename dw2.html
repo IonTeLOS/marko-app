@@ -224,27 +224,35 @@ async function startDecrypt() {
     // ---------- RECIPIENT MODE (ECDH) ----------
     if (encType==="recipient") {
       if (!blob.fromPub) throw new Error("Missing sender ephemeral key");
-
       const privJwkStr=await WalletStorage.get("encPrivKeyJwk");
       if (!privJwkStr) throw new Error("Missing ECDH private key");
-
+      
+      setStatus("Authenticating to access ECDH key…","info");
+      
+      // Authenticate before accessing encryption key
+      if (keyMode==="prf") {
+        const salt=await WalletStorage.get("prfSaltHex");
+        await WebAuthnHelper.evaluatePrf(credentialId, hexToBytes(salt));
+      } else {
+        await WebAuthnHelper.authenticate(credentialId);
+      }
+      
       const privKey=await crypto.subtle.importKey(
         "jwk", JSON.parse(privJwkStr),
         {name:"ECDH",namedCurve:"P-256"},
         false,
         ["deriveBits"]
       );
-
       const senderRaw=Uint8Array.from(atob(blob.fromPub), c=>c.charCodeAt(0));
       const senderPub=await crypto.subtle.importKey(
         "raw",senderRaw,
         {name:"ECDH",namedCurve:"P-256"},
         false, []
       );
-
+      
+      setStatus("Deriving shared secret…","info");
       const bits=await crypto.subtle.deriveBits({name:"ECDH",public:senderPub}, privKey, 256);
       const aesKey=await crypto.subtle.importKey("raw",bits,"AES-GCM",false,["decrypt"]);
-
       const dec=await CryptoHelper.decrypt(blob.data,aesKey);
       output.textContent=(dec.text??JSON.stringify(dec,null,2));
       output.style.display="block";
