@@ -2172,7 +2172,7 @@ async function finishRecovery(txId) {
 
       // Save PRF salt to local storage for future use
       await WalletStorage.set('prfSaltHex', prfSaltHex);
-      
+
     } else if (keyMode === 'wrapped') {
       // ⚠️ WRAPPED MODE: Cannot recover if storage cleared
       const storedAesKeyHex = await WalletStorage.get('aesKeyHex');
@@ -2211,14 +2211,29 @@ async function finishRecovery(txId) {
 
     // Set wallet and restore all metadata from Arweave
     WalletCore.setWallet(jwk);
-    await ensureUserEncKey();
+    
+    // Ensure user encryption key exists (for recipient encryption feature)
+    let pub = await WalletStorage.get('encPubKey');
+    if (!pub) {
+      // Generate new ECDH keypair for this recovered wallet
+      const keyPair = await crypto.subtle.generateKey(
+        { name: "ECDH", namedCurve: "P-256" },
+        true,
+        ["deriveBits"]
+      );
+      const jwkPriv = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
+      await WalletStorage.set("encPrivKeyJwk", JSON.stringify(jwkPriv));
+      const rawPub = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+      const pubB64 = btoa(String.fromCharCode(...new Uint8Array(rawPub)));
+      await WalletStorage.set("encPubKey", pubB64);
+    }
 
     await WalletStorage.set('address', address);
     await WalletStorage.set('backupTxId', txId);
     await WalletStorage.set('keyMode', keyMode);
     await WalletStorage.set('credentialId', credentialId);
     await WalletStorage.set('username', username);
-    
+
     document.getElementById('wallet-address').textContent = address;
     document.getElementById('bundlr-txid').textContent = txId;
 
@@ -2234,7 +2249,6 @@ async function finishRecovery(txId) {
     console.error(err);
   }
 }
-
 async function recoverByKeyfile() {
   const fileInput = document.getElementById("keyfile-upload");
   const file = fileInput.files[0];
