@@ -2171,11 +2171,11 @@ async function finishRecovery(txId) {
       }
 
       // Save PRF salt to local storage for future use
-      await WalletStorage.set(STORAGE_KEYS.prfSaltHex, prfSaltHex);
-
+      await WalletStorage.set('prfSaltHex', prfSaltHex);
+      
     } else if (keyMode === 'wrapped') {
       // ⚠️ WRAPPED MODE: Cannot recover if storage cleared
-      const storedAesKeyHex = await WalletStorage.get(STORAGE_KEYS.aesKeyHex);
+      const storedAesKeyHex = await WalletStorage.get('aesKeyHex');
       
       if (!storedAesKeyHex) {
         throw new Error(
@@ -2213,12 +2213,12 @@ async function finishRecovery(txId) {
     WalletCore.setWallet(jwk);
     await ensureUserEncKey();
 
-    await WalletStorage.set(STORAGE_KEYS.address, address);
-    await WalletStorage.set(STORAGE_KEYS.backupTxId, txId);
-    await WalletStorage.set(STORAGE_KEYS.keyMode, keyMode);
-    await WalletStorage.set(STORAGE_KEYS.credentialId, credentialId);
-    await WalletStorage.set(STORAGE_KEYS.username, username);
-
+    await WalletStorage.set('address', address);
+    await WalletStorage.set('backupTxId', txId);
+    await WalletStorage.set('keyMode', keyMode);
+    await WalletStorage.set('credentialId', credentialId);
+    await WalletStorage.set('username', username);
+    
     document.getElementById('wallet-address').textContent = address;
     document.getElementById('bundlr-txid').textContent = txId;
 
