@@ -613,7 +613,11 @@ const WebAuthnHelper = {
     const credential = await navigator.credentials.create({
       publicKey: {
         challenge,
-        rp: { name: 'Arweave Wallet' },
+        rp: {
+          name: 'Arweave Wallet',
+          id: window.location.hostname,
+          icon: 'https://github.com/IonTeLOS/marko-app/blob/main/android-chrome-192x192.png?raw=true'
+        },
         user: {
           id: crypto.getRandomValues(new Uint8Array(16)),
           name: username,
