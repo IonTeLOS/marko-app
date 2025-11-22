@@ -482,6 +482,7 @@
       <div class="button-group" style="margin-top: 20px;">
         <button class="btn btn-success" onclick="exportKey()">💾 Export Key</button>
         <button class="btn btn-danger" onclick="lockWallet()">🔒 Lock Wallet</button>
+        <button class="btn btn-secondary" onclick="openRequestQR()">📥 Request (QR)</button>
       </div>
 
       <div id="wallet-status"></div>
@@ -2618,8 +2619,18 @@ window.requestSignature = function (message, origin = 'Unknown') {
     return false;
   }
 };
-
   
+function openRequestQR() {
+  const address = document.getElementById("wallet-address").textContent.trim();
+  if (!address) {
+    setStatus('wallet-status', '❌ No address loaded', 'error');
+    return;
+  }
+
+  const url = `https://marko-app.netlify.app/pqr?chain=arweave&address=${address}&token=AR`;
+  window.open(url, "_blank");
+}
+
 window.showCreateScreen = showCreateScreen;
 window.showUnlockScreen = showUnlockScreen;
 window.showLanding = showLanding;
