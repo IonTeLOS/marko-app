@@ -1110,7 +1110,7 @@ async function unlockWallet() {
       hkdfKey,
       { name: "AES-GCM", length: 256 },
       false,
-      ["decrypt"]
+      ["encrypt", "decrypt"]
     );
 
   } else if (keyMode === 'wrapped') {
@@ -1137,7 +1137,7 @@ async function unlockWallet() {
       hexToBytes(aesKeyHex),
       "AES-GCM",
       false,
-      ["decrypt"]
+      ["encrypt", "decrypt"]
     );
 
   } else {
@@ -1329,7 +1329,7 @@ async function uploadRecoveryBackupInternal() {
       hkdfKey,
       { name: "AES-GCM", length: 256 },
       false,
-      ["encrypt"]
+      ["encrypt", "decrypt"]
     );
 
   } else if (keyMode === 'wrapped') {
@@ -1341,7 +1341,7 @@ async function uploadRecoveryBackupInternal() {
       hexToBytes(aesKeyHex),
       'AES-GCM',
       false,
-      ['encrypt']
+      ['encrypt', 'decrypt']
     );
   } else {
     throw new Error(`Unsupported key mode: ${keyMode}`);
@@ -1872,12 +1872,12 @@ async function uploadData() {
     hkdfKey,
     { name: "AES-GCM", length: 256 },
     false,
-    ["encrypt"]
+    ["encrypt", "decrypt"]
   );
 } else {
     await WebAuthnHelper.authenticate(credentialId);
     const aesKeyHex = await WalletStorage.get("aesKeyHex");
-    aesKey = await crypto.subtle.importKey("raw", hexToBytes(aesKeyHex), "AES-GCM", false, ["encrypt"]);
+    aesKey = await crypto.subtle.importKey("raw", hexToBytes(aesKeyHex), "AES-GCM", false, ["encrypt", "decrypt"]);
   }
 
   encryptedContent = await CryptoHelper.encrypt({ text: content }, aesKey);
@@ -2012,7 +2012,7 @@ if (encMode === "recipient") {
     sharedBits,
     "AES-GCM",
     false,
-    ["encrypt"]
+    ["encrypt", "decrypt"]
   );
 
   // 7. Encrypt content
@@ -2394,7 +2394,7 @@ async function finishRecovery(txId) {
           hkdfKey,
           { name: "AES-GCM", length: 256 },
           false,
-          ["decrypt"]
+          ["encrypt", "decrypt"]
         );
 
         setStatus('unlock-status', '✅ Credential found! Decrypting wallet…', 'info');
@@ -2425,7 +2425,7 @@ async function finishRecovery(txId) {
       
       try {
         await WebAuthnHelper.authenticate(credentialId);
-        aesKey = await crypto.subtle.importKey("raw", hexToBytes(storedAesKeyHex), "AES-GCM", false, ["decrypt"]);
+        aesKey = await crypto.subtle.importKey("raw", hexToBytes(storedAesKeyHex), "AES-GCM", false, ["encrypt", "decrypt"]);
       } catch (authError) {
         throw new Error(
           "WebAuthn credential not found on this device. " +
