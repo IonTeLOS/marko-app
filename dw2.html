@@ -225,94 +225,149 @@ const WebAuthnHelper = {
 
 // ---------- MAIN ----------
 async function startDecrypt() {
+  // ---- shared flags/helpers ----
+  let alreadyAuthed = false;       // for wrapped mode only
+  let prfAesKey = null;           // for PRF mode only
+
+  // wrapped-mode auth wrapper
+  async function softAuth(credentialId) {
+    if (alreadyAuthed) return;
+    await WebAuthnHelper.authenticate(credentialId);
+    alreadyAuthed = true;
+  }
+
+  // PRF-mode AES key derivation, called at most once
+  async function getPrfAesKey(credentialId) {
+    if (prfAesKey) return prfAesKey;
+
+    const saltHex = await WalletStorage.get("prfSaltHex");
+    if (!saltHex) throw new Error("Missing PRF salt");
+
+    // This call *is* the WebAuthn ceremony for PRF mode
+    const prf = await WebAuthnHelper.evaluatePrf(
+      credentialId,
+      hexToBytes(saltHex)
+    );
+
+    const hkdfKey = await crypto.subtle.importKey(
+      "raw",
+      prf,
+      "HKDF",
+      false,
+      ["deriveKey"]
+    );
+
+    prfAesKey = await crypto.subtle.deriveKey(
+      {
+        name: "HKDF",
+        hash: "SHA-256",
+        salt: hexToBytes(saltHex),
+        info: new Uint8Array([])
+      },
+      hkdfKey,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"]
+    );
+
+    return prfAesKey;
+  }
+
   const url = document.getElementById("arweave-url").value.trim();
   const password = document.getElementById("password").value.trim();
   const output = document.getElementById("output");
-  output.style.display="none";
-  output.textContent="";
+  output.style.display = "none";
+  output.textContent = "";
 
-  if (!url) return setStatus("❌ Enter Arweave URL","error");
+  if (!url) return setStatus("❌ Enter Arweave URL", "error");
 
-  setStatus("Fetching Arweave content…","info");
+  setStatus("Fetching Arweave content…", "info");
 
   try {
-    const res=await fetch(url);
-    if (!res.ok) throw new Error("HTTP "+res.status);
-    const text=await res.text();
-    const blob=JSON.parse(text);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const text = await res.text();
+    const blob = JSON.parse(text);
 
     if (!blob.enc) throw new Error("Missing enc field");
     if (!blob.data) throw new Error("Missing data field");
 
-    const encType=blob.enc;
+    const encType = blob.enc;
 
     // ---------- PASSWORD ----------
-    if (encType==="pw") {
+    if (encType === "pw") {
       if (!password) throw new Error("Password required");
       if (!blob.salt) throw new Error("Missing salt");
 
-      setStatus("Deriving password key…","info");
+      setStatus("Deriving password key…", "info");
 
-      const baseKey=await crypto.subtle.importKey(
-        "raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]
+      const baseKey = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(password),
+        "PBKDF2",
+        false,
+        ["deriveKey"]
       );
-      const aesKey=await crypto.subtle.deriveKey({
-        name:"PBKDF2",salt:hexToBytes(blob.salt),iterations:100000,hash:"SHA-256"
-      }, baseKey, {name:"AES-GCM",length:256}, false, ["decrypt"]);
+      const aesKey = await crypto.subtle.deriveKey(
+        {
+          name: "PBKDF2",
+          salt: hexToBytes(blob.salt),
+          iterations: 100000,
+          hash: "SHA-256"
+        },
+        baseKey,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["decrypt"]
+      );
 
-      const dec=await CryptoHelper.decrypt(blob.data,aesKey);
+      const dec = await CryptoHelper.decrypt(blob.data, aesKey);
       displayDecrypted(dec);
       return;
     }
 
     // ---------- SELF / RECIPIENT ----------
-    const credentialId=await WalletStorage.get("credentialId");
-    const keyMode=await WalletStorage.get("keyMode");
-    if (!credentialId || !keyMode) throw new Error("Wallet not unlocked on this device");
+    const credentialId = await WalletStorage.get("credentialId");
+    const keyMode = await WalletStorage.get("keyMode");
+    if (!credentialId || !keyMode)
+      throw new Error("Wallet not unlocked on this device");
 
-    // SELF MODE
-    if (encType==="self") {
-      let aesKey=null;
+    // ---------- SELF MODE ----------
+    if (encType === "self") {
+      let aesKey = null;
 
-      if (keyMode==="prf") {
-        const salt=await WalletStorage.get("prfSaltHex");
-        if (!salt) throw new Error("Missing PRF salt");
-        const prf=await WebAuthnHelper.evaluatePrf(credentialId, hexToBytes(salt));
-
-        // HKDF expand PRF
-        const hkdfKey = await crypto.subtle.importKey("raw", prf, "HKDF", false, ["deriveKey"]);
-        aesKey = await crypto.subtle.deriveKey({
-          name:"HKDF",
-          hash:"SHA-256",
-          salt: hexToBytes(salt),
-          info: new Uint8Array([])
-        }, hkdfKey, {name:"AES-GCM", length:256}, false, ["decrypt"]);
-
+      if (keyMode === "prf") {
+        // single PRF-based AES key
+        aesKey = await getPrfAesKey(credentialId);
       } else {
-        await WebAuthnHelper.authenticate(credentialId);
-        const hex=await WalletStorage.get("aesKeyHex");
+        // wrapped mode → 1 WebAuthn via softAuth
+        await softAuth(credentialId);
+        const hex = await WalletStorage.get("aesKeyHex");
         if (!hex) throw new Error("Missing local AES key");
-        aesKey=await crypto.subtle.importKey("raw",hexToBytes(hex),"AES-GCM",false,["decrypt"]);
+        aesKey = await crypto.subtle.importKey(
+          "raw",
+          hexToBytes(hex),
+          "AES-GCM",
+          false,
+          ["decrypt"]
+        );
       }
 
-      const dec=await CryptoHelper.decrypt(blob.data,aesKey);
+      const dec = await CryptoHelper.decrypt(blob.data, aesKey);
       displayDecrypted(dec);
       return;
     }
 
     // ---------- RECIPIENT MODE (dual: self OR recipient) ----------
     if (encType === "recipient") {
-
       if (!blob.fromPub) throw new Error("Missing sender ephemeral key");
 
-      // Detect dual-encryption format (new) vs old single format
       const hasSelf = blob.data && blob.data.self;
 
-      // ---- AUTHENTICATE ONCE IN WRAPPED MODE (avoid double prompts) ----
+      // ---- wrapped-mode: derive AES once, reuse everywhere ----
       let cachedWrappedAesKey = null;
-
       if (keyMode === "wrapped") {
-        await WebAuthnHelper.authenticate(credentialId);
+        await softAuth(credentialId);
         const aesHex = await WalletStorage.get("aesKeyHex");
         if (!aesHex) throw new Error("Missing local AES key (wrapped mode)");
 
@@ -333,95 +388,45 @@ async function startDecrypt() {
           let aesKeySelf = null;
 
           if (keyMode === "prf") {
-            const salt = await WalletStorage.get("prfSaltHex");
-            if (!salt) throw new Error("Missing PRF salt for self decryption");
-
-            const prf = await WebAuthnHelper.evaluatePrf(
-              credentialId,
-              hexToBytes(salt)
-            );
-
-            const hkdfKey = await crypto.subtle.importKey(
-              "raw",
-              prf,
-              "HKDF",
-              false,
-              ["deriveKey"]
-            );
-
-            aesKeySelf = await crypto.subtle.deriveKey(
-              {
-                name: "HKDF",
-                hash: "SHA-256",
-                salt: hexToBytes(salt),
-                info: new Uint8Array([])
-              },
-              hkdfKey,
-              { name: "AES-GCM", length: 256 },
-              false,
-              ["decrypt"]
-            );
+            // reuse single PRF-based AES key
+            aesKeySelf = await getPrfAesKey(credentialId);
           } else {
-            // wrapped mode → reuse cached key
             aesKeySelf = cachedWrappedAesKey;
           }
 
-          const decSelf = await CryptoHelper.decrypt(blob.data.self, aesKeySelf);
+          const decSelf = await CryptoHelper.decrypt(
+            blob.data.self,
+            aesKeySelf
+          );
           displayDecrypted(decSelf);
           return;
-
         } catch (errSelf) {
-          console.warn("Self decrypt failed; falling back to recipient ECDH path:", errSelf);
-          // Continue to recipient decrypt
+          console.warn(
+            "Self decrypt failed; falling back to recipient ECDH path:",
+            errSelf
+          );
         }
       }
 
       // =================================================================
       // 2) FALLBACK — DECRYPT AS RECIPIENT (old + new message formats)
       // =================================================================
-
       const encPrivBlobStr = await WalletStorage.get("encPrivKeyEncrypted");
-      if (!encPrivBlobStr) throw new Error("Missing encrypted ECDH private key (encPrivKeyEncrypted)");
+      if (!encPrivBlobStr)
+        throw new Error(
+          "Missing encrypted ECDH private key (encPrivKeyEncrypted)"
+        );
 
       const encPrivBlob = JSON.parse(encPrivBlobStr);
 
       let aesKey = null;
-
       if (keyMode === "prf") {
-        const salt = await WalletStorage.get("prfSaltHex");
-        if (!salt) throw new Error("Missing PRF salt");
-
-        const prf = await WebAuthnHelper.evaluatePrf(
-          credentialId,
-          hexToBytes(salt)
-        );
-
-        const hkdfKey = await crypto.subtle.importKey(
-          "raw",
-          prf,
-          "HKDF",
-          false,
-          ["deriveKey"]
-        );
-
-        aesKey = await crypto.subtle.deriveKey(
-          {
-            name: "HKDF",
-            hash: "SHA-256",
-            salt: hexToBytes(salt),
-            info: new Uint8Array([])
-          },
-          hkdfKey,
-          { name: "AES-GCM", length: 256 },
-          false,
-          ["decrypt"]
-        );
+        // same PRF-based AES key as above
+        aesKey = await getPrfAesKey(credentialId);
       } else {
-        // wrapped mode → reuse cached AES key instead of asking twice
         aesKey = cachedWrappedAesKey;
       }
 
-      // Decrypt the stored ECDH private key
       const { ecdh: privJwk } = await CryptoHelper.decrypt(encPrivBlob, aesKey);
 
       const privKey = await crypto.subtle.importKey(
@@ -432,7 +437,10 @@ async function startDecrypt() {
         ["deriveBits"]
       );
 
-      const senderRaw = Uint8Array.from(atob(blob.fromPub), c => c.charCodeAt(0));
+      const senderRaw = Uint8Array.from(
+        atob(blob.fromPub),
+        (c) => c.charCodeAt(0)
+      );
       const senderPub = await crypto.subtle.importKey(
         "raw",
         senderRaw,
@@ -457,24 +465,21 @@ async function startDecrypt() {
         ["decrypt"]
       );
 
-      // Support both new format (data.recipient) and old format (data)
       const encryptedPayload =
-        (blob.data && blob.data.recipient)
-          ? blob.data.recipient
-          : blob.data;
+        blob.data && blob.data.recipient ? blob.data.recipient : blob.data;
 
       const dec = await CryptoHelper.decrypt(encryptedPayload, aesKeyRecipient);
       displayDecrypted(dec);
       return;
     }
 
-    throw new Error("Unsupported encryption type: "+encType);
-
+    throw new Error("Unsupported encryption type: " + encType);
   } catch (err) {
     console.error(err);
-    setStatus("❌ "+err.message,"error");
+    setStatus("❌ " + err.message, "error");
   }
 }
+
 
 // ---------- Autofill from URL hash ----------
 (function init() {
