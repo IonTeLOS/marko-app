@@ -964,7 +964,9 @@ async function applyPendingPaymentRequestIfAny() {
     statusMsg += `<br><strong>Warning:</strong> Token "${unsupportedToken}" is not supported; treating this as AR.`;
   }
 
-  setStatus('wallet-status', statusMsg, 'info');
+  //setStatus('wallet-status', statusMsg, 'info');
+  notify(statusMsg, "info");
+
 }
 
 // ---------------------------------------------------------------------------
@@ -1072,23 +1074,21 @@ function arrayBufferToHex(buffer) {
   const bytes = new Uint8Array(buffer);
   return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
 }
-function notify(msg, type = "info", duration = 3000) {
-  const container = document.getElementById("toast-container");
-  const toast = document.createElement("div");
+function notify(messageHtml, type = "info") {
+  const bar = document.createElement("div");
+  bar.className = `notif notif-${type}`;
+  bar.innerHTML = messageHtml;     // ← HTML is allowed here
 
-  toast.className = `toast toast-${type}`;
-  toast.textContent = msg;
+  document.body.appendChild(bar);
 
-  container.appendChild(toast);
+  requestAnimationFrame(() => {
+    bar.classList.add("show");
+  });
 
-  // fade-in
-  requestAnimationFrame(() => toast.classList.add("show"));
-
-  // destroy
   setTimeout(() => {
-    toast.classList.remove("show");
-    setTimeout(() => toast.remove(), 250);
-  }, duration);
+    bar.classList.remove("show");
+    bar.addEventListener("transitionend", () => bar.remove());
+  }, 3500);
 }
 
 // ---------------------------------------------------------------------------
