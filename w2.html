@@ -1570,11 +1570,6 @@ async function uploadDataItem(content, contentType, userTagKey, userTagValue) {
   return result.arweaveId;
 }
 
-
- function openHistory() {
-  window.open('history.html', '_blank');
-}
-
 async function signMessage(message, options = {}) {
   if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
 
@@ -1814,6 +1809,9 @@ async function refreshBalance() {
   }
 }
 
+ function openHistory() {
+  window.open('history.html', '_blank');
+}  
 // ---------------------------------------------------------------------------
 //  UI: SEND TX
 // ---------------------------------------------------------------------------
