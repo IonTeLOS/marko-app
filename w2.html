@@ -1924,12 +1924,28 @@ async function uploadData() {
     // ------------------------------------
     // NO ENCRYPTION
     // ------------------------------------
-    if (encMode === "none") {
-      if (fileData)
-        throw new Error("Unencrypted file uploads are not supported. Please choose an encryption mode.");
+// ----------------------
+// NO ENCRYPTION (plaintext or file)
+// ----------------------
+if (encMode === "none") {
 
-      finalContent = content;
-    }
+  if (fileData) {
+    // File upload allowed — wrap it in JSON
+    finalContent = JSON.stringify({
+      enc: "none",
+      file: arrayBufferToHex(fileData),
+      mime: fileMeta.type,
+      name: fileMeta.name
+    });
+  } else {
+    // Normal plaintext string
+    finalContent = JSON.stringify({
+      enc: "none",
+      text: content
+    });
+  }
+}
+
 
     // ------------------------------------
     // SELF ENCRYPTION
