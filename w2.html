@@ -343,6 +343,29 @@
 .balance-card .btn .material-symbols-rounded {
   font-size: 20px;
 }
+#fiat-select {
+  appearance: none;
+  padding: 12px 40px 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--md-sys-color-outline);
+  background: var(--md-sys-color-surface-variant);
+  color: var(--md-sys-color-on-surface);
+  font-size: 16px;
+  backdrop-filter: blur(4px);
+  position: relative;
+}
+
+/* Add MD3 arrow */
+#fiat-select::after {
+  content: 'expand_more';
+  font-family: 'Material Symbols Rounded';
+  font-size: 22px;
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+    
   </style>
 </head>
 <body>
@@ -606,6 +629,12 @@ window.TEST_FLAG = true;
 // ---------------------------------------------------------------------------
 const CLOUD_FUNCTION_URL = 'https://marko-app.netlify.app/.netlify/functions/arload';
 const WALLET_APP_NAME = 'ArweaveWallet-v1';
+// ---- Fiat price cache ----
+const FIAT_CACHE = {
+  timestamp: 0,
+  prices: {}   // { usd: number, eur: number, ... }
+};
+const FIAT_TTL = 1 * 60 * 1000; // 1 minute
 
 let arweave = null;
   
@@ -1942,13 +1971,20 @@ async function unlockWallet() {
 
 async function refreshBalance() {
   try {
-    const balance = await WalletCore.refreshBalance();
-    document.getElementById('balance-display').textContent = balance;
-  } catch (error) {
-    console.error(error);
-    document.getElementById('balance-display').textContent = 'Error loading';
+    const balanceStr = await WalletCore.refreshBalance();
+    document.getElementById('balance-display').textContent = balanceStr;
+
+    // Always update fiat using cached or new price
+    const fiat = document.getElementById('fiat-select').value;
+    await updateBalanceFiat(balanceStr, fiat);
+
+    return balanceStr;
+  } catch (err) {
+    console.error(err);
+    document.getElementById('balance-display').textContent = "Error loading";
   }
 }
+
 async function refreshBalanceAndUI() {
   try {
     const balanceStr = await refreshBalance();
@@ -1967,25 +2003,50 @@ async function updateBalanceFiat(balanceStr, fiat) {
   try {
     const arAmount = parseFloat(balanceStr.replace(' AR', ''));
 
-    const url = `https://api.coingecko.com/api/v3/simple/price?ids=arweave&vs_currencies=${fiat}`;
-    const res = await fetch(url);
-    const data = await res.json();
+    // Check cache (5 min validity)
+    const now = Date.now();
+    const isFresh =
+      FIAT_CACHE.timestamp &&
+      (now - FIAT_CACHE.timestamp < FIAT_TTL) &&
+      FIAT_CACHE.prices[fiat];
 
-    const arPrice = data.arweave[fiat];
-    const fiatValue = (arAmount * arPrice).toFixed(2);
+    let price;
+
+    if (isFresh) {
+      price = FIAT_CACHE.prices[fiat];
+    } else {
+      // Fetch fresh data (all major fiats at once)
+      const vs = "usd,eur,gbp,jpy,chf";
+
+      const res = await fetch(
+        `https://api.coingecko.com/api/v3/simple/price?ids=arweave&vs_currencies=${vs}`
+      );
+
+      const data = await res.json();
+
+      // Update cache
+      FIAT_CACHE.timestamp = now;
+      FIAT_CACHE.prices = data.arweave;
+
+      price = FIAT_CACHE.prices[fiat];
+    }
+
+    if (!price) throw new Error("Fiat price missing in API response");
+
+    const fiatValue = (arAmount * price).toFixed(2);
 
     document.getElementById('balance-display').innerHTML = `
       ${balanceStr}
-      <div style="font-size: 20px; margin-top: 8px; opacity: 0.9;">
+      <div style="font-size:20px;margin-top:8px;opacity:.9;">
         ≈ ${fiatValue} ${fiat.toUpperCase()}
       </div>
     `;
 
   } catch (err) {
-    console.warn('Fiat price unavailable:', err);
-    // Leave balance without fiat conversion
+    console.warn("Fiat price unavailable:", err);
   }
 }
+
   
  function openHistory() {
   window.open('hw2.html', '_blank');
