@@ -1830,10 +1830,18 @@ async function deriveKeyFromPassword(password) {
 }
 
 async function uploadData() {
+  //
+  // ---- SIZE LIMITS ----
+  //
+  const MAX_FILE_NONE      = 95 * 1024;  // raw upload
+  const MAX_FILE_SELF      = 48 * 1024;  // one AES-GCM
+  const MAX_FILE_PASSWORD  = 48 * 1024;  // same as self
+  const MAX_FILE_RECIPIENT = 48 * 1024;  // recipient-only
+  const MAX_FILE_DUAL      = 24 * 1024;  // self + recipient dual encryption
+
   let finalContent = null;
   let statusAppend = "";
 
-  // ----- File or text content -----
   const textArea = document.getElementById("data-content");
   const fileInput = document.getElementById("file-input");
 
@@ -1841,24 +1849,22 @@ async function uploadData() {
   let fileData = null;
   let fileMeta = null;
 
-  // If file is selected → ignore missing text
+  // ------------------------------
+  // FILE OR TEXT
+  // ------------------------------
   if (fileInput.files && fileInput.files[0]) {
     const file = fileInput.files[0];
-
-    if (file.size > 95 * 1024) {
-      setStatus('wallet-status', '❌ File too large (max 95 KB)', 'error');
-      return;
-    }
 
     fileData = await file.arrayBuffer();
     fileMeta = {
       name: file.name,
       type: file.type || "application/octet-stream"
     };
-    content = null; // we treat this upload as "file" first
+
+    // when file present → content ignored
+    content = null;
   }
 
-  // Reject only if BOTH text and file are missing
   if (!content && !fileData) {
     setStatus('wallet-status', '❌ Please enter text or choose a file', 'error');
     return;
@@ -1869,61 +1875,83 @@ async function uploadData() {
   const userTagKey = document.getElementById("tag-key-1").value.trim();
   const userTagValue = document.getElementById("tag-value-1").value.trim();
 
-  setStatus('wallet-status', 'Preparing upload...', 'info');
+  //
+  // ------------------------------
+  // SIZE CHECK BASED ON MODE
+  // ------------------------------
+  //
+  if (fileData) {
+    const size = fileData.byteLength;
+
+    if (encMode === "none") {
+      if (size > MAX_FILE_NONE)
+        return setStatus('wallet-status', `❌ File too large (max ${MAX_FILE_NONE/1024} KB)`, 'error');
+
+    } else if (encMode === "self") {
+      if (size > MAX_FILE_SELF)
+        return setStatus('wallet-status', `❌ File too large for encryption (max ${MAX_FILE_SELF/1024} KB)`, 'error');
+
+    } else if (encMode === "password") {
+      if (size > MAX_FILE_PASSWORD)
+        return setStatus('wallet-status', `❌ File too large for password encryption (max ${MAX_FILE_PASSWORD/1024} KB)`, 'error');
+
+    } else if (encMode === "recipient") {
+      // dual encryption → strictest
+      if (size > MAX_FILE_DUAL)
+        return setStatus('wallet-status', `❌ File too large for dual encryption (max ${MAX_FILE_DUAL/1024} KB)`, 'error');
+    }
+  }
+
+  setStatus('wallet-status', 'Preparing upload…', 'info');
+
+  //
+  // Helper to build payload (text OR file)
+  //
+  const buildPayload = () => {
+    if (fileData) {
+      return {
+        file: arrayBufferToHex(fileData),
+        mime: fileMeta.type,
+        name: fileMeta.name
+      };
+    } else {
+      return { text: content };
+    }
+  };
 
   try {
-    // Helper: build the cleartext payload (same shape for all modes)
-    const buildPayload = () => {
-      if (fileData) {
-        return {
-          file: arrayBufferToHex(fileData),
-          mime: fileMeta.type,
-          name: fileMeta.name
-        };
-      } else {
-        return { text: content };
-      }
-    };
 
-    // ----------------------
+    // ------------------------------------
     // NO ENCRYPTION
-    // ----------------------
+    // ------------------------------------
     if (encMode === "none") {
-      if (fileData) {
-        // You can relax this if you want raw files in plain text form
+      if (fileData)
         throw new Error("Unencrypted file uploads are not supported. Please choose an encryption mode.");
-      }
+
       finalContent = content;
+    }
 
-    // ----------------------
+    // ------------------------------------
     // SELF ENCRYPTION
-    // ----------------------
-    } else if (encMode === "self") {
-      const walletKey = WalletCore.getCurrentWallet();
-      if (!walletKey) throw new Error("Wallet not loaded");
-
+    // ------------------------------------
+    else if (encMode === "self") {
       const credentialId = await WalletStorage.get("credentialId");
       const keyMode = await WalletStorage.get("keyMode");
-      if (!credentialId || !keyMode) {
+      if (!credentialId || !keyMode)
         throw new Error("Wallet not unlocked on this device");
-      }
 
       let aesKey;
+
       if (keyMode === "prf") {
         const prfSaltHex = await WalletStorage.get("prfSaltHex");
         if (!prfSaltHex) throw new Error("Missing PRF salt");
 
         const prfBytes = await WebAuthnHelper.evaluatePrf(
-          credentialId,
-          hexToBytes(prfSaltHex)
+          credentialId, hexToBytes(prfSaltHex)
         );
 
         const hkdfKey = await crypto.subtle.importKey(
-          "raw",
-          prfBytes,
-          "HKDF",
-          false,
-          ["deriveKey"]
+          "raw", prfBytes, "HKDF", false, ["deriveKey"]
         );
 
         aesKey = await crypto.subtle.deriveKey(
@@ -1931,193 +1959,114 @@ async function uploadData() {
             name: "HKDF",
             hash: "SHA-256",
             salt: hexToBytes(prfSaltHex),
-            info: new Uint8Array([]),
+            info: new Uint8Array([])
           },
           hkdfKey,
           { name: "AES-GCM", length: 256 },
           false,
           ["encrypt", "decrypt"]
         );
+
       } else {
         await WebAuthnHelper.authenticate(credentialId);
-        const aesKeyHex = await WalletStorage.get("aesKeyHex");
-        if (!aesKeyHex) throw new Error("Missing local AES key (aesKeyHex)");
+        const aesHex = await WalletStorage.get("aesKeyHex");
+        if (!aesHex) throw new Error("Missing local AES key");
         aesKey = await crypto.subtle.importKey(
-          "raw",
-          hexToBytes(aesKeyHex),
-          "AES-GCM",
-          false,
-          ["encrypt", "decrypt"]
+          "raw", hexToBytes(aesHex), "AES-GCM", false, ["encrypt", "decrypt"]
         );
       }
 
-      const payload = buildPayload();
-      const encryptedPayload = await CryptoHelper.encrypt(payload, aesKey);
+      const encryptedPayload = await CryptoHelper.encrypt(buildPayload(), aesKey);
 
       finalContent = JSON.stringify({
         enc: "self",
         data: encryptedPayload
       });
+    }
 
-    // ----------------------
+    // ------------------------------------
     // PASSWORD ENCRYPTION
-    // ----------------------
-    } else if (encMode === "password") {
+    // ------------------------------------
+    else if (encMode === "password") {
       const password = document.getElementById("data-password").value.trim();
       if (!password) throw new Error("Password required.");
 
       const { aesKey, salt } = await deriveKeyFromPassword(password);
-      const payload = buildPayload();
-      const encrypted = await CryptoHelper.encrypt(payload, aesKey);
+      const encrypted = await CryptoHelper.encrypt(buildPayload(), aesKey);
 
       finalContent = JSON.stringify({
         enc: "pw",
         salt,
         data: encrypted
       });
-      statusAppend = `#${password}`;
 
-    // ----------------------
-    // RECIPIENT ENCRYPTION (dual: recipient + self)
-    // ----------------------
-    } else if (encMode === "recipient") {
+      statusAppend = "#" + password;
+    }
+
+    // ------------------------------------
+    // RECIPIENT ENCRYPTION (dual)
+    // ------------------------------------
+    else if (encMode === "recipient") {
+
+      //
+      // Recipient encryption (ECDH)
+      //
       const target = document.getElementById("recipient-address").value.trim();
       if (!target) throw new Error("Recipient address required.");
 
-      // 1) Fetch latest wallet backup tx for that address (contains User-EncKey)
-      const encryptedRes = await fetch("https://arweave.net/graphql", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: `{
-            transactions(
-              tags:[
-                { name:"User-Address", values:["${target}"] },
-                { name:"App-Name", values:["${WALLET_APP_NAME}"] }
-              ],
-              first:1,
-              sort:HEIGHT_DESC
-            ){
-              edges{
-                node{
-                  tags { name value }
-                }
-              }
-            }
-          }`
-        })
-      });
+      // fetch their User-EncKey
+      const encPubKey = await fetchRecipientPubKey(target);
 
-      const parsed = await encryptedRes.json();
-      const edges = parsed?.data?.transactions?.edges || [];
+      let rawRecipientPub = Uint8Array.from(atob(encPubKey), c => c.charCodeAt(0));
 
-      if (!edges.length) {
-        throw new Error("Recipient wallet not found or does not have a public encryption key.");
-      }
+      const recipientPubKey = await crypto.subtle.importKey(
+        "raw", rawRecipientPub,
+        { name: "ECDH", namedCurve: "P-256" },
+        false, []
+      );
 
-      const tags = edges[0].node.tags;
-      let pubKeyB64 = tags.find(t => t.name === "User-EncKey")?.value;
-
-      if (!pubKeyB64) {
-        throw new Error("Recipient does not support encryption (User-EncKey tag missing).");
-      }
-
-      // Arweave normalizes '+' → ' ' in tags, fix it
-      pubKeyB64 = pubKeyB64.replace(/ /g, "+").trim();
-
-      // 2. Convert back from Base64 → Uint8Array
-      let rawRecipientPub;
-      try {
-        rawRecipientPub = Uint8Array.from(
-          atob(pubKeyB64),
-          c => c.charCodeAt(0)
-        );
-      } catch (err) {
-        console.error("Base64 decode failed:", err);
-        throw new Error("Recipient encryption key is malformed (base64 decode failed).");
-      }
-
-      // Must be 65 bytes for P-256 uncompressed
-      if (rawRecipientPub.length !== 65 || rawRecipientPub[0] !== 0x04) {
-        console.error("Invalid ECDH public key length or prefix:", rawRecipientPub);
-        throw new Error("Recipient public key is invalid (P-256 key expected).");
-      }
-
-      // 3. Import RECIPIENT PUBLIC KEY for ECDH
-      let recipientPubKey;
-      try {
-        recipientPubKey = await crypto.subtle.importKey(
-          "raw",
-          rawRecipientPub,
-          { name: "ECDH", namedCurve: "P-256" },
-          false,
-          []
-        );
-      } catch (err) {
-        console.error("importKey error:", err);
-        throw new Error("Recipient encryption key is malformed (importKey failed).");
-      }
-
-      // 4. Generate ephemeral ECDH keypair
+      // ephemeral keypair
       const ephemeral = await crypto.subtle.generateKey(
         { name: "ECDH", namedCurve: "P-256" },
         true,
         ["deriveBits"]
       );
 
-      // Export ephemeral public key to send with encrypted content
       const ephemeralRaw = await crypto.subtle.exportKey("raw", ephemeral.publicKey);
       const fromPubB64 = btoa(String.fromCharCode(...new Uint8Array(ephemeralRaw)));
 
-      // 5. Derive shared secret for RECIPIENT
-      let sharedBits;
-      try {
-        sharedBits = await crypto.subtle.deriveBits(
-          { name: "ECDH", public: recipientPubKey },
-          ephemeral.privateKey,
-          256
-        );
-      } catch (err) {
-        console.error("deriveBits error:", err);
-        throw new Error("Recipient encryption failed (deriveBits DataError).");
-      }
-
-      // 6. AES-GCM key for RECIPIENT
-      const aesKeyRecipient = await crypto.subtle.importKey(
-        "raw",
-        sharedBits,
-        "AES-GCM",
-        false,
-        ["encrypt"]
+      const sharedBits = await crypto.subtle.deriveBits(
+        { name: "ECDH", public: recipientPubKey },
+        ephemeral.privateKey,
+        256
       );
 
-      // 7. Encrypt content for RECIPIENT
+      const aesKeyRecipient = await crypto.subtle.importKey(
+        "raw", sharedBits, "AES-GCM", false, ["encrypt"]
+      );
+
       const payload = buildPayload();
+
       const encryptedRecipient = await CryptoHelper.encrypt(payload, aesKeyRecipient);
 
-      // 8. Encrypt content for SELF (sender) using same key as encMode "self"
+      //
+      // Self copy (PRF or wrapped)
+      //
       const credentialId = await WalletStorage.get("credentialId");
       const keyMode = await WalletStorage.get("keyMode");
-      if (!credentialId || !keyMode) {
-        throw new Error("Wallet not unlocked on this device (no key material for self-encryption).");
-      }
+      if (!credentialId || !keyMode)
+        throw new Error("Wallet not unlocked on this device");
 
       let aesKeySelf;
+
       if (keyMode === "prf") {
         const prfSaltHex = await WalletStorage.get("prfSaltHex");
-        if (!prfSaltHex) throw new Error("Missing PRF salt");
-
         const prfBytes = await WebAuthnHelper.evaluatePrf(
-          credentialId,
-          hexToBytes(prfSaltHex)
+          credentialId, hexToBytes(prfSaltHex)
         );
 
         const hkdfKey = await crypto.subtle.importKey(
-          "raw",
-          prfBytes,
-          "HKDF",
-          false,
-          ["deriveKey"]
+          "raw", prfBytes, "HKDF", false, ["deriveKey"]
         );
 
         aesKeySelf = await crypto.subtle.deriveKey(
@@ -2125,29 +2074,27 @@ async function uploadData() {
             name: "HKDF",
             hash: "SHA-256",
             salt: hexToBytes(prfSaltHex),
-            info: new Uint8Array([]),
+            info: new Uint8Array([])
           },
           hkdfKey,
           { name: "AES-GCM", length: 256 },
           false,
           ["encrypt"]
         );
+
       } else {
         await WebAuthnHelper.authenticate(credentialId);
-        const aesKeyHex = await WalletStorage.get("aesKeyHex");
-        if (!aesKeyHex) throw new Error("Missing local AES key for self-encryption (aesKeyHex).");
+        const aesHex = await WalletStorage.get("aesKeyHex");
         aesKeySelf = await crypto.subtle.importKey(
-          "raw",
-          hexToBytes(aesKeyHex),
-          "AES-GCM",
-          false,
-          ["encrypt"]
+          "raw", hexToBytes(aesHex), "AES-GCM", false, ["encrypt"]
         );
       }
 
       const encryptedSelf = await CryptoHelper.encrypt(payload, aesKeySelf);
 
-      // 10. Final dual-encryption envelope
+      //
+      // dual envelope
+      //
       finalContent = JSON.stringify({
         enc: "recipient",
         to: target,
@@ -2157,14 +2104,11 @@ async function uploadData() {
           self: encryptedSelf
         }
       });
-
-    } else {
-      throw new Error(`Unknown encryption mode: ${encMode}`);
     }
 
-    // ----------------------
-    // UPLOAD TO ARWEAVE
-    // ----------------------
+    //
+    // UPLOAD
+    //
     const txId = await WalletCore.uploadDataItem(
       finalContent,
       contentType,
@@ -2173,31 +2117,32 @@ async function uploadData() {
     );
 
     let link = `https://arweave.net/${txId}`;
-    if (statusAppend) link += statusAppend; // only for password mode
+    if (statusAppend) link += statusAppend;
 
     setStatus(
-      'wallet-status',
-      `✅ Uploaded! TX ID: ${txId}<br><a href="${link}" target="_blank">Open</a>`,
-      'success'
+      "wallet-status",
+      `✅ Uploaded! TX: ${txId}<br><a href="${link}" target="_blank">Open</a>`,
+      "success"
     );
 
-    // Reset UI
-    textArea.value = '';
-    fileInput.value = '';
-    document.getElementById('tag-key-1').value = '';
-    document.getElementById('tag-value-1').value = '';
-    if (document.getElementById('data-password')) {
-      document.getElementById('data-password').value = '';
-    }
-    if (document.getElementById('recipient-address')) {
-      document.getElementById('recipient-address').value = '';
-    }
+    //
+    // RESET UI
+    //
+    textArea.value = "";
+    fileInput.value = "";
+    document.getElementById("tag-key-1").value = "";
+    document.getElementById("tag-value-1").value = "";
+    const pw = document.getElementById("data-password");
+    if (pw) pw.value = "";
+    const ra = document.getElementById("recipient-address");
+    if (ra) ra.value = "";
 
-  } catch (error) {
-    console.error(error);
-    setStatus('wallet-status', `❌ Upload error: ${error.message}`, 'error');
+  } catch (err) {
+    console.error(err);
+    setStatus("wallet-status", `❌ Upload error: ${err.message}`, "error");
   }
 }
+
 
 
 // ---------------------------------------------------------------------------
