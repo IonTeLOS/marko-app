@@ -405,6 +405,11 @@
           <label for="data-content">Data Content</label>
           <textarea id="data-content" placeholder="Enter data to upload to Arweave..."></textarea>
         </div>
+        
+        <div class="input-group">
+          <label for="file-input">Optional File (max 95 KB)</label>
+          <input id="file-input" type="file" />
+        </div>
 
         <div class="input-group">
   <label for="data-encryption-mode">Encryption</label>
@@ -872,6 +877,11 @@ const CryptoHelper = {
   }
 };
 
+function arrayBufferToHex(buffer) {
+  const bytes = new Uint8Array(buffer);
+  return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+  
 // ---------------------------------------------------------------------------
 //  ENCRYPTED ECDH PRIVATE KEY STORAGE
 // ---------------------------------------------------------------------------
@@ -1823,7 +1833,22 @@ async function uploadData() {
   let finalContent = null;
   let encryptedContent = null;
   let statusAppend = "";
-  const content = document.getElementById('data-content').value;
+  // ----- File or text content -----
+  let content = document.getElementById("upload-data").value.trim();
+  let fileInput = document.getElementById("file-input");
+  let fileData = null;
+
+  if (fileInput.files && fileInput.files[0]) {
+      const file = fileInput.files[0];
+
+      if (file.size > 95 * 1024) {
+          throw new Error("File too large (max 95 KB).");
+      }
+
+      // Read file as ArrayBuffer
+      fileData = await file.arrayBuffer();
+      content = null; // We are uploading file instead of textarea text
+  }
   const encMode = document.getElementById("data-encryption-mode").value;
   const contentType = document.getElementById('content-type').value || 'text/plain';
   const userTagKey = document.getElementById('tag-key-1').value.trim();
@@ -1880,10 +1905,12 @@ async function uploadData() {
     aesKey = await crypto.subtle.importKey("raw", hexToBytes(aesKeyHex), "AES-GCM", false, ["encrypt", "decrypt"]);
   }
 
-  encryptedContent = await CryptoHelper.encrypt({ text: content }, aesKey);
-  finalContent = JSON.stringify({ enc: "self", data: encryptedContent });
+  const encryptedPayload = fileData
+    ? await CryptoHelper.encrypt({ file: arrayBufferToHex(fileData) }, aesKey)
+    : await CryptoHelper.encrypt({ text: content }, aesKey);
+    finalContent = JSON.stringify({ enc: "self", data: encryptedContent });
 
-}
+  }
 if (encMode === "password") {
   const password = document.getElementById("data-password").value.trim();
   if (!password) throw new Error("Password required.");
