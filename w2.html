@@ -1894,38 +1894,6 @@ document.getElementById("data-encryption-mode").addEventListener("change", e => 
     document.getElementById("recipient-field").classList.remove("hidden");
   }
 });
-
-document.getElementById('fiat-select')
-  .addEventListener('change', async () => {
-    const balanceStr = document.getElementById('balance-display').textContent;
-    if (!balanceStr.includes('AR')) return;
-    await updateBalanceFiat(balanceStr, document.getElementById('fiat-select').value);
-  });
-  
-// Restore previous selection (if exists)
-const savedFiat = localStorage.getItem("fiatChoice");
-if (savedFiat) {
-  const sel = document.getElementById("fiat-select");
-  sel.value = savedFiat;
-}
-document.getElementById('fiat-select')
-  .addEventListener('change', async () => {
-    const balanceStr = document.getElementById('balance-display').textContent;
-    if (!balanceStr.includes('AR')) return;
-    await updateBalanceFiat(balanceStr, document.getElementById('fiat-select').value);
-  });
-
-// Save selection on change + refresh UI
-document.getElementById("fiat-select").addEventListener("change", async () => {
-  const fiat = document.getElementById("fiat-select").value;
-  localStorage.setItem("fiatChoice", fiat);
-
-  // Recalculate fiat value if balance already shown
-  const balanceStr = document.getElementById("balance-display").textContent;
-  if (balanceStr.includes(" AR")) {
-    await updateBalanceFiat(balanceStr, fiat);
-  }
-});
   
 // ---------------------------------------------------------------------------
 //  UI: CREATE WALLET
