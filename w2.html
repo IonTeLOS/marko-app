@@ -1809,6 +1809,12 @@ async function createWallet() {
 
   try {
     const { address, backupTxId } = await WalletCore.createWallet(username);
+    // ✅ LOG SUCCESS
+    await logHistory('system', {
+      action: 'wallet_created',
+      details: `Wallet created with biometric authentication. Backup TX: ${backupTxId.substring(0, 20)}...`,
+      address: address
+    });
 
     document.getElementById('wallet-address').textContent = address;
     document.getElementById('bundlr-txid').textContent = backupTxId;
@@ -1819,6 +1825,13 @@ async function createWallet() {
     await applyPendingPaymentRequestIfAny();
   } catch (error) {
     console.error(error);
+    // ❌ LOG ERROR
+    await logHistory('error', {
+      operation: 'create_wallet',
+      error: error.message,
+      details: `Username: ${username}`
+    }, 'failed');
+    
     setStatus('create-status', `❌ Error: ${error.message}`, 'error');
   } finally {
     setButtonLoading('create-btn', false);
@@ -1834,7 +1847,13 @@ async function unlockWallet() {
 
   try {
     const { address, backupTxId } = await WalletCore.unlockWallet();
-
+    // ✅ LOG SUCCESS
+    await logHistory('system', {
+      action: 'wallet_unlocked',
+      details: 'Biometric authentication successful',
+      address: address
+    });
+    
     document.getElementById('wallet-address').textContent = address;
     document.getElementById('bundlr-txid').textContent = backupTxId;
 
@@ -1845,6 +1864,13 @@ async function unlockWallet() {
     await applyPendingPaymentRequestIfAny();
   } catch (error) {
     console.error(error);
+    // ❌ LOG ERROR
+    await logHistory('error', {
+      operation: 'unlock_wallet',
+      error: error.message,
+      details: 'Failed to authenticate with biometrics'
+    }, 'failed');
+    
     setStatus('unlock-status', `❌ Error: ${error.message}`, 'error');
   } finally {
     setButtonLoading('unlock-btn', false);
@@ -1881,6 +1907,17 @@ async function sendTransaction() {
     setStatus('wallet-status', 'Creating transaction...', 'info');
 
     const txId = await WalletCore.sendArTransaction(toAddress, amount);
+    // ✅ LOG TRANSACTION (PENDING)
+    await logHistory('transaction', {
+      txid: txId,
+      direction: 'sent',
+      address: toAddress,
+      amount: `${amount} AR`,
+      sentViaWallet: true,
+      arweaveLink: `https://arweave.net/${txId}`,
+      viewscanLink: `https://viewblock.io/arweave/tx/${txId}`
+    }, 'pending');
+    
     setStatus('wallet-status', `✅ Transaction sent! TX ID: ${txId.substring(0, 20)}...`, 'success');
 
     document.getElementById('send-address').value = '';
@@ -1889,6 +1926,13 @@ async function sendTransaction() {
     setTimeout(refreshBalance, 2000);
   } catch (error) {
     console.error(error);
+    // ❌ LOG ERROR
+    await logHistory('error', {
+      operation: 'send_transaction',
+      error: error.message,
+      details: `To: ${toAddress}, Amount: ${amount} AR`
+    }, 'failed');
+    
     setStatus('wallet-status', `❌ Error: ${error.message}`, 'error');
   }
 }
@@ -2226,6 +2270,37 @@ if (encMode === "none") {
       userTagValue || null
     );
 
+    const origin = window.location.origin;
+    let decryptLink = null;
+
+    if (encMode === 'none') {
+      decryptLink = `https://arweave.net/${txId}`;
+    } else if (encMode === 'self') {
+      decryptLink = `${origin}/dw2.html?link=${txId}`;
+    } else if (encMode === 'password') {
+      const password = document.getElementById('data-password').value.trim();
+      decryptLink = `${origin}/dw2.html?link=${txId}#${password}`;
+    } else if (encMode === 'recipient') {
+      decryptLink = `${origin}/dw2.html?link=${txId}`;
+    }
+
+    // Get recipient address if applicable
+    let recipientAddress = null;
+    if (encMode === 'recipient') {
+      recipientAddress = document.getElementById('recipient-address').value.trim();
+    }
+
+    // ✅ LOG UPLOAD
+    await logHistory('upload', {
+      txid: txId,
+      fileName: fileData ? fileMeta.name : 'text-content.txt',
+      fileSize: fileData ? fileData.byteLength : new TextEncoder().encode(content).byteLength,
+      contentType: contentType,
+      encryptionMode: encMode,
+      recipient: recipientAddress,
+      decryptLink: decryptLink
+    });
+
     let link = `https://arweave.net/${txId}`;
     if (statusAppend) link += statusAppend;
 
@@ -2234,16 +2309,7 @@ if (encMode === "none") {
       `✅ Uploaded! TX: ${txId}<br><a href="${link}" target="_blank">Open</a>`,
       "success"
     );
-let recipientAddress = null;    
-await logHistory('upload', {
-  txid: txId,
-  //fileName: file.name || 'text-content.txt',
-  // fileSize: fileSize || '',
-  contentType: contentType,
-  encryptionMode: encMode, // 'none', 'self', 'password', 'recipient'
-  recipient: recipientAddress || '',
-  decryptLink: `${window.location.origin}/dw2.html?link=${txId}`
-});
+
     //
     // RESET UI
     //
@@ -2258,6 +2324,12 @@ await logHistory('upload', {
 
   } catch (err) {
     console.error(err);
+    // ❌ LOG ERROR
+    await logHistory('error', {
+      operation: 'upload_data',
+      error: err.message,
+      details: `Encryption: ${encMode}, Content-Type: ${contentType}`
+    }, 'failed');
     setStatus("wallet-status", `❌ Upload error: ${err.message}`, "error");
   }
 }
@@ -2287,7 +2359,16 @@ async function signMessage() {
     await WalletCore.confirmBiometricForPayment();
     setStatus('wallet-status', 'Signing message...', 'info');
     const result = await WalletCore.signMessage(message, options);
-    
+    // ✅ LOG SIGNATURE
+    await logHistory('signature', {
+      message: result.message,
+      signature: result.signature,
+      address: result.address,
+      requestedBy: pendingSignRequest?.origin || 'Manual',
+      callbackUrl: callbackUrl,
+      isCAIP122: result.isCAIP122,
+      options: options
+    });
     document.getElementById('signed-message').textContent = result.message;
     document.getElementById('signature-value').textContent = result.signature;
     document.getElementById('public-key-value').textContent = JSON.stringify(result.publicKey, null, 2);
@@ -2343,6 +2424,12 @@ async function signMessage() {
     
   } catch (error) {
     console.error(error);
+    // ❌ LOG ERROR
+    await logHistory('error', {
+      operation: 'sign_message',
+      error: error.message,
+      details: `Message length: ${message.length} chars`
+    }, 'failed');
     setStatus('wallet-status', `❌ Error: ${error.message}`, 'error');
   }
 }
@@ -2710,7 +2797,12 @@ async function finishRecovery(txId) {
     await WalletStorage.set('keyMode', keyMode);
     await WalletStorage.set('credentialId', credentialId);
     await WalletStorage.set('username', username);
-
+    // ✅ LOG RECOVERY
+    await logHistory('system', {
+      action: 'wallet_recovered',
+      details: `${keyMode === 'prf' ? 'PRF-protected' : 'Wrapped-mode'} wallet recovered from backup TX: ${txId.substring(0, 20)}...`,
+      address: address
+    });
     document.getElementById('wallet-address').textContent = address;
     document.getElementById('bundlr-txid').textContent = txId;
 
@@ -2722,6 +2814,12 @@ async function finishRecovery(txId) {
     refreshBalance();
 
   } catch (err) {
+    // ❌ LOG ERROR
+    await logHistory('error', {
+      operation: 'recover_wallet',
+      error: err.message,
+      details: `Backup TX: ${txId}`
+    }, 'failed');
     setStatus('unlock-status', `❌ ${err.message}`, 'error');
     console.error(err);
   }
@@ -2743,6 +2841,12 @@ async function recoverByKeyfile() {
     setStatus("unlock-status", "Importing wallet via WalletCore...", "info");
     
     const result = await WalletCore.importFromKeyfile(jwk);
+    // ✅ LOG RECOVERY
+    await logHistory('system', {
+      action: 'wallet_recovered',
+      details: `Keyfile imported and secured. Backup TX: ${result.backupTxId.substring(0, 20)}...`,
+      address: result.address
+    });
 
     document.getElementById("wallet-address").textContent = result.address;
     document.getElementById("bundlr-txid").textContent = result.backupTxId;
@@ -2753,6 +2857,12 @@ async function recoverByKeyfile() {
     refreshBalance();
 
   } catch (err) {
+    // ❌ LOG ERROR
+    await logHistory('error', {
+      operation: 'recover_by_keyfile',
+      error: err.message,
+      details: 'Failed to import keyfile'
+    }, 'failed');
     setStatus("unlock-status", `❌ Error importing keyfile: ${err.message}`, "error");
     console.error(err);
   }
@@ -2763,11 +2873,22 @@ async function uploadRecoveryBackup() {
     setStatus("wallet-status", "Uploading backup via WalletCore...", "info");
     
     const txId = await WalletCore.uploadRecoveryBackup();
-    
+    // ✅ LOG BACKUP
+    await logHistory('system', {
+      action: 'backup_uploaded',
+      details: `Recovery backup uploaded to Arweave: ${txId.substring(0, 20)}...`,
+      address: document.getElementById('wallet-address').textContent
+    });
     document.getElementById("bundlr-txid").textContent = txId;
     setStatus("wallet-status", `✅ Backup stored! TX: ${txId}`, "success");
 
   } catch (err) {
+    // ❌ LOG ERROR
+    await logHistory('error', {
+      operation: 'upload_backup',
+      error: err.message,
+      details: 'Failed to upload recovery backup to Arweave'
+    }, 'failed');
     setStatus("wallet-status", `❌ Backup upload failed: ${err.message}`, "error");
     console.error(err);
   }
@@ -2790,9 +2911,16 @@ function exportKey() {
   link.click();
   URL.revokeObjectURL(url);
 
+  // ✅ LOG EXPORT (async, no await needed since it's fire-and-forget)
+  logHistory('system', {
+    action: 'keyfile_exported',
+    details: 'Private key exported as JSON file. Store this securely!',
+    address: document.getElementById('wallet-address').textContent
+  }).catch(err => console.error('Failed to log export:', err));
+
   setStatus('wallet-status', '✅ Keyfile exported! Keep it extremely safe!', 'success');
 }
-
+  
 function openScanner() {
   window.location.href = "scanqr.html";
 }
