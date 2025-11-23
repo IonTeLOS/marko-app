@@ -217,77 +217,152 @@ async function startDecrypt() {
     }
 
     // ---------- RECIPIENT MODE USING ENCRYPTED ECDH KEY ----------
-    if (encType==="recipient") {
+// ---------- RECIPIENT MODE (dual: self OR recipient) ----------
+if (encType === "recipient") {
 
-      if (!blob.fromPub) throw new Error("Missing sender ephemeral key");
+  if (!blob.fromPub) throw new Error("Missing sender ephemeral key");
 
-      const encPrivBlobStr = await WalletStorage.get("encPrivKeyEncrypted");
-      if (!encPrivBlobStr) throw new Error("Missing encrypted ECDH private key (encPrivKeyEncrypted)");
+  const hasSelf = blob.data && blob.data.self;
 
-      const encPrivBlob = JSON.parse(encPrivBlobStr);
+  // --- 1) TRY SELF-DECRYPTION FIRST ------------------------------------
+  if (hasSelf) {
+    try {
+      let aesKeySelf = null;
 
-      let aesKey=null;
-
-      // ---- PRF MODE ----
       if (keyMode === "prf") {
         const salt = await WalletStorage.get("prfSaltHex");
-        const prf = await WebAuthnHelper.evaluatePrf(credentialId, hexToBytes(salt));
+        if (!salt) throw new Error("Missing PRF salt for self decryption");
 
-        const hkdfKey = await crypto.subtle.importKey("raw", prf, "HKDF", false, ["deriveKey"]);
-        aesKey = await crypto.subtle.deriveKey({
-          name:"HKDF",
-          hash:"SHA-256",
-          salt: hexToBytes(salt),
-          info: new Uint8Array([])
-        }, hkdfKey, {name:"AES-GCM", length:256}, false, ["decrypt"]);
+        const prf = await WebAuthnHelper.evaluatePrf(
+          credentialId,
+          hexToBytes(salt)
+        );
+
+        const hkdfKey = await crypto.subtle.importKey(
+          "raw", prf, "HKDF", false, ["deriveKey"]
+        );
+
+        aesKeySelf = await crypto.subtle.deriveKey(
+          {
+            name:"HKDF",
+            hash:"SHA-256",
+            salt: hexToBytes(salt),
+            info: new Uint8Array([])
+          },
+          hkdfKey,
+          { name:"AES-GCM", length:256 },
+          false,
+          ["decrypt"]
+        );
 
       } else {
-        // ---- WRAPPED MODE ----
         await WebAuthnHelper.authenticate(credentialId);
         const aesHex = await WalletStorage.get("aesKeyHex");
-        aesKey = await crypto.subtle.importKey("raw", hexToBytes(aesHex), "AES-GCM", false, ["decrypt"]);
+        if (!aesHex) throw new Error("Missing local AES key for self decrypt");
+        aesKeySelf = await crypto.subtle.importKey(
+          "raw", hexToBytes(aesHex), "AES-GCM", false, ["decrypt"]
+        );
       }
 
-      // Decrypt stored private ECDH key
-      const { ecdh: privJwk } = await CryptoHelper.decrypt(encPrivBlob, aesKey);
+      const decSelf = await CryptoHelper.decrypt(blob.data.self, aesKeySelf);
 
-      // Import private key
-      const privKey = await crypto.subtle.importKey(
-        "jwk",
-        privJwk,
-        { name:"ECDH", namedCurve:"P-256" },
-        false,
-        ["deriveBits"]
-      );
+      output.textContent = (decSelf.text ?? JSON.stringify(decSelf,null,2));
+      output.style.display = "block";
+      return setStatus("✅ Decrypted (self)", "success");
 
-      // Import sender ephemeral key
-      const senderRaw = Uint8Array.from(atob(blob.fromPub), c=>c.charCodeAt(0));
-      const senderPub = await crypto.subtle.importKey(
-        "raw",
-        senderRaw,
-        { name:"ECDH", namedCurve:"P-256" },
-        false,
-        []
-      );
-
-      setStatus("Deriving shared secret…","info");
-
-      const bits = await crypto.subtle.deriveBits(
-        { name:"ECDH", public: senderPub },
-        privKey,
-        256
-      );
-
-      const aesKeyRecipient = await crypto.subtle.importKey(
-        "raw", bits, "AES-GCM", false, ["decrypt"]
-      );
-
-      const dec = await CryptoHelper.decrypt(blob.data, aesKeyRecipient);
-
-      output.textContent = (dec.text ?? JSON.stringify(dec,null,2));
-      output.style.display="block";
-      return setStatus("✅ Decrypted (recipient)","success");
+    } catch (errSelf) {
+      console.warn("Self-decrypt failed, trying ECDH recipient path:", errSelf);
+      // continue to recipient path
     }
+  }
+
+  // --- 2) FALLBACK: DECRYPT AS RECIPIENT (old or new format) -------------
+  const encPrivBlobStr = await WalletStorage.get("encPrivKeyEncrypted");
+  if (!encPrivBlobStr) throw new Error("Missing encrypted ECDH private key (encPrivKeyEncrypted)");
+
+  const encPrivBlob = JSON.parse(encPrivBlobStr);
+
+  let aesKey = null;
+
+  if (keyMode === "prf") {
+    const salt = await WalletStorage.get("prfSaltHex");
+    if (!salt) throw new Error("Missing PRF salt");
+
+    const prf = await WebAuthnHelper.evaluatePrf(
+      credentialId,
+      hexToBytes(salt)
+    );
+
+    const hkdfKey = await crypto.subtle.importKey(
+      "raw", prf, "HKDF", false, ["deriveKey"]
+    );
+
+    aesKey = await crypto.subtle.deriveKey(
+      {
+        name:"HKDF",
+        hash:"SHA-256",
+        salt: hexToBytes(salt),
+        info: new Uint8Array([])
+      },
+      hkdfKey,
+      { name:"AES-GCM", length:256 },
+      false,
+      ["decrypt"]
+    );
+
+  } else {
+    await WebAuthnHelper.authenticate(credentialId);
+    const aesHex = await WalletStorage.get("aesKeyHex");
+    if (!aesHex) throw new Error("Missing local AES key");
+    aesKey = await crypto.subtle.importKey(
+      "raw", hexToBytes(aesHex), "AES-GCM", false, ["decrypt"]
+    );
+  }
+
+  // Decrypt stored private ECDH key
+  const { ecdh: privJwk } = await CryptoHelper.decrypt(encPrivBlob, aesKey);
+
+  const privKey = await crypto.subtle.importKey(
+    "jwk",
+    privJwk,
+    { name:"ECDH", namedCurve:"P-256" },
+    false,
+    ["deriveBits"]
+  );
+
+  const senderRaw = Uint8Array.from(atob(blob.fromPub), c => c.charCodeAt(0));
+  const senderPub = await crypto.subtle.importKey(
+    "raw",
+    senderRaw,
+    { name:"ECDH", namedCurve:"P-256" },
+    false,
+    []
+  );
+
+  setStatus("Deriving shared secret…", "info");
+
+  const bits = await crypto.subtle.deriveBits(
+    { name:"ECDH", public: senderPub },
+    privKey,
+    256
+  );
+
+  const aesKeyRecipient = await crypto.subtle.importKey(
+    "raw", bits, "AES-GCM", false, ["decrypt"]
+  );
+
+  const encryptedPayload =
+    (blob.data && blob.data.recipient)
+      ? blob.data.recipient
+      : blob.data;
+
+  const dec = await CryptoHelper.decrypt(encryptedPayload, aesKeyRecipient);
+
+  output.textContent = (dec.text ?? JSON.stringify(dec,null,2));
+  output.style.display="block";
+  return setStatus("✅ Decrypted (recipient)", "success");
+}
+
 
     throw new Error("Unsupported encryption type: "+encType);
 
