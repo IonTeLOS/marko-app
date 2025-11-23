@@ -343,28 +343,7 @@
 .balance-card .btn .material-symbols-rounded {
   font-size: 20px;
 }
-#fiat-select {
-  appearance: none;
-  padding: 12px 40px 12px 14px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--md-sys-color-outline);
-  background: var(--md-sys-color-surface-variant);
-  color: var(--md-sys-color-on-surface);
-  font-size: 16px;
-  backdrop-filter: blur(4px);
-  position: relative;
-}
 
-/* Add MD3 arrow */
-#fiat-select::after {
-  content: 'expand_more';
-  font-family: 'Material Symbols Rounded';
-  font-size: 22px;
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-}
 #fiat-row {
   display: flex;
   justify-content: center;
@@ -2018,14 +1997,15 @@ async function updateBalanceFiat(balanceStr, fiat) {
 
     const value = (arAmount * price).toFixed(2);
 
-    document.getElementById("fiat-value").textContent =
-      `≈ ${value} ${fiat.toUpperCase()}`;
+    // ✔️ Show ONLY the number
+    document.getElementById("fiat-value").textContent = `≈ ${value}`;
 
   } catch (err) {
     console.warn("Fiat price unavailable:", err);
     document.getElementById("fiat-value").textContent = "≈ --";
   }
 }
+
 
 
 
