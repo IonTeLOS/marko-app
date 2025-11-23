@@ -1871,7 +1871,17 @@ async function uploadData() {
   }
 
   const encMode = document.getElementById("data-encryption-mode").value;
-  const contentType = document.getElementById("content-type").value || "text/plain";
+  let contentType;
+  if (fileData) {
+    // Use the file’s actual MIME type if valid
+    contentType = fileMeta.type && fileMeta.type !== ""
+      ? fileMeta.type
+      : "application/octet-stream";
+  } else {
+    // Use text field for manual input
+    contentType =
+      document.getElementById("content-type").value.trim() || "text/plain";
+  }
   const userTagKey = document.getElementById("tag-key-1").value.trim();
   const userTagValue = document.getElementById("tag-value-1").value.trim();
 
