@@ -489,27 +489,14 @@
     </div>
 
     <div class="input-group">
-      <label for="data-encryption-mode">Encryption</label>
-      <select id="data-encryption-mode">
-        <option value="none">
-          <span class="material-symbols-rounded">lock_open</span>
-          No encryption
-        </option>
-        <option value="self">
-          <span class="material-symbols-rounded">lock</span>
-          Encrypt for me
-        </option>
-        <option value="password">
-          <span class="material-symbols-rounded">key</span>
-          Encrypt with password
-        </option>
-        <option value="recipient">
-          <span class="material-symbols-rounded">group</span>
-          Encrypt for another user
-        </option>
-      </select>
-    </div>
-
+  <label for="data-encryption-mode">Encryption</label>
+  <select id="data-encryption-mode">
+    <option value="none">🔓 No encryption</option>
+    <option value="self">🔐 Encrypt for me</option>
+    <option value="password">🔑 Encrypt with password</option>
+    <option value="recipient">🤝 Encrypt for another user</option>
+  </select>
+</div>
     <div class="input-group hidden" id="password-field">
       <label for="data-password">Password (AES-GCM)</label>
       <input type="text" id="data-password" placeholder="Enter password">
