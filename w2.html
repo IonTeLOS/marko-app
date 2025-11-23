@@ -365,6 +365,38 @@
   top: 50%;
   transform: translateY(-50%);
 }
+#fiat-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 20px;
+  opacity: 0.9;
+}
+
+#fiat-select-inline {
+  appearance: none;
+  padding: 6px 28px 6px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--md-sys-color-outline);
+  background: var(--md-sys-color-surface-variant);
+  color: var(--md-sys-color-on-surface);
+  font-size: 16px;
+  position: relative;
+}
+
+/* MD3 dropdown arrow */
+#fiat-select-inline::after {
+  content: 'expand_more';
+  font-family: 'Material Symbols Rounded';
+  font-size: 20px;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
     
   </style>
 </head>
@@ -450,14 +482,17 @@
 <div id="wallet-screen" class="hidden">
   <h2 style="margin-bottom: 20px;">Wallet Active</h2>
 
-  <div class="balance-card">
-    <div class="balance-label">Balance</div>
-    <div class="balance-amount" id="balance-display">--</div>
-    <button class="btn" onclick="refreshBalance()" style="background: rgba(255,255,255,0.2); margin: 10px auto 0; width: auto; padding: 8px 20px;">
-      <span class="material-symbols-rounded">refresh</span>
-      Refresh
-    </button>
-    <select id="fiat-select" style="margin-top: 6px;">
+<div class="balance-card">
+  <div class="balance-label">Balance</div>
+
+  <div class="balance-amount" id="balance-display">
+    --
+  </div>
+
+  <div id="fiat-row">
+    <span id="fiat-value">≈ --</span>
+
+    <select id="fiat-select-inline">
       <option value="usd">USD</option>
       <option value="eur">EUR</option>
       <option value="gbp">GBP</option>
@@ -465,6 +500,13 @@
       <option value="chf">CHF</option>
     </select>
   </div>
+
+  <button class="btn" onclick="refreshBalance()" style="background: rgba(255,255,255,0.2); margin: 12px auto 0; width: auto; padding: 8px 20px;">
+    <span class="material-symbols-rounded">refresh</span>
+    Refresh
+  </button>
+</div>
+
 
   <div class="wallet-info">
     <div class="wallet-info-item">
@@ -1974,8 +2016,7 @@ async function refreshBalance() {
     const balanceStr = await WalletCore.refreshBalance();
     document.getElementById('balance-display').textContent = balanceStr;
 
-    // Always update fiat using cached or new price
-    const fiat = document.getElementById('fiat-select').value;
+    const fiat = document.getElementById('fiat-select-inline').value;
     await updateBalanceFiat(balanceStr, fiat);
 
     return balanceStr;
@@ -1985,67 +2026,37 @@ async function refreshBalance() {
   }
 }
 
-async function refreshBalanceAndUI() {
-  try {
-    const balanceStr = await refreshBalance();
-    document.getElementById('balance-display').textContent = balanceStr;
-
-    const fiat = document.getElementById('fiat-select').value;
-    await updateBalanceFiat(balanceStr, fiat);
-
-  } catch (err) {
-    console.error(err);
-    document.getElementById('balance-display').textContent = 'Error loading';
-  }
-}
 
 async function updateBalanceFiat(balanceStr, fiat) {
   try {
     const arAmount = parseFloat(balanceStr.replace(' AR', ''));
 
-    // Check cache (5 min validity)
+    // cached?
     const now = Date.now();
-    const isFresh =
-      FIAT_CACHE.timestamp &&
-      (now - FIAT_CACHE.timestamp < FIAT_TTL) &&
-      FIAT_CACHE.prices[fiat];
+    const fresh = FIAT_CACHE.timestamp && (now - FIAT_CACHE.timestamp < FIAT_TTL);
 
-    let price;
-
-    if (isFresh) {
-      price = FIAT_CACHE.prices[fiat];
-    } else {
-      // Fetch fresh data (all major fiats at once)
+    if (!fresh) {
       const vs = "usd,eur,gbp,jpy,chf";
-
-      const res = await fetch(
-        `https://api.coingecko.com/api/v3/simple/price?ids=arweave&vs_currencies=${vs}`
-      );
-
+      const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=arweave&vs_currencies=${vs}`);
       const data = await res.json();
-
-      // Update cache
       FIAT_CACHE.timestamp = now;
-      FIAT_CACHE.prices = data.arweave;
-
-      price = FIAT_CACHE.prices[fiat];
+      FIAT_CACHE.prices = data.arweave || {};
     }
 
-    if (!price) throw new Error("Fiat price missing in API response");
+    const price = FIAT_CACHE.prices[fiat];
+    if (!price) throw new Error("Missing fiat price");
 
-    const fiatValue = (arAmount * price).toFixed(2);
+    const value = (arAmount * price).toFixed(2);
 
-    document.getElementById('balance-display').innerHTML = `
-      ${balanceStr}
-      <div style="font-size:20px;margin-top:8px;opacity:.9;">
-        ≈ ${fiatValue} ${fiat.toUpperCase()}
-      </div>
-    `;
+    document.getElementById("fiat-value").textContent =
+      `≈ ${value} ${fiat.toUpperCase()}`;
 
   } catch (err) {
     console.warn("Fiat price unavailable:", err);
+    document.getElementById("fiat-value").textContent = "≈ --";
   }
 }
+
 
   
  function openHistory() {
@@ -3038,6 +3049,27 @@ window.addEventListener('DOMContentLoaded', () => {
     setStatus('unlock-status', 'Sign request detected. Please unlock your wallet to continue.', 'info');
   }
 });
+  
+(function initFiatSelector() {
+  const sel = document.getElementById("fiat-select-inline");
+
+  // Restore saved choice
+  const saved = localStorage.getItem("fiatChoice");
+  if (saved && sel.querySelector(`option[value="${saved}"]`)) {
+    sel.value = saved;
+  }
+
+  // Save new choice + update UI immediately
+  sel.addEventListener("change", async () => {
+    const fiat = sel.value;
+    localStorage.setItem("fiatChoice", fiat);
+
+    const balanceStr = document.getElementById('balance-display').textContent;
+    if (balanceStr.includes(" AR")) {
+      await updateBalanceFiat(balanceStr, fiat);
+    }
+  });
+})();
 
 window.requestPayment = function (uri) {
   try {
