@@ -385,34 +385,35 @@
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  z-index: 999999;
+  gap: 10px;
+  z-index: 99999;
 }
 
 .toast {
-  padding: 16px 22px;
+  padding: 14px 20px;
   border-radius: 18px;
   font-size: 16px;
   font-weight: 500;
   color: white;
   background: rgba(0,0,0,0.85);
-  backdrop-filter: blur(8px);
-  box-shadow: var(--elev-3);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.25);
   opacity: 0;
-  transform: translateY(20px);
-  transition: all 0.25s ease;
+  transform: translateY(10px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
   max-width: 90vw;
+  text-align: center;
 }
 
 .toast.show {
   opacity: 1;
-  transform: translateY(0px);
+  transform: translateY(0);
 }
 
 .toast-success { background: #4CAF50; }
-.toast-error   { background: #D32F2F; }
+.toast-error   { background: #E53935; }
 .toast-info    { background: #2196F3; }
-  
+
   </style>
 </head>
 <body>
@@ -1075,20 +1076,22 @@ function arrayBufferToHex(buffer) {
   return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 function notify(messageHtml, type = "info") {
-  const bar = document.createElement("div");
-  bar.className = `notif notif-${type}`;
-  bar.innerHTML = messageHtml;     // ← HTML is allowed here
+  const container = document.getElementById("toast-container");
 
-  document.body.appendChild(bar);
+  const t = document.createElement("div");
+  t.className = `toast toast-${type}`;
+  t.innerHTML = messageHtml;
 
-  requestAnimationFrame(() => {
-    bar.classList.add("show");
-  });
+  container.appendChild(t);
 
+  // animate in
+  requestAnimationFrame(() => t.classList.add("show"));
+
+  // auto close
   setTimeout(() => {
-    bar.classList.remove("show");
-    bar.addEventListener("transitionend", () => bar.remove());
-  }, 3500);
+    t.classList.remove("show");
+    t.addEventListener("transitionend", () => t.remove());
+  }, 2800);
 }
 
 // ---------------------------------------------------------------------------
