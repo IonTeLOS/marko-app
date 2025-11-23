@@ -1997,16 +1997,18 @@ async function refreshBalance() {
 
 async function updateBalanceFiat(balanceStr, fiat) {
   try {
-    const arAmount = parseFloat(balanceStr.replace(' AR', ''));
+    const arAmount = parseFloat(balanceStr);
 
-    // cached?
     const now = Date.now();
     const fresh = FIAT_CACHE.timestamp && (now - FIAT_CACHE.timestamp < FIAT_TTL);
 
     if (!fresh) {
       const vs = "usd,eur,gbp,jpy,chf";
-      const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=arweave&vs_currencies=${vs}`);
+      const res = await fetch(
+        `https://api.coingecko.com/api/v3/simple/price?ids=arweave&vs_currencies=${vs}`
+      );
       const data = await res.json();
+
       FIAT_CACHE.timestamp = now;
       FIAT_CACHE.prices = data.arweave || {};
     }
@@ -2024,6 +2026,7 @@ async function updateBalanceFiat(balanceStr, fiat) {
     document.getElementById("fiat-value").textContent = "≈ --";
   }
 }
+
 
 
   
