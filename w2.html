@@ -1861,10 +1861,12 @@ if (!content && !fileData) {
   const userTagKey = document.getElementById('tag-key-1').value.trim();
   const userTagValue = document.getElementById('tag-value-1').value.trim();
 
-  if (!content) {
-    setStatus('wallet-status', '❌ Please enter data to upload', 'error');
+// Reject only if BOTH text AND file are missing
+if (!content && !fileData) {
+    setStatus('wallet-status', '❌ Please enter text or choose a file', 'error');
     return;
-  }
+}
+
 
   setStatus('wallet-status', 'Preparing upload...', 'info');
 
