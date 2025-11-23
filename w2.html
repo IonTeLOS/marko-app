@@ -385,7 +385,6 @@
         <button class="tab active" onclick="showTab('send')">Send</button>
         <button class="tab" onclick="showTab('data')">Upload Data</button>
         <button class="tab" onclick="showTab('sign')">Sign Message</button>
-        <button class="tab" onclick="showTab('history')">History</button>
       </div>
 
       <div id="send-tab" class="tab-content">
@@ -476,16 +475,9 @@
         </div>
       </div>
 
-      <div id="history-tab" class="tab-content hidden">
-        <p style="color: #6c757d; margin-bottom: 15px; font-size: 14px;">Recent transactions from this wallet:</p>
-        <div id="tx-history" class="tx-list">
-          <div style="text-align: center; color: #6c757d; padding: 20px;">Click refresh to load transaction history</div>
-        </div>
-        <button class="btn btn-secondary" onclick="loadHistory()">🔄 Load History</button>
-      </div>
-
       <div class="button-group" style="margin-top: 20px;">
         <button class="btn btn-success" onclick="exportKey()">💾 Export Key</button>
+        <button class="btn btn-secondary" onclick="openHistory()">📜 View History</button>
         <button class="btn btn-danger" onclick="lockWallet()">🔒 Lock Wallet</button>
         <button class="btn btn-secondary" onclick="openRequestQR()">📥 Request (QR)</button>
       </div>
@@ -1579,72 +1571,9 @@ async function uploadDataItem(content, contentType, userTagKey, userTagValue) {
 }
 
 
-  async function loadHistory(first = 10) {
-    if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
-
-    const address = await arweave.wallets.jwkToAddress(walletJwk);
-
-    const query = `{
-      transactions(
-        owners: ["${address}"]
-        first: ${first}
-        sort: HEIGHT_DESC
-      ) {
-        edges {
-          node {
-            id
-            recipient
-            quantity { ar }
-            block { timestamp }
-            tags { name value }
-          }
-        }
-      }
-    }`;
-
-    const response = await fetch('https://arweave.net/graphql', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query })
-    });
-
-    const result = await response.json();
-    return result.data.transactions.edges || [];
-  }
-
-  async function loadDataUploadsHistory(first = 10) {
-    if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
-
-    const address = await arweave.wallets.jwkToAddress(walletJwk);
-
-    const query = `{
-      transactions(
-        tags: [
-          { name: "App", values: ["${WALLET_APP_NAME}"] },
-          { name: "Wallet-Address", values: ["${address}"] }
-        ],
-        first: ${first},
-        sort: HEIGHT_DESC
-      ) {
-        edges {
-          node {
-            id
-            block { timestamp }
-            tags { name value }
-          }
-        }
-      }
-    }`;
-
-    const response = await fetch('https://arweave.net/graphql', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query })
-    });
-
-    const result = await response.json();
-    return result.data.transactions.edges || [];
-  }
+ function openHistory() {
+  window.open('history.html', '_blank');
+}
 
 async function signMessage(message, options = {}) {
   if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
@@ -1723,8 +1652,6 @@ async function signMessage(message, options = {}) {
     refreshBalance,
     sendArTransaction,
     uploadDataItem,
-    loadHistory,
-    loadDataUploadsHistory,
     getCurrentWallet,
     getAddress,
     setWallet,
@@ -1759,7 +1686,7 @@ function showTab(tabName) {
     }
   });
 
-  ['send-tab', 'data-tab', 'sign-tab', 'history-tab'].forEach(id => {
+  ['send-tab', 'data-tab', 'sign-tab'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
   });
@@ -2481,76 +2408,8 @@ async function verifySignature() {
     return false;
   }
 }  
-// ---------------------------------------------------------------------------
-//  UI: HISTORY (TX + DATA UPLOADS)
-// ---------------------------------------------------------------------------
-async function loadHistory() {
-  const historyDiv = document.getElementById('tx-history');
-  historyDiv.innerHTML = '<div style="text-align: center; padding: 20px;">Loading...</div>';
 
-  try {
-    const txEdges = await WalletCore.loadHistory(10);
-    const dataEdges = await WalletCore.loadDataUploadsHistory(10);
-
-    if ((!txEdges || !txEdges.length) && (!dataEdges || !dataEdges.length)) {
-      historyDiv.innerHTML = '<div style="text-align: center; color: #6c757d; padding: 20px;">No transactions or uploads found</div>';
-      return;
-    }
-
-    let html = '';
-
-    if (txEdges && txEdges.length) {
-      html += '<h4 style="margin-bottom:8px;">Wallet transactions</h4>';
-      html += txEdges.map(edge => {
-        const tx = edge.node;
-        const date = tx.block ? new Date(tx.block.timestamp * 1000).toLocaleString() : 'Pending';
-        const amount = tx.quantity.ar;
-        const type = tx.recipient ? 'Transfer' : 'Data';
-
-        return `
-          <div class="tx-item">
-            <div class="tx-item-header">
-              <span>${type}</span>
-              <span>${date}</span>
-            </div>
-            ${tx.recipient ? `<div>To: ${tx.recipient.substring(0, 20)}...</div>` : ''}
-            ${amount > 0 ? `<div>Amount: ${amount} AR</div>` : ''}
-            <div class="tx-item-id">${tx.id}</div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    if (dataEdges && dataEdges.length) {
-      if (html) html += '<hr style="margin:12px 0;">';
-      html += '<h4 style="margin-bottom:8px;">Data uploads (via app)</h4>';
-      html += dataEdges.map(edge => {
-        const tx = edge.node;
-        const date = tx.block ? new Date(tx.block.timestamp * 1000).toLocaleString() : 'Pending';
-        const tags = tx.tags || [];
-        const tagMap = {};
-        tags.forEach(t => { tagMap[t.name] = t.value; });
-        const ctype = tagMap['Content-Type'] || 'unknown';
-
-        return `
-          <div class="tx-item">
-            <div class="tx-item-header">
-              <span>Data Upload</span>
-              <span>${date}</span>
-            </div>
-            <div>Content-Type: ${ctype}</div>
-            <div class="tx-item-id">${tx.id}</div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    historyDiv.innerHTML = html;
-  } catch (error) {
-    console.error(error);
-    historyDiv.innerHTML = '<div style="text-align: center; color: #dc3545; padding: 20px;">Error loading history</div>';
-  }
-}
+  
 
 // ---------------------------------------------------------------------------
 //  UI: RECOVERY BY ADDRESS / USERNAME (SAME DEVICE + PASSKEY)
@@ -3027,7 +2886,7 @@ window.sendTransaction = sendTransaction;
 window.parsePaymentRequestFromUrl = parsePaymentRequestFromUrl;
 window.applyPendingPaymentRequestIfAny = applyPendingPaymentRequestIfAny;
 window.uploadData = uploadData;
-window.loadHistory = loadHistory;
+window.openHistory = openHistory;
 window.exportKey = exportKey;
 window.lockWallet = lockWallet;
 window.showTab = showTab;
