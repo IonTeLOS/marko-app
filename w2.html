@@ -378,16 +378,16 @@
 }
   /* ---------- Toast Notifications (Material You) ---------- */
 
+/* Default = Desktop layout */
 #toast-container {
   position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 20px;
+  right: 20px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   z-index: 99999;
-  pointer-events: none; /* so it never blocks UI */
+  pointer-events: none;
 }
 
 .toast {
@@ -400,11 +400,11 @@
   backdrop-filter: blur(6px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.25);
   opacity: 0;
-  transform: translateY(-12px);
+  transform: translateY(20px);
   transition: opacity 0.25s ease, transform 0.25s ease;
   max-width: 90vw;
-  text-align: center;
-  pointer-events: auto; /* allow hovering/click if needed */
+  min-width: 240px;
+  pointer-events: auto;
 }
 
 .toast.show {
@@ -415,6 +415,26 @@
 .toast-success { background: #4CAF50; }
 .toast-error   { background: #E53935; }
 .toast-info    { background: #2196F3; }
+
+/* ---------- MOBILE OVERRIDE ---------- */
+/* Trigger top-center for narrow screens */
+@media (max-width: 768px) {
+  #toast-container {
+    top: 20px;
+    bottom: auto;
+    right: 50%;
+    transform: translateX(50%); /* fix RTL for transform origin */
+  }
+
+  .toast {
+    transform: translateY(-12px);
+  }
+
+  .toast.show {
+    transform: translateY(0);
+  }
+}
+
 
 
   </style>
