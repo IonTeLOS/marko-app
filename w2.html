@@ -892,6 +892,50 @@ async function storeEncryptedEcdhKey(ecdhPrivKeyJwk, aesKey) {
   const blob = await CryptoHelper.encrypt({ ecdh: ecdhPrivKeyJwk }, aesKey);
   await WalletStorage.set(STORAGE_KEYS.encPrivKeyEncrypted, JSON.stringify(blob));
 }
+
+async function fetchRecipientPubKey(address) {
+  const query = {
+    query: `{
+      transactions(
+        tags:[
+          { name:"User-Address", values:["${address}"] },
+          { name:"App-Name", values:["${WALLET_APP_NAME}"] }
+        ],
+        first: 1,
+        sort: HEIGHT_DESC
+      ){
+        edges{
+          node{
+            tags { name value }
+          }
+        }
+      }
+    }`
+  };
+
+  const res = await fetch("https://arweave.net/graphql", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(query)
+  });
+
+  const parsed = await res.json();
+  const edges = parsed?.data?.transactions?.edges || [];
+
+  if (!edges.length)
+    throw new Error("Recipient wallet not found or does not have User-EncKey");
+
+  const tags = edges[0].node.tags;
+  let pubKeyB64 = tags.find(t => t.name === "User-EncKey")?.value;
+
+  if (!pubKeyB64)
+    throw new Error("Recipient does not support encryption (User-EncKey missing)");
+
+  // Fix Arweave '+' normalization
+  pubKeyB64 = pubKeyB64.replace(/ /g, "+").trim();
+
+  return pubKeyB64;
+}
   
 // ---------------------------------------------------------------------------
 //  PER-USER ENCRYPTION KEY (ECDH) FOR FUTURE USE
