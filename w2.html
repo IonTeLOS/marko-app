@@ -1941,10 +1941,7 @@ if (encMode === "recipient") {
 
   console.log("Raw User-EncKey from Arweave:", pubKeyB64);
 
-  // -----------------------------------------
-  // FIX: Arweave normalizes '+' → ' ' in tags
-  // Must restore '+' or Base64 breaks
-  // -----------------------------------------
+  // Arweave normalizes '+' → ' ' in tags, fix it
   pubKeyB64 = pubKeyB64.replace(/ /g, "+").trim();
 
   console.log("Normalized User-EncKey:", pubKeyB64);
@@ -1993,7 +1990,7 @@ if (encMode === "recipient") {
   const ephemeralRaw = await crypto.subtle.exportKey("raw", ephemeral.publicKey);
   const fromPubB64 = btoa(String.fromCharCode(...new Uint8Array(ephemeralRaw)));
 
-  // 5. Derive shared secret
+  // 5. Derive shared secret for RECIPIENT
   let sharedBits;
   try {
     sharedBits = await crypto.subtle.deriveBits(
@@ -2006,24 +2003,87 @@ if (encMode === "recipient") {
     throw new Error("Recipient encryption failed (deriveBits DataError).");
   }
 
-  // 6. AES-GCM key from shared secret
-  const aesKey = await crypto.subtle.importKey(
+  // 6. AES-GCM key for RECIPIENT
+  const aesKeyRecipient = await crypto.subtle.importKey(
     "raw",
     sharedBits,
     "AES-GCM",
     false,
-    ["encrypt", "decrypt"]
+    ["encrypt"]
   );
 
-  // 7. Encrypt content
-  const encrypted = await CryptoHelper.encrypt({ text: content }, aesKey);
+  // 7. Encrypt content for RECIPIENT
+  const encryptedRecipient = await CryptoHelper.encrypt({ text: content }, aesKeyRecipient);
 
-  // 8. Final envelope
+  // -------------------------------------------------------------------
+  // 8. Encrypt content for SELF (sender) using same key as encMode "self"
+  // -------------------------------------------------------------------
+  const credentialId = await WalletStorage.get("credentialId");
+  const keyMode = await WalletStorage.get("keyMode");
+  if (!credentialId || !keyMode) {
+    throw new Error("Wallet not unlocked on this device (no key material for self-encryption).");
+  }
+
+  let aesKeySelf;
+
+  if (keyMode === "prf") {
+    const prfSaltHex = await WalletStorage.get("prfSaltHex");
+    if (!prfSaltHex) throw new Error("Missing PRF salt");
+
+    // Derive PRF output + HKDF → AES key
+    const prfBytes = await WebAuthnHelper.evaluatePrf(
+      credentialId,
+      hexToBytes(prfSaltHex)
+    );
+
+    const hkdfKey = await crypto.subtle.importKey(
+      "raw",
+      prfBytes,
+      "HKDF",
+      false,
+      ["deriveKey"]
+    );
+
+    aesKeySelf = await crypto.subtle.deriveKey(
+      {
+        name: "HKDF",
+        hash: "SHA-256",
+        salt: hexToBytes(prfSaltHex),
+        info: new Uint8Array([]),
+      },
+      hkdfKey,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt"]
+    );
+  } else {
+    // wrapped mode: local AES key
+    await WebAuthnHelper.authenticate(credentialId);
+    const aesKeyHex = await WalletStorage.get("aesKeyHex");
+    if (!aesKeyHex) {
+      throw new Error("Missing local AES key for self-encryption (aesKeyHex).");
+    }
+    aesKeySelf = await crypto.subtle.importKey(
+      "raw",
+      hexToBytes(aesKeyHex),
+      "AES-GCM",
+      false,
+      ["encrypt"]
+    );
+  }
+
+  // 9. Encrypt content for SELF (sender)
+  const encryptedSelf = await CryptoHelper.encrypt({ text: content }, aesKeySelf);
+
+  // 10. Final dual-encryption envelope
   finalContent = JSON.stringify({
     enc: "recipient",
     to: target,
     fromPub: fromPubB64,
-    data: encrypted
+    data: {
+      recipient: encryptedRecipient,
+      self: encryptedSelf
+    }
   });
 }
 
