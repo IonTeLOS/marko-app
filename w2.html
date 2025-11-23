@@ -2234,6 +2234,7 @@ if (encMode === "none") {
       `✅ Uploaded! TX: ${txId}<br><a href="${link}" target="_blank">Open</a>`,
       "success"
     );
+let recipientAddress = null;    
 await logHistory('upload', {
   txid: txId,
   //fileName: file.name || 'text-content.txt',
