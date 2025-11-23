@@ -1982,7 +1982,8 @@ async function createWallet() {
 // ---------------------------------------------------------------------------
 async function unlockWallet() {
   setButtonLoading('unlock-btn', true);
-  setStatus('unlock-status', 'Retrieving encrypted wallet...', 'info');
+  //  setStatus('unlock-status', 'Retrieving encrypted wallet...', 'info');
+notify('🔄 Retrieving encrypted wallet...', 'info');
 
   try {
     const { address, backupTxId } = await WalletCore.unlockWallet();
