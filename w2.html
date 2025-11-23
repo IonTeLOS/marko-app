@@ -1446,43 +1446,54 @@ async function uploadRecoveryBackupInternal() {
     }
   }
 
-  async function uploadDataItem(content, contentType, userTagKey, userTagValue) {
-    if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
+async function uploadDataItem(content, contentType, userTagKey, userTagValue) {
+  if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
 
+  let base64Content;
+
+  if (content instanceof ArrayBuffer) {
+    // RAW binary → base64
+    base64Content = btoa(String.fromCharCode(...new Uint8Array(content)));
+  } else if (content instanceof Uint8Array) {
+    base64Content = btoa(String.fromCharCode(...content));
+  } else {
+    // text/JSON → UTF-8 → base64
     const utf8Bytes = new TextEncoder().encode(content);
-    const base64Content = btoa(String.fromCharCode(...utf8Bytes));
-
-    const address = await arweave.wallets.jwkToAddress(walletJwk);
-
-    const tagObj = {
-      'Content-Type': contentType || 'text/plain',
-      'App': WALLET_APP_NAME,
-      'Wallet-Address': address,
-      'Timestamp': Date.now().toString()
-    };
-
-    if (userTagKey && userTagValue) {
-      tagObj[userTagKey] = userTagValue;
-    }
-
-    const response = await fetch(CLOUD_FUNCTION_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: base64Content,
-        isBase64: true,
-        encrypt: false,
-        extraTags: tagObj
-      })
-    });
-
-    const result = await response.json();
-    if (!response.ok || !result.success) {
-      throw new Error(result.message || 'Cloud function upload failed');
-    }
-
-    return result.arweaveId;
+    base64Content = btoa(String.fromCharCode(...utf8Bytes));
   }
+
+  const address = await arweave.wallets.jwkToAddress(walletJwk);
+
+  const tagObj = {
+    'Content-Type': contentType || 'application/octet-stream',
+    'App': WALLET_APP_NAME,
+    'Wallet-Address': address,
+    'Timestamp': Date.now().toString()
+  };
+
+  if (userTagKey && userTagValue) {
+    tagObj[userTagKey] = userTagValue;
+  }
+
+  const response = await fetch(CLOUD_FUNCTION_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      content: base64Content,
+      isBase64: true,
+      encrypt: false,
+      extraTags: tagObj
+    })
+  });
+
+  const result = await response.json();
+  if (!response.ok || !result.success) {
+    throw new Error(result.message || 'Cloud function upload failed');
+  }
+
+  return result.arweaveId;
+}
+
 
   async function loadHistory(first = 10) {
     if (!walletJwk || !arweave) throw new Error('Wallet not loaded');
@@ -1931,30 +1942,25 @@ async function uploadData() {
 
   try {
 
-    // ------------------------------------
-    // NO ENCRYPTION
-    // ------------------------------------
 // ----------------------
 // NO ENCRYPTION (plaintext or file)
 // ----------------------
 if (encMode === "none") {
 
+  // ----------------------
+// NO ENCRYPTION (plaintext or file)
+// ----------------------
+if (encMode === "none") {
+
   if (fileData) {
-    // File upload allowed — wrap it in JSON
-    finalContent = JSON.stringify({
-      enc: "none",
-      file: arrayBufferToHex(fileData),
-      mime: fileMeta.type,
-      name: fileMeta.name
-    });
+    // Upload raw bytes directly
+    finalContent = fileData;            // <-- IMPORTANT
   } else {
-    // Normal plaintext string
-    finalContent = JSON.stringify({
-      enc: "none",
-      text: content
-    });
+    // For text: upload raw text
+    finalContent = new TextEncoder().encode(content);
   }
 }
+
 
 
     // ------------------------------------
