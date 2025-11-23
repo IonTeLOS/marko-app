@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wallet History</title>
+  <script src="https://unpkg.com/localforage/dist/localforage.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --md-sys-color-primary: #6750A4;
+      --md-sys-color-on-primary: #ffffff;
+      --md-sys-color-surface: #FFFBFE;
+      --md-sys-color-on-surface: #1C1B1F;
+      --md-sys-color-surface-variant: #E7E0EC;
+      --md-sys-color-outline: #79747E;
+      --radius-lg: 28px;
+      --radius-md: 18px;
+      --radius-sm: 12px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --md-sys-color-primary: #D0BCFF;
+        --md-sys-color-surface: #1C1B1F;
+        --md-sys-color-on-surface: #E6E1E5;
+        --md-sys-color-surface-variant: #49454F;
+        --md-sys-color-outline: #938F99;
+      }
+    }
+
+    body {
+      font-family: "Roboto", system-ui, sans-serif;
+      background: var(--md-sys-color-surface);
+      color: var(--md-sys-color-on-surface);
+      padding: 20px;
+    }
+
+    .header {
+      max-width: 1200px;
+      margin: 0 auto 24px;
+      background: var(--md-sys-color-surface-variant);
+      padding: 24px;
+      border-radius: var(--radius-lg);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .header-title {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .header-controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .search-input, .date-filter {
+      flex: 1;
+      min-width: 200px;
+      padding: 12px 16px;
+      border: 1px solid var(--md-sys-color-outline);
+      border-radius: var(--radius-md);
+      background: var(--md-sys-color-surface);
+      color: var(--md-sys-color-on-surface);
+      font-size: 14px;
+    }
+
+    .btn {
+      padding: 12px 20px;
+      border: none;
+      border-radius: var(--radius-md);
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+    }
+
+    .btn-danger {
+      background: #B3261E;
+      color: white;
+    }
+
+    .btn:hover {
+      transform: scale(1.02);
+      filter: brightness(1.1);
+    }
+
+    .tabs-container {
+      max-width: 1200px;
+      margin: 0 auto 24px;
+      background: var(--md-sys-color-surface-variant);
+      border-radius: var(--radius-lg);
+      padding: 8px;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .history-tab {
+      padding: 12px 24px;
+      border: none;
+      background: transparent;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--md-sys-color-on-surface);
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .history-tab:hover {
+      background: rgba(103, 80, 164, 0.1);
+    }
+
+    .history-tab.active {
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+      font-weight: 600;
+    }
+
+    .history-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .event-card {
+      background: white;
+      padding: 20px;
+      margin-bottom: 16px;
+      border-radius: var(--radius-md);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: all 0.2s;
+    }
+
+    .event-card:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      transform: translateY(-2px);
+    }
+
+    .event-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .event-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .event-icon {
+      font-size: 24px;
+    }
+
+    .event-title {
+      font-weight: 600;
+      font-size: 16px;
+      text-transform: capitalize;
+    }
+
+    .event-time {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .event-details {
+      margin-top: 12px;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 14px;
+    }
+
+    .detail-label {
+      color: #666;
+      font-weight: 500;
+    }
+
+    .detail-value {
+      font-weight: 600;
+    }
+
+    .event-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .action-btn {
+      padding: 8px 16px;
+      background: var(--md-sys-color-surface-variant);
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      text-decoration: none;
+      color: var(--md-sys-color-on-surface);
+      transition: all 0.2s;
+    }
+
+    .action-btn:hover {
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+      transform: scale(1.05);
+    }
+
+    .context-menu-item {
+      padding: 12px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+      border-radius: 6px;
+      margin: 4px;
+    }
+
+    .context-menu-item:hover {
+      background: rgba(103, 80, 164, 0.1);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1 class="header-title">📜 Wallet History</h1>
+    <div class="header-controls">
+      <input
+        type="text"
+        id="history-search"
+        class="search-input"
+        placeholder="🔍 Search events..."
+      />
+      <select id="history-date-filter" class="date-filter">
+        <option value="all">All Time</option>
+        <option value="today">Today</option>
+        <option value="week">This Week</option>
+        <option value="month">This Month</option>
+      </select>
+      <button class="btn btn-primary" onclick="HistoryUI.exportHistory()">
+        💾 Export
+      </button>
+      <button class="btn btn-danger" onclick="HistoryUI.clearAllConfirm()">
+        🗑️ Clear All
+      </button>
+    </div>
+  </div>
+
+  <div class="tabs-container">
+    <button class="history-tab active" data-type="all" onclick="switchHistoryTab('all')">
+      📊 All
+    </button>
+    <button class="history-tab" data-type="upload" onclick="switchHistoryTab('upload')">
+      📤 Uploads
+    </button>
+    <button class="history-tab" data-type="transaction" onclick="switchHistoryTab('transaction')">
+      💸 Transactions
+    </button>
+    <button class="history-tab" data-type="signature" onclick="switchHistoryTab('signature')">
+      ✍️ Signatures
+    </button>
+    <button class="history-tab" data-type="system" onclick="switchHistoryTab('system')">
+      ⚙️ System
+    </button>
+    <button class="history-tab" data-type="error" onclick="switchHistoryTab('error')">
+      ⚠️ Errors
+    </button>
+  </div>
+
+  <div id="history-container" class="history-container">
+    <div style="text-align: center; padding: 60px; color: #999;">
+      Loading history...
+    </div>
+  </div>
+
+  <!-- Include the HistoryLogger and HistoryUI code here -->
+  <script>
+// ============================================================================
+// UNIVERSAL WALLET HISTORY LOGGER - Vanilla JS Version
+// ============================================================================
+
+const HistoryLogger = {
+  // Event type constants
+  TYPES: {
+    UPLOAD: 'upload',
+    TRANSACTION: 'transaction',
+    SIGNATURE: 'signature',
+    SYSTEM: 'system',
+    ERROR: 'error'
+  },
+
+  // Status constants
+  STATUS: {
+    SUCCESS: 'success',
+    PENDING: 'pending',
+    FAILED: 'failed'
+  },
+
+  /**
+   * Universal log function - called from any wallet operation
+   * @param {string} type - Event type (upload, transaction, signature, system, error)
+   * @param {object} data - Type-specific data
+   * @param {string} status - Event status (success, pending, failed)
+   * @returns {Promise<string>} - Event ID
+   */
+  async log(type, data, status = 'success') {
+    const event = {
+      id: this.generateId(),
+      timestamp: Date.now(),
+      type,
+      status,
+      data: { ...data }
+    };
+
+    // Get existing events for this type
+    const storageKey = `wallet-history:${type}`;
+    let events = [];
+
+    try {
+      const stored = await localforage.getItem(storageKey);
+      events = stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      console.warn('Failed to load existing events:', e);
+    }
+
+    // Prepend new event (newest first)
+    events.unshift(event);
+
+    // Keep last 1000 events per type to prevent excessive storage
+    if (events.length > 1000) {
+      events = events.slice(0, 1000);
+    }
+
+    // Save back to storage
+    try {
+      await localforage.setItem(storageKey, JSON.stringify(events));
+    } catch (e) {
+      console.error('Failed to save event:', e);
+    }
+
+    return event.id;
+  },
+
+  /**
+   * Log file upload event
+   */
+  async logUpload({ txid, fileName, fileSize, contentType, encryptionMode, recipient, password, decryptLink }) {
+    return this.log('upload', {
+      txid,
+      fileName: fileName || 'Untitled',
+      fileSize,
+      contentType,
+      encryptionMode, // 'none', 'self', 'password', 'recipient'
+      recipient,
+      hasPassword: !!password,
+      decryptLink,
+      arweaveLink: `https://arweave.net/${txid}`
+    });
+  },
+
+  /**
+   * Log transaction (send or receive)
+   */
+  async logTransaction({ txid, direction, address, amount, sentViaWallet, status = 'pending' }) {
+    return this.log('transaction', {
+      txid,
+      direction, // 'sent' or 'received'
+      address,
+      amount,
+      sentViaWallet, // true if sent via this wallet, false if external/received
+      arweaveLink: `https://arweave.net/${txid}`,
+      viewscanLink: `https://viewblock.io/arweave/tx/${txid}`
+    }, status);
+  },
+
+  /**
+   * Log message signature
+   */
+  async logSignature({ message, signature, address, requestedBy, callbackUrl, isCAIP122, options }) {
+    return this.log('signature', {
+      message,
+      signature,
+      address,
+      requestedBy, // origin/domain that requested signature
+      callbackUrl,
+      isCAIP122,
+      options // CAIP-122 options if applicable
+    });
+  },
+
+  /**
+   * Log system events (wallet creation, unlock, recovery, etc.)
+   */
+  async logSystem({ action, details, address }) {
+    return this.log('system', {
+      action, // 'wallet_created', 'wallet_unlocked', 'wallet_recovered', 'backup_uploaded', 'keyfile_exported'
+      details,
+      address
+    });
+  },
+
+  /**
+   * Log error events
+   */
+  async logError({ operation, error, details }) {
+    return this.log('error', {
+      operation, // 'send_transaction', 'upload_data', 'sign_message', etc.
+      error: error.message || String(error),
+      details
+    }, 'failed');
+  },
+
+  /**
+   * Get all events of a specific type
+   */
+  async getEvents(type, limit = 100) {
+    const storageKey = `wallet-history:${type}`;
+    try {
+      const stored = await localforage.getItem(storageKey);
+      const events = stored ? JSON.parse(stored) : [];
+      return events.slice(0, limit);
+    } catch (e) {
+      console.error('Failed to load events:', e);
+      return [];
+    }
+  },
+
+  /**
+   * Get all events across all types (for "All" tab)
+   */
+  async getAllEvents(limit = 100) {
+    const types = Object.values(this.TYPES);
+    const allEvents = [];
+
+    for (const type of types) {
+      const events = await this.getEvents(type, 1000);
+      allEvents.push(...events);
+    }
+
+    // Sort by timestamp (newest first)
+    allEvents.sort((a, b) => b.timestamp - a.timestamp);
+
+    return allEvents.slice(0, limit);
+  },
+
+  /**
+   * Update event status (useful for pending transactions)
+   */
+  async updateEventStatus(type, eventId, newStatus) {
+    const storageKey = `wallet-history:${type}`;
+    try {
+      const stored = await localforage.getItem(storageKey);
+      const events = stored ? JSON.parse(stored) : [];
+
+      const event = events.find(e => e.id === eventId);
+      if (event) {
+        event.status = newStatus;
+        event.updatedAt = Date.now();
+        await localforage.setItem(storageKey, JSON.stringify(events));
+      }
+    } catch (e) {
+      console.error('Failed to update event status:', e);
+    }
+  },
+
+  /**
+   * Delete a single event
+   */
+  async deleteEvent(type, eventId) {
+    const storageKey = `wallet-history:${type}`;
+    try {
+      const stored = await localforage.getItem(storageKey);
+      let events = stored ? JSON.parse(stored) : [];
+      events = events.filter(e => e.id !== eventId);
+      await localforage.setItem(storageKey, JSON.stringify(events));
+      return true;
+    } catch (e) {
+      console.error('Failed to delete event:', e);
+      return false;
+    }
+  },
+
+  /**
+   * Clear all events of a specific type
+   */
+  async clearType(type) {
+    const storageKey = `wallet-history:${type}`;
+    try {
+      await localforage.removeItem(storageKey);
+      return true;
+    } catch (e) {
+      console.error('Failed to clear type:', e);
+      return false;
+    }
+  },
+
+  /**
+   * Clear all history
+   */
+  async clearAll() {
+    const types = Object.values(this.TYPES);
+    for (const type of types) {
+      await this.clearType(type);
+    }
+    return true;
+  },
+
+  /**
+   * Export history as JSON
+   */
+  async exportHistory() {
+    const allEvents = await this.getAllEvents(10000);
+    return JSON.stringify(allEvents, null, 2);
+  },
+
+  // Helper: Generate unique ID
+  generateId() {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+};
+
+// ============================================================================
+// HISTORY PAGE UI - Material Design Styled
+// ============================================================================
+
+const HistoryUI = {
+  currentTab: 'all',
+  searchTerm: '',
+  dateFilter: 'all',
+  events: [],
+
+  // Format timestamp with relative and localized display
+  formatTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    // Relative time for recent events
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    // Localized date for older events
+    return date.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  },
+
+  // Get icon HTML for event type
+  getEventIcon(type) {
+    const icons = {
+      upload: '📤',
+      transaction: '💸',
+      signature: '✍️',
+      system: '⚙️',
+      error: '⚠️'
+    };
+    return icons[type] || '📄';
+  },
+
+  // Get status badge HTML
+  getStatusBadge(status) {
+    const colors = {
+      success: 'background: rgba(0, 200, 83, 0.18); color: #0d4d0d;',
+      pending: 'background: rgba(255, 193, 7, 0.18); color: #7d5c00;',
+      failed: 'background: rgba(255, 82, 82, 0.18); color: #7b0000;'
+    };
+    return `<span style="padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; ${colors[status]}">${status}</span>`;
+  },
+
+  // Filter events based on search and date
+  filterEvents(events) {
+    let filtered = events;
+
+    // Date filter
+    if (this.dateFilter !== 'all') {
+      const now = Date.now();
+      const ranges = {
+        today: 86400000,
+        week: 604800000,
+        month: 2592000000
+      };
+      filtered = filtered.filter(e => now - e.timestamp < ranges[this.dateFilter]);
+    }
+
+    // Search filter
+    if (this.searchTerm) {
+      const term = this.searchTerm.toLowerCase();
+      filtered = filtered.filter(e =>
+        JSON.stringify(e.data).toLowerCase().includes(term) ||
+        e.type.toLowerCase().includes(term)
+      );
+    }
+
+    return filtered;
+  },
+
+  // Load events for current tab
+  async loadEvents() {
+    if (this.currentTab === 'all') {
+      this.events = await HistoryLogger.getAllEvents(500);
+    } else {
+      this.events = await HistoryLogger.getEvents(this.currentTab, 500);
+    }
+    this.render();
+  },
+
+  // Render event card
+  renderEventCard(event) {
+    const typeColors = {
+      error: 'background: rgba(255, 82, 82, 0.1); border-left: 4px solid #B3261E;',
+      system: 'background: rgba(100, 150, 255, 0.1); border-left: 4px solid #6750A4;',
+      signature: 'background: rgba(156, 39, 176, 0.1); border-left: 4px solid #9C27B0;',
+      transaction: 'background: rgba(76, 175, 80, 0.1); border-left: 4px solid #4CAF50;',
+      upload: 'background: rgba(255, 152, 0, 0.1); border-left: 4px solid #FF9800;'
+    };
+
+    let detailsHTML = '';
+
+    // Event-specific details
+    if (event.type === 'upload') {
+      detailsHTML = `
+        <div class="event-details">
+          <div class="detail-row">
+            <span class="detail-label">File:</span>
+            <span class="detail-value">${event.data.fileName}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Size:</span>
+            <span class="detail-value">${(event.data.fileSize / 1024).toFixed(2)} KB</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Encryption:</span>
+            <span class="detail-value" style="text-transform: capitalize;">${event.data.encryptionMode}</span>
+          </div>
+          <div class="event-actions">
+            ${event.data.decryptLink ? `<a href="${event.data.decryptLink}" target="_blank" class="action-btn">🔗 Open</a>` : ''}
+            <button onclick="HistoryUI.copyToClipboard('${event.data.txid}')" class="action-btn">📋 Copy TX</button>
+          </div>
+        </div>
+      `;
+    } else if (event.type === 'transaction') {
+      detailsHTML = `
+        <div class="event-details">
+          <div class="detail-row">
+            <span class="detail-label">Direction:</span>
+            <span class="detail-value" style="color: ${event.data.direction === 'sent' ? '#B3261E' : '#4CAF50'}; font-weight: 600;">
+              ${event.data.direction === 'sent' ? '↑ Sent' : '↓ Received'}
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Amount:</span>
+            <span class="detail-value">${event.data.amount}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Address:</span>
+            <span class="detail-value" style="font-family: monospace; font-size: 11px;">${event.data.address.slice(0, 20)}...</span>
+          </div>
+          ${event.data.sentViaWallet === false ? '<div style="font-size: 11px; color: #666; font-style: italic; margin-top: 4px;">Sent externally (not via this wallet)</div>' : ''}
+          <div class="event-actions">
+            <a href="${event.data.viewscanLink}" target="_blank" class="action-btn">🔍 ViewBlock</a>
+            <button onclick="HistoryUI.copyToClipboard('${event.data.txid}')" class="action-btn">📋 Copy TX</button>
+          </div>
+        </div>
+      `;
+    } else if (event.type === 'signature') {
+      detailsHTML = `
+        <div class="event-details">
+          <div class="detail-row">
+            <span class="detail-label">Requested by:</span>
+            <span class="detail-value">${event.data.requestedBy}</span>
+          </div>
+          <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin: 8px 0; font-family: monospace; font-size: 11px; max-height: 100px; overflow-y: auto;">
+            ${event.data.message.slice(0, 200)}${event.data.message.length > 200 ? '...' : ''}
+          </div>
+          ${event.data.isCAIP122 ? '<div style="font-size: 11px; color: #6750A4;">✓ CAIP-122 compliant signature</div>' : ''}
+          <div class="event-actions">
+            <button onclick="HistoryUI.copyToClipboard('${event.data.signature}')" class="action-btn">📋 Copy Signature</button>
+          </div>
+        </div>
+      `;
+    } else if (event.type === 'system') {
+      detailsHTML = `
+        <div class="event-details">
+          <div class="detail-row">
+            <span class="detail-label">Action:</span>
+            <span class="detail-value" style="text-transform: capitalize;">${event.data.action.replace(/_/g, ' ')}</span>
+          </div>
+          <div style="color: #666; margin-top: 4px;">${event.data.details}</div>
+        </div>
+      `;
+    } else if (event.type === 'error') {
+      detailsHTML = `
+        <div class="event-details">
+          <div class="detail-row">
+            <span class="detail-label">Operation:</span>
+            <span class="detail-value" style="text-transform: capitalize;">${event.data.operation.replace(/_/g, ' ')}</span>
+          </div>
+          <div style="background: rgba(255, 82, 82, 0.1); padding: 12px; border-radius: 8px; margin: 8px 0; color: #B3261E; font-size: 12px;">
+            ${event.data.error}
+          </div>
+          ${event.data.details ? `<div style="color: #666; font-size: 12px;">${event.data.details}</div>` : ''}
+        </div>
+      `;
+    }
+
+    return `
+      <div class="event-card" style="${typeColors[event.type]}" data-event-id="${event.id}" data-event-type="${event.type}">
+        <div class="event-header">
+          <div class="event-header-left">
+            <span class="event-icon">${this.getEventIcon(event.type)}</span>
+            <div>
+              <div class="event-title">${event.type}</div>
+              <div class="event-time">${this.formatTimestamp(event.timestamp)}</div>
+            </div>
+          </div>
+          ${this.getStatusBadge(event.status)}
+        </div>
+        ${detailsHTML}
+      </div>
+    `;
+  },
+
+  // Render the UI
+  render() {
+    const container = document.getElementById('history-container');
+    if (!container) return;
+
+    const filteredEvents = this.filterEvents(this.events);
+
+    const eventsHTML = filteredEvents.length === 0
+      ? '<div style="text-align: center; padding: 60px; color: #999;">📭 No events yet</div>'
+      : filteredEvents.map(e => this.renderEventCard(e)).join('');
+
+    container.innerHTML = eventsHTML;
+
+    // Add context menu listeners to event cards
+    this.attachContextMenus();
+  },
+
+  // Attach context menus for right-click delete
+  attachContextMenus() {
+    const cards = document.querySelectorAll('.event-card');
+    cards.forEach(card => {
+      card.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const eventId = card.dataset.eventId;
+        const eventType = card.dataset.eventType;
+        this.showContextMenu(e.clientX, e.clientY, eventId, eventType);
+      });
+    });
+
+    // Also add context menu to tabs
+    const tabs = document.querySelectorAll('.history-tab');
+    tabs.forEach(tab => {
+      tab.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const tabType = tab.dataset.type;
+        if (tabType !== 'all') {
+          this.showTabContextMenu(e.clientX, e.clientY, tabType);
+        }
+      });
+    });
+  },
+
+  // Show context menu for event
+  showContextMenu(x, y, eventId, eventType) {
+    this.removeContextMenu();
+
+    const menu = document.createElement('div');
+    menu.id = 'context-menu';
+    menu.innerHTML = `
+      <div class="context-menu-item" onclick="HistoryUI.deleteEventConfirm('${eventType}', '${eventId}')">
+        🗑️ Delete this event
+      </div>
+    `;
+    menu.style.cssText = `
+      position: fixed;
+      left: ${x}px;
+      top: ${y}px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 10000;
+      min-width: 180px;
+    `;
+    document.body.appendChild(menu);
+
+    // Remove on click outside
+    setTimeout(() => {
+      document.addEventListener('click', () => this.removeContextMenu(), { once: true });
+    }, 100);
+  },
+
+  // Show context menu for tab
+  showTabContextMenu(x, y, tabType) {
+    this.removeContextMenu();
+
+    const menu = document.createElement('div');
+    menu.id = 'context-menu';
+    menu.innerHTML = `
+      <div class="context-menu-item" onclick="HistoryUI.clearTabConfirm('${tabType}')">
+        🗑️ Clear all ${tabType} events
+      </div>
+    `;
+    menu.style.cssText = `
+      position: fixed;
+      left: ${x}px;
+      top: ${y}px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 10000;
+      min-width: 200px;
+    `;
+    document.body.appendChild(menu);
+
+    setTimeout(() => {
+      document.addEventListener('click', () => this.removeContextMenu(), { once: true });
+    }, 100);
+  },
+
+  removeContextMenu() {
+    const existing = document.getElementById('context-menu');
+    if (existing) existing.remove();
+  },
+
+  // Delete single event with confirmation
+  async deleteEventConfirm(eventType, eventId) {
+    this.removeContextMenu();
+    if (confirm('Delete this event from history?')) {
+      await HistoryLogger.deleteEvent(eventType, eventId);
+      await this.loadEvents();
+    }
+  },
+
+  // Clear tab with confirmation
+  async clearTabConfirm(tabType) {
+    this.removeContextMenu();
+    if (confirm(`Clear all ${tabType} events? This cannot be undone.`)) {
+      await HistoryLogger.clearType(tabType);
+      await this.loadEvents();
+    }
+  },
+
+  // Clear all history with confirmation
+  async clearAllConfirm() {
+    if (confirm('⚠️ Delete ALL history across all categories? This cannot be undone!')) {
+      await HistoryLogger.clearAll();
+      await this.loadEvents();
+    }
+  },
+
+  // Export history
+  async exportHistory() {
+    const json = await HistoryLogger.exportHistory();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `wallet-history-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  // Copy to clipboard
+  copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+      // Show brief feedback
+      const toast = document.createElement('div');
+      toast.textContent = '✓ Copied!';
+      toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: #4CAF50;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        z-index: 10000;
+        animation: fadeIn 0.2s, fadeOut 0.2s 1.8s;
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+    });
+  },
+
+  // Initialize the UI
+  init() {
+    this.loadEvents();
+
+    // Search input listener
+    const searchInput = document.getElementById('history-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        this.searchTerm = e.target.value;
+        this.render();
+      });
+    }
+
+    // Date filter listener
+    const dateFilter = document.getElementById('history-date-filter');
+    if (dateFilter) {
+      dateFilter.addEventListener('change', (e) => {
+        this.dateFilter = e.target.value;
+        this.render();
+      });
+    }
+  }
+};
+
+// Tab switching function
+function switchHistoryTab(tabType) {
+  HistoryUI.currentTab = tabType;
+
+  // Update active tab
+  document.querySelectorAll('.history-tab').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  document.querySelector(`.history-tab[data-type="${tabType}"]`).classList.add('active');
+
+  HistoryUI.loadEvents();
+}
+    document.addEventListener('DOMContentLoaded', () => {
+      HistoryUI.init();
+    });
+  </script>
+</body>
+</html>
