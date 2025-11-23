@@ -216,15 +216,35 @@ async function startDecrypt() {
       return setStatus("✅ Decrypted (self)","success");
     }
 
-    // ---------- RECIPIENT MODE USING ENCRYPTED ECDH KEY ----------
+// ---------- RECIPIENT MODE (dual: self OR recipient) ----------
 // ---------- RECIPIENT MODE (dual: self OR recipient) ----------
 if (encType === "recipient") {
 
   if (!blob.fromPub) throw new Error("Missing sender ephemeral key");
 
+  // Detect dual-encryption format (new) vs old single format
   const hasSelf = blob.data && blob.data.self;
 
-  // --- 1) TRY SELF-DECRYPTION FIRST ------------------------------------
+  // ---- AUTHENTICATE ONCE IN WRAPPED MODE (avoid double prompts) ----
+  let cachedWrappedAesKey = null;
+
+  if (keyMode === "wrapped") {
+    await WebAuthnHelper.authenticate(credentialId);
+    const aesHex = await WalletStorage.get("aesKeyHex");
+    if (!aesHex) throw new Error("Missing local AES key (wrapped mode)");
+
+    cachedWrappedAesKey = await crypto.subtle.importKey(
+      "raw",
+      hexToBytes(aesHex),
+      "AES-GCM",
+      false,
+      ["encrypt", "decrypt"]
+    );
+  }
+
+  // =====================================================================
+  // 1) TRY SELF-DECRYPTION FIRST (if present in data.self)
+  // =====================================================================
   if (hasSelf) {
     try {
       let aesKeySelf = null;
@@ -239,44 +259,45 @@ if (encType === "recipient") {
         );
 
         const hkdfKey = await crypto.subtle.importKey(
-          "raw", prf, "HKDF", false, ["deriveKey"]
+          "raw",
+          prf,
+          "HKDF",
+          false,
+          ["deriveKey"]
         );
 
         aesKeySelf = await crypto.subtle.deriveKey(
           {
-            name:"HKDF",
-            hash:"SHA-256",
+            name: "HKDF",
+            hash: "SHA-256",
             salt: hexToBytes(salt),
             info: new Uint8Array([])
           },
           hkdfKey,
-          { name:"AES-GCM", length:256 },
+          { name: "AES-GCM", length: 256 },
           false,
           ["decrypt"]
         );
-
       } else {
-        await WebAuthnHelper.authenticate(credentialId);
-        const aesHex = await WalletStorage.get("aesKeyHex");
-        if (!aesHex) throw new Error("Missing local AES key for self decrypt");
-        aesKeySelf = await crypto.subtle.importKey(
-          "raw", hexToBytes(aesHex), "AES-GCM", false, ["decrypt"]
-        );
+        // wrapped mode → reuse cached key
+        aesKeySelf = cachedWrappedAesKey;
       }
 
       const decSelf = await CryptoHelper.decrypt(blob.data.self, aesKeySelf);
-
-      output.textContent = (decSelf.text ?? JSON.stringify(decSelf,null,2));
+      output.textContent = (decSelf.text ?? JSON.stringify(decSelf, null, 2));
       output.style.display = "block";
       return setStatus("✅ Decrypted (self)", "success");
 
     } catch (errSelf) {
-      console.warn("Self-decrypt failed, trying ECDH recipient path:", errSelf);
-      // continue to recipient path
+      console.warn("Self decrypt failed; falling back to recipient ECDH path:", errSelf);
+      // Continue to recipient decrypt
     }
   }
 
-  // --- 2) FALLBACK: DECRYPT AS RECIPIENT (old or new format) -------------
+  // =====================================================================
+  // 2) FALLBACK — DECRYPT AS RECIPIENT (old + new message formats)
+  // =====================================================================
+
   const encPrivBlobStr = await WalletStorage.get("encPrivKeyEncrypted");
   if (!encPrivBlobStr) throw new Error("Missing encrypted ECDH private key (encPrivKeyEncrypted)");
 
@@ -294,38 +315,37 @@ if (encType === "recipient") {
     );
 
     const hkdfKey = await crypto.subtle.importKey(
-      "raw", prf, "HKDF", false, ["deriveKey"]
+      "raw",
+      prf,
+      "HKDF",
+      false,
+      ["deriveKey"]
     );
 
     aesKey = await crypto.subtle.deriveKey(
       {
-        name:"HKDF",
-        hash:"SHA-256",
+        name: "HKDF",
+        hash: "SHA-256",
         salt: hexToBytes(salt),
         info: new Uint8Array([])
       },
       hkdfKey,
-      { name:"AES-GCM", length:256 },
+      { name: "AES-GCM", length: 256 },
       false,
       ["decrypt"]
     );
-
   } else {
-    await WebAuthnHelper.authenticate(credentialId);
-    const aesHex = await WalletStorage.get("aesKeyHex");
-    if (!aesHex) throw new Error("Missing local AES key");
-    aesKey = await crypto.subtle.importKey(
-      "raw", hexToBytes(aesHex), "AES-GCM", false, ["decrypt"]
-    );
+    // wrapped mode → reuse cached AES key instead of asking twice
+    aesKey = cachedWrappedAesKey;
   }
 
-  // Decrypt stored private ECDH key
+  // Decrypt the stored ECDH private key
   const { ecdh: privJwk } = await CryptoHelper.decrypt(encPrivBlob, aesKey);
 
   const privKey = await crypto.subtle.importKey(
     "jwk",
     privJwk,
-    { name:"ECDH", namedCurve:"P-256" },
+    { name: "ECDH", namedCurve: "P-256" },
     false,
     ["deriveBits"]
   );
@@ -334,7 +354,7 @@ if (encType === "recipient") {
   const senderPub = await crypto.subtle.importKey(
     "raw",
     senderRaw,
-    { name:"ECDH", namedCurve:"P-256" },
+    { name: "ECDH", namedCurve: "P-256" },
     false,
     []
   );
@@ -342,15 +362,20 @@ if (encType === "recipient") {
   setStatus("Deriving shared secret…", "info");
 
   const bits = await crypto.subtle.deriveBits(
-    { name:"ECDH", public: senderPub },
+    { name: "ECDH", public: senderPub },
     privKey,
     256
   );
 
   const aesKeyRecipient = await crypto.subtle.importKey(
-    "raw", bits, "AES-GCM", false, ["decrypt"]
+    "raw",
+    bits,
+    "AES-GCM",
+    false,
+    ["decrypt"]
   );
 
+  // Support both new format (data.recipient) and old format (data)
   const encryptedPayload =
     (blob.data && blob.data.recipient)
       ? blob.data.recipient
@@ -358,11 +383,10 @@ if (encType === "recipient") {
 
   const dec = await CryptoHelper.decrypt(encryptedPayload, aesKeyRecipient);
 
-  output.textContent = (dec.text ?? JSON.stringify(dec,null,2));
-  output.style.display="block";
+  output.textContent = (dec.text ?? JSON.stringify(dec, null, 2));
+  output.style.display = "block";
   return setStatus("✅ Decrypted (recipient)", "success");
 }
-
 
     throw new Error("Unsupported encryption type: "+encType);
 
