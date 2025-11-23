@@ -881,7 +881,47 @@ function arrayBufferToHex(buffer) {
   const bytes = new Uint8Array(buffer);
   return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
 }
+
+// ---------------------------------------------------------------------------
+//  UNIVERSAL HISTORY LOGGING FUNCTION
+// ---------------------------------------------------------------------------
+
+/**
+ * Universal log function - logs any wallet event to localforage
+ * @param {string} type - Event type: 'upload', 'transaction', 'signature', 'system', 'error'
+ * @param {object} data - Event-specific data
+ * @param {string} status - Event status: 'success', 'pending', 'failed' (default: 'success')
+ */
+async function logHistory(type, data, status = 'success') {
+  const event = {
+    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    timestamp: Date.now(),
+    type,
+    status,
+    data: { ...data }
+  };
+
+  const storageKey = `wallet-history:${type}`;
   
+  try {
+    const stored = await localforage.getItem(storageKey);
+    const events = stored ? JSON.parse(stored) : [];
+    
+    // Prepend new event (newest first)
+    events.unshift(event);
+    
+    // Keep last 1000 events per type to prevent excessive storage
+    if (events.length > 1000) {
+      events.splice(1000);
+    }
+    
+    await localforage.setItem(storageKey, JSON.stringify(events));
+    return event.id;
+  } catch (e) {
+    console.error('Failed to log event:', e);
+    return null;
+  }
+}  
 // ---------------------------------------------------------------------------
 //  ENCRYPTED ECDH PRIVATE KEY STORAGE
 // ---------------------------------------------------------------------------
@@ -2194,7 +2234,15 @@ if (encMode === "none") {
       `✅ Uploaded! TX: ${txId}<br><a href="${link}" target="_blank">Open</a>`,
       "success"
     );
-
+await logHistory('upload', {
+  txid: txId,
+  fileName: file.name || 'text-content.txt',
+  fileSize: fileSize || '',
+  contentType: contentType,
+  encryptionMode: encMode, // 'none', 'self', 'password', 'recipient'
+  recipient: recipientAddress || '',
+  decryptLink: `${window.location.origin}/dw2.html?link=${txId}`
+});
     //
     // RESET UI
     //
