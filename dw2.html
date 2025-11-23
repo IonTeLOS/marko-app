@@ -96,11 +96,13 @@ function setStatus(msg, type="info") {
   el.className = "status status-" + type;
   el.innerHTML = msg;
 }
+
 function hexToBytes(hex) {
   const u = new Uint8Array(hex.length/2);
   for (let i=0;i<u.length;i++) u[i]=parseInt(hex.substr(i*2,2),16);
   return u;
 }
+
 const CryptoHelper = {
   async decrypt(enc, key) {
     const ct = hexToBytes(enc.ciphertext);
@@ -109,6 +111,65 @@ const CryptoHelper = {
     return JSON.parse(new TextDecoder().decode(raw));
   }
 };
+
+function isProbablyText(bytes) {
+  const len = Math.min(bytes.length, 300);
+  for (let i = 0; i < len; i++) {
+    if (bytes[i] === 0) return false; // null byte → binary
+  }
+  return true;
+}
+
+// Unified display helper: handles text, images, arbitrary files
+function displayDecrypted(dec) {
+  const output = document.getElementById("output");
+  output.style.display = "block";
+
+  // File payload (hex string) + metadata
+  if (dec.file) {
+    const bytes = hexToBytes(dec.file);
+    const fileMime = dec.mime || "application/octet-stream";
+    const fileName = dec.name || "download.bin";
+
+    const blobFile = new Blob([bytes], { type: fileMime });
+    const url = URL.createObjectURL(blobFile);
+
+    // Detect previewable images
+    const header = new Uint8Array(bytes.subarray(0, 8));
+    const isPNG  = header[0] === 0x89 && header[1] === 0x50;
+    const isJPG  = header[0] === 0xFF && header[1] === 0xD8;
+    const isGIF  = header[0] === 0x47 && header[1] === 0x49;
+    const isWebP = (header[0] === 0x52 && header[1] === 0x49 && header[2] === 0x46);
+
+    if (isPNG || isJPG || isGIF || isWebP) {
+      output.innerHTML = `<img src="${url}" style="max-width:100%;max-height:400px;border-radius:8px;" />`;
+      setStatus("🖼️ Image displayed", "success");
+      return;
+    }
+
+    // Fallback: text preview if looks printable
+    if (isProbablyText(bytes)) {
+      const text = new TextDecoder().decode(bytes);
+      output.textContent = text;
+      setStatus("📄 Text displayed", "success");
+      return;
+    }
+
+    // Final fallback: download file
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.click();
+
+    output.textContent = `Downloaded unsupported file (${fileName}, ${fileMime}).`;
+    setStatus("⬇️ File downloaded", "success");
+    return;
+  }
+
+  // Non-file: show text / JSON
+  output.textContent = (dec.text ?? JSON.stringify(dec,null,2));
+  setStatus("✅ Decrypted", "success");
+}
 
 // ---------- WebAuthn PRF ----------
 const WebAuthnHelper = {
@@ -177,9 +238,8 @@ async function startDecrypt() {
       }, baseKey, {name:"AES-GCM",length:256}, false, ["decrypt"]);
 
       const dec=await CryptoHelper.decrypt(blob.data,aesKey);
-      output.textContent=(dec.text??JSON.stringify(dec,null,2));
-      output.style.display="block";
-      return setStatus("✅ Decrypted (password)","success");
+      displayDecrypted(dec);
+      return;
     }
 
     // ---------- SELF / RECIPIENT ----------
@@ -193,6 +253,7 @@ async function startDecrypt() {
 
       if (keyMode==="prf") {
         const salt=await WalletStorage.get("prfSaltHex");
+        if (!salt) throw new Error("Missing PRF salt");
         const prf=await WebAuthnHelper.evaluatePrf(credentialId, hexToBytes(salt));
 
         // HKDF expand PRF
@@ -207,51 +268,105 @@ async function startDecrypt() {
       } else {
         await WebAuthnHelper.authenticate(credentialId);
         const hex=await WalletStorage.get("aesKeyHex");
+        if (!hex) throw new Error("Missing local AES key");
         aesKey=await crypto.subtle.importKey("raw",hexToBytes(hex),"AES-GCM",false,["decrypt"]);
       }
 
       const dec=await CryptoHelper.decrypt(blob.data,aesKey);
-      output.textContent=(dec.text??JSON.stringify(dec,null,2));
-      output.style.display="block";
-      return setStatus("✅ Decrypted (self)","success");
+      displayDecrypted(dec);
+      return;
     }
 
-// ---------- RECIPIENT MODE (dual: self OR recipient) ----------
-// ---------- RECIPIENT MODE (dual: self OR recipient) ----------
-if (encType === "recipient") {
+    // ---------- RECIPIENT MODE (dual: self OR recipient) ----------
+    if (encType === "recipient") {
 
-  if (!blob.fromPub) throw new Error("Missing sender ephemeral key");
+      if (!blob.fromPub) throw new Error("Missing sender ephemeral key");
 
-  // Detect dual-encryption format (new) vs old single format
-  const hasSelf = blob.data && blob.data.self;
+      // Detect dual-encryption format (new) vs old single format
+      const hasSelf = blob.data && blob.data.self;
 
-  // ---- AUTHENTICATE ONCE IN WRAPPED MODE (avoid double prompts) ----
-  let cachedWrappedAesKey = null;
+      // ---- AUTHENTICATE ONCE IN WRAPPED MODE (avoid double prompts) ----
+      let cachedWrappedAesKey = null;
 
-  if (keyMode === "wrapped") {
-    await WebAuthnHelper.authenticate(credentialId);
-    const aesHex = await WalletStorage.get("aesKeyHex");
-    if (!aesHex) throw new Error("Missing local AES key (wrapped mode)");
+      if (keyMode === "wrapped") {
+        await WebAuthnHelper.authenticate(credentialId);
+        const aesHex = await WalletStorage.get("aesKeyHex");
+        if (!aesHex) throw new Error("Missing local AES key (wrapped mode)");
 
-    cachedWrappedAesKey = await crypto.subtle.importKey(
-      "raw",
-      hexToBytes(aesHex),
-      "AES-GCM",
-      false,
-      ["encrypt", "decrypt"]
-    );
-  }
+        cachedWrappedAesKey = await crypto.subtle.importKey(
+          "raw",
+          hexToBytes(aesHex),
+          "AES-GCM",
+          false,
+          ["encrypt", "decrypt"]
+        );
+      }
 
-  // =====================================================================
-  // 1) TRY SELF-DECRYPTION FIRST (if present in data.self)
-  // =====================================================================
-  if (hasSelf) {
-    try {
-      let aesKeySelf = null;
+      // =================================================================
+      // 1) TRY SELF-DECRYPTION FIRST (if present in data.self)
+      // =================================================================
+      if (hasSelf) {
+        try {
+          let aesKeySelf = null;
+
+          if (keyMode === "prf") {
+            const salt = await WalletStorage.get("prfSaltHex");
+            if (!salt) throw new Error("Missing PRF salt for self decryption");
+
+            const prf = await WebAuthnHelper.evaluatePrf(
+              credentialId,
+              hexToBytes(salt)
+            );
+
+            const hkdfKey = await crypto.subtle.importKey(
+              "raw",
+              prf,
+              "HKDF",
+              false,
+              ["deriveKey"]
+            );
+
+            aesKeySelf = await crypto.subtle.deriveKey(
+              {
+                name: "HKDF",
+                hash: "SHA-256",
+                salt: hexToBytes(salt),
+                info: new Uint8Array([])
+              },
+              hkdfKey,
+              { name: "AES-GCM", length: 256 },
+              false,
+              ["decrypt"]
+            );
+          } else {
+            // wrapped mode → reuse cached key
+            aesKeySelf = cachedWrappedAesKey;
+          }
+
+          const decSelf = await CryptoHelper.decrypt(blob.data.self, aesKeySelf);
+          displayDecrypted(decSelf);
+          return;
+
+        } catch (errSelf) {
+          console.warn("Self decrypt failed; falling back to recipient ECDH path:", errSelf);
+          // Continue to recipient decrypt
+        }
+      }
+
+      // =================================================================
+      // 2) FALLBACK — DECRYPT AS RECIPIENT (old + new message formats)
+      // =================================================================
+
+      const encPrivBlobStr = await WalletStorage.get("encPrivKeyEncrypted");
+      if (!encPrivBlobStr) throw new Error("Missing encrypted ECDH private key (encPrivKeyEncrypted)");
+
+      const encPrivBlob = JSON.parse(encPrivBlobStr);
+
+      let aesKey = null;
 
       if (keyMode === "prf") {
         const salt = await WalletStorage.get("prfSaltHex");
-        if (!salt) throw new Error("Missing PRF salt for self decryption");
+        if (!salt) throw new Error("Missing PRF salt");
 
         const prf = await WebAuthnHelper.evaluatePrf(
           credentialId,
@@ -266,7 +381,7 @@ if (encType === "recipient") {
           ["deriveKey"]
         );
 
-        aesKeySelf = await crypto.subtle.deriveKey(
+        aesKey = await crypto.subtle.deriveKey(
           {
             name: "HKDF",
             hash: "SHA-256",
@@ -279,161 +394,56 @@ if (encType === "recipient") {
           ["decrypt"]
         );
       } else {
-        // wrapped mode → reuse cached key
-        aesKeySelf = cachedWrappedAesKey;
+        // wrapped mode → reuse cached AES key instead of asking twice
+        aesKey = cachedWrappedAesKey;
       }
 
-      const decSelf = await CryptoHelper.decrypt(blob.data.self, aesKeySelf);
-      output.textContent = (decSelf.text ?? JSON.stringify(decSelf, null, 2));
-      output.style.display = "block";
-      return setStatus("✅ Decrypted (self)", "success");
+      // Decrypt the stored ECDH private key
+      const { ecdh: privJwk } = await CryptoHelper.decrypt(encPrivBlob, aesKey);
 
-    } catch (errSelf) {
-      console.warn("Self decrypt failed; falling back to recipient ECDH path:", errSelf);
-      // Continue to recipient decrypt
+      const privKey = await crypto.subtle.importKey(
+        "jwk",
+        privJwk,
+        { name: "ECDH", namedCurve: "P-256" },
+        false,
+        ["deriveBits"]
+      );
+
+      const senderRaw = Uint8Array.from(atob(blob.fromPub), c => c.charCodeAt(0));
+      const senderPub = await crypto.subtle.importKey(
+        "raw",
+        senderRaw,
+        { name: "ECDH", namedCurve: "P-256" },
+        false,
+        []
+      );
+
+      setStatus("Deriving shared secret…", "info");
+
+      const bits = await crypto.subtle.deriveBits(
+        { name: "ECDH", public: senderPub },
+        privKey,
+        256
+      );
+
+      const aesKeyRecipient = await crypto.subtle.importKey(
+        "raw",
+        bits,
+        "AES-GCM",
+        false,
+        ["decrypt"]
+      );
+
+      // Support both new format (data.recipient) and old format (data)
+      const encryptedPayload =
+        (blob.data && blob.data.recipient)
+          ? blob.data.recipient
+          : blob.data;
+
+      const dec = await CryptoHelper.decrypt(encryptedPayload, aesKeyRecipient);
+      displayDecrypted(dec);
+      return;
     }
-  }
-
-  // =====================================================================
-  // 2) FALLBACK — DECRYPT AS RECIPIENT (old + new message formats)
-  // =====================================================================
-
-  const encPrivBlobStr = await WalletStorage.get("encPrivKeyEncrypted");
-  if (!encPrivBlobStr) throw new Error("Missing encrypted ECDH private key (encPrivKeyEncrypted)");
-
-  const encPrivBlob = JSON.parse(encPrivBlobStr);
-
-  let aesKey = null;
-
-  if (keyMode === "prf") {
-    const salt = await WalletStorage.get("prfSaltHex");
-    if (!salt) throw new Error("Missing PRF salt");
-
-    const prf = await WebAuthnHelper.evaluatePrf(
-      credentialId,
-      hexToBytes(salt)
-    );
-
-    const hkdfKey = await crypto.subtle.importKey(
-      "raw",
-      prf,
-      "HKDF",
-      false,
-      ["deriveKey"]
-    );
-
-    aesKey = await crypto.subtle.deriveKey(
-      {
-        name: "HKDF",
-        hash: "SHA-256",
-        salt: hexToBytes(salt),
-        info: new Uint8Array([])
-      },
-      hkdfKey,
-      { name: "AES-GCM", length: 256 },
-      false,
-      ["decrypt"]
-    );
-  } else {
-    // wrapped mode → reuse cached AES key instead of asking twice
-    aesKey = cachedWrappedAesKey;
-  }
-
-  // Decrypt the stored ECDH private key
-  const { ecdh: privJwk } = await CryptoHelper.decrypt(encPrivBlob, aesKey);
-
-  const privKey = await crypto.subtle.importKey(
-    "jwk",
-    privJwk,
-    { name: "ECDH", namedCurve: "P-256" },
-    false,
-    ["deriveBits"]
-  );
-
-  const senderRaw = Uint8Array.from(atob(blob.fromPub), c => c.charCodeAt(0));
-  const senderPub = await crypto.subtle.importKey(
-    "raw",
-    senderRaw,
-    { name: "ECDH", namedCurve: "P-256" },
-    false,
-    []
-  );
-
-  setStatus("Deriving shared secret…", "info");
-
-  const bits = await crypto.subtle.deriveBits(
-    { name: "ECDH", public: senderPub },
-    privKey,
-    256
-  );
-
-  const aesKeyRecipient = await crypto.subtle.importKey(
-    "raw",
-    bits,
-    "AES-GCM",
-    false,
-    ["decrypt"]
-  );
-
-  // Support both new format (data.recipient) and old format (data)
-  const encryptedPayload =
-    (blob.data && blob.data.recipient)
-      ? blob.data.recipient
-      : blob.data;
-
-  const dec = await CryptoHelper.decrypt(encryptedPayload, aesKeyRecipient);
-
-if (dec.file) {
-    const bytes = hexToBytes(dec.file);
-
-    // Restore MIME type correctly during preview/download
-    const fileMime = dec.mime || "application/octet-stream";
-    const fileName = dec.name || "download.bin";
-
-    const blobFile = new Blob([bytes], { type: fileMime });
-    const url = URL.createObjectURL(blobFile);
-
-    // Detect previewable content
-    const header = new Uint8Array(bytes.subarray(0, 8));
-    const isPNG  = header[0] === 0x89 && header[1] === 0x50;
-    const isJPG  = header[0] === 0xFF && header[1] === 0xD8;
-    const isGIF  = header[0] === 0x47 && header[1] === 0x49;
-    const isWebP = (header[0] === 0x52 && header[1] === 0x49 && header[2] === 0x46);
-
-    output.style.display = "block";
-
-    if (isPNG || isJPG || isGIF || isWebP) {
-        output.innerHTML = `<img src="${url}" style="max-width:100%;max-height:400px;border-radius:8px;" />`;
-        return setStatus("🖼️ Image displayed", "success");
-    }
-
-    // Otherwise fallback to text (if printable)
-    let isText = true;
-    for (let i = 0; i < Math.min(bytes.length, 300); i++) {
-        if (bytes[i] === 0) { isText = false; break; }
-    }
-
-    if (isText) {
-        output.textContent = new TextDecoder().decode(bytes);
-        return setStatus("📄 Text displayed", "success");
-    }
-
-    // Fallback download
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-    link.click();
-
-    output.textContent = "Downloaded unsupported file.";
-    return setStatus("⬇️ File downloaded", "success");
-} else {
-    // Normal text decrypt
-    output.textContent = (dec.text ?? JSON.stringify(dec,null,2));
-    output.style.display = "block";
-    return setStatus("✅ Decrypted (text)", "success");
-  }
-
-}
 
     throw new Error("Unsupported encryption type: "+encType);
 
@@ -456,7 +466,6 @@ if (dec.file) {
   }
 })();
 </script>
-
 
 </body>
 </html>
