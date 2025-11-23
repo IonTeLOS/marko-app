@@ -385,49 +385,47 @@ if (encType === "recipient") {
 
 if (dec.file) {
     const bytes = hexToBytes(dec.file);
-    const blobFile = new Blob([bytes]);
 
-    // Try to detect type (optional: look at dec.mime if you stored it)
-    // Otherwise let browser guess
+    // Restore MIME type correctly during preview/download
+    const fileMime = dec.mime || "application/octet-stream";
+    const fileName = dec.name || "download.bin";
+
+    const blobFile = new Blob([bytes], { type: fileMime });
     const url = URL.createObjectURL(blobFile);
 
-    // Determine if file is previewable
+    // Detect previewable content
     const header = new Uint8Array(bytes.subarray(0, 8));
     const isPNG  = header[0] === 0x89 && header[1] === 0x50;
     const isJPG  = header[0] === 0xFF && header[1] === 0xD8;
     const isGIF  = header[0] === 0x47 && header[1] === 0x49;
     const isWebP = (header[0] === 0x52 && header[1] === 0x49 && header[2] === 0x46);
-    const isText = (() => {
-        for (let i = 0; i < Math.min(bytes.length, 300); i++) {
-            if (bytes[i] === 0) return false; // null byte → binary
-        }
-        return true;
-    })();
 
     output.style.display = "block";
 
     if (isPNG || isJPG || isGIF || isWebP) {
-        // --- IMAGE PREVIEW ---
-        output.innerHTML = `<img src="${url}" style="max-width:100%; max-height:400px; border-radius:8px;" />`;
+        output.innerHTML = `<img src="${url}" style="max-width:100%;max-height:400px;border-radius:8px;" />`;
         return setStatus("🖼️ Image displayed", "success");
     }
 
+    // Otherwise fallback to text (if printable)
+    let isText = true;
+    for (let i = 0; i < Math.min(bytes.length, 300); i++) {
+        if (bytes[i] === 0) { isText = false; break; }
+    }
+
     if (isText) {
-        // --- TEXT PREVIEW ---
-        const text = new TextDecoder().decode(bytes);
-        output.textContent = text;
+        output.textContent = new TextDecoder().decode(bytes);
         return setStatus("📄 Text displayed", "success");
     }
 
-    // --- Fallback: download file ---
+    // Fallback download
     const link = document.createElement("a");
     link.href = url;
-    link.download = "download.bin";
+    link.download = fileName;
     link.click();
 
     output.textContent = "Downloaded unsupported file.";
     return setStatus("⬇️ File downloaded", "success");
-
 } else {
     // Normal text decrypt
     output.textContent = (dec.text ?? JSON.stringify(dec,null,2));
