@@ -1834,10 +1834,11 @@ async function uploadData() {
   let encryptedContent = null;
   let statusAppend = "";
   // ----- File or text content -----
-  let content = document.getElementById("upload-data").value.trim();
+  let content = document.getElementById("data-content").value.trim();
   let fileInput = document.getElementById("file-input");
   let fileData = null;
 
+  // If file is selected → ignore missing text
   if (fileInput.files && fileInput.files[0]) {
       const file = fileInput.files[0];
 
@@ -1845,10 +1846,16 @@ async function uploadData() {
           throw new Error("File too large (max 95 KB).");
       }
 
-      // Read file as ArrayBuffer
       fileData = await file.arrayBuffer();
-      content = null; // We are uploading file instead of textarea text
+      content = null;
   }
+
+// Reject only if BOTH text and file are missing
+if (!content && !fileData) {
+    setStatus('wallet-status', '❌ Please enter text or choose a file', 'error');
+    return;
+}
+
   const encMode = document.getElementById("data-encryption-mode").value;
   const contentType = document.getElementById('content-type').value || 'text/plain';
   const userTagKey = document.getElementById('tag-key-1').value.trim();
