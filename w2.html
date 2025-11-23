@@ -434,6 +434,13 @@
       <span class="material-symbols-rounded">refresh</span>
       Refresh
     </button>
+    <select id="fiat-select" style="margin-top: 6px;">
+      <option value="usd">USD</option>
+      <option value="eur">EUR</option>
+      <option value="gbp">GBP</option>
+      <option value="jpy">JPY</option>
+      <option value="chf">CHF</option>
+    </select>
   </div>
 
   <div class="wallet-info">
@@ -1816,6 +1823,38 @@ document.getElementById("data-encryption-mode").addEventListener("change", e => 
     document.getElementById("recipient-field").classList.remove("hidden");
   }
 });
+
+document.getElementById('fiat-select')
+  .addEventListener('change', async () => {
+    const balanceStr = document.getElementById('balance-display').textContent;
+    if (!balanceStr.includes('AR')) return;
+    await updateBalanceFiat(balanceStr, document.getElementById('fiat-select').value);
+  });
+  
+// Restore previous selection (if exists)
+const savedFiat = localStorage.getItem("fiatChoice");
+if (savedFiat) {
+  const sel = document.getElementById("fiat-select");
+  sel.value = savedFiat;
+}
+document.getElementById('fiat-select')
+  .addEventListener('change', async () => {
+    const balanceStr = document.getElementById('balance-display').textContent;
+    if (!balanceStr.includes('AR')) return;
+    await updateBalanceFiat(balanceStr, document.getElementById('fiat-select').value);
+  });
+
+// Save selection on change + refresh UI
+document.getElementById("fiat-select").addEventListener("change", async () => {
+  const fiat = document.getElementById("fiat-select").value;
+  localStorage.setItem("fiatChoice", fiat);
+
+  // Recalculate fiat value if balance already shown
+  const balanceStr = document.getElementById("balance-display").textContent;
+  if (balanceStr.includes(" AR")) {
+    await updateBalanceFiat(balanceStr, fiat);
+  }
+});
   
 // ---------------------------------------------------------------------------
 //  UI: CREATE WALLET
@@ -1910,7 +1949,44 @@ async function refreshBalance() {
     document.getElementById('balance-display').textContent = 'Error loading';
   }
 }
+async function refreshBalanceAndUI() {
+  try {
+    const balanceStr = await refreshBalance();
+    document.getElementById('balance-display').textContent = balanceStr;
 
+    const fiat = document.getElementById('fiat-select').value;
+    await updateBalanceFiat(balanceStr, fiat);
+
+  } catch (err) {
+    console.error(err);
+    document.getElementById('balance-display').textContent = 'Error loading';
+  }
+}
+
+async function updateBalanceFiat(balanceStr, fiat) {
+  try {
+    const arAmount = parseFloat(balanceStr.replace(' AR', ''));
+
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=arweave&vs_currencies=${fiat}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const arPrice = data.arweave[fiat];
+    const fiatValue = (arAmount * arPrice).toFixed(2);
+
+    document.getElementById('balance-display').innerHTML = `
+      ${balanceStr}
+      <div style="font-size: 20px; margin-top: 8px; opacity: 0.9;">
+        ≈ ${fiatValue} ${fiat.toUpperCase()}
+      </div>
+    `;
+
+  } catch (err) {
+    console.warn('Fiat price unavailable:', err);
+    // Leave balance without fiat conversion
+  }
+}
+  
  function openHistory() {
   window.open('hw2.html', '_blank');
 }  
