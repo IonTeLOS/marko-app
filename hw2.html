@@ -818,27 +818,43 @@ const HistoryUI = {
 
     let detailsHTML = '';
 
-    if (event.type === 'upload') {
-      detailsHTML = `
-        <div class="event-details">
-          <div class="detail-row">
-            <span class="detail-label">File:</span>
-            <span class="detail-value">${event.data.fileName}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Size:</span>
-            <span class="detail-value">${(event.data.fileSize / 1024).toFixed(2)} KB</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Encryption:</span>
-            <span class="detail-value" style="text-transform: capitalize;">${event.data.encryptionMode}</span>
-          </div>
-          <div class="event-actions">
-            ${event.data.decryptLink ? `<a href="${event.data.decryptLink}" target="_blank" class="action-btn"><span class="material-symbols-rounded">open_in_new</span> Open</a>` : ''}
-            <button onclick="HistoryUI.copyToClipboard('${event.data.txid}')" class="action-btn"><span class="material-symbols-rounded">content_copy</span> Copy TX</button>
-          </div>
-        </div>
-      `;
+if (event.type === 'upload') {
+  // Transform decrypt link to use full Arweave URL format
+  let displayLink = event.data.decryptLink;
+  if (displayLink && event.data.encryptionMode !== 'none') {
+    // If it's a relative link or just a txid, convert it
+    if (displayLink.includes('dw2.html?link=') && !displayLink.includes('arweave.net')) {
+      // Extract txid from old format
+      const match = displayLink.match(/link=([^#]+)/);
+      if (match) {
+        const txid = match[1];
+        const arweaveUrl = `https://arweave.net/${txid}`;
+        const hashPart = displayLink.includes('#') ? displayLink.substring(displayLink.indexOf('#')) : '';
+        displayLink = `https://marko-app.netlify.app/dw2.html?link=${encodeURIComponent(arweaveUrl)}${hashPart}`;
+      }
+    }
+  }
+
+  detailsHTML = `
+    <div class="event-details">
+      <div class="detail-row">
+        <span class="detail-label">File:</span>
+        <span class="detail-value">${event.data.fileName}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Size:</span>
+        <span class="detail-value">${(event.data.fileSize / 1024).toFixed(2)} KB</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Encryption:</span>
+        <span class="detail-value" style="text-transform: capitalize;">${event.data.encryptionMode}</span>
+      </div>
+      <div class="event-actions">
+        ${displayLink ? `<a href="${displayLink}" target="_blank" class="action-btn"><span class="material-symbols-rounded">open_in_new</span> Open</a>` : ''}
+        <button onclick="HistoryUI.copyToClipboard('${event.data.txid}')" class="action-btn"><span class="material-symbols-rounded">content_copy</span> Copy TX</button>
+      </div>
+    </div>
+  `;
     } else if (event.type === 'transaction') {
       detailsHTML = `
         <div class="event-details">
