@@ -594,18 +594,18 @@
     return url.toString();
   }
 
-  async function renderQR(boxId, text) {
-    const box = document.getElementById(boxId);
-    box.innerHTML = '';
-    const canvas = document.createElement('canvas');
-    box.appendChild(canvas);
-    await QRCode.toCanvas(canvas, text, {
-      width: 220,
-      margin: 1,
-      errorCorrectionLevel: 'M'
-    });
-  }
+async function renderQR(boxId, text) {
+  const box = document.getElementById(boxId);
+  box.innerHTML = '';
 
+  // Classic QRCode library usage
+  new QRCode(box, {
+    text: text,
+    width: 220,
+    height: 220,
+    correctLevel: QRCode.CorrectLevel.M
+  });
+}
   // -----------------------------
   // Sender (A) logic
   // -----------------------------
