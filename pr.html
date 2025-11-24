@@ -601,8 +601,8 @@ async function renderQR(boxId, text) {
   // Classic QRCode library usage
   new QRCode(box, {
     text: text,
-    width: 220,
-    height: 220,
+    width: 256,
+    height: 256,
     correctLevel: QRCode.CorrectLevel.M
   });
 }
