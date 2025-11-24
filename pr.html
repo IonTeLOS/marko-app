@@ -895,7 +895,7 @@ const blobB64 = url.searchParams.get('blob');
   }
 
   function handleScannedText(text) {
-  // Stop the scanning loop but keep video visible
+  // Stop the scanning loop immediately
   if (scanLoopId) {
     cancelAnimationFrame(scanLoopId);
     scanLoopId = null;
@@ -906,37 +906,40 @@ const blobB64 = url.searchParams.get('blob');
     navigator.vibrate && navigator.vibrate(40);
   } catch {}
 
-  // Visual feedback - green border on scan frame
+  // Visual feedback - show what we captured
   const scanFrame = document.querySelector('.scan-frame');
   scanFrame.style.borderColor = '#2ecc71';
-  scanFrame.style.boxShadow = '0 0 0 9999px rgba(0, 0, 0, 0.5), 0 0 20px rgba(46, 204, 113, 0.8)';
   
-  scannerHint.textContent = '✓ QR detected! Processing...';
+  // Show the captured text in the hint
+  scannerHint.textContent = '✓ Captured: ' + text.substring(0, 50) + '...';
   scannerHint.style.color = '#a9fbc3';
+
+  // Store the text immediately before any delays
+  const capturedText = text;
+  const capturedMode = scanMode;
 
   setTimeout(() => {
     // Reset visual state
     scanFrame.style.borderColor = '';
-    scanFrame.style.boxShadow = '';
     scannerHint.style.color = '';
     
-    // Now stop the camera and close
+    // Stop camera
     stopScan();
     closeScanner();
 
     // Process the scanned data
-    if (scanMode === 'pub') {
-      document.getElementById('a-last-url').value = text;
-      setStatus('sender-status-1', 'URL scanned from Device B QR.', 'ok');
-      extractPubFromUrlOnA();
+    if (capturedMode === 'pub') {
+      document.getElementById('a-last-url').value = capturedText;
       switchRole('sender');
-    } else if (scanMode === 'blob') {
-      document.getElementById('b-last-url').value = text;
-      setStatus('receiver-status-2', 'URL scanned from Device A QR.', 'info');
+      setStatus('sender-status-1', 'URL scanned: ' + capturedText.substring(0, 30) + '...', 'ok');
+      extractPubFromUrlOnA();
+    } else if (capturedMode === 'blob') {
+      document.getElementById('b-last-url').value = capturedText;
       switchRole('receiver');
-      decryptFromUrlOnB(text);
+      setStatus('receiver-status-2', 'URL scanned: ' + capturedText.substring(0, 30) + '...', 'info');
+      decryptFromUrlOnB(capturedText);
     }
-  }, 800);
+  }, 1500);
 }
 
   function initFromUrl() {
