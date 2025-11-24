@@ -598,13 +598,34 @@ async function renderQR(boxId, text) {
   const box = document.getElementById(boxId);
   box.innerHTML = '';
 
-  // Classic QRCode library usage
-  new QRCode(box, {
-    text: text,
-    width: 256,
-    height: 256,
-    correctLevel: QRCode.CorrectLevel.M
-  });
+  try {
+    // Create container div for QRCode library
+    const qrDiv = document.createElement('div');
+    qrDiv.style.display = 'inline-block';
+    box.appendChild(qrDiv);
+
+    // Generate QR code
+    new QRCode(qrDiv, {
+      text: text,
+      width: 200,
+      height: 200,
+      colorDark: '#000000',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+
+    // Style the generated elements
+    setTimeout(() => {
+      const img = qrDiv.querySelector('img');
+      if (img) {
+        img.style.display = 'block';
+        img.style.margin = '0 auto';
+      }
+    }, 100);
+  } catch (e) {
+    console.error('QR generation error:', e);
+    box.innerHTML = '<span class="hint" style="color: #ff6b6b;">QR generation failed: ' + e.message + '</span>';
+  }
 }
   // -----------------------------
   // Sender (A) logic
