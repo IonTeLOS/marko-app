@@ -453,7 +453,7 @@
           and encodes all parameters into a URL QR for Device B.
         </p>
 
-        <label>Plaintext to encrypt (example “keyfile”):</label>
+        <label>Plaintext to encrypt (example "keyfile"):</label>
         <textarea id="a-plaintext">Hello from Device A! This could be an encrypted keyfile or other secret.</textarea>
 
         <div class="btn-row">
@@ -596,33 +596,34 @@
     return url.toString();
   }
 
-async function renderQR(boxId, text) {
-  const box = document.getElementById(boxId);
-  box.innerHTML = '';
+  async function renderQR(boxId, text) {
+    const box = document.getElementById(boxId);
+    box.innerHTML = '';
 
-  try {
-    // Create canvas for QRious
-    const canvas = document.createElement('canvas');
-    canvas.style.maxWidth = '100%';
-    canvas.style.height = 'auto';
-    box.appendChild(canvas);
+    try {
+      // Create canvas for QRious
+      const canvas = document.createElement('canvas');
+      canvas.style.maxWidth = '100%';
+      canvas.style.height = 'auto';
+      box.appendChild(canvas);
 
-    // Generate QR code with QRious (more reliable)
-    const qr = new QRious({
-      element: canvas,
-      value: text,
-      size: 300,
-      level: 'M',
-      background: '#ffffff',
-      foreground: '#000000'
-    });
+      // Generate QR code with QRious (more reliable)
+      const qr = new QRious({
+        element: canvas,
+        value: text,
+        size: 300,
+        level: 'M',
+        background: '#ffffff',
+        foreground: '#000000'
+      });
 
-    console.log('QR generated for:', text.substring(0, 50) + '...');
-  } catch (e) {
-    console.error('QR generation error:', e);
-    box.innerHTML = '<span class="hint" style="color: #ff6b6b;">QR generation failed: ' + e.message + '</span>';
+      console.log('QR generated for:', text.substring(0, 50) + '...');
+    } catch (e) {
+      console.error('QR generation error:', e);
+      box.innerHTML = '<span class="hint" style="color: #ff6b6b;">QR generation failed: ' + e.message + '</span>';
+    }
   }
-}
+
   // -----------------------------
   // Sender (A) logic
   // -----------------------------
@@ -735,7 +736,7 @@ async function renderQR(boxId, text) {
 
     try {
       const url = new URL(raw);
-      const blobB64 = url.searchParams.get('blob');
+const blobB64 = url.searchParams.get('blob');
       const ivB64 = url.searchParams.get('iv');
       const ephemB64 = url.searchParams.get('ephem');
 
@@ -810,10 +811,8 @@ async function renderQR(boxId, text) {
     }
   }
 
-  // -----------------------------
-  // Scanner (jsQR) – shared
-  // -----------------------------
-  let scanMode = null; // "pub" or "blob"
+  // Scanner functions
+  let scanMode = null;
   let videoStream = null;
   let scanLoopId = null;
 
@@ -869,9 +868,8 @@ async function renderQR(boxId, text) {
           });
 
           if (qr && qr.data) {
-            // Found a QR
             handleScannedText(qr.data);
-            return; // stop after success
+            return;
           }
         }
         scanLoopId = requestAnimationFrame(scan);
@@ -897,31 +895,33 @@ async function renderQR(boxId, text) {
   }
 
   function handleScannedText(text) {
-    // Basic feedback: vibration if available
+    stopScan();
+    
     try {
       navigator.vibrate && navigator.vibrate(40);
     } catch {}
 
-    closeScanner();
+    scannerHint.textContent = 'QR detected! Processing...';
+    scannerHint.style.color = '#a9fbc3';
 
-    if (scanMode === 'pub') {
-      // For Device A: B public-key URL
-      document.getElementById('a-last-url').value = text;
-      setStatus('sender-status-1', 'URL scanned from Device B QR.', 'ok');
-      extractPubFromUrlOnA();
-      switchRole('sender');
-    } else if (scanMode === 'blob') {
-      // For Device B: encrypted payload URL
-      document.getElementById('b-last-url').value = text;
-      setStatus('receiver-status-2', 'URL scanned from Device A QR.', 'info');
-      switchRole('receiver');
-      decryptFromUrlOnB(text);
-    }
+    setTimeout(() => {
+      closeScanner();
+      scannerHint.style.color = '';
+
+      if (scanMode === 'pub') {
+        document.getElementById('a-last-url').value = text;
+        setStatus('sender-status-1', 'URL scanned from Device B QR.', 'ok');
+        extractPubFromUrlOnA();
+        switchRole('sender');
+      } else if (scanMode === 'blob') {
+        document.getElementById('b-last-url').value = text;
+        setStatus('receiver-status-2', 'URL scanned from Device A QR.', 'info');
+        switchRole('receiver');
+        decryptFromUrlOnB(text);
+      }
+    }, 300);
   }
 
-  // -----------------------------
-  // URL auto-detection on load
-  // -----------------------------
   function initFromUrl() {
     try {
       const url = new URL(window.location.href);
@@ -932,19 +932,16 @@ async function renderQR(boxId, text) {
       const role = url.searchParams.get('role');
 
       if (bpub) {
-        // Treat as "coming from B" → Device A
         switchRole('sender');
         const full = url.toString();
         document.getElementById('a-last-url').value = full;
         document.getElementById('a-b-pub').value = bpub;
         setStatus('sender-status-1', 'URL with Device B public key detected from address bar.', 'ok');
       } else if (blob && iv && ephem && role === 'B') {
-        // Encrypted payload URL → Device B
         switchRole('receiver');
         const full = url.toString();
         document.getElementById('b-last-url').value = full;
         setStatus('receiver-status-2', 'Encrypted URL detected from address bar. Attempting decryption…', 'info');
-        // Try to decrypt if B private exists
         decryptFromUrlOnB(full);
       }
     } catch (e) {
@@ -952,7 +949,6 @@ async function renderQR(boxId, text) {
     }
   }
 
-  // init
   window.addEventListener('DOMContentLoaded', () => {
     initFromUrl();
   });
