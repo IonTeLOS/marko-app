@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ECDH Device Pairing Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- QR decoding & generation -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0b1020;
+      --bg-elevated: #131a30;
+      --accent: #4f8dff;
+      --accent-soft: rgba(79, 141, 255, 0.1);
+      --border: #27324a;
+      --text: #f7f7ff;
+      --muted: #9ba3c2;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.45);
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1a2440 0, #050713 55%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 16px;
+    }
+    .app {
+      width: 100%;
+      max-width: 900px;
+      background: rgba(6, 9, 22, 0.9);
+      border-radius: 24px;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 18px 20px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    header h1 {
+      font-size: 18px;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    header h1 span {
+      font-size: 22px;
+    }
+    header small {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .tabs {
+      display: flex;
+      padding: 0 12px 12px;
+      gap: 8px;
+    }
+    .tab-btn {
+      flex: 1;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      padding: 8px 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    .tab-btn strong {
+      font-size: 13px;
+    }
+    .tab-btn span.role {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      opacity: 0.7;
+    }
+    .tab-btn.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .content {
+      padding: 12px 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--bg-elevated);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      padding: 14px 14px 16px;
+    }
+    .card h2 {
+      font-size: 15px;
+      margin: 0 0 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card h2 span {
+      font-size: 18px;
+    }
+    .card p.desc {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .row > * {
+      flex: 1 1 260px;
+    }
+
+    label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+      display: block;
+    }
+    textarea,
+    input[type="text"] {
+      width: 100%;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: #060815;
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: 13px;
+      resize: vertical;
+      min-height: 60px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+    }
+    textarea:focus,
+    input[type="text"]:focus {
+      outline: 1px solid var(--accent);
+      box-shadow: 0 0 0 1px rgba(79, 141, 255, 0.4);
+    }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    button {
+      border-radius: 999px;
+      padding: 8px 14px;
+      border: 1px solid transparent;
+      background: var(--accent);
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button.secondary {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--muted);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    button:active {
+      transform: scale(0.97);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 11px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .qr-box {
+      border-radius: var(--radius-md);
+      background: #050713;
+      border: 1px dashed var(--border);
+      padding: 8px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 160px;
+    }
+    .qr-box canvas {
+      max-width: 180px;
+      max-height: 180px;
+    }
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .status {
+      font-size: 12px;
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      margin-top: 6px;
+    }
+    .status.ok {
+      background: rgba(46, 204, 113, 0.1);
+      border: 1px solid rgba(46, 204, 113, 0.4);
+      color: #a9fbc3;
+    }
+    .status.err {
+      background: rgba(231, 76, 60, 0.07);
+      border: 1px solid rgba(231, 76, 60, 0.4);
+      color: #ffb3a8;
+    }
+    .status.info {
+      background: rgba(52, 152, 219, 0.06);
+      border: 1px solid rgba(52, 152, 219, 0.35);
+      color: #97c9ff;
+    }
+
+    /* Scanner overlay */
+    .scanner-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.88);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 9999;
+    }
+    .scanner-overlay.active {
+      display: flex;
+    }
+    .scanner-card {
+      width: 100%;
+      max-width: 480px;
+      background: #050713;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-soft);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .scanner-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+    }
+    .scanner-header span {
+      opacity: 0.8;
+    }
+    .scanner-body {
+      position: relative;
+      background: #000;
+    }
+    #scanVideo {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: cover;
+    }
+    .scan-frame {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 220px;
+      height: 220px;
+      transform: translate(-50%, -50%);
+      border-radius: 16px;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+      border: 2px solid rgba(255, 255, 255, 0.65);
+    }
+    .scanner-footer {
+      padding: 10px 14px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .scanner-footer span {
+      color: var(--muted);
+    }
+    .scanner-footer button {
+      padding-inline: 12px;
+    }
+
+    @media (max-width: 600px) {
+      .app {
+        border-radius: 18px;
+      }
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .tabs {
+        padding-inline: 10px;
+      }
+      .scanner-card {
+        border-radius: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1><span>🔐</span> ECDH Device Pairing Test</h1>
+      <small>One-way pairing demo using QR, ECDH (P-256) and AES-GCM.</small>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-receiver-btn" onclick="switchRole('receiver')">
+      <strong>Receiver</strong>
+      <span class="role">Device B</span>
+    </button>
+    <button class="tab-btn" id="tab-sender-btn" onclick="switchRole('sender')">
+      <strong>Sender</strong>
+      <span class="role">Device A</span>
+    </button>
+  </div>
+
+  <div class="content">
+    <!-- RECEIVER (Device B) -->
+    <section id="receiver-section">
+      <div class="card">
+        <h2><span>🟢</span> Step 1 — Generate keypair & share public key</h2>
+        <p class="desc">
+          Device B creates a fresh ECDH keypair. The private key stays on this device
+          (for this demo, in <code>localStorage</code>), while the public key is shared to Device A via QR.
+        </p>
+
+        <div class="pill">Device B → shows QR with its public key URL</div>
+
+        <div class="row">
+          <div>
+            <label>Device B public key (base64, P-256 raw):</label>
+            <textarea id="b-pub" readonly placeholder="Generate keypair to fill this..."></textarea>
+            <div class="btn-row">
+              <button onclick="generateKeypairB()">Generate / Regenerate keypair</button>
+              <button class="secondary" onclick="copyText('b-pub')">Copy pubKey</button>
+            </div>
+            <div id="receiver-status-1" class="status info" style="display:none;"></div>
+          </div>
+
+          <div>
+            <label>Public key URL QR (scan with Device A):</label>
+            <div class="qr-box" id="b-pub-qr-box">
+              <span class="hint">QR with <code>?bpub=&lt;base64&gt;</code> will appear here</span>
+            </div>
+            <div class="hint">
+              Device A can use the embedded scanner or your system camera to open this URL.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><span>📥</span> Step 2 — Scan encrypted payload from Device A</h2>
+        <p class="desc">
+          Once Device A encrypts and shows a QR, Device B scans it and decrypts using its private key.
+        </p>
+        <div class="pill">Device B → scans encrypted URL from A</div>
+
+        <label>Last scanned URL (from Device A):</label>
+        <textarea id="b-last-url" placeholder="Will be filled when you scan, or paste a URL here & click Decrypt."></textarea>
+
+        <div class="btn-row">
+          <button onclick="openScanner('blob')">Scan encrypted QR</button>
+          <button class="secondary" onclick="decryptFromUrlOnB()">Decrypt pasted URL</button>
+        </div>
+
+        <label>Decrypted payload:</label>
+        <textarea id="b-decrypted" placeholder="Decrypted plaintext will appear here..." readonly></textarea>
+
+        <div id="receiver-status-2" class="status info" style="display:none;"></div>
+      </div>
+    </section>
+
+    <!-- SENDER (Device A) -->
+    <section id="sender-section" style="display:none;">
+      <div class="card">
+        <h2><span>🟦</span> Step 1 — Import Device B public key</h2>
+        <p class="desc">
+          Device A needs Device B's public key. You can scan B's QR or paste its URL and extract.
+        </p>
+
+        <div class="pill">Device A → scans B's pubKey URL</div>
+
+        <label>Last scanned or pasted URL (from Device B):</label>
+        <textarea id="a-last-url" placeholder="Scan B QR or paste the URL here..."></textarea>
+
+        <div class="btn-row">
+          <button onclick="openScanner('pub')">Scan B public QR</button>
+          <button class="secondary" onclick="extractPubFromUrlOnA()">Extract pubKey from URL</button>
+        </div>
+
+        <label>Extracted Device B public key (base64):</label>
+        <textarea id="a-b-pub" placeholder="Will be filled after scan / extract..."></textarea>
+
+        <div id="sender-status-1" class="status info" style="display:none;"></div>
+      </div>
+
+      <div class="card">
+        <h2><span>📤</span> Step 2 — Encrypt & show QR for Device B</h2>
+        <p class="desc">
+          Device A derives a shared secret using ECDH, encrypts the payload with AES-GCM,
+          and encodes all parameters into a URL QR for Device B.
+        </p>
+
+        <label>Plaintext to encrypt (example “keyfile”):</label>
+        <textarea id="a-plaintext">Hello from Device A! This could be an encrypted keyfile or other secret.</textarea>
+
+        <div class="btn-row">
+          <button onclick="encryptForB()">Encrypt for B & show QR</button>
+        </div>
+
+        <label>Encrypted URL (what goes inside the QR):</label>
+        <textarea id="a-encrypted-url" readonly placeholder="Will be filled after encryption..."></textarea>
+
+        <div class="row" style="margin-top:8px;">
+          <div>
+            <label>QR for encrypted URL (scan with Device B):</label>
+            <div class="qr-box" id="a-enc-qr-box">
+              <span class="hint">QR with <code>?blob=&amp;iv=&amp;ephem=</code> will appear here</span>
+            </div>
+            <div class="hint">
+              Device B scans this and decrypts using its private key.
+            </div>
+          </div>
+        </div>
+
+        <div id="sender-status-2" class="status info" style="display:none;"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- Scanner overlay -->
+<div class="scanner-overlay" id="scanner-overlay">
+  <div class="scanner-card">
+    <div class="scanner-header">
+      <div>Scan QR</div>
+      <button class="secondary" onclick="closeScanner()">Cancel</button>
+    </div>
+    <div class="scanner-body">
+      <video id="scanVideo" autoplay playsinline></video>
+      <div class="scan-frame"></div>
+    </div>
+    <div class="scanner-footer">
+      <span id="scanner-hint">Align the QR code inside the frame.</span>
+      <button class="secondary" onclick="restartScan()">Retry</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // -----------------------------
+  // UI helpers
+  // -----------------------------
+  function switchRole(role) {
+    const rSec = document.getElementById('receiver-section');
+    const sSec = document.getElementById('sender-section');
+    const rBtn = document.getElementById('tab-receiver-btn');
+    const sBtn = document.getElementById('tab-sender-btn');
+
+    if (role === 'receiver') {
+      rSec.style.display = '';
+      sSec.style.display = 'none';
+      rBtn.classList.add('active');
+      sBtn.classList.remove('active');
+    } else {
+      rSec.style.display = 'none';
+      sSec.style.display = '';
+      rBtn.classList.remove('active');
+      sBtn.classList.add('active');
+    }
+  }
+
+  function copyText(id) {
+    const el = document.getElementById(id);
+    if (!el || !el.value) return;
+    navigator.clipboard.writeText(el.value).catch(() => {});
+  }
+
+  function setStatus(id, msg, type) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'status ' + (type || 'info');
+    el.style.display = msg ? 'block' : 'none';
+  }
+
+  function clearQR(boxId, placeholder) {
+    const box = document.getElementById(boxId);
+    box.innerHTML = '<span class="hint">' + (placeholder || '') + '</span>';
+  }
+
+  // -----------------------------
+  // ECDH helpers (P-256)
+  // -----------------------------
+  const PRIV_KEY_STORAGE_KEY = 'pairingBPrivJwk';
+
+  async function generateKeypairB() {
+    setStatus('receiver-status-1', 'Generating ECDH P-256 keypair…', 'info');
+    try {
+      const keyPair = await crypto.subtle.generateKey(
+        { name: 'ECDH', namedCurve: 'P-256' },
+        true,
+        ['deriveBits']
+      );
+
+      const rawPub = await crypto.subtle.exportKey('raw', keyPair.publicKey);
+      const jwkPriv = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
+
+      const pubB64 = btoa(String.fromCharCode(...new Uint8Array(rawPub)));
+      localStorage.setItem(PRIV_KEY_STORAGE_KEY, JSON.stringify(jwkPriv));
+
+      document.getElementById('b-pub').value = pubB64;
+
+      const url = buildBPublicUrl(pubB64);
+      await renderQR('b-pub-qr-box', url);
+
+      setStatus(
+        'receiver-status-1',
+        'New keypair generated. Private key stored in localStorage (demo), QR updated.',
+        'ok'
+      );
+    } catch (e) {
+      console.error(e);
+      setStatus('receiver-status-1', 'Error generating keypair: ' + e.message, 'err');
+    }
+  }
+
+  function buildBPublicUrl(pubB64) {
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.hash = '';
+    url.searchParams.set('bpub', pubB64);
+    return url.toString();
+  }
+
+  function buildEncryptedUrlForB(blobB64, ivB64, ephemB64) {
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.hash = '';
+    url.searchParams.set('blob', blobB64);
+    url.searchParams.set('iv', ivB64);
+    url.searchParams.set('ephem', ephemB64);
+    url.searchParams.set('role', 'B');
+    return url.toString();
+  }
+
+  async function renderQR(boxId, text) {
+    const box = document.getElementById(boxId);
+    box.innerHTML = '';
+    const canvas = document.createElement('canvas');
+    box.appendChild(canvas);
+    await QRCode.toCanvas(canvas, text, {
+      width: 220,
+      margin: 1,
+      errorCorrectionLevel: 'M'
+    });
+  }
+
+  // -----------------------------
+  // Sender (A) logic
+  // -----------------------------
+  function extractPubFromUrlOnA() {
+    const urlStr = document.getElementById('a-last-url').value.trim();
+    if (!urlStr) {
+      setStatus('sender-status-1', 'Paste a URL first.', 'err');
+      return;
+    }
+    try {
+      const url = new URL(urlStr);
+      const pub = url.searchParams.get('bpub');
+      if (!pub) {
+        setStatus('sender-status-1', 'No ?bpub= parameter found in URL.', 'err');
+        return;
+      }
+      document.getElementById('a-b-pub').value = pub;
+      setStatus('sender-status-1', 'Public key extracted from URL.', 'ok');
+    } catch (e) {
+      setStatus('sender-status-1', 'Invalid URL: ' + e.message, 'err');
+    }
+  }
+
+  async function encryptForB() {
+    const pubB64 = document.getElementById('a-b-pub').value.trim();
+    const plaintext = document.getElementById('a-plaintext').value;
+
+    if (!pubB64) {
+      setStatus('sender-status-2', 'Device B public key is empty. Scan or paste it first.', 'err');
+      return;
+    }
+    if (!plaintext) {
+      setStatus('sender-status-2', 'Plaintext is empty.', 'err');
+      return;
+    }
+
+    setStatus('sender-status-2', 'Encrypting for Device B…', 'info');
+    try {
+      const pubBytes = Uint8Array.from(atob(pubB64), c => c.charCodeAt(0));
+      const bPubKey = await crypto.subtle.importKey(
+        'raw',
+        pubBytes,
+        { name: 'ECDH', namedCurve: 'P-256' },
+        false,
+        []
+      );
+
+      const ephemeral = await crypto.subtle.generateKey(
+        { name: 'ECDH', namedCurve: 'P-256' },
+        true,
+        ['deriveBits']
+      );
+
+      const sharedBits = await crypto.subtle.deriveBits(
+        { name: 'ECDH', public: bPubKey },
+        ephemeral.privateKey,
+        256
+      );
+      const shared = new Uint8Array(sharedBits);
+
+      const aesKey = await crypto.subtle.importKey(
+        'raw',
+        shared,
+        'AES-GCM',
+        false,
+        ['encrypt']
+      );
+
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ptBytes = new TextEncoder().encode(plaintext);
+
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        aesKey,
+        ptBytes
+      );
+
+      const ephemRaw = await crypto.subtle.exportKey('raw', ephemeral.publicKey);
+
+      const blobB64 = btoa(String.fromCharCode(...new Uint8Array(ciphertext)));
+      const ivB64 = btoa(String.fromCharCode(...iv));
+      const ephemB64 = btoa(String.fromCharCode(...new Uint8Array(ephemRaw)));
+
+      const url = buildEncryptedUrlForB(blobB64, ivB64, ephemB64);
+      document.getElementById('a-encrypted-url').value = url;
+      await renderQR('a-enc-qr-box', url);
+
+      setStatus(
+        'sender-status-2',
+        'Encrypted and QR generated. Show this QR to Device B.',
+        'ok'
+      );
+    } catch (e) {
+      console.error(e);
+      setStatus('sender-status-2', 'Encryption error: ' + e.message, 'err');
+    }
+  }
+
+  // -----------------------------
+  // Receiver (B) decryption
+  // -----------------------------
+  async function decryptFromUrlOnB(urlStr) {
+    const raw = (urlStr || document.getElementById('b-last-url').value || '').trim();
+    if (!raw) {
+      setStatus('receiver-status-2', 'Paste or scan a URL first.', 'err');
+      return;
+    }
+
+    setStatus('receiver-status-2', 'Decrypting payload…', 'info');
+
+    try {
+      const url = new URL(raw);
+      const blobB64 = url.searchParams.get('blob');
+      const ivB64 = url.searchParams.get('iv');
+      const ephemB64 = url.searchParams.get('ephem');
+
+      if (!blobB64 || !ivB64 || !ephemB64) {
+        setStatus(
+          'receiver-status-2',
+          'URL missing one of: blob, iv, ephem parameters.',
+          'err'
+        );
+        return;
+      }
+
+      const privJson = localStorage.getItem(PRIV_KEY_STORAGE_KEY);
+      if (!privJson) {
+        setStatus(
+          'receiver-status-2',
+          'No private key found on this device. Generate keypair first (Step 1).',
+          'err'
+        );
+        return;
+      }
+
+      const jwkPriv = JSON.parse(privJson);
+      const bPrivKey = await crypto.subtle.importKey(
+        'jwk',
+        jwkPriv,
+        { name: 'ECDH', namedCurve: 'P-256' },
+        false,
+        ['deriveBits']
+      );
+
+      const ephemBytes = Uint8Array.from(atob(ephemB64), c => c.charCodeAt(0));
+      const ephemPubKey = await crypto.subtle.importKey(
+        'raw',
+        ephemBytes,
+        { name: 'ECDH', namedCurve: 'P-256' },
+        false,
+        []
+      );
+
+      const sharedBits = await crypto.subtle.deriveBits(
+        { name: 'ECDH', public: ephemPubKey },
+        bPrivKey,
+        256
+      );
+      const shared = new Uint8Array(sharedBits);
+
+      const aesKey = await crypto.subtle.importKey(
+        'raw',
+        shared,
+        'AES-GCM',
+        false,
+        ['decrypt']
+      );
+
+      const blobBytes = Uint8Array.from(atob(blobB64), c => c.charCodeAt(0));
+      const ivBytes = Uint8Array.from(atob(ivB64), c => c.charCodeAt(0));
+
+      const decrypted = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: ivBytes },
+        aesKey,
+        blobBytes
+      );
+
+      const plaintext = new TextDecoder().decode(decrypted);
+      document.getElementById('b-decrypted').value = plaintext;
+
+      setStatus('receiver-status-2', 'Decryption successful.', 'ok');
+    } catch (e) {
+      console.error(e);
+      setStatus('receiver-status-2', 'Decryption error: ' + e.message, 'err');
+    }
+  }
+
+  // -----------------------------
+  // Scanner (jsQR) – shared
+  // -----------------------------
+  let scanMode = null; // "pub" or "blob"
+  let videoStream = null;
+  let scanLoopId = null;
+
+  const scannerOverlay = document.getElementById('scanner-overlay');
+  const scanVideo = document.getElementById('scanVideo');
+  const scannerHint = document.getElementById('scanner-hint');
+
+  function openScanner(mode) {
+    scanMode = mode;
+    scannerHint.textContent =
+      mode === 'pub'
+        ? 'Scan the public-key QR from Device B.'
+        : 'Scan the encrypted QR from Device A.';
+    scannerOverlay.classList.add('active');
+    startScan();
+  }
+
+  function closeScanner() {
+    scannerOverlay.classList.remove('active');
+    stopScan();
+    scanMode = null;
+  }
+
+  function restartScan() {
+    stopScan();
+    startScan();
+  }
+
+  async function startScan() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+        audio: false
+      });
+      videoStream = stream;
+      scanVideo.srcObject = stream;
+      scanVideo.play();
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      const scan = () => {
+        if (!videoStream) return;
+
+        if (scanVideo.readyState === scanVideo.HAVE_ENOUGH_DATA) {
+          canvas.width = scanVideo.videoWidth;
+          canvas.height = scanVideo.videoHeight;
+          ctx.drawImage(scanVideo, 0, 0, canvas.width, canvas.height);
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+          const qr = jsQR(imgData.data, canvas.width, canvas.height, {
+            inversionAttempts: 'dontInvert'
+          });
+
+          if (qr && qr.data) {
+            // Found a QR
+            handleScannedText(qr.data);
+            return; // stop after success
+          }
+        }
+        scanLoopId = requestAnimationFrame(scan);
+      };
+
+      scanLoopId = requestAnimationFrame(scan);
+    } catch (e) {
+      console.error('Camera error:', e);
+      scannerHint.textContent = 'Camera error: ' + e.message;
+    }
+  }
+
+  function stopScan() {
+    if (scanLoopId) {
+      cancelAnimationFrame(scanLoopId);
+      scanLoopId = null;
+    }
+    if (videoStream) {
+      videoStream.getTracks().forEach(t => t.stop());
+      videoStream = null;
+    }
+    scanVideo.srcObject = null;
+  }
+
+  function handleScannedText(text) {
+    // Basic feedback: vibration if available
+    try {
+      navigator.vibrate && navigator.vibrate(40);
+    } catch {}
+
+    closeScanner();
+
+    if (scanMode === 'pub') {
+      // For Device A: B public-key URL
+      document.getElementById('a-last-url').value = text;
+      setStatus('sender-status-1', 'URL scanned from Device B QR.', 'ok');
+      extractPubFromUrlOnA();
+      switchRole('sender');
+    } else if (scanMode === 'blob') {
+      // For Device B: encrypted payload URL
+      document.getElementById('b-last-url').value = text;
+      setStatus('receiver-status-2', 'URL scanned from Device A QR.', 'info');
+      switchRole('receiver');
+      decryptFromUrlOnB(text);
+    }
+  }
+
+  // -----------------------------
+  // URL auto-detection on load
+  // -----------------------------
+  function initFromUrl() {
+    try {
+      const url = new URL(window.location.href);
+      const bpub = url.searchParams.get('bpub');
+      const blob = url.searchParams.get('blob');
+      const iv = url.searchParams.get('iv');
+      const ephem = url.searchParams.get('ephem');
+      const role = url.searchParams.get('role');
+
+      if (bpub) {
+        // Treat as "coming from B" → Device A
+        switchRole('sender');
+        const full = url.toString();
+        document.getElementById('a-last-url').value = full;
+        document.getElementById('a-b-pub').value = bpub;
+        setStatus('sender-status-1', 'URL with Device B public key detected from address bar.', 'ok');
+      } else if (blob && iv && ephem && role === 'B') {
+        // Encrypted payload URL → Device B
+        switchRole('receiver');
+        const full = url.toString();
+        document.getElementById('b-last-url').value = full;
+        setStatus('receiver-status-2', 'Encrypted URL detected from address bar. Attempting decryption…', 'info');
+        // Try to decrypt if B private exists
+        decryptFromUrlOnB(full);
+      }
+    } catch (e) {
+      console.warn('URL parse error:', e);
+    }
+  }
+
+  // init
+  window.addEventListener('DOMContentLoaded', () => {
+    initFromUrl();
+  });
+</script>
+</body>
+</html>
