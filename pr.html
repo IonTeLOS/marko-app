@@ -7,7 +7,10 @@
 
   <!-- QR decoding & generation -->
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>  <style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+
+  <style>
     :root {
       --bg: #0b1020;
       --bg-elevated: #131a30;
@@ -599,29 +602,23 @@ async function renderQR(boxId, text) {
   box.innerHTML = '';
 
   try {
-    // Create container div for QRCode library
-    const qrDiv = document.createElement('div');
-    qrDiv.style.display = 'inline-block';
-    box.appendChild(qrDiv);
+    // Create canvas for QRious
+    const canvas = document.createElement('canvas');
+    canvas.style.maxWidth = '100%';
+    canvas.style.height = 'auto';
+    box.appendChild(canvas);
 
-    // Generate QR code
-    new QRCode(qrDiv, {
-      text: text,
-      width: 200,
-      height: 200,
-      colorDark: '#000000',
-      colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M
+    // Generate QR code with QRious (more reliable)
+    const qr = new QRious({
+      element: canvas,
+      value: text,
+      size: 300,
+      level: 'M',
+      background: '#ffffff',
+      foreground: '#000000'
     });
 
-    // Style the generated elements
-    setTimeout(() => {
-      const img = qrDiv.querySelector('img');
-      if (img) {
-        img.style.display = 'block';
-        img.style.margin = '0 auto';
-      }
-    }, 100);
+    console.log('QR generated for:', text.substring(0, 50) + '...');
   } catch (e) {
     console.error('QR generation error:', e);
     box.innerHTML = '<span class="hint" style="color: #ff6b6b;">QR generation failed: ' + e.message + '</span>';
