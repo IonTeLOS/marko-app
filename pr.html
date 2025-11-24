@@ -895,32 +895,49 @@ const blobB64 = url.searchParams.get('blob');
   }
 
   function handleScannedText(text) {
-    stopScan();
-    
-    try {
-      navigator.vibrate && navigator.vibrate(40);
-    } catch {}
-
-    scannerHint.textContent = 'QR detected! Processing...';
-    scannerHint.style.color = '#a9fbc3';
-
-    setTimeout(() => {
-      closeScanner();
-      scannerHint.style.color = '';
-
-      if (scanMode === 'pub') {
-        document.getElementById('a-last-url').value = text;
-        setStatus('sender-status-1', 'URL scanned from Device B QR.', 'ok');
-        extractPubFromUrlOnA();
-        switchRole('sender');
-      } else if (scanMode === 'blob') {
-        document.getElementById('b-last-url').value = text;
-        setStatus('receiver-status-2', 'URL scanned from Device A QR.', 'info');
-        switchRole('receiver');
-        decryptFromUrlOnB(text);
-      }
-    }, 300);
+  // Stop the scanning loop but keep video visible
+  if (scanLoopId) {
+    cancelAnimationFrame(scanLoopId);
+    scanLoopId = null;
   }
+  
+  // Vibration feedback
+  try {
+    navigator.vibrate && navigator.vibrate(40);
+  } catch {}
+
+  // Visual feedback - green border on scan frame
+  const scanFrame = document.querySelector('.scan-frame');
+  scanFrame.style.borderColor = '#2ecc71';
+  scanFrame.style.boxShadow = '0 0 0 9999px rgba(0, 0, 0, 0.5), 0 0 20px rgba(46, 204, 113, 0.8)';
+  
+  scannerHint.textContent = '✓ QR detected! Processing...';
+  scannerHint.style.color = '#a9fbc3';
+
+  setTimeout(() => {
+    // Reset visual state
+    scanFrame.style.borderColor = '';
+    scanFrame.style.boxShadow = '';
+    scannerHint.style.color = '';
+    
+    // Now stop the camera and close
+    stopScan();
+    closeScanner();
+
+    // Process the scanned data
+    if (scanMode === 'pub') {
+      document.getElementById('a-last-url').value = text;
+      setStatus('sender-status-1', 'URL scanned from Device B QR.', 'ok');
+      extractPubFromUrlOnA();
+      switchRole('sender');
+    } else if (scanMode === 'blob') {
+      document.getElementById('b-last-url').value = text;
+      setStatus('receiver-status-2', 'URL scanned from Device A QR.', 'info');
+      switchRole('receiver');
+      decryptFromUrlOnB(text);
+    }
+  }, 800);
+}
 
   function initFromUrl() {
     try {
