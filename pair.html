@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ECDH Pairing Test – QR + URL Params</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 900px; margin: auto; }
+    textarea { width: 100%; height: 80px; margin-top: 6px; }
+    .card { padding: 16px; border: 1px solid #aaa; border-radius: 12px; margin-bottom: 30px; }
+    #qrA, #qrB { margin-top: 10px; }
+    button { padding: 10px 16px; margin-top: 8px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<h1>ECDH Device Pairing – Standalone Test</h1>
+<p>Shows Device-to-Device pairing via encrypted QR URLs. No camera yet.</p>
+
+<hr>
+
+<!-- ========================================================= -->
+<!-- DEVICE B (RECEIVER) -->
+<!-- ========================================================= -->
+<div class="card">
+  <h2>Device B (Receiver)</h2>
+
+  <h3>1. Generate ECDH Keypair</h3>
+  <button onclick="generateB()">Generate B Keypair</button>
+  <textarea id="pubB" placeholder="B public key (auto-filled)"></textarea>
+
+  <div id="qrB"></div>
+
+  <h3>3. Paste encrypted blob from Device A (or use URL ?blob=...)</h3>
+  <textarea id="encFromA"></textarea>
+  <button onclick="decryptOnB()">Decrypt</button>
+  <textarea id="decB" placeholder="Decrypted result..."></textarea>
+</div>
+
+
+<!-- ========================================================= -->
+<!-- DEVICE A (SENDER) -->
+<!-- ========================================================= -->
+<div class="card">
+  <h2>Device A (Sender)</h2>
+
+  <h3>2. Paste Device B public key (or use URL ?pub=...)</h3>
+  <textarea id="pubA"></textarea>
+
+  <h3>Sample plaintext</h3>
+  <textarea id="plainA">Hello from A!</textarea>
+
+  <button onclick="encryptForB()">Encrypt for B</button>
+
+  <textarea id="encA" placeholder="Encrypted blob..."></textarea>
+
+  <div id="qrA"></div>
+</div>
+
+
+<script>
+/* ----------------------------------------------------------
+   UTILITIES
+---------------------------------------------------------- */
+function bufToB64(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+}
+function b64ToBuf(b64) {
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+
+/* ----------------------------------------------------------
+   DEVICE B — Generate keypair
+---------------------------------------------------------- */
+let B_privKey = null;
+let B_pubKeyRaw = null;
+
+async function generateB() {
+  const kp = await crypto.subtle.generateKey(
+    { name: "ECDH", namedCurve: "P-256" },
+    true,
+    ["deriveBits"]
+  );
+
+  B_privKey = kp.privateKey;
+  B_pubKeyRaw = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
+
+  const b64 = bufToB64(B_pubKeyRaw);
+
+  // store private key locally for test only
+  localStorage.setItem("B_priv", JSON.stringify(await crypto.subtle.exportKey("jwk", B_privKey)));
+
+  document.getElementById("pubB").value = b64;
+
+  // show QR for Device A to scan
+  document.getElementById("qrB").innerHTML = "";
+  new QRCode(document.getElementById("qrB"), {
+    text: location.origin + location.pathname + "?pub=" + encodeURIComponent(b64),
+    width: 180,
+    height: 180
+  });
+}
+
+/* ----------------------------------------------------------
+   DEVICE A — Encrypt for B
+---------------------------------------------------------- */
+async function encryptForB() {
+  const b64pub = document.getElementById("pubA").value.trim();
+  if (!b64pub) return alert("Missing B public key");
+
+  const rawPub = b64ToBuf(b64pub);
+
+  const pubKey = await crypto.subtle.importKey(
+    "raw",
+    rawPub,
+    { name: "ECDH", namedCurve: "P-256" },
+    false,
+    []
+  );
+
+  // ephemeral sender key
+  const eph = await crypto.subtle.generateKey(
+    { name: "ECDH", namedCurve: "P-256" },
+    true,
+    ["deriveBits"]
+  );
+  const ephPubRaw = new Uint8Array(await crypto.subtle.exportKey("raw", eph.publicKey));
+
+  const shared = await crypto.subtle.deriveBits(
+    { name: "ECDH", public: pubKey },
+    eph.privateKey,
+    256
+  );
+
+  const aesKey = await crypto.subtle.importKey(
+    "raw", shared, "AES-GCM", false, ["encrypt"]
+  );
+
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plaintext = new TextEncoder().encode(document.getElementById("plainA").value);
+
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    aesKey,
+    plaintext
+  );
+
+  const blob = {
+    ephPub: bufToB64(ephPubRaw),
+    iv: bufToB64(iv),
+    ct: bufToB64(ciphertext)
+  };
+
+  const blobStr = btoa(JSON.stringify(blob));
+  document.getElementById("encA").value = blobStr;
+
+  // Show QR for Device B
+  document.getElementById("qrA").innerHTML = "";
+  new QRCode(document.getElementById("qrA"), {
+    text: location.origin + location.pathname + "?blob=" + encodeURIComponent(blobStr),
+    width: 180,
+    height: 180
+  });
+}
+
+/* ----------------------------------------------------------
+   DEVICE B — Decrypt
+---------------------------------------------------------- */
+async function decryptOnB() {
+  const blobStr = document.getElementById("encFromA").value.trim();
+  if (!blobStr) return alert("Missing encrypted blob");
+
+  const blob = JSON.parse(atob(blobStr));
+
+  const ephPub = await crypto.subtle.importKey(
+    "raw",
+    b64ToBuf(blob.ephPub),
+    {name: "ECDH", namedCurve: "P-256"},
+    false,
+    []
+  );
+
+  const privJwk = JSON.parse(localStorage.getItem("B_priv"));
+  if (!privJwk) return alert("No B private key in localStorage (generate first)");
+
+  const privKey = await crypto.subtle.importKey(
+    "jwk",
+    privJwk,
+    { name: "ECDH", namedCurve: "P-256" },
+    false,
+    ["deriveBits"]
+  );
+
+  const shared = await crypto.subtle.deriveBits(
+    {name:"ECDH", public: ephPub},
+    privKey,
+    256
+  );
+
+  const aesKey = await crypto.subtle.importKey(
+    "raw", shared, "AES-GCM", false, ["decrypt"]
+  );
+
+  const pt = await crypto.subtle.decrypt(
+    {name:"AES-GCM", iv: b64ToBuf(blob.iv)},
+    aesKey,
+    b64ToBuf(blob.ct)
+  );
+
+  document.getElementById("decB").value = new TextDecoder().decode(pt);
+}
+
+
+/* ----------------------------------------------------------
+   AUTO-DETECT URL PARAMETERS
+---------------------------------------------------------- */
+(function parseParams() {
+  const url = new URL(window.location.href);
+  const pub = url.searchParams.get("pub");
+  const blob = url.searchParams.get("blob");
+
+  if (pub) {
+    document.getElementById("pubA").value = pub;
+  }
+  if (blob) {
+    document.getElementById("encFromA").value = blob;
+    decryptOnB();
+  }
+})();
+</script>
+</body>
+</html>
