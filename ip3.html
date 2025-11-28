@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Irys - Client-Side Signing</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+      color: #667eea;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 24px;
+    }
+
+    .wallet-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: #f0f4ff;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+
+    .wallet-status.connected {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .wallet-address {
+      font-family: monospace;
+      font-size: 12px;
+      padding: 4px 8px;
+      background: white;
+      border-radius: 4px;
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #333;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border 0.2s;
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .btn {
+      padding: 14px 28px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      font-size: 16px;
+    }
+
+    .btn:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: #764ba2;
+    }
+
+    .btn-secondary:hover {
+      background: #643a8a;
+    }
+
+    .alert {
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .alert-success {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .alert-error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .alert-info {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+
+    .info-box {
+      background: #fff9e6;
+      border-left: 4px solid #ffc107;
+      padding: 16px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .result {
+      background: #f8f9fa;
+      padding: 16px;
+      border-radius: 8px;
+      margin-top: 16px;
+      word-break: break-all;
+    }
+
+    .result a {
+      color: #667eea;
+      text-decoration: none;
+    }
+
+    .result a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+      .card {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>🔐 Client-Side Signing</h1>
+      <p class="subtitle">You sign, you own. Your keys, your data.</p>
+
+      <div class="info-box">
+        <strong>⚡ How it works:</strong><br>
+        1. Connect your wallet (MetaMask)<br>
+        2. Sign transaction in your browser<br>
+        3. Worker relays to Irys<br>
+        4. <strong>You are the owner</strong>, not the worker!
+      </div>
+
+      <div id="wallet-status" class="wallet-status">
+        <span>🔌 Not connected</span>
+      </div>
+
+      <button class="btn" id="connect-btn" onclick="connectWallet()">
+        Connect MetaMask
+      </button>
+
+      <div id="upload-form" style="display: none; margin-top: 24px;">
+        <div class="input-group">
+          <label>Path</label>
+          <input type="text" id="path" placeholder="/my-content" value="/test">
+        </div>
+
+        <div class="input-group">
+          <label>Content</label>
+          <textarea id="content" placeholder='{"message": "Hello World"}'>{"message": "Hello from my wallet!"}</textarea>
+        </div>
+
+        <button class="btn btn-secondary" onclick="signAndUpload()" id="upload-btn">
+          <span id="upload-text">Sign & Upload</span>
+        </button>
+
+        <div id="result-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { WebIrys } from 'https://esm.sh/@irys/web-upload';
+    import { WebPolygon } from 'https://esm.sh/@irys/web-upload-polygon';
+
+    window.irysInstance = null;
+    window.walletAddress = null;
+
+    window.connectWallet = async function() {
+      const btn = document.getElementById('connect-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading"></span>';
+
+      try {
+        if (!window.ethereum) {
+          alert('Please install MetaMask!');
+          return;
+        }
+
+        // Request account access
+        const accounts = await window.ethereum.request({
+          method: 'eth_requestAccounts'
+        });
+
+        window.walletAddress = accounts[0];
+
+        // Switch to Polygon if needed
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x89' }], // Polygon mainnet
+          });
+        } catch (switchError) {
+          // Chain not added, add it
+          if (switchError.code === 4902) {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: '0x89',
+                chainName: 'Polygon Mainnet',
+                nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
+                rpcUrls: ['https://polygon-rpc.com/'],
+                blockExplorerUrls: ['https://polygonscan.com/']
+              }]
+            });
+          }
+        }
+
+        // Initialize WebIrys
+        window.irysInstance = await WebIrys(WebPolygon).withProvider(window.ethereum);
+
+        // Update UI
+        const status = document.getElementById('wallet-status');
+        status.className = 'wallet-status connected';
+        status.innerHTML = `
+          <span>✅ Connected</span>
+          <span class="wallet-address">${walletAddress.substring(0, 6)}...${walletAddress.substring(38)}</span>
+        `;
+
+        btn.style.display = 'none';
+        document.getElementById('upload-form').style.display = 'block';
+
+      } catch (error) {
+        console.error('Connection error:', error);
+        alert('Failed to connect: ' + error.message);
+        btn.disabled = false;
+        btn.textContent = 'Connect MetaMask';
+      }
+    };
+
+    window.signAndUpload = async function() {
+      const path = document.getElementById('path').value.trim();
+      const content = document.getElementById('content').value.trim();
+      const uploadBtn = document.getElementById('upload-btn');
+      const uploadText = document.getElementById('upload-text');
+
+      if (!path || !content) {
+        alert('Path and content are required');
+        return;
+      }
+
+      uploadBtn.disabled = true;
+      uploadText.innerHTML = '<span class="loading"></span> Signing...';
+
+      try {
+        // Parse content
+        let data;
+        try {
+          data = JSON.parse(content);
+        } catch {
+          data = content;
+        }
+
+        // Generate deterministic anchor for the path
+        const normalized = path.toLowerCase().replace(/^\/+|\/+$/g, '');
+        const input = `${window.walletAddress.toLowerCase()}:${normalized}`;
+        const encoder = new TextEncoder();
+        const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(input));
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const anchor = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+
+        // Create transaction with tags
+        const tags = [
+          { name: 'Content-Type', value: typeof data === 'object' ? 'application/json' : 'text/plain' },
+          { name: 'App-Name', value: 'Client-Signed-Irys' },
+          { name: 'Path', value: normalized }
+        ];
+
+        const serialized = typeof data === 'object' ? JSON.stringify(data) : data;
+
+        const tx = window.irysInstance.createTransaction(serialized, {
+          tags,
+          anchor
+        });
+
+        uploadText.textContent = 'Signing in wallet...';
+
+        // Sign transaction (user confirms in MetaMask)
+        await tx.sign();
+
+        uploadText.innerHTML = '<span class="loading"></span> Uploading...';
+
+        // Upload to Irys
+        const receipt = await tx.upload();
+
+        // Show success
+        const resultContainer = document.getElementById('result-container');
+        resultContainer.innerHTML = `
+          <div class="alert alert-success" style="margin-top: 16px;">
+            ✅ Success! Signed and uploaded by YOUR wallet.
+          </div>
+          <div class="result">
+            <strong>Transaction ID:</strong><br>
+            <code>${receipt.id}</code><br><br>
+            <strong>🔗 Your Content:</strong><br>
+            <a href="https://gateway.irys.xyz/${receipt.id}" target="_blank">
+              https://gateway.irys.xyz/${receipt.id}
+            </a><br><br>
+            <strong>🔄 Mutable URL:</strong><br>
+            <a href="https://gateway.irys.xyz/mutable/${receipt.id}" target="_blank">
+              https://gateway.irys.xyz/mutable/${receipt.id}
+            </a><br><br>
+            <strong>Owner:</strong> ${window.walletAddress}
+          </div>
+        `;
+
+        uploadText.textContent = 'Sign & Upload';
+        uploadBtn.disabled = false;
+
+      } catch (error) {
+        console.error('Upload error:', error);
+
+        const resultContainer = document.getElementById('result-container');
+        resultContainer.innerHTML = `
+          <div class="alert alert-error" style="margin-top: 16px;">
+            ❌ Error: ${error.message}
+          </div>
+        `;
+
+        uploadText.textContent = 'Sign & Upload';
+        uploadBtn.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>
