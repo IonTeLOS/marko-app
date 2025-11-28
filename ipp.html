@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Irys Path Publisher</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #6200ea;
+      --primary-dark: #4a00c7;
+      --primary-light: #7c4dff;
+      --secondary: #03dac6;
+      --surface: #ffffff;
+      --background: #f5f5f5;
+      --error: #b00020;
+      --on-primary: #ffffff;
+      --on-surface: #000000;
+      --on-background: #000000;
+      --shadow: rgba(0, 0, 0, 0.1);
+    }
+
+    body {
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--background);
+      color: var(--on-background);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .header {
+      background: var(--primary);
+      color: var(--on-primary);
+      padding: 24px 16px;
+      margin: -16px -16px 24px;
+      box-shadow: 0 2px 4px var(--shadow);
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 4px var(--shadow);
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: rgba(0, 0, 0, 0.6);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      font-size: 16px;
+      font-family: inherit;
+      transition: all 0.2s;
+      background: var(--surface);
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(98, 0, 234, 0.1);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 120px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      background: var(--primary);
+      color: var(--on-primary);
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 2px 4px var(--shadow);
+    }
+
+    .btn:hover {
+      background: var(--primary-dark);
+      box-shadow: 0 4px 8px var(--shadow);
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn:disabled {
+      background: rgba(0, 0, 0, 0.12);
+      color: rgba(0, 0, 0, 0.38);
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .btn-secondary {
+      background: var(--secondary);
+      color: var(--on-surface);
+    }
+
+    .btn-secondary:hover {
+      background: #00bfa5;
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--primary);
+      border: 2px solid var(--primary);
+      box-shadow: none;
+    }
+
+    .btn-outline:hover {
+      background: rgba(98, 0, 234, 0.04);
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .tag-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--primary-light);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 16px;
+      font-size: 12px;
+    }
+
+    .tag button {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 0;
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: background 0.2s;
+    }
+
+    .tag button:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .tag-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 8px;
+      align-items: end;
+    }
+
+    .alert {
+      padding: 16px;
+      border-radius: 4px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: start;
+      gap: 12px;
+    }
+
+    .alert-success {
+      background: #c8e6c9;
+      color: #1b5e20;
+    }
+
+    .alert-error {
+      background: #ffcdd2;
+      color: #b71c1c;
+    }
+
+    .alert-info {
+      background: #b3e5fc;
+      color: #01579b;
+    }
+
+    .history-item {
+      padding: 16px;
+      border-left: 4px solid var(--primary);
+      background: rgba(98, 0, 234, 0.04);
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+
+    .history-item h4 {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: var(--primary);
+    }
+
+    .history-item .meta {
+      font-size: 12px;
+      color: rgba(0, 0, 0, 0.6);
+      margin-bottom: 8px;
+    }
+
+    .history-item .links {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .history-item a {
+      color: var(--primary);
+      text-decoration: none;
+      font-size: 12px;
+    }
+
+    .history-item a:hover {
+      text-decoration: underline;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 16px;
+      color: var(--primary);
+    }
+
+    .help-text {
+      font-size: 12px;
+      color: rgba(0, 0, 0, 0.6);
+      margin-top: 4px;
+    }
+
+    .code {
+      background: #f5f5f5;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: rgba(0, 0, 0, 0.4);
+    }
+
+    .empty-state svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 12px;
+      }
+
+      .header {
+        margin: -12px -12px 16px;
+        padding: 20px 12px;
+      }
+
+      .card {
+        padding: 16px;
+      }
+
+      .btn-group {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+      }
+
+      .tag-inputs {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📡 Irys Path Publisher</h1>
+      <p>Publish content to decentralized paths</p>
+    </div>
+
+    <div id="alert-container"></div>
+
+    <div class="card">
+      <div class="input-group">
+        <label for="worker-url">Worker URL</label>
+        <input type="text" id="worker-url" placeholder="https://your-worker.workers.dev" value="">
+        <div class="help-text">Your Cloudflare Worker endpoint</div>
+      </div>
+
+      <div class="input-group">
+        <label for="path">Path</label>
+        <input type="text" id="path" placeholder="/coffee" value="">
+        <div class="help-text">e.g., /coffee, /blog/hello-world, /portfolio</div>
+      </div>
+
+      <div class="input-group">
+        <label for="data">Content</label>
+        <textarea id="data" placeholder='{"message": "Hello World"}'></textarea>
+        <div class="help-text">JSON object or plain text</div>
+      </div>
+
+      <div class="input-group">
+        <label for="content-type">Content Type</label>
+        <select id="content-type">
+          <option value="application/json">application/json</option>
+          <option value="text/plain">text/plain</option>
+          <option value="text/html">text/html</option>
+          <option value="text/markdown">text/markdown</option>
+        </select>
+      </div>
+
+      <div class="input-group">
+        <label>Custom Tags</label>
+        <div class="tag-inputs">
+          <input type="text" id="tag-name" placeholder="Name">
+          <input type="text" id="tag-value" placeholder="Value">
+          <button class="btn btn-small btn-outline" onclick="addTag()">Add Tag</button>
+        </div>
+        <div class="tag-container" id="tags-display"></div>
+      </div>
+
+      <div class="input-group">
+        <label for="root-tx">Root TX (Optional)</label>
+        <input type="text" id="root-tx" placeholder="Leave empty for new path, or paste existing Root-TX to update">
+        <div class="help-text">For updating existing content, paste the Root-TX ID</div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn" onclick="upload()">
+          <span id="upload-text">Publish</span>
+          <span id="upload-loading" style="display: none;" class="loading"></span>
+        </button>
+        <button class="btn btn-secondary" onclick="preview()">
+          <span>Preview (No Upload)</span>
+        </button>
+        <button class="btn btn-outline" onclick="clearForm()">Clear</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="section-title">📜 History</h3>
+      <div id="history-container">
+        <div class="empty-state">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+          </svg>
+          <p>No uploads yet</p>
+        </div>
+      </div>
+      <button class="btn btn-outline btn-small" onclick="clearHistory()" style="margin-top: 16px;">Clear History</button>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let tags = [];
+    let history = JSON.parse(localStorage.getItem('irys-history') || '[]');
+
+    // Initialize
+    document.getElementById('worker-url').value = localStorage.getItem('worker-url') || '';
+    renderHistory();
+
+    // Save worker URL
+    document.getElementById('worker-url').addEventListener('change', (e) => {
+      localStorage.setItem('worker-url', e.target.value);
+    });
+
+    function showAlert(message, type = 'info') {
+      const container = document.getElementById('alert-container');
+      const alert = document.createElement('div');
+      alert.className = `alert alert-${type}`;
+      alert.textContent = message;
+      container.appendChild(alert);
+      setTimeout(() => alert.remove(), 5000);
+    }
+
+    function addTag() {
+      const name = document.getElementById('tag-name').value.trim();
+      const value = document.getElementById('tag-value').value.trim();
+
+      if (!name || !value) {
+        showAlert('Both tag name and value are required', 'error');
+        return;
+      }
+
+      tags.push({ name, value });
+      document.getElementById('tag-name').value = '';
+      document.getElementById('tag-value').value = '';
+      renderTags();
+    }
+
+    function removeTag(index) {
+      tags.splice(index, 1);
+      renderTags();
+    }
+
+    function renderTags() {
+      const container = document.getElementById('tags-display');
+      if (tags.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+
+      container.innerHTML = tags.map((tag, i) => `
+        <div class="tag">
+          <span>${tag.name}: ${tag.value}</span>
+          <button onclick="removeTag(${i})">×</button>
+        </div>
+      `).join('');
+    }
+
+    async function upload() {
+      await performUpload(false);
+    }
+
+    async function preview() {
+      await performUpload(true);
+    }
+
+    async function performUpload(previewOnly = false) {
+      const workerUrl = document.getElementById('worker-url').value.trim();
+      const path = document.getElementById('path').value.trim();
+      const dataStr = document.getElementById('data').value.trim();
+      const contentType = document.getElementById('content-type').value;
+      const rootTx = document.getElementById('root-tx').value.trim();
+
+      if (!workerUrl) {
+        showAlert('Worker URL is required', 'error');
+        return;
+      }
+
+      if (!path && !rootTx) {
+        showAlert('Path is required for new uploads', 'error');
+        return;
+      }
+
+      if (!dataStr) {
+        showAlert('Content is required', 'error');
+        return;
+      }
+
+      let data;
+      try {
+        data = contentType === 'application/json' ? JSON.parse(dataStr) : dataStr;
+      } catch (e) {
+        showAlert('Invalid JSON format', 'error');
+        return;
+      }
+
+      const uploadBtn = document.getElementById('upload-text');
+      const loading = document.getElementById('upload-loading');
+      uploadBtn.style.display = 'none';
+      loading.style.display = 'block';
+
+      try {
+        const payload = {
+          data,
+          contentType,
+          tags,
+          previewOnly
+        };
+
+        if (path) payload.path = path;
+        if (rootTx) payload.rootTx = rootTx;
+
+        const response = await fetch(`${workerUrl}/v1/upload`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (result.ok) {
+          const action = previewOnly ? 'Preview generated' : 'Upload successful';
+          showAlert(`${action}! TX ID: ${result.txId}`, 'success');
+
+          if (!previewOnly) {
+            addToHistory({
+              path: path || 'update',
+              rootTx: rootTx || result.tags?.find(t => t.name === 'Root-TX')?.value,
+              txId: result.txId,
+              immutableUrl: result.immutableUrl,
+              mutableUrl: result.mutableUrl,
+              timestamp: new Date().toISOString(),
+              tags: result.tags
+            });
+          }
+
+          if (result.mutableUrl) {
+            console.log('Mutable URL:', result.mutableUrl);
+          }
+        } else {
+          showAlert(result.error || 'Upload failed', 'error');
+        }
+      } catch (error) {
+        showAlert('Network error: ' + error.message, 'error');
+      } finally {
+        uploadBtn.style.display = 'inline';
+        loading.style.display = 'none';
+      }
+    }
+
+    function addToHistory(item) {
+      history.unshift(item);
+      if (history.length > 20) history = history.slice(0, 20);
+      localStorage.setItem('irys-history', JSON.stringify(history));
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const container = document.getElementById('history-container');
+
+      if (history.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            <p>No uploads yet</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = history.map(item => `
+        <div class="history-item">
+          <h4>${item.path}</h4>
+          <div class="meta">
+            ${new Date(item.timestamp).toLocaleString()} •
+            <span class="code">${item.txId.substring(0, 16)}...</span>
+          </div>
+          <div class="links">
+            <a href="${item.immutableUrl}" target="_blank">📌 Immutable</a>
+            ${item.mutableUrl ? `<a href="${item.mutableUrl}" target="_blank">🔄 Mutable</a>` : ''}
+            <a href="#" onclick="useAsRootTx('${item.rootTx || item.txId}'); return false;">↻ Update This</a>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function useAsRootTx(rootTx) {
+      document.getElementById('root-tx').value = rootTx;
+      showAlert('Root-TX populated. You can now update this content!', 'info');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function clearHistory() {
+      if (confirm('Clear all history?')) {
+        history = [];
+        localStorage.setItem('irys-history', '[]');
+        renderHistory();
+        showAlert('History cleared', 'info');
+      }
+    }
+
+    function clearForm() {
+      document.getElementById('path').value = '';
+      document.getElementById('data').value = '';
+      document.getElementById('root-tx').value = '';
+      tags = [];
+      renderTags();
+    }
+  </script>
+</body>
+</html>
