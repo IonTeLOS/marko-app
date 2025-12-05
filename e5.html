@@ -839,23 +839,25 @@ async sendUSDC(toAddress, amount) {
   const gasPrice = await bundlerRpc('pimlico_getUserOperationGasPrice', []);
 
   // Initial UserOp
-  let userOp = {
-    sender,
-    nonce: nonce.toHexString(),
-    factory: '0x0000000000000000000000000000000000000000',
-    factoryData: '0x',
-    callData,
-    callGasLimit: '0x0',
-    verificationGasLimit: '0x0',
-    preVerificationGas: '0x0',
-    maxFeePerGas: gasPrice.fast.maxFeePerGas,
-    maxPriorityFeePerGas: gasPrice.fast.maxPriorityFeePerGas,
-    paymaster: '0x0000000000000000000000000000000000000000',
-    paymasterVerificationGasLimit: '0x0',
-    paymasterPostOpGasLimit: '0x0',
-    paymasterData: '0x',
-    signature: '0x'
-  };
+// Initial UserOp - v0.7 format with paymasterValidationGasLimit
+let userOp = {
+  sender,
+  nonce: nonce.toHexString(),
+  factory: '0x0000000000000000000000000000000000000000',
+  factoryData: '0x',
+  callData,
+  callGasLimit: '0x0',
+  verificationGasLimit: '0x0',
+  preVerificationGas: '0x0',
+  maxFeePerGas: gasPrice.fast.maxFeePerGas,
+  maxPriorityFeePerGas: gasPrice.fast.maxPriorityFeePerGas,
+  paymaster: '0x0000000000000000000000000000000000000000',
+  paymasterVerificationGasLimit: '0x0',
+  paymasterPostOpGasLimit: '0x0',
+  paymasterValidationGasLimit: '0x0',  // ← ADD THIS LINE
+  paymasterData: '0x',
+  signature: '0x'
+};
 
   // CRITICAL FIX: Use pm_getPaymasterData with correct parameters
   console.log('Requesting paymaster data...');
@@ -875,10 +877,12 @@ async sendUSDC(toAddress, amount) {
   }
 
   // Update userOp with paymaster info
-  userOp.paymaster = paymasterResult.paymaster;
-  userOp.paymasterData = paymasterResult.paymasterData || '0x';
-  userOp.paymasterVerificationGasLimit = paymasterResult.paymasterVerificationGasLimit || '0x30000';
-  userOp.paymasterPostOpGasLimit = paymasterResult.paymasterPostOpGasLimit || '0x30000';
+// Update userOp with paymaster info
+userOp.paymaster = paymasterResult.paymaster;
+userOp.paymasterData = paymasterResult.paymasterData || '0x';
+userOp.paymasterVerificationGasLimit = paymasterResult.paymasterVerificationGasLimit || '0x30000';
+userOp.paymasterPostOpGasLimit = paymasterResult.paymasterPostOpGasLimit || '0x30000';
+userOp.paymasterValidationGasLimit = paymasterResult.paymasterValidationGasLimit || '0x30000';  // ← ADD THIS LINE
 
   // Add USDC approval for paymaster + transfer
   const approveCalldata = usdc.interface.encodeFunctionData('approve', [
@@ -908,18 +912,20 @@ async sendUSDC(toAddress, amount) {
   }
 
   // Re-request paymaster with final callData
-  const finalPaymasterResult = await bundlerRpc('pm_getPaymasterData', [
-    userOp,
-    ENTRY_POINT,
-    CHAIN_ID,
-    { token: USDC_CONTRACT }
-  ]);
+ // Re-request paymaster with final callData
+const finalPaymasterResult = await bundlerRpc('pm_getPaymasterData', [
+  userOp,
+  ENTRY_POINT,
+  CHAIN_ID,
+  { token: USDC_CONTRACT }
+]);
 
-  userOp.paymaster = finalPaymasterResult.paymaster;
-  userOp.paymasterData = finalPaymasterResult.paymasterData || '0x';
-  userOp.paymasterVerificationGasLimit = finalPaymasterResult.paymasterVerificationGasLimit || '0x30000';
-  userOp.paymasterPostOpGasLimit = finalPaymasterResult.paymasterPostOpGasLimit || '0x30000';
-
+userOp.paymaster = finalPaymasterResult.paymaster;
+userOp.paymasterData = finalPaymasterResult.paymasterData || '0x';
+userOp.paymasterVerificationGasLimit = finalPaymasterResult.paymasterVerificationGasLimit || '0x30000';
+userOp.paymasterPostOpGasLimit = finalPaymasterResult.paymasterPostOpGasLimit || '0x30000';
+userOp.paymasterValidationGasLimit = finalPaymasterResult.paymasterValidationGasLimit || '0x30000';  // ← ADD THIS LINE
+  
   console.log('Final UserOp:', userOp);
 
   // Compute userOpHash
