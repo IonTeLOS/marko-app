@@ -424,7 +424,7 @@ const POLYGON_RPC = 'https://polygon-rpc.com';
 // USDC native on Polygon PoS (Circle)
 const USDC_CONTRACT = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359';
 // Pimlico bundler for ERC-4337 UserOperations
-const PIMLICO_API_KEY = "pim_Do9VqKL2LXkrvzz5xcmNS9";  
+const PIMLICO_API_KEY = "pim_Do9VqKL2LXkrvzz5xcmNS9";
 const BUNDLER_URL = `https://api.pimlico.io/v2/137/rpc?apikey=${PIMLICO_API_KEY}`;// Replace with your Pimlico API key
 const ENTRY_POINT = '0x0000000071727De22E5E9d8BAf0edAc6f37da032'; // ERC-4337 EntryPoint v0.7 on Polygon
 const DESIGNATION = '0xe6Cae83BdE06E4c305530e199D7217f42808555B'; // SimpleAccount implementation for EIP-7702
@@ -493,20 +493,32 @@ function hexToBytes(hex) {
   return bytes;
 }
 // Bundler RPC helper
+// Bundler RPC helper with better error handling
 async function bundlerRpc(method, params) {
-  const response = await fetch(BUNDLER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method,
-      params
-    })
-  });
-  const { result, error } = await response.json();
-  if (error) throw new Error(error.message || 'Bundler RPC error');
-  return result;
+  try {
+    const response = await fetch(BUNDLER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method,
+        params
+      })
+    });
+
+    const json = await response.json();
+
+    if (json.error) {
+      console.error('Bundler RPC Error:', json.error);
+      throw new Error(json.error.message || JSON.stringify(json.error));
+    }
+
+    return json.result;
+  } catch (error) {
+    console.error(`Bundler RPC failed for ${method}:`, error);
+    throw error;
+  }
 }
 // Local userOpHash computation for v0.7
 function computeUserOpHash(userOp) {
@@ -794,122 +806,192 @@ const WalletCore = {
     const decimals = await contract.decimals();
     return ethers.utils.formatUnits(balance, decimals);
   },
-  async sendUSDC(toAddress, amount) {
-    if (!evmWallet) throw new Error('EVM wallet not loaded');
-    const sender = evmWallet.address;
-    const entryPoint = new ethers.Contract(ENTRY_POINT, ENTRY_POINT_ABI, evmProvider);
-    const nonce = await entryPoint.getNonce(sender, 0);
-    const account = new ethers.Contract(sender, ACCOUNT_ABI, evmProvider); // Dummy for interface
-    const usdc = new ethers.Contract(USDC_CONTRACT, ERC20_ABI, evmProvider);
-    const decimals = await usdc.decimals();
-    const amountWei = ethers.utils.parseUnits(amount.toString(), decimals);
-    const dummyPaymaster = '0x0000000000000000000000000000000000000000';
-    const approveCalldata = usdc.interface.encodeFunctionData('approve', [dummyPaymaster, ethers.constants.MaxUint256]);
-    const transferCalldata = usdc.interface.encodeFunctionData('transfer', [toAddress, amountWei]);
-    const calls = [
-      { dest: USDC_CONTRACT, value: '0x0', func: approveCalldata },
-      { dest: USDC_CONTRACT, value: '0x0', func: transferCalldata }
-    ];
-    const callData = account.interface.encodeFunctionData('executeBatch', [calls]);
-    let userOp = {
-      sender,
-      nonce: nonce.toHexString(),
-      factory: '0x0000000000000000000000000000000000000000',
-      factoryData: '0x',
-      callData,
-      callGasLimit: '0x0',
-      verificationGasLimit: '0x0',
-      preVerificationGas: '0x0',
-      maxFeePerGas: '0x0',
-      maxPriorityFeePerGas: '0x0',
-      paymaster: '0x0000000000000000000000000000000000000000',
-      paymasterVerificationGasLimit: '0x0',
-      paymasterPostOpGasLimit: '0x0',
-      paymasterData: '0x',
-      signature: '0x'
-    };
-    const gasPrice = await bundlerRpc('pimlico_getUserOperationGasPrice', []);
-    userOp.maxFeePerGas = gasPrice.fast.maxFeePerGas;
-    userOp.maxPriorityFeePerGas = gasPrice.fast.maxPriorityFeePerGas;
-    let estimate = await bundlerRpc('eth_estimateUserOperationGas', [userOp, ENTRY_POINT]);
-    userOp.callGasLimit = estimate.callGasLimit;
-    userOp.verificationGasLimit = estimate.verificationGasLimit;
-    userOp.preVerificationGas = estimate.preVerificationGas;
-    const sponsorshipInfo = {
-      mode: 'erc20',
-      token: USDC_CONTRACT
-    };
-    let sponsorResult = await bundlerRpc('pm_sponsorUserOperation', [userOp, ENTRY_POINT, sponsorshipInfo]);
-    userOp.paymaster = sponsorResult.paymaster;
-    userOp.paymasterData = sponsorResult.paymasterData;
-    userOp.paymasterVerificationGasLimit = sponsorResult.paymasterVerificationGasLimit;
-    userOp.paymasterPostOpGasLimit = sponsorResult.paymasterPostOpGasLimit;
-    if (sponsorResult.callGasLimit) userOp.callGasLimit = sponsorResult.callGasLimit;
-    if (sponsorResult.verificationGasLimit) userOp.verificationGasLimit = sponsorResult.verificationGasLimit;
-    if (sponsorResult.preVerificationGas) userOp.preVerificationGas = sponsorResult.preVerificationGas;
-    // Update approve to the actual paymaster
-    const approveCalldataUpdated = usdc.interface.encodeFunctionData('approve', [userOp.paymaster, ethers.constants.MaxUint256]);
-    const callsUpdated = [
-      { dest: USDC_CONTRACT, value: '0x0', func: approveCalldataUpdated },
-      { dest: USDC_CONTRACT, value: '0x0', func: transferCalldata }
-    ];
-    userOp.callData = account.interface.encodeFunctionData('executeBatch', [callsUpdated]);
-    // Re-estimate
-    estimate = await bundlerRpc('eth_estimateUserOperationGas', [userOp, ENTRY_POINT]);
-    userOp.callGasLimit = estimate.callGasLimit;
-    userOp.verificationGasLimit = estimate.verificationGasLimit;
-    userOp.preVerificationGas = estimate.preVerificationGas;
-    sponsorResult = await bundlerRpc('pm_sponsorUserOperation', [userOp, ENTRY_POINT, sponsorshipInfo]);
-    userOp.paymaster = sponsorResult.paymaster;
-    userOp.paymasterData = sponsorResult.paymasterData;
-    userOp.paymasterVerificationGasLimit = sponsorResult.paymasterVerificationGasLimit;
-    userOp.paymasterPostOpGasLimit = sponsorResult.paymasterPostOpGasLimit;
-    if (sponsorResult.callGasLimit) userOp.callGasLimit = sponsorResult.callGasLimit;
-    if (sponsorResult.verificationGasLimit) userOp.verificationGasLimit = sponsorResult.verificationGasLimit;
-    if (sponsorResult.preVerificationGas) userOp.preVerificationGas = sponsorResult.preVerificationGas;
-    // Compute userOpHash
-    const userOpHash = computeUserOpHash(userOp);
-    // Sign EIP-7702 authorization
-    const txNonce = await evmProvider.getTransactionCount(sender, 'pending');
-    const domain = {
-      chainId: CHAIN_ID,
-      verifyingContract: sender
-    };
-    const types = {
-      SetCodeAuthorization: [
-        { name: 'nonce', type: 'uint256' },
-        { name: 'designation', type: 'address' }
-      ]
-    };
-    const value = {
-      nonce: txNonce,
-      designation: DESIGNATION
-    };
-    const authSig = await evmWallet._signTypedData(domain, types, value);
-    const v = parseInt(authSig.slice(-2), 16);
-    const yParity = v - 27;
-    const r = authSig.slice(2, 66);
-    const s = authSig.slice(66, 130);
-    const authorizationTuple = [DESIGNATION, yParity, '0x' + r, '0x' + s];
-    const encodedAuthorizations = ethers.utils.defaultAbiCoder.encode(
-      ['tuple(address designation, uint8 yParity, bytes32 r, bytes32 s)[]'],
-      [[authorizationTuple]]
-    );
-    // Owner signature over userOpHash
-    const ownerSig = await evmWallet.signMessage(ethers.utils.arrayify(userOpHash));
-    // Full signature: 0x03 + encoded authorizations + ownerSig
-    const prefix = '0x03';
-    const fullSignature = prefix + encodedAuthorizations.slice(2) + ownerSig.slice(2);
-    userOp.signature = fullSignature;
-    // Send userOp
-    const opHash = await bundlerRpc('eth_sendUserOperation', [userOp, ENTRY_POINT]);
-    let receipt = null;
-    while (!receipt) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      receipt = await bundlerRpc('eth_getUserOperationReceipt', [opHash]);
-    }
-    return receipt.receipt.transactionHash;
+async sendUSDC(toAddress, amount) {
+  if (!evmWallet) throw new Error('EVM wallet not loaded');
+
+  const sender = evmWallet.address;
+
+  // Check if account already has code (already delegated via EIP-7702)
+  const code = await evmProvider.getCode(sender);
+  const isAlreadyDelegated = code !== '0x' && code.length > 2;
+
+  console.log('Account delegation status:', { sender, isAlreadyDelegated, code });
+
+  // Get nonce from EntryPoint
+  const entryPoint = new ethers.Contract(ENTRY_POINT, ENTRY_POINT_ABI, evmProvider);
+  const nonce = await entryPoint.getNonce(sender, 0);
+
+  // Encode USDC transfer
+  const usdc = new ethers.Contract(USDC_CONTRACT, ERC20_ABI, evmProvider);
+  const decimals = await usdc.decimals();
+  const amountWei = ethers.utils.parseUnits(amount.toString(), decimals);
+  const transferCalldata = usdc.interface.encodeFunctionData('transfer', [toAddress, amountWei]);
+
+  // Build callData for SimpleAccount execute()
+  const account = new ethers.Contract(sender, ACCOUNT_ABI, evmProvider);
+  const callData = account.interface.encodeFunctionData('execute', [
+    USDC_CONTRACT,
+    0,
+    transferCalldata
+  ]);
+
+  // Get gas prices
+  const gasPrice = await bundlerRpc('pimlico_getUserOperationGasPrice', []);
+
+  // Initial UserOp
+  let userOp = {
+    sender,
+    nonce: nonce.toHexString(),
+    factory: '0x0000000000000000000000000000000000000000',
+    factoryData: '0x',
+    callData,
+    callGasLimit: '0x0',
+    verificationGasLimit: '0x0',
+    preVerificationGas: '0x0',
+    maxFeePerGas: gasPrice.fast.maxFeePerGas,
+    maxPriorityFeePerGas: gasPrice.fast.maxPriorityFeePerGas,
+    paymaster: '0x0000000000000000000000000000000000000000',
+    paymasterVerificationGasLimit: '0x0',
+    paymasterPostOpGasLimit: '0x0',
+    paymasterData: '0x',
+    signature: '0x'
+  };
+
+  // CRITICAL FIX: Use pm_getPaymasterData with correct parameters
+  console.log('Requesting paymaster data...');
+  const paymasterResult = await bundlerRpc('pm_getPaymasterData', [
+    userOp,
+    ENTRY_POINT,
+    CHAIN_ID,
+    { token: USDC_CONTRACT }
+  ]);
+
+  console.log('Paymaster result:', paymasterResult);
+
+  // Verify paymaster exists
+  const paymasterCode = await evmProvider.getCode(paymasterResult.paymaster);
+  if (!paymasterCode || paymasterCode === '0x' || paymasterCode.length <= 2) {
+    throw new Error(`Paymaster not deployed at ${paymasterResult.paymaster}`);
   }
+
+  // Update userOp with paymaster info
+  userOp.paymaster = paymasterResult.paymaster;
+  userOp.paymasterData = paymasterResult.paymasterData || '0x';
+  userOp.paymasterVerificationGasLimit = paymasterResult.paymasterVerificationGasLimit || '0x30000';
+  userOp.paymasterPostOpGasLimit = paymasterResult.paymasterPostOpGasLimit || '0x30000';
+
+  // Add USDC approval for paymaster + transfer
+  const approveCalldata = usdc.interface.encodeFunctionData('approve', [
+    userOp.paymaster,
+    ethers.constants.MaxUint256
+  ]);
+
+  const calls = [
+    { dest: USDC_CONTRACT, value: 0, func: approveCalldata },
+    { dest: USDC_CONTRACT, value: 0, func: transferCalldata }
+  ];
+
+  userOp.callData = account.interface.encodeFunctionData('executeBatch', [calls]);
+
+  // Estimate gas
+  console.log('Estimating gas...');
+  try {
+    const estimate = await bundlerRpc('eth_estimateUserOperationGas', [userOp, ENTRY_POINT]);
+    userOp.callGasLimit = estimate.callGasLimit;
+    userOp.verificationGasLimit = estimate.verificationGasLimit;
+    userOp.preVerificationGas = estimate.preVerificationGas;
+  } catch (e) {
+    console.warn('Gas estimation failed:', e.message);
+    userOp.callGasLimit = '0x100000';
+    userOp.verificationGasLimit = '0x100000';
+    userOp.preVerificationGas = '0x50000';
+  }
+
+  // Re-request paymaster with final callData
+  const finalPaymasterResult = await bundlerRpc('pm_getPaymasterData', [
+    userOp,
+    ENTRY_POINT,
+    CHAIN_ID,
+    { token: USDC_CONTRACT }
+  ]);
+
+  userOp.paymaster = finalPaymasterResult.paymaster;
+  userOp.paymasterData = finalPaymasterResult.paymasterData || '0x';
+  userOp.paymasterVerificationGasLimit = finalPaymasterResult.paymasterVerificationGasLimit || '0x30000';
+  userOp.paymasterPostOpGasLimit = finalPaymasterResult.paymasterPostOpGasLimit || '0x30000';
+
+  console.log('Final UserOp:', userOp);
+
+  // Compute userOpHash
+  const userOpHash = computeUserOpHash(userOp);
+
+  // EIP-7702 authorization if needed
+  let authorizationList = [];
+
+  if (!isAlreadyDelegated) {
+    const authNonce = await evmProvider.getTransactionCount(sender, 'latest');
+    const message = ethers.utils.solidityPack(
+      ['uint256', 'address', 'uint256'],
+      [CHAIN_ID, DESIGNATION, authNonce]
+    );
+
+    const messageHash = ethers.utils.keccak256(
+      ethers.utils.concat(['0x05', message])
+    );
+
+    const authSig = await evmWallet.signMessage(ethers.utils.arrayify(messageHash));
+    const { r, s, v } = ethers.utils.splitSignature(authSig);
+    const yParity = v >= 27 ? v - 27 : v;
+
+    authorizationList = [[DESIGNATION, authNonce, yParity, r, s]];
+  }
+
+  // Sign userOpHash
+  const ownerSig = await evmWallet.signMessage(ethers.utils.arrayify(userOpHash));
+
+  // Build signature
+  let fullSignature;
+  if (authorizationList.length > 0) {
+    const encodedAuths = ethers.utils.defaultAbiCoder.encode(
+      ['tuple(address designation, uint256 nonce, uint8 yParity, bytes32 r, bytes32 s)[]'],
+      [authorizationList]
+    );
+    fullSignature = '0x03' + encodedAuths.slice(2) + ownerSig.slice(2);
+  } else {
+    fullSignature = ownerSig;
+  }
+
+  userOp.signature = fullSignature;
+
+  // Send UserOperation
+  console.log('Sending UserOperation...');
+  const opHash = await bundlerRpc('eth_sendUserOperation', [userOp, ENTRY_POINT]);
+  console.log('UserOp hash:', opHash);
+
+  // Poll for receipt
+  let receipt = null;
+  let attempts = 0;
+
+  while (!receipt && attempts < 60) {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      receipt = await bundlerRpc('eth_getUserOperationReceipt', [opHash]);
+    } catch (e) {
+      // Not ready yet
+    }
+    attempts++;
+  }
+
+  if (!receipt) {
+    throw new Error('Transaction timeout');
+  }
+
+  if (!receipt.success) {
+    throw new Error(`UserOperation failed: ${receipt.reason || 'unknown'}`);
+  }
+
+  return receipt.receipt.transactionHash;
+}
 };
 // ============================================================================
 // UI Helpers
