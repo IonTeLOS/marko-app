@@ -304,7 +304,7 @@
 
     <div class="security-badge">
       <strong>100% Non-Custodial</strong>
-      Your private keys are generated in your browser, encrypted with your passkey, and stored on Arweave. Supports Arweave (AR) and Polygon (USDT).
+      Your private keys are generated in your browser, encrypted with your passkey, and stored on Arweave. Supports Arweave (AR) and Polygon (USDC).
     </div>
 
     <div id="landing-screen">
@@ -356,7 +356,7 @@
           Arweave (AR)
         </button>
         <button class="chain-btn" onclick="switchChain('polygon')" id="chain-polygon">
-          Polygon (USDT)
+          Polygon (USDC)
         </button>
       </div>
 
@@ -441,7 +441,9 @@
 const CLOUD_FUNCTION_URL = 'https://marko-app.netlify.app/.netlify/functions/arload';
 const WALLET_APP_NAME = 'MultiChainWallet-v1';
 const POLYGON_RPC = 'https://polygon-rpc.com';
-const USDT_CONTRACT = '0xc2132D05D31c914a87C6611C10748AEb04B58e8F'; // USDT on Polygon
+const USDT_CONTRACT = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359'; // USDC on Polygon
+
+//const USDT_CONTRACT = '0xc2132D05D31c914a87C6611C10748AEb04B58e8F'; // USDT on Polygon
 
 // ERC20 ABI (minimal for transfers and balance)
 const ERC20_ABI = [
@@ -1029,7 +1031,7 @@ async function sendTransaction() {
     } else {
       txId = await WalletCore.sendUSDT(toAddress, amount);
       setStatus('wallet-status', 
-        `✅ USDT sent! TX: <a href="https://polygonscan.com/tx/${txId}" target="_blank">${txId.substring(0, 20)}...</a>`, 
+        `✅ USDC sent! TX: <a href="https://polygonscan.com/tx/${txId}" target="_blank">${txId.substring(0, 20)}...</a>`, 
         'success'
       );
     }
