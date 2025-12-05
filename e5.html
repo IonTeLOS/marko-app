@@ -840,21 +840,21 @@ async sendUSDC(toAddress, amount) {
 
   // Initial UserOp
 // Initial UserOp - v0.7 format with paymasterValidationGasLimit
+// Initial UserOp - Correct v0.7 format for Pimlico
 let userOp = {
   sender,
   nonce: nonce.toHexString(),
   factory: '0x0000000000000000000000000000000000000000',
   factoryData: '0x',
   callData,
-  callGasLimit: '0x0',
-  verificationGasLimit: '0x0',
-  preVerificationGas: '0x0',
+  callGasLimit: '0x100000',  // ← Start with reasonable default instead of 0x0
+  verificationGasLimit: '0x100000',  // ← Start with reasonable default
+  preVerificationGas: '0x50000',  // ← Start with reasonable default
   maxFeePerGas: gasPrice.fast.maxFeePerGas,
   maxPriorityFeePerGas: gasPrice.fast.maxPriorityFeePerGas,
   paymaster: '0x0000000000000000000000000000000000000000',
-  paymasterVerificationGasLimit: '0x0',
-  paymasterPostOpGasLimit: '0x0',
-  paymasterValidationGasLimit: '0x0',  // ← ADD THIS LINE
+  paymasterVerificationGasLimit: '0x30000',  // ← Default instead of 0x0
+  paymasterPostOpGasLimit: '0x30000',  // ← Default instead of 0x0
   paymasterData: '0x',
   signature: '0x'
 };
