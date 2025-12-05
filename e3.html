@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Chain Wallet</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <script src="https://unpkg.com/arweave@1.15.5/bundles/web.bundle.js"></script>
+  <script src="https://unpkg.com/localforage/dist/localforage.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --md-sys-color-primary: #6750A4;
+      --md-sys-color-on-primary: #ffffff;
+      --md-sys-color-primary-container: #EADDFF;
+      --md-sys-color-on-primary-container: #21005D;
+      --md-sys-color-secondary: #625B71;
+      --md-sys-color-on-secondary: #ffffff;
+      --md-sys-color-secondary-container: #E8DEF8;
+      --md-sys-color-surface: #FFFBFE;
+      --md-sys-color-on-surface: #1C1B1F;
+      --md-sys-color-surface-variant: #E7E0EC;
+      --md-sys-color-on-surface-variant: #49454F;
+      --md-sys-color-outline: #79747E;
+      --md-sys-color-error: #B3261E;
+      --radius-lg: 28px;
+      --radius-md: 18px;
+      --radius-sm: 12px;
+      --elev-1: 0 1px 2px rgba(0, 0, 0, 0.12);
+      --elev-2: 0 3px 6px rgba(0, 0, 0, 0.16);
+      --elev-3: 0 6px 10px rgba(0, 0, 0, 0.20);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --md-sys-color-primary: #D0BCFF;
+        --md-sys-color-on-primary: #381E72;
+        --md-sys-color-primary-container: #4F378B;
+        --md-sys-color-on-primary-container: #EADDFF;
+        --md-sys-color-secondary: #CCC2DC;
+        --md-sys-color-on-secondary: #332D41;
+        --md-sys-color-secondary-container: #4A4458;
+        --md-sys-color-surface: #1C1B1F;
+        --md-sys-color-on-surface: #E6E1E5;
+        --md-sys-color-surface-variant: #49454F;
+        --md-sys-color-on-surface-variant: #CAC4D0;
+        --md-sys-color-outline: #938F99;
+        --md-sys-color-error: #F2B8B5;
+      }
+    }
+
+    body {
+      background: var(--md-sys-color-surface);
+      color: var(--md-sys-color-on-surface);
+      font-family: "Roboto", system-ui, sans-serif;
+      padding: 32px 16px 80px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 860px;
+      background: var(--md-sys-color-surface);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      box-shadow: var(--elev-2);
+    }
+
+    .header h1 {
+      text-align: center;
+      font-size: 32px;
+      margin-bottom: 16px;
+    }
+
+    .security-badge {
+      background: var(--md-sys-color-surface-variant);
+      color: var(--md-sys-color-on-surface-variant);
+      padding: 18px;
+      border-radius: var(--radius-md);
+      font-size: 15px;
+      margin-bottom: 36px;
+      border: 1px solid var(--md-sys-color-outline);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 16px;
+      border-radius: var(--radius-md);
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0;
+      transition: background 0.2s, transform 0.1s;
+      box-shadow: var(--elev-1);
+    }
+
+    .btn-primary {
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+    }
+
+    .btn-secondary {
+      background: var(--md-sys-color-secondary-container);
+      color: var(--md-sys-color-on-secondary-container);
+    }
+
+    .btn-danger {
+      background: var(--md-sys-color-error);
+      color: white;
+    }
+
+    .btn-success {
+      background: #4CAF50;
+      color: white;
+    }
+
+    .btn:hover:not(:disabled) {
+      transform: scale(1.01);
+      filter: brightness(1.05);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .input-group {
+      margin-bottom: 24px;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .input-group input,
+    .input-group textarea,
+    .input-group select {
+      width: 100%;
+      padding: 14px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--md-sys-color-outline);
+      background: var(--md-sys-color-surface-variant);
+      color: var(--md-sys-color-on-surface);
+      font-size: 16px;
+    }
+
+    .status {
+      padding: 18px;
+      border-radius: var(--radius-md);
+      margin-top: 20px;
+      font-size: 15px;
+      line-height: 1.4;
+      font-weight: 500;
+    }
+
+    .status-info {
+      background: rgba(100, 150, 255, 0.18);
+      color: var(--md-sys-color-on-surface);
+    }
+
+    .status-success {
+      background: rgba(0, 200, 83, 0.18);
+      color: #0d4d0d;
+    }
+
+    .status-error {
+      background: rgba(255, 82, 82, 0.18);
+      color: #7b0000;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      border-bottom: 2px solid var(--md-sys-color-outline);
+      margin-bottom: 20px;
+      overflow-x: auto;
+    }
+
+    .tab {
+      padding: 12px 18px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 15px;
+      color: var(--md-sys-color-on-surface);
+      border-bottom: 3px solid transparent;
+      transition: all 0.25s;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+    }
+
+    .tab.active {
+      color: var(--md-sys-color-primary);
+      border-bottom-color: var(--md-sys-color-primary);
+      font-weight: 600;
+    }
+
+    .wallet-info {
+      background: var(--md-sys-color-surface-variant);
+      padding: 20px;
+      border-radius: var(--radius-md);
+      margin-bottom: 20px;
+      box-shadow: var(--elev-1);
+    }
+
+    .wallet-info-value {
+      font-family: monospace;
+      padding: 10px;
+      background: var(--md-sys-color-surface);
+      border-radius: var(--radius-sm);
+      word-break: break-all;
+      font-size: 13px;
+    }
+
+    .balance-card {
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+      padding: 26px;
+      border-radius: var(--radius-lg);
+      text-align: center;
+      margin-bottom: 28px;
+      box-shadow: var(--elev-3);
+    }
+
+    .balance-amount {
+      font-size: 44px;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+
+    .balance-secondary {
+      font-size: 24px;
+      font-weight: 600;
+      margin-top: 12px;
+      opacity: 0.9;
+    }
+
+    .chain-selector {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      justify-content: center;
+    }
+
+    .chain-btn {
+      padding: 10px 20px;
+      border-radius: var(--radius-md);
+      border: 2px solid var(--md-sys-color-outline);
+      background: var(--md-sys-color-surface);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .chain-btn.active {
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+      border-color: var(--md-sys-color-primary);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .material-symbols-rounded {
+      font-family: 'Material Symbols Rounded';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-smoothing: antialiased;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🌐 Multi-Chain Wallet</h1>
+    </div>
+
+    <div class="security-badge">
+      <strong>100% Non-Custodial</strong>
+      Your private keys are generated in your browser, encrypted with your passkey, and stored on Arweave. Supports Arweave (AR) and Polygon (USDC).
+    </div>
+
+    <div id="landing-screen">
+      <button class="btn btn-primary" onclick="showCreateScreen()">
+        <span class="material-symbols-rounded">add_circle</span>
+        Create New Wallet
+      </button>
+      <button class="btn btn-secondary" onclick="showUnlockScreen()">
+        <span class="material-symbols-rounded">lock_open</span>
+        Unlock Existing Wallet
+      </button>
+    </div>
+
+    <div id="create-screen" class="hidden">
+      <h2 style="margin-bottom: 20px;">Create Wallet</h2>
+      <div class="input-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Enter username">
+      </div>
+      <button class="btn btn-primary" onclick="createWallet()" id="create-btn">
+        <span class="material-symbols-rounded">add_circle</span>
+        Create Wallet
+      </button>
+      <button class="btn btn-secondary" onclick="showLanding()">
+        <span class="material-symbols-rounded">arrow_back</span>
+        Back
+      </button>
+      <div id="create-status"></div>
+    </div>
+
+    <div id="unlock-screen" class="hidden">
+      <h2 style="margin-bottom: 20px;">Unlock Wallet</h2>
+      <button class="btn btn-primary" onclick="unlockWallet()" id="unlock-btn">
+        <span class="material-symbols-rounded">lock_open</span>
+        Unlock with Biometrics
+      </button>
+      <button class="btn btn-secondary" onclick="showLanding()">
+        <span class="material-symbols-rounded">arrow_back</span>
+        Back
+      </button>
+      <div id="unlock-status"></div>
+    </div>
+
+    <div id="wallet-screen" class="hidden">
+      <h2 style="margin-bottom: 20px;">Wallet Active</h2>
+
+      <div class="chain-selector">
+        <button class="chain-btn active" onclick="switchChain('arweave')" id="chain-arweave">
+          Arweave (AR)
+        </button>
+        <button class="chain-btn" onclick="switchChain('polygon')" id="chain-polygon">
+          Polygon (USDC)
+        </button>
+      </div>
+
+      <div class="balance-card">
+        <div class="balance-label">Balance</div>
+        <div class="balance-amount" id="balance-display">--</div>
+        <div class="balance-secondary" id="balance-secondary">--</div>
+        <button class="btn" onclick="refreshBalance()" style="background: rgba(255,255,255,0.2); margin: 12px auto 0; width: auto; padding: 8px 20px;">
+          <span class="material-symbols-rounded">refresh</span>
+          Refresh
+        </button>
+      </div>
+
+      <div class="wallet-info">
+        <div class="wallet-info-item">
+          <div class="wallet-info-label">Address</div>
+          <div class="wallet-info-value" id="wallet-address"></div>
+        </div>
+      </div>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('send')">
+    <span class="material-symbols-rounded">send</span>
+    Send
+  </button>
+  <button class="tab" onclick="showTab('data')">
+    <span class="material-symbols-rounded">upload_file</span>
+    Upload Data
+  </button>
+  <button class="tab" onclick="showTab('sign')">
+    <span class="material-symbols-rounded">edit_note</span>
+    Sign (EVM)
+  </button>
+</div>
+
+<div id="send-tab" class="tab-content">
+  <div class="input-group">
+    <label for="send-address">Recipient Address</label>
+    <input type="text" id="send-address" placeholder="Address">
+  </div>
+  <div class="input-group">
+    <label for="send-amount" id="send-amount-label">Amount</label>
+    <input type="number" id="send-amount" placeholder="0.001" step="0.001" min="0">
+  </div>
+  <button class="btn btn-primary" onclick="sendTransaction()">
+    <span class="material-symbols-rounded">send</span>
+    Send
+  </button>
+</div>
+
+<div id="data-tab" class="tab-content hidden">
+  <p style="margin-bottom: 16px; color: var(--md-sys-color-on-surface-variant);">
+    Upload data to Arweave (decentralized storage)
+  </p>
+  <div class="input-group">
+    <label for="data-content">Data Content</label>
+    <textarea id="data-content" placeholder="Enter data to upload..."></textarea>
+  </div>
+  <div class="input-group">
+    <label for="content-type">Content Type</label>
+    <input type="text" id="content-type" placeholder="text/plain" value="text/plain">
+  </div>
+  <button class="btn btn-primary" onclick="uploadData()">
+    <span class="material-symbols-rounded">upload_file</span>
+    Upload to Arweave
+  </button>
+</div>
+
+<div id="sign-tab" class="tab-content hidden">
+  <div class="input-group">
+    <label for="sign-message">Message to Sign (EVM / Polygon)</label>
+    <textarea id="sign-message" placeholder="Enter message to sign..."></textarea>
+  </div>
+  <button class="btn btn-primary" onclick="signEvmMessage()">
+    <span class="material-symbols-rounded">edit_note</span>
+    Sign Message
+  </button>
+
+  <div id="signature-container" class="wallet-info hidden" style="margin-top: 20px;">
+    <div class="wallet-info-item">
+      <div class="wallet-info-label">Signed Message</div>
+      <div class="wallet-info-value" id="signed-message"></div>
+    </div>
+    <div class="wallet-info-item">
+      <div class="wallet-info-label">Signature (hex)</div>
+      <div class="wallet-info-value" id="signature-value"></div>
+    </div>
+    <div class="wallet-info-item">
+      <div class="wallet-info-label">Signer Address</div>
+      <div class="wallet-info-value" id="signer-address"></div>
+    </div>
+  </div>
+
+  <div class="button-group" style="margin-top: 12px;">
+    <button class="btn btn-secondary" onclick="copyEvmSignature()">
+      <span class="material-symbols-rounded">content_copy</span>
+      Copy JSON
+    </button>
+    <button class="btn btn-success" onclick="verifyEvmSignature()">
+      <span class="material-symbols-rounded">check_circle</span>
+      Verify Signature
+    </button>
+  </div>
+</div>
+
+<div class="button-group" style="margin-top: 20px;">
+  <button class="btn btn-success" onclick="exportKeys()">
+    <span class="material-symbols-rounded">download</span>
+    Export Keys
+  </button>
+  <button class="btn btn-danger" onclick="lockWallet()">
+    <span class="material-symbols-rounded">lock</span>
+    Lock Wallet
+  </button>
+</div>
+
+<div id="wallet-status"></div>
+
+    </div>
+  </div>
+
+<script>
+// Configuration
+const CLOUD_FUNCTION_URL = 'https://marko-app.netlify.app/.netlify/functions/arload';
+const WALLET_APP_NAME = 'MultiChainWallet-v1';
+const POLYGON_RPC = 'https://polygon-rpc.com';
+const USDT_CONTRACT = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359'; // USDC on Polygon
+
+//const USDT_CONTRACT = '0xc2132D05D31c914a87C6611C10748AEb04B58e8F'; // USDT on Polygon
+
+// ERC20 ABI (minimal for transfers and balance)
+const ERC20_ABI = [
+  "function balanceOf(address owner) view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function transfer(address to, uint256 amount) returns (bool)",
+  "function symbol() view returns (string)"
+];
+
+let arweave = null;
+let currentChain = 'arweave';
+let evmProvider = null;
+let evmWallet = null;
+let arweaveWallet = null;
+let pendingEvmSignRequest = null;
+let pendingEvmTxRequest = null;
+let lastEvmSignature = null;
+
+// Initialize
+try {
+  if (window.Arweave) {
+    arweave = Arweave.init({ host: 'arweave.net', port: 443, protocol: 'https' });
+  }
+  evmProvider = new ethers.providers.JsonRpcProvider(POLYGON_RPC);
+} catch (e) {
+  console.error('Initialization error:', e);
+}
+
+// Storage
+const WalletStorage = {
+  async get(key) {
+    return localStorage.getItem('mcwallet:' + key);
+  },
+  async set(key, value) {
+    localStorage.setItem('mcwallet:' + key, value);
+  },
+  async remove(key) {
+    localStorage.removeItem('mcwallet:' + key);
+  }
+};
+
+// Utility functions
+function bytesToHex(bytes) {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function hexToBytes(hex) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  }
+  return bytes;
+}
+
+// WebAuthn Helper
+const WebAuthnHelper = {
+  async register(username) {
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const prfSalt = crypto.getRandomValues(new Uint8Array(32));
+
+    const credential = await navigator.credentials.create({
+      publicKey: {
+        challenge,
+        rp: { name: 'MCW', id: window.location.hostname },
+        user: {
+          id: crypto.getRandomValues(new Uint8Array(16)),
+          name: username,
+          displayName: username
+        },
+        pubKeyCredParams: [{ alg: -7, type: 'public-key' }],
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform',
+          userVerification: 'required'
+        },
+        timeout: 60000,
+        extensions: { prf: { eval: { first: prfSalt } } }
+      }
+    });
+
+    const credentialIdHex = bytesToHex(new Uint8Array(credential.rawId));
+    let prfKeyHex = null;
+
+    if (typeof credential.getClientExtensionResults === 'function') {
+      const ext = credential.getClientExtensionResults();
+      if (ext?.prf?.results?.first) {
+        prfKeyHex = bytesToHex(new Uint8Array(ext.prf.results.first));
+      }
+    }
+
+    return {
+      credentialId: credentialIdHex,
+      prfKeyHex,
+      prfSaltHex: bytesToHex(prfSalt)
+    };
+  },
+
+  async authenticate(credentialIdHex) {
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    await navigator.credentials.get({
+      publicKey: {
+        challenge,
+        allowCredentials: [{ id: hexToBytes(credentialIdHex), type: 'public-key' }],
+        userVerification: 'required',
+        timeout: 60000
+      }
+    });
+    return true;
+  },
+
+  async evaluatePrf(credentialIdHex, saltBytes) {
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge,
+        allowCredentials: [{ id: hexToBytes(credentialIdHex), type: 'public-key' }],
+        userVerification: 'required',
+        timeout: 60000,
+        extensions: { prf: { eval: { first: saltBytes } } }
+      }
+    });
+
+    const ext = assertion.getClientExtensionResults?.();
+    if (!ext?.prf?.results?.first) {
+      throw new Error('PRF extension not available');
+    }
+    return new Uint8Array(ext.prf.results.first);
+  }
+};
+
+// Crypto Helper
+const CryptoHelper = {
+  async encrypt(data, key) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      new TextEncoder().encode(JSON.stringify(data))
+    );
+
+    return {
+      ciphertext: bytesToHex(new Uint8Array(encrypted)),
+      iv: bytesToHex(iv)
+    };
+  },
+
+  async decrypt(encryptedData, key) {
+    const ciphertext = hexToBytes(encryptedData.ciphertext);
+    const iv = hexToBytes(encryptedData.iv);
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      ciphertext
+    );
+    return JSON.parse(new TextDecoder().decode(decrypted));
+  }
+};
+
+// Upload to cloud function
+async function uploadToCloudFunction(data, tags) {
+  const response = await fetch(CLOUD_FUNCTION_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      content: JSON.stringify(data),
+      isBase64: false,
+      encrypt: false,
+      extraTags: tags
+    })
+  });
+
+  const result = await response.json();
+  if (!response.ok || !result.success) {
+    throw new Error(result.message || 'Upload failed');
+  }
+  return result;
+}
+
+// Wallet Core
+const WalletCore = {
+  async createWallet(username) {
+    if (!arweave) throw new Error('Arweave not loaded');
+
+    const { credentialId, prfKeyHex, prfSaltHex } = await WebAuthnHelper.register(username);
+
+    // Generate both wallets
+    const arJwk = await arweave.wallets.generate();
+    const evmMnemonic = ethers.Wallet.createRandom().mnemonic.phrase;
+    const evmPrivateKey = ethers.Wallet.fromMnemonic(evmMnemonic).privateKey;
+
+    let aesKey;
+    let keyMode;
+
+    if (prfKeyHex) {
+      keyMode = 'prf';
+      const prfBytes = hexToBytes(prfKeyHex);
+      const hkdfKey = await crypto.subtle.importKey(
+        "raw", prfBytes, "HKDF", false, ["deriveKey"]
+      );
+      aesKey = await crypto.subtle.deriveKey(
+        {
+          name: "HKDF",
+          hash: "SHA-256",
+          salt: hexToBytes(prfSaltHex),
+          info: new Uint8Array([]),
+        },
+        hkdfKey,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    } else {
+      keyMode = 'wrapped';
+      const rawKey = crypto.getRandomValues(new Uint8Array(32));
+      aesKey = await crypto.subtle.importKey(
+        'raw', rawKey, 'AES-GCM', false, ['encrypt', 'decrypt']
+      );
+      await WalletStorage.set('aesKeyHex', bytesToHex(rawKey));
+    }
+
+    // Encrypt both keys together
+    const keysToBackup = {
+      arweaveJwk: arJwk,
+      evmPrivateKey: evmPrivateKey,
+      evmMnemonic: evmMnemonic
+    };
+    const encrypted = await CryptoHelper.encrypt(keysToBackup, aesKey);
+
+    const arAddress = await arweave.wallets.jwkToAddress(arJwk);
+    const evmAddress = ethers.Wallet.fromMnemonic(evmMnemonic).address;
+
+    const meta = {
+      version: '1',
+      keyMode,
+      credentialId,
+      prfSaltHex: keyMode === 'prf' ? prfSaltHex : null,
+      username: username || '',
+      arweaveAddress: arAddress,
+      evmAddress: evmAddress
+    };
+
+    const backupPayload = { meta, encrypted };
+
+    const tags = {
+      'App-Name': WALLET_APP_NAME,
+      'User-Arweave-Address': arAddress,
+      'User-EVM-Address': evmAddress,
+      'User-Name': username || '',
+      'Wallet-KeyMode': keyMode,
+      'Timestamp': Date.now().toString()
+    };
+
+    const uploadResult = await uploadToCloudFunction(backupPayload, tags);
+    const txId = uploadResult.arweaveId;
+
+    // Save to storage
+    await WalletStorage.set('credentialId', credentialId);
+    await WalletStorage.set('arweaveAddress', arAddress);
+    await WalletStorage.set('evmAddress', evmAddress);
+    await WalletStorage.set('backupTxId', txId);
+    await WalletStorage.set('keyMode', keyMode);
+    await WalletStorage.set('username', username || '');
+    if (keyMode === 'prf' && prfSaltHex) {
+      await WalletStorage.set('prfSaltHex', prfSaltHex);
+    }
+
+    // Set wallets
+    arweaveWallet = arJwk;
+    evmWallet = new ethers.Wallet(evmPrivateKey, evmProvider);
+
+    return {
+      arweaveAddress: arAddress,
+      evmAddress: evmAddress,
+      backupTxId: txId
+    };
+  },
+
+  async unlockWallet() {
+    const credentialId = await WalletStorage.get('credentialId');
+    const backupTxId = await WalletStorage.get('backupTxId');
+
+    if (!credentialId || !backupTxId) {
+      throw new Error('No wallet data found');
+    }
+
+    const res = await fetch(`https://arweave.net/${backupTxId}`);
+    if (!res.ok) throw new Error('Failed to fetch wallet backup');
+
+    const encryptedBlob = await res.json();
+    const meta = encryptedBlob.meta || {};
+
+    let keyMode = await WalletStorage.get('keyMode') || meta.keyMode;
+    if (!keyMode) throw new Error('Missing key mode');
+
+    let aesKey;
+
+    if (keyMode === 'prf') {
+      const prfSaltHex = await WalletStorage.get('prfSaltHex') || meta.prfSaltHex;
+      if (!prfSaltHex) throw new Error('Missing PRF salt');
+
+      const prfBytes = await WebAuthnHelper.evaluatePrf(
+        credentialId, hexToBytes(prfSaltHex)
+      );
+
+      const hkdfKey = await crypto.subtle.importKey(
+        "raw", prfBytes, "HKDF", false, ["deriveKey"]
+      );
+
+      aesKey = await crypto.subtle.deriveKey(
+        {
+          name: "HKDF",
+          hash: "SHA-256",
+          salt: hexToBytes(prfSaltHex),
+          info: new Uint8Array([]),
+        },
+        hkdfKey,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    } else {
+      const aesKeyHex = await WalletStorage.get('aesKeyHex');
+      if (!aesKeyHex) throw new Error('Missing AES key');
+      await WebAuthnHelper.authenticate(credentialId);
+      aesKey = await crypto.subtle.importKey(
+        'raw', hexToBytes(aesKeyHex), 'AES-GCM', false, ['encrypt', 'decrypt']
+      );
+    }
+
+    const decrypted = await CryptoHelper.decrypt(encryptedBlob.encrypted, aesKey);
+
+    arweaveWallet = decrypted.arweaveJwk;
+    evmWallet = new ethers.Wallet(decrypted.evmPrivateKey, evmProvider);
+
+    const arAddress = await arweave.wallets.jwkToAddress(arweaveWallet);
+    const evmAddress = evmWallet.address;
+
+    await WalletStorage.set('arweaveAddress', arAddress);
+    await WalletStorage.set('evmAddress', evmAddress);
+
+    return {
+      arweaveAddress: arAddress,
+      evmAddress: evmAddress,
+      backupTxId
+    };
+  },
+
+  async getArweaveBalance() {
+    if (!arweaveWallet) throw new Error('Arweave wallet not loaded');
+    const address = await arweave.wallets.jwkToAddress(arweaveWallet);
+    const winston = await arweave.wallets.getBalance(address);
+    const ar = arweave.ar.winstonToAr(winston);
+    return parseFloat(ar).toFixed(4);
+  },
+
+  async getUSDTBalance() {
+    if (!evmWallet) throw new Error('EVM wallet not loaded');
+    const contract = new ethers.Contract(USDT_CONTRACT, ERC20_ABI, evmProvider);
+    const balance = await contract.balanceOf(evmWallet.address);
+    const decimals = await contract.decimals();
+    return ethers.utils.formatUnits(balance, decimals);
+  },
+
+  async sendUSDT(toAddress, amount) {
+    if (!evmWallet) throw new Error('EVM wallet not loaded');
+
+    const contract = new ethers.Contract(USDT_CONTRACT, ERC20_ABI, evmWallet);
+    const decimals = await contract.decimals();
+    const amountWei = ethers.utils.parseUnits(amount, decimals);
+
+    const tx = await contract.transfer(toAddress, amountWei);
+    await tx.wait();
+
+    return tx.hash;
+  },
+
+  async uploadData(content, contentType) {
+    if (!arweaveWallet) throw new Error('Arweave wallet not loaded');
+
+    const address = await arweave.wallets.jwkToAddress(arweaveWallet);
+    const utf8Bytes = new TextEncoder().encode(content);
+    const base64Content = btoa(String.fromCharCode(...utf8Bytes));
+
+    const tags = {
+      'Content-Type': contentType || 'text/plain',
+      'App': WALLET_APP_NAME,
+      'Wallet-Address': address,
+      'Timestamp': Date.now().toString()
+    };
+
+    const response = await fetch(CLOUD_FUNCTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: base64Content,
+        isBase64: true,
+        encrypt: false,
+        extraTags: tags
+      })
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Upload failed');
+    }
+
+    return result.arweaveId;
+  }
+};
+
+// UI Functions
+function showScreen(screenId) {
+  ['landing-screen', 'create-screen', 'unlock-screen', 'wallet-screen'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
+  });
+  const target = document.getElementById(screenId);
+  if (target) target.classList.remove('hidden');
+}
+
+function showLanding() {
+  showScreen('landing-screen');
+}
+
+function showCreateScreen() {
+  showScreen('create-screen');
+  document.getElementById('create-status').innerHTML = '';
+}
+
+function showUnlockScreen() {
+  showScreen('unlock-screen');
+  document.getElementById('unlock-status').innerHTML = '';
+}
+
+function showTab(tabName) {
+  document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+
+  const allTabs = document.querySelectorAll('.tabs .tab');
+  allTabs.forEach(btn => {
+    if (btn.textContent.toLowerCase().includes(tabName)) {
+      btn.classList.add('active');
+    }
+  });
+
+  ['send-tab', 'data-tab'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
+  });
+
+  const target = document.getElementById(`${tabName}-tab`);
+  if (target) target.classList.remove('hidden');
+}
+
+function setStatus(elementId, message, type = 'info') {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+  element.innerHTML = `<div class="status status-${type}">${message}</div>`;
+}
+
+async function switchChain(chain) {
+  currentChain = chain;
+
+  document.querySelectorAll('.chain-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  document.getElementById(`chain-${chain}`).classList.add('active');
+
+  if (chain === 'arweave') {
+    const arAddress = await WalletStorage.get('arweaveAddress');
+    document.getElementById('wallet-address').textContent = arAddress || '--';
+    document.getElementById('send-amount-label').textContent = 'Amount (AR)';
+  } else {
+    const evmAddress = await WalletStorage.get('evmAddress');
+    document.getElementById('wallet-address').textContent = evmAddress || '--';
+    document.getElementById('send-amount-label').textContent = 'Amount (USDC)';
+  }
+
+  await refreshBalance();
+}
+
+function parseUrlRequests() {
+  try {
+    const url = new URL(window.location.href);
+    const params = url.searchParams;
+
+    // ---- SIGN REQUEST ----
+    const signMessage =
+      params.get('signMessage') ||
+      params.get('sign') ||
+      params.get('messageToSign');
+
+    if (signMessage) {
+      pendingEvmSignRequest = {
+        message: decodeURIComponent(signMessage),
+        origin: params.get('origin') || params.get('app') || url.origin,
+        callbackUrl: params.get('callback') || params.get('redirect') || null
+      };
+    }
+
+    // ---- TX REQUEST (Polygon / EVM) ----
+    const chain = (params.get('chain') || '').toLowerCase();
+    if (chain === 'polygon' || chain === 'evm') {
+      const to = params.get('to') || params.get('address');
+      const amount = params.get('amount');
+      const token = (params.get('token') || 'USDC').toUpperCase();
+      const autoSend = params.get('autoSend') === '1' || params.get('autoSend') === 'true';
+
+      if (to && amount) {
+        pendingEvmTxRequest = {
+          to,
+          amount,
+          token,
+          autoSend,
+          callbackUrl: params.get('txCallback') || null
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to parse URL params:', e);
+  }
+}
+
+async function applyPendingRequests() {
+  // Handle sign first, then tx
+
+  if (pendingEvmSignRequest) {
+    const { message, origin } = pendingEvmSignRequest;
+
+    showScreen('wallet-screen');
+    await switchChain('polygon');
+    showTab('sign');
+
+    const msgEl = document.getElementById('sign-message');
+    if (msgEl) msgEl.value = message;
+
+    setStatus(
+      'wallet-status',
+      `🔗 External sign request from <strong>${origin}</strong>. Review the message and click "Sign Message".`,
+      'info'
+    );
+  }
+
+  if (pendingEvmTxRequest) {
+    const { to, amount, token, autoSend } = pendingEvmTxRequest;
+
+    showScreen('wallet-screen');
+    await switchChain('polygon');
+    showTab('send');
+
+    const addrInput = document.getElementById('send-address');
+    const amtInput = document.getElementById('send-amount');
+
+    if (addrInput) addrInput.value = to;
+    if (amtInput) amtInput.value = amount;
+
+    setStatus(
+      'wallet-status',
+      `🔗 External payment request loaded for ${amount} ${token} to ${to}. Review and press "Send".`,
+      'info'
+    );
+
+    if (autoSend) {
+      // Only auto-send if explicitly requested
+      try {
+        await sendTransaction();
+      } catch (e) {
+        console.error('Auto-send failed:', e);
+      }
+    }
+  }
+}
+
+async function createWallet() {
+  const username = document.getElementById('username').value.trim();
+  if (!username) {
+    setStatus('create-status', 'Please enter a username', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('create-btn');
+  btn.disabled = true;
+  setStatus('create-status', 'Creating multi-chain wallet...', 'info');
+
+  try {
+    const result = await WalletCore.createWallet(username);
+
+    showScreen('wallet-screen');
+    await switchChain('arweave');
+
+    setStatus('wallet-status',
+      `✅ Wallet created!<br>Arweave: ${result.arweaveAddress}<br>Polygon: ${result.evmAddress}`,
+      'success'
+    );
+
+    await refreshBalance();
+    await applyPendingRequests();
+
+  } catch (error) {
+    console.error(error);
+    setStatus('create-status', `❌ Error: ${error.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function unlockWallet() {
+  const btn = document.getElementById('unlock-btn');
+  btn.disabled = true;
+  setStatus('unlock-status', 'Unlocking wallet...', 'info');
+
+  try {
+    const result = await WalletCore.unlockWallet();
+
+    showScreen('wallet-screen');
+    await switchChain('arweave');
+
+    setStatus('wallet-status', '✅ Wallet unlocked!', 'success');
+
+    await refreshBalance();
+    await applyPendingRequests();
+
+  } catch (error) {
+    console.error(error);
+    setStatus('unlock-status', `❌ Error: ${error.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function refreshBalance() {
+  try {
+    if (currentChain === 'arweave') {
+      const arBalance = await WalletCore.getArweaveBalance();
+      document.getElementById('balance-display').textContent = `${arBalance} AR`;
+      document.getElementById('balance-secondary').textContent = 'Arweave';
+    } else {
+      const usdtBalance = await WalletCore.getUSDTBalance();
+      document.getElementById('balance-display').textContent = `${parseFloat(usdtBalance).toFixed(2)} USDC`;
+      document.getElementById('balance-secondary').textContent = 'Polygon Network';
+    }
+  } catch (err) {
+    console.error(err);
+    document.getElementById('balance-display').textContent = 'Error';
+  }
+}
+
+
+
+async function signEvmMessage() {
+  const msg = document.getElementById('sign-message').value.trim();
+
+  if (!msg) {
+    setStatus('wallet-status', '❌ Please enter a message to sign', 'error');
+    return;
+  }
+  if (!evmWallet) {
+    setStatus('wallet-status', '❌ EVM wallet not loaded. Unlock first.', 'error');
+    return;
+  }
+
+  try {
+    setStatus('wallet-status', 'Signing message with Polygon wallet…', 'info');
+
+    const signature = await evmWallet.signMessage(msg);
+    const address = evmWallet.address;
+
+    lastEvmSignature = { message: msg, signature, address };
+
+    document.getElementById('signed-message').textContent = msg;
+    document.getElementById('signature-value').textContent = signature;
+    document.getElementById('signer-address').textContent = address;
+    document.getElementById('signature-container').classList.remove('hidden');
+
+    setStatus('wallet-status', '✅ Message signed', 'success');
+
+    // Optional: if a callbackUrl is present in pendingEvmSignRequest, you could redirect here
+    // with ?signature=...&address=... etc. For now we leave that to the integrator.
+  } catch (error) {
+    console.error(error);
+    setStatus('wallet-status', `❌ Error while signing: ${error.message}`, 'error');
+  }
+}
+
+function copyEvmSignature() {
+  if (!lastEvmSignature) {
+    setStatus('wallet-status', '❌ Nothing to copy yet', 'error');
+    return;
+  }
+  const payload = JSON.stringify(lastEvmSignature, null, 2);
+  navigator.clipboard.writeText(payload).then(() => {
+    setStatus('wallet-status', '✅ Signature JSON copied to clipboard', 'success');
+  }).catch(err => {
+    console.error(err);
+    setStatus('wallet-status', '❌ Failed to copy to clipboard', 'error');
+  });
+}
+
+async function verifyEvmSignature() {
+  if (!lastEvmSignature) {
+    setStatus('wallet-status', '❌ No signature to verify', 'error');
+    return;
+  }
+
+  const { message, signature, address } = lastEvmSignature;
+  try {
+    setStatus('wallet-status', 'Verifying signature…', 'info');
+
+    const recovered = ethers.utils.verifyMessage(message, signature);
+
+    if (recovered.toLowerCase() === address.toLowerCase()) {
+      setStatus(
+        'wallet-status',
+        `✅ Signature is VALID. Recovered signer: ${recovered}`,
+        'success'
+      );
+    } else {
+      setStatus(
+        'wallet-status',
+        `⚠️ Signature valid but signer ${recovered} does not match stored address ${address}`,
+        'error'
+      );
+    }
+  } catch (error) {
+    console.error(error);
+    setStatus('wallet-status', `❌ Verification error: ${error.message}`, 'error');
+  }
+}
+
+async function sendTransaction() {
+  const toAddress = document.getElementById('send-address').value.trim();
+  const amount = document.getElementById('send-amount').value;
+
+  if (!toAddress || !amount || parseFloat(amount) <= 0) {
+    setStatus('wallet-status', '❌ Please enter valid recipient and amount', 'error');
+    return;
+  }
+
+  if (currentChain === 'arweave') {
+    // Arweave is now backup-only, no monetary sends
+    setStatus(
+      'wallet-status',
+      'ℹ️ Sending AR is disabled in this wallet. Arweave is used only for key backups and data uploads.',
+      'info'
+    );
+    return;
+  }
+
+  setStatus('wallet-status', 'Sending Polygon USDC transaction...', 'info');
+
+  try {
+    const txId = await WalletCore.sendUSDT(toAddress, amount);
+    setStatus(
+      'wallet-status',
+      `✅ USDC sent! TX: <a href="https://polygonscan.com/tx/${txId}" target="_blank">${txId.substring(0, 20)}...</a>`,
+      'success'
+    );
+
+    document.getElementById('send-address').value = '';
+    document.getElementById('send-amount').value = '';
+
+    setTimeout(refreshBalance, 2000);
+  } catch (error) {
+    console.error(error);
+    setStatus('wallet-status', `❌ Error: ${error.message}`, 'error');
+  }
+}
+
+
+async function uploadData() {
+  const content = document.getElementById('data-content').value.trim();
+  const contentType = document.getElementById('content-type').value.trim() || 'text/plain';
+
+  if (!content) {
+    setStatus('wallet-status', '❌ Please enter content to upload', 'error');
+    return;
+  }
+
+  setStatus('wallet-status', 'Uploading to Arweave...', 'info');
+
+  try {
+    const txId = await WalletCore.uploadData(content, contentType);
+
+    setStatus('wallet-status',
+      `✅ Uploaded! TX: <a href="https://arweave.net/${txId}" target="_blank">${txId}</a>`,
+      'success'
+    );
+
+    document.getElementById('data-content').value = '';
+  } catch (error) {
+    console.error(error);
+    setStatus('wallet-status', `❌ Error: ${error.message}`, 'error');
+  }
+}
+
+function exportKeys() {
+  if (!arweaveWallet || !evmWallet) {
+    setStatus('wallet-status', '❌ No wallet loaded', 'error');
+    return;
+  }
+
+  const exportData = {
+    arweave: arweaveWallet,
+    evm: {
+      privateKey: evmWallet.privateKey,
+      address: evmWallet.address
+    }
+  };
+
+  const dataStr = JSON.stringify(exportData, null, 2);
+  const dataBlob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(dataBlob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'multichain-wallet-keys.json';
+  link.click();
+  URL.revokeObjectURL(url);
+
+  setStatus('wallet-status', '✅ Keys exported! Keep them safe!', 'success');
+}
+
+function lockWallet() {
+  arweaveWallet = null;
+  evmWallet = null;
+  showLanding();
+}
+
+// Global assignments
+window.showCreateScreen = showCreateScreen;
+window.showUnlockScreen = showUnlockScreen;
+window.showLanding = showLanding;
+window.createWallet = createWallet;
+window.unlockWallet = unlockWallet;
+window.switchChain = switchChain;
+window.sendTransaction = sendTransaction;
+window.uploadData = uploadData;
+window.refreshBalance = refreshBalance;
+window.exportKeys = exportKeys;
+window.lockWallet = lockWallet;
+window.showTab = showTab;
+window.signEvmMessage = signEvmMessage;
+window.copyEvmSignature = copyEvmSignature;
+window.verifyEvmSignature = verifyEvmSignature;
+
+parseUrlRequests();
+
+</script>
+
+</body>
+</html>
