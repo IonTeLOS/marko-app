@@ -424,7 +424,7 @@ const POLYGON_RPC = 'https://polygon-rpc.com';
 // USDC native on Polygon PoS (Circle)
 const USDC_CONTRACT = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359';
 // Pimlico bundler for ERC-4337 UserOperations
-const PIMLICO_API_KEY = "pim_Do9VqKL2LXkrvzz5xcmNS9";  
+const PIMLICO_API_KEY = "pim_Do9VqKL2LXkrvzz5xcmNS9";
 const BUNDLER_URL = `https://api.pimlico.io/v2/137/rpc?apikey=${PIMLICO_API_KEY}`;// Replace with your Pimlico API key
 const ENTRY_POINT = '0x0000000071727De22E5E9d8BAf0edAc6f37da032'; // ERC-4337 EntryPoint v0.7 on Polygon
 const DESIGNATION = '0xe6Cae83BdE06E4c305530e199D7217f42808555B'; // SimpleAccount implementation for EIP-7702
@@ -803,7 +803,8 @@ const WalletCore = {
     const usdc = new ethers.Contract(USDC_CONTRACT, ERC20_ABI, evmProvider);
     const decimals = await usdc.decimals();
     const amountWei = ethers.utils.parseUnits(amount.toString(), decimals);
-    const approveCalldata = usdc.interface.encodeFunctionData('approve', [0, ethers.constants.MaxUint256]); // Placeholder, will update paymaster
+    const dummyPaymaster = '0x0000000000000000000000000000000000000000';
+    const approveCalldata = usdc.interface.encodeFunctionData('approve', [dummyPaymaster, ethers.constants.MaxUint256]);
     const transferCalldata = usdc.interface.encodeFunctionData('transfer', [toAddress, amountWei]);
     const calls = [
       { dest: USDC_CONTRACT, value: '0x0', func: approveCalldata },
@@ -1393,3 +1394,4 @@ parseUrlRequests();
 </script>
 </body>
 </html>
+
