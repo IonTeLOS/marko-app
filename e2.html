@@ -933,7 +933,7 @@ async function switchChain(chain) {
   } else {
     const evmAddress = await WalletStorage.get('evmAddress');
     document.getElementById('wallet-address').textContent = evmAddress || '--';
-    document.getElementById('send-amount-label').textContent = 'Amount (USDT)';
+    document.getElementById('send-amount-label').textContent = 'Amount (USDC)';
   }
   
   await refreshBalance();
@@ -1000,7 +1000,7 @@ async function refreshBalance() {
       document.getElementById('balance-secondary').textContent = 'Arweave';
     } else {
       const usdtBalance = await WalletCore.getUSDTBalance();
-      document.getElementById('balance-display').textContent = `${parseFloat(usdtBalance).toFixed(2)} USDT`;
+      document.getElementById('balance-display').textContent = `${parseFloat(usdtBalance).toFixed(2)} USDC`;
       document.getElementById('balance-secondary').textContent = 'Polygon Network';
     }
   } catch (err) {
