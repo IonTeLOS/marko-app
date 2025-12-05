@@ -417,17 +417,17 @@
 // ============================================================================
 // CONFIG
 // ============================================================================
-// Arweave backup function (Netlify function) – unchanged
 const CLOUD_FUNCTION_URL = 'https://marko-app.netlify.app/.netlify/functions/arload';
 const WALLET_APP_NAME = 'USDC-Polygon-Wallet-v1';
 // Polygon RPC + native USDC contract
 const POLYGON_RPC = 'https://polygon-rpc.com';
+// USDC native on Polygon PoS (Circle)
 const USDC_CONTRACT = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359';
-const ENTRY_POINT = '0x0000000071727De22E5E9d8BAf0edAc6f37da032'; // v0.7 on Polygon
-const PAYMASTER = '0x777777777777AeC03fd955926DbF81597e66834C'; // ERC-20 Paymaster v0.7 on Polygon
-const DESIGNATION = '0xe6Cae83BdE06E4c305530e199D7217f42808555B'; // SimpleAccount implementation (designation for EIP-7702)
+// Pimlico bundler for ERC-4337 UserOperations
 const PIMLICO_API_KEY = "pim_Do9VqKL2LXkrvzz5xcmNS9";  
 const BUNDLER_URL = `https://api.pimlico.io/v2/137/rpc?apikey=${PIMLICO_API_KEY}`;// Replace with your Pimlico API key
+const ENTRY_POINT = '0x0000000071727De22E5E9d8BAf0edAc6f37da032'; // ERC-4337 EntryPoint v0.7 on Polygon
+const DESIGNATION = '0xe6Cae83BdE06E4c305530e199D7217f42808555B'; // SimpleAccount implementation for EIP-7702
 const CHAIN_ID = 137;
 // Minimal ERC20 ABI
 const ERC20_ABI = [
@@ -448,7 +448,7 @@ const ENTRY_POINT_ABI = [
 ];
 let arweave = null;
 let evmProvider = null;
-let evmWallet = null;
+let evmWallet = null; // This is the owner signer for the smart account
 let arweaveWallet = null;
 // Pending external requests
 let pendingEvmSignRequest = null; // EIP-191
@@ -508,17 +508,19 @@ async function bundlerRpc(method, params) {
   if (error) throw new Error(error.message || 'Bundler RPC error');
   return result;
 }
-// Local userOpHash computation
+// Local userOpHash computation for v0.7
 function computeUserOpHash(userOp) {
+  const initCode = userOp.factory + userOp.factoryData.slice(2);
+  const paymasterAndData = userOp.paymaster + userOp.paymasterData.slice(2) + ethers.utils.hexZeroPad(userOp.paymasterVerificationGasLimit, 16).slice(2) + ethers.utils.hexZeroPad(userOp.paymasterPostOpGasLimit, 16).slice(2);
   const packed = ethers.utils.defaultAbiCoder.encode(
     ['address', 'uint256', 'bytes32', 'bytes32',
      'uint256', 'uint256', 'uint256',
      'uint256', 'uint256',
      'bytes32'],
-    [userOp.sender, userOp.nonce, ethers.utils.keccak256(userOp.initCode), ethers.utils.keccak256(userOp.callData),
+    [userOp.sender, userOp.nonce, ethers.utils.keccak256('0x' + initCode), ethers.utils.keccak256(userOp.callData),
      userOp.callGasLimit, userOp.verificationGasLimit, userOp.preVerificationGas,
      userOp.maxFeePerGas, userOp.maxPriorityFeePerGas,
-     ethers.utils.keccak256(userOp.paymasterAndData)]
+     ethers.utils.keccak256('0x' + paymasterAndData)]
   );
   const hash = ethers.utils.keccak256(packed);
   const enc = ethers.utils.defaultAbiCoder.encode(
@@ -800,25 +802,29 @@ const WalletCore = {
     const account = new ethers.Contract(sender, ACCOUNT_ABI, evmProvider); // Dummy for interface
     const usdc = new ethers.Contract(USDC_CONTRACT, ERC20_ABI, evmProvider);
     const decimals = await usdc.decimals();
-    const amountWei = ethers.utils.parseUnits(amount, decimals);
-    const approveCalldata = usdc.interface.encodeFunctionData('approve', [PAYMASTER, ethers.constants.MaxUint256]);
+    const amountWei = ethers.utils.parseUnits(amount.toString(), decimals);
+    const approveCalldata = usdc.interface.encodeFunctionData('approve', [0, ethers.constants.MaxUint256]); // Placeholder, will update paymaster
     const transferCalldata = usdc.interface.encodeFunctionData('transfer', [toAddress, amountWei]);
     const calls = [
-      { dest: USDC_CONTRACT, value: 0, func: approveCalldata },
-      { dest: USDC_CONTRACT, value: 0, func: transferCalldata }
+      { dest: USDC_CONTRACT, value: '0x0', func: approveCalldata },
+      { dest: USDC_CONTRACT, value: '0x0', func: transferCalldata }
     ];
-    const callData = account.interface.encodeFunctionData('executeBatch', [calls.map(c => [c.dest, c.value, c.func])]);
+    const callData = account.interface.encodeFunctionData('executeBatch', [calls]);
     let userOp = {
       sender,
       nonce: nonce.toHexString(),
-      initCode: '0x',
+      factory: '0x0000000000000000000000000000000000000000',
+      factoryData: '0x',
       callData,
       callGasLimit: '0x0',
       verificationGasLimit: '0x0',
       preVerificationGas: '0x0',
       maxFeePerGas: '0x0',
       maxPriorityFeePerGas: '0x0',
-      paymasterAndData: '0x',
+      paymaster: '0x0000000000000000000000000000000000000000',
+      paymasterVerificationGasLimit: '0x0',
+      paymasterPostOpGasLimit: '0x0',
+      paymasterData: '0x',
       signature: '0x'
     };
     const gasPrice = await bundlerRpc('pimlico_getUserOperationGasPrice', []);
@@ -833,10 +839,35 @@ const WalletCore = {
       token: USDC_CONTRACT
     };
     let sponsorResult = await bundlerRpc('pm_sponsorUserOperation', [userOp, ENTRY_POINT, sponsorshipInfo]);
-    userOp.paymasterAndData = sponsorResult.paymasterAndData;
+    userOp.paymaster = sponsorResult.paymaster;
+    userOp.paymasterData = sponsorResult.paymasterData;
+    userOp.paymasterVerificationGasLimit = sponsorResult.paymasterVerificationGasLimit;
+    userOp.paymasterPostOpGasLimit = sponsorResult.paymasterPostOpGasLimit;
     if (sponsorResult.callGasLimit) userOp.callGasLimit = sponsorResult.callGasLimit;
     if (sponsorResult.verificationGasLimit) userOp.verificationGasLimit = sponsorResult.verificationGasLimit;
     if (sponsorResult.preVerificationGas) userOp.preVerificationGas = sponsorResult.preVerificationGas;
+    // Update approve to the actual paymaster
+    const approveCalldataUpdated = usdc.interface.encodeFunctionData('approve', [userOp.paymaster, ethers.constants.MaxUint256]);
+    const callsUpdated = [
+      { dest: USDC_CONTRACT, value: '0x0', func: approveCalldataUpdated },
+      { dest: USDC_CONTRACT, value: '0x0', func: transferCalldata }
+    ];
+    userOp.callData = account.interface.encodeFunctionData('executeBatch', [callsUpdated]);
+    // Re-estimate
+    estimate = await bundlerRpc('eth_estimateUserOperationGas', [userOp, ENTRY_POINT]);
+    userOp.callGasLimit = estimate.callGasLimit;
+    userOp.verificationGasLimit = estimate.verificationGasLimit;
+    userOp.preVerificationGas = estimate.preVerificationGas;
+    sponsorResult = await bundlerRpc('pm_sponsorUserOperation', [userOp, ENTRY_POINT, sponsorshipInfo]);
+    userOp.paymaster = sponsorResult.paymaster;
+    userOp.paymasterData = sponsorResult.paymasterData;
+    userOp.paymasterVerificationGasLimit = sponsorResult.paymasterVerificationGasLimit;
+    userOp.paymasterPostOpGasLimit = sponsorResult.paymasterPostOpGasLimit;
+    if (sponsorResult.callGasLimit) userOp.callGasLimit = sponsorResult.callGasLimit;
+    if (sponsorResult.verificationGasLimit) userOp.verificationGasLimit = sponsorResult.verificationGasLimit;
+    if (sponsorResult.preVerificationGas) userOp.preVerificationGas = sponsorResult.preVerificationGas;
+    // Compute userOpHash
+    const userOpHash = computeUserOpHash(userOp);
     // Sign EIP-7702 authorization
     const txNonce = await evmProvider.getTransactionCount(sender, 'pending');
     const domain = {
@@ -854,17 +885,16 @@ const WalletCore = {
       designation: DESIGNATION
     };
     const authSig = await evmWallet._signTypedData(domain, types, value);
-    const v = parseInt(authSig.v, 16);
+    const v = parseInt(authSig.slice(-2), 16);
     const yParity = v - 27;
-    const r = authSig.r;
-    const s = authSig.s;
-    const authorizationTuple = [DESIGNATION, yParity, r, s];
+    const r = authSig.slice(2, 66);
+    const s = authSig.slice(66, 130);
+    const authorizationTuple = [DESIGNATION, yParity, '0x' + r, '0x' + s];
     const encodedAuthorizations = ethers.utils.defaultAbiCoder.encode(
       ['tuple(address designation, uint8 yParity, bytes32 r, bytes32 s)[]'],
       [[authorizationTuple]]
     );
-    // Compute userOpHash
-    const userOpHash = computeUserOpHash(userOp);
+    // Owner signature over userOpHash
     const ownerSig = await evmWallet.signMessage(ethers.utils.arrayify(userOpHash));
     // Full signature: 0x03 + encoded authorizations + ownerSig
     const prefix = '0x03';
@@ -1267,7 +1297,7 @@ async function verifyEvmSignature() {
   }
 }
 // ============================================================================
-// Sending USDC (using EIP-7702 with ERC-4337)
+// Sending USDC (EOA-based for now)
 // ============================================================================
 async function sendTransaction() {
   const toAddress = document.getElementById('send-address').value.trim();
