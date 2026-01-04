@@ -4649,19 +4649,27 @@ function parseGroupRequestFromUrl() {
   const fragment = url.hash.substring(1); // Remove #
   
   const groupId = params.get('group');
+  // URLSearchParams.get already handles basic decoding for query params
   const groupName = params.get('groupName');
   
   // Parse password from fragment
   const fragmentParams = new URLSearchParams(fragment);
-  const password = fragmentParams.get('password');
+  let password = fragmentParams.get('password');
   
   if (groupId && password) {
+    // FIX 1: Explicitly decode the password to handle encoded characters like %2B (+) or %3D (=)
+    password = decodeURIComponent(password);
+
+    // FIX 2: Safeguard against '+' being converted to ' ' by some browser behaviors
+    password = password.replace(/ /g, '+');
+
     pendingGroupRequest = {
       id: groupId,
+      // Fallback to decodeURIComponent if the name was manually encoded in the link generator
       name: groupName ? decodeURIComponent(groupName) : 'Unnamed Group',
       key: password
     };
-    console.log('📬 Group invitation detected');
+    console.log('📬 Group invitation detected and sanitized');
   }
 }
 
@@ -4965,8 +4973,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function getGroupInviteLink(group) {
   const baseUrl = window.location.origin + window.location.pathname;
-  // FIX: Use encodeURIComponent on the key to protect special characters like '+'
-  return `${baseUrl}?group=${group.id}&groupName=${encodeURIComponent(group.name)}#password=${encodeURIComponent(group.key)}`;
+  // Use encodeURIComponent for both name (spaces) and password (+, /, =)
+  const safeName = encodeURIComponent(group.name);
+  const safeKey = encodeURIComponent(group.key);
+  return `${baseUrl}?group=${group.id}&groupName=${safeName}#password=${safeKey}`;
 }
 
 function showGroupInviteLink(link, groupName) {
