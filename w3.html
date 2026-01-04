@@ -2287,11 +2287,14 @@ const MessagingCore = {
       const tagMap = {};
       tags.forEach(t => tagMap[t.name] = t.value);
 
-      const timestamp = parseInt(tagMap['Timestamp'] || '0');
+      // const timestamp = parseInt(tagMap['Timestamp'] || '0');
       
       // Skip if we've already processed this
-      if (timestamp <= lastCheck) continue;
+      // if (timestamp <= lastCheck) continue;
+      const existingMessages = await MessageStorage.getMessages(threadId);
+      const alreadyProcessed = existingMessages.some(m => m.id === txId);
 
+      if (alreadyProcessed) continue;
       // Fetch and decrypt message
       try {
         const messageData = await this.fetchAndDecryptMessage(txId, tagMap);
