@@ -2341,20 +2341,34 @@ const MessagingCore = {
     return newMessages;
   },
 
-  async fetchAndDecryptMessage(txId, tagMap) {
-    const myAddress = await WalletCore.getAddress();
-    
-    // Fetch message content
-    const res = await fetch(`https://arweave.net/${txId}`);
-    if (!res.ok) throw new Error('Failed to fetch message');
+  // =============================================================================
+// FIXED: fetchAndDecryptMessage() 
+// Location: Inside MessagingCore object, around line 2350
+// Bug: Was trying to decrypt data.self (sender's copy) instead of data.recipient
+// =============================================================================
 
-    const envelope = JSON.parse(await res.text());
-    
-    if (envelope.enc !== 'message') {
-      throw new Error('Not a message envelope');
-    }
+async fetchAndDecryptMessage(txId, tagMap) {
+  const myAddress = await WalletCore.getAddress();
+  
+  // Fetch message content
+  const res = await fetch(`https://arweave.net/${txId}`);
+  if (!res.ok) throw new Error('Failed to fetch message');
 
-    // Decrypt using self-encrypted copy
+  const envelope = JSON.parse(await res.text());
+  
+  if (envelope.enc !== 'message') {
+    throw new Error('Not a message envelope');
+  }
+
+  // Determine if this is a sent or received message
+  const isSentByMe = envelope.from === myAddress;
+  
+  let decrypted;
+
+  if (isSentByMe) {
+    // ===================================================================
+    // SENT MESSAGE: Decrypt the self-encrypted copy with our AES key
+    // ===================================================================
     const credentialId = await WalletStorage.get(STORAGE_KEYS.credentialId);
     const keyMode = await WalletStorage.get(STORAGE_KEYS.keyMode);
 
@@ -2390,19 +2404,72 @@ const MessagingCore = {
       );
     }
 
-    const decrypted = await CryptoHelper.decrypt(envelope.data.self, aesKey);
+    // Decrypt the self-encrypted copy
+    decrypted = await CryptoHelper.decrypt(envelope.data.self, aesKey);
 
-    return {
-      id: txId,
-      threadId: envelope.threadId,
-      from: envelope.from,
-      to: envelope.to,
-      content: decrypted.text,
-      timestamp: parseInt(tagMap['Timestamp'] || Date.now()),
-      direction: envelope.from === myAddress ? 'sent' : 'received',
-      status: 'confirmed'
-    };
+  } else {
+    // ===================================================================
+    // RECEIVED MESSAGE: Decrypt with ECDH shared secret
+    // ===================================================================
+    
+    // Get our ECDH private key
+    const encPrivKeyJwkRaw = await WalletStorage.get(STORAGE_KEYS.encPrivKeyJwk);
+    if (!encPrivKeyJwkRaw) {
+      throw new Error('Missing ECDH private key. Cannot decrypt received messages.');
+    }
+
+    const myPrivKeyJwk = JSON.parse(encPrivKeyJwkRaw);
+    const myPrivKey = await crypto.subtle.importKey(
+      "jwk",
+      myPrivKeyJwk,
+      { name: "ECDH", namedCurve: "P-256" },
+      false,
+      ["deriveBits"]
+    );
+
+    // Import sender's ephemeral public key
+    const senderEphemeralPubB64 = envelope.fromPub;
+    const senderEphemeralPubRaw = Uint8Array.from(atob(senderEphemeralPubB64), c => c.charCodeAt(0));
+    
+    const senderEphemeralPubKey = await crypto.subtle.importKey(
+      "raw",
+      senderEphemeralPubRaw,
+      { name: "ECDH", namedCurve: "P-256" },
+      false,
+      []
+    );
+
+    // Derive shared secret
+    const sharedBits = await crypto.subtle.deriveBits(
+      { name: "ECDH", public: senderEphemeralPubKey },
+      myPrivKey,
+      256
+    );
+
+    // Create AES key from shared secret
+    const aesKeyRecipient = await crypto.subtle.importKey(
+      "raw",
+      sharedBits,
+      "AES-GCM",
+      false,
+      ["decrypt"]
+    );
+
+    // Decrypt the recipient-encrypted copy
+    decrypted = await CryptoHelper.decrypt(envelope.data.recipient, aesKeyRecipient);
   }
+
+  return {
+    id: txId,
+    threadId: envelope.threadId,
+    from: envelope.from,
+    to: envelope.to,
+    content: decrypted.text,
+    timestamp: parseInt(tagMap['Timestamp'] || Date.now()),
+    direction: isSentByMe ? 'sent' : 'received',
+    status: 'confirmed'
+  };
+}
 };
 
 function generateThreadId(address1, address2) {
