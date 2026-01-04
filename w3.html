@@ -2584,6 +2584,7 @@ for (const conv of conversations) {
     item.classList.add('active');
   }
 
+  item.dataset.threadId = conv.threadId;
   const displayName = await getDisplayName(conv.otherAddress);
   
   item.innerHTML = `
@@ -2659,9 +2660,9 @@ async function loadConversation(threadId) {
     item.classList.remove('active');
   });
   
-  const items = document.querySelectorAll('.conversation-item');
-  items.forEach(item => {
-    if (item.textContent.includes(shortAddr)) {
+  document.querySelectorAll('.conversation-item').forEach(item => {
+    item.classList.remove('active');
+    if (item.dataset.threadId === threadId) {
       item.classList.add('active');
     }
   });
