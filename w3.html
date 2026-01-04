@@ -1040,6 +1040,26 @@ const MessageStorage = {
       await localforage.setItem('conversations', JSON.stringify(conversations));
       await updateUnreadBadge();
     }
+  },
+
+  async getContactName(address) {
+    const contacts = await localforage.getItem('contact-names');
+    const parsed = contacts ? JSON.parse(contacts) : {};
+    return parsed[address] || null;
+  },
+
+  async setContactName(address, name) {
+    const contacts = await localforage.getItem('contact-names');
+    const parsed = contacts ? JSON.parse(contacts) : {};
+    parsed[address] = name.trim();
+    await localforage.setItem('contact-names', JSON.stringify(parsed));
+  },
+
+  async deleteContactName(address) {
+    const contacts = await localforage.getItem('contact-names');
+    const parsed = contacts ? JSON.parse(contacts) : {};
+    delete parsed[address];
+    await localforage.setItem('contact-names', JSON.stringify(parsed));
   }
 };
 
@@ -2536,6 +2556,11 @@ async function startNewConversation() {
   document.getElementById('new-msg-address').value = '';
 }
 
+async function getDisplayName(address) {
+  const name = await MessageStorage.getContactName(address);
+  return name || (address.substring(0, 8) + '...' + address.substring(35));
+}
+    
 async function loadConversations() {
   const conversations = await MessageStorage.getConversations();
   const list = document.getElementById('conversations-list');
@@ -2559,17 +2584,18 @@ async function loadConversations() {
       item.classList.add('active');
     }
 
-    const shortAddr = conv.otherAddress.substring(0, 8) + '...' + conv.otherAddress.substring(35);
+    const displayName = await getDisplayName(conv.otherAddress);
     
     item.innerHTML = `
       <div class="contact-name">
-        ${shortAddr}
+        ${displayName}
         ${conv.unread > 0 ? '<span class="unread-indicator"></span>' : ''}
       </div>
       <div class="last-message">${conv.lastMessage || 'No messages yet'}</div>
     `;
 
     item.onclick = () => loadConversation(conv.threadId);
+    item.ondblclick = () => showRenameModal(conv.otherAddress);
     list.appendChild(item);
   });
 }
@@ -2586,8 +2612,8 @@ async function loadConversation(threadId) {
   await MessageStorage.markAsRead(threadId);
 
   // Update header
-  const shortAddr = conv.otherAddress.substring(0, 8) + '...' + conv.otherAddress.substring(35);
-  document.getElementById('chat-header').textContent = shortAddr;
+  const displayName = await getDisplayName(conv.otherAddress);
+  document.getElementById('chat-header').textContent = displayName;
 
   // Load messages
   const messages = await MessageStorage.getMessages(threadId);
@@ -2772,6 +2798,29 @@ function showTab(tabName) {
   }
 }
 
+let contextMenuTarget = null;
+
+function showRenameModal(address) {
+  contextMenuTarget = address;
+  const name = prompt('Enter friendly name for this contact:', '');
+  if (name && name.trim()) {
+    MessageStorage.setContactName(address, name.trim()).then(() => {
+      notify(`Contact renamed to "${name.trim()}"`, 'success');
+      loadConversations();
+      if (currentConversation) {
+        const conv = MessageStorage.getConversations().then(convs => {
+          const c = convs.find(x => x.otherAddress === address);
+          if (c && c.threadId === currentConversation) {
+            getDisplayName(address).then(dn => {
+              document.getElementById('chat-header').textContent = dn;
+            });
+          }
+        });
+      }
+    });
+  }
+}    
+    
 function setStatus(elementId, message, type = 'info') {
   const element = document.getElementById(elementId);
   if (!element) return;
@@ -3966,6 +4015,8 @@ window.sendMessage = sendMessage;
 window.checkForNewMessages = checkForNewMessages;
 window.loadConversation = loadConversation;
 window.loadConversations = loadConversations;
+window.getDisplayName = getDisplayName;
+window.showRenameModal = showRenameModal;
   </script>
 
 </body>
