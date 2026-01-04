@@ -2245,9 +2245,6 @@ const MessagingCore = {
     const myAddress = await WalletCore.getAddress();
     if (!myAddress) return;
 
-    const lastCheck = await WalletStorage.get(STORAGE_KEYS.lastMessageCheck) || 0;
-    const now = Date.now();
-
     // Query for messages addressed to me
     const query = {
       query: `{
@@ -2287,14 +2284,17 @@ const MessagingCore = {
       const tagMap = {};
       tags.forEach(t => tagMap[t.name] = t.value);
 
-      // const timestamp = parseInt(tagMap['Timestamp'] || '0');
+      // FIX 1: Extract threadId BEFORE using it
+      const threadId = tagMap['Thread-ID'];
       
-      // Skip if we've already processed this
-      // if (timestamp <= lastCheck) continue;
+      // FIX 2: Check if already in local storage instead of timestamp comparison
       const existingMessages = await MessageStorage.getMessages(threadId);
-      const alreadyProcessed = existingMessages.some(m => m.id === txId);
+      const alreadyExists = existingMessages.some(m => m.id === txId);
+      
+      if (alreadyExists) {
+        continue; // Already processed this message
+      }
 
-      if (alreadyProcessed) continue;
       // Fetch and decrypt message
       try {
         const messageData = await this.fetchAndDecryptMessage(txId, tagMap);
@@ -2302,7 +2302,6 @@ const MessagingCore = {
           await MessageStorage.saveMessage(messageData);
           
           // Update conversation
-          const threadId = messageData.threadId;
           const conversations = await MessageStorage.getConversations();
           let conv = conversations.find(c => c.threadId === threadId);
           
@@ -2328,7 +2327,8 @@ const MessagingCore = {
       }
     }
 
-    await WalletStorage.set(STORAGE_KEYS.lastMessageCheck, now.toString());
+    // Update last check time (for reference, not filtering)
+    await WalletStorage.set(STORAGE_KEYS.lastMessageCheck, Date.now().toString());
 
     if (newMessages > 0) {
       await updateUnreadBadge();
