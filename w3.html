@@ -2577,27 +2577,27 @@ async function loadConversations() {
 
   list.innerHTML = '';
 
-  conversations.forEach(conv => {
-    const item = document.createElement('div');
-    item.className = 'conversation-item';
-    if (currentConversation === conv.threadId) {
-      item.classList.add('active');
-    }
+for (const conv of conversations) {
+  const item = document.createElement('div');
+  item.className = 'conversation-item';
+  if (currentConversation === conv.threadId) {
+    item.classList.add('active');
+  }
 
-    const displayName = await getDisplayName(conv.otherAddress);
-    
-    item.innerHTML = `
-      <div class="contact-name">
-        ${displayName}
-        ${conv.unread > 0 ? '<span class="unread-indicator"></span>' : ''}
-      </div>
-      <div class="last-message">${conv.lastMessage || 'No messages yet'}</div>
-    `;
+  const displayName = await getDisplayName(conv.otherAddress);
+  
+  item.innerHTML = `
+    <div class="contact-name">
+      ${displayName}
+      ${conv.unread > 0 ? '<span class="unread-indicator"></span>' : ''}
+    </div>
+    <div class="last-message">${conv.lastMessage || 'No messages yet'}</div>
+  `;
 
-    item.onclick = () => loadConversation(conv.threadId);
-    item.ondblclick = () => showRenameModal(conv.otherAddress);
-    list.appendChild(item);
-  });
+  item.onclick = () => loadConversation(conv.threadId);
+  item.ondblclick = () => showRenameModal(conv.otherAddress);
+
+  list.appendChild(item);
 }
 
 async function loadConversation(threadId) {
