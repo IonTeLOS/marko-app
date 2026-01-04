@@ -605,6 +605,90 @@
         min-height: 400px;
       }
     }
+    .group-item {
+  padding: 14px;
+  margin-bottom: 8px;
+  background: var(--md-sys-color-surface);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+  position: relative;
+}
+
+.group-item:hover {
+  background: var(--md-sys-color-surface-variant);
+}
+
+.group-item.active {
+  border-color: var(--md-sys-color-primary);
+  background: var(--md-sys-color-primary-container);
+}
+
+.group-name {
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.group-members-count {
+  font-size: 12px;
+  color: var(--md-sys-color-on-surface-variant);
+  opacity: 0.7;
+}
+
+.group-last-message {
+  font-size: 13px;
+  color: var(--md-sys-color-on-surface-variant);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 4px;
+}
+
+.security-warning {
+  animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--md-sys-color-on-surface);
+  transition: background 0.2s;
+}
+
+.back-btn:hover {
+  background: var(--md-sys-color-surface-variant);
+}
+
+.chat-header-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--md-sys-color-surface);
+  border-bottom: 1px solid var(--md-sys-color-outline);
+  margin-bottom: 16px;
+}
+
+.chat-header-container h3 {
+  flex: 1;
+  margin: 0;
+}
   </style>
 </head>
 <body>
@@ -738,7 +822,11 @@
           <span id="unread-badge" class="hidden" style="background: #E53935; color: white; border-radius: 10px; padding: 2px 6px; font-size: 11px; margin-left: 4px;">0</span>
         </button>
       </div>
-
+       
+      <div class="tab" data-tab="groups" onclick="showTab('groups')">
+        <span class="material-symbols-rounded">groups</span>
+        Groups
+      </div>
       <!-- Existing tabs: Send, Data, Sign (keeping original code) -->
       <div id="send-tab" class="tab-content">
         <div class="input-group">
@@ -886,6 +974,60 @@
           </div>
         </div>
 
+        <div id="groups-tab" class="tab-content">
+  <h2>Groups</h2>
+  
+  <div class="security-warning" style="background: #fff3cd; border: 1px solid #ffc107; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+    <div style="display: flex; gap: 12px; align-items: start;">
+      <span class="material-symbols-rounded" style="color: #856404;">warning</span>
+      <div>
+        <strong style="color: #856404;">Security Notice</strong>
+        <p style="margin: 8px 0 0 0; color: #856404; font-size: 14px;">
+          Groups use shared encryption keys. Anyone with the group link can read messages. 
+          For private conversations, use direct 1-to-1 messaging instead.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="button-group" style="margin-bottom: 20px;">
+    <button class="btn btn-primary" onclick="showCreateGroupModal()">
+      <span class="material-symbols-rounded">add</span>
+      Create New Group
+    </button>
+    <button class="btn btn-secondary" onclick="showJoinGroupModal()">
+      <span class="material-symbols-rounded">group_add</span>
+      Join Group
+    </button>
+  </div>
+
+  <div id="groups-list"></div>
+
+  <div id="group-chat-container" class="hidden">
+    <div class="chat-header-container">
+      <button class="back-btn" onclick="closeGroupChat()">
+        <span class="material-symbols-rounded">arrow_back</span>
+      </button>
+      <h3 id="group-chat-header">Group Name</h3>
+      <button class="icon-btn" onclick="showGroupInfo()">
+        <span class="material-symbols-rounded">info</span>
+      </button>
+    </div>
+
+    <div id="group-messages-display" class="messages-display"></div>
+
+    <div id="group-message-input-area" class="message-input-area">
+      <textarea 
+        id="group-message-input" 
+        placeholder="Type a message..." 
+        rows="1"
+      ></textarea>
+      <button class="icon-btn" onclick="sendGroupMessage()">
+        <span class="material-symbols-rounded">send</span>
+      </button>
+    </div>
+  </div>
+</div>
         <button class="btn btn-secondary" onclick="checkForNewMessages()" style="margin-top: 16px;">
           <span class="material-symbols-rounded">refresh</span>
           Check for New Messages
@@ -1071,7 +1213,54 @@ const MessageStorage = {
     await localforage.setItem('contact-names', JSON.stringify(parsed));
   }
 };
+    
+// =============================================================================
+// GROUPS FEATURE - Multi-party encrypted chat with symmetric keys
+// WARNING: Groups are less secure than 1-to-1 messaging!
+// =============================================================================
 
+const GroupStorage = {
+  async getGroups() {
+    const groups = await localforage.getItem('groups');
+    return groups ? JSON.parse(groups) : [];
+  },
+
+  async saveGroup(group) {
+    const groups = await this.getGroups();
+    const existing = groups.findIndex(g => g.id === group.id);
+    
+    if (existing >= 0) {
+      groups[existing] = group;
+    } else {
+      groups.push(group);
+    }
+    
+    await localforage.setItem('groups', JSON.stringify(groups));
+  },
+
+  async deleteGroup(groupId) {
+    const groups = await this.getGroups();
+    const filtered = groups.filter(g => g.id !== groupId);
+    await localforage.setItem('groups', JSON.stringify(filtered));
+    await localforage.removeItem(`group-messages:${groupId}`);
+  },
+
+  async getGroupMessages(groupId) {
+    const messages = await localforage.getItem(`group-messages:${groupId}`);
+    return messages ? JSON.parse(messages) : [];
+  },
+
+  async saveGroupMessage(groupId, message) {
+    const messages = await this.getGroupMessages(groupId);
+    messages.push(message);
+    await localforage.setItem(`group-messages:${groupId}`, JSON.stringify(messages));
+  },
+
+  async getGroup(groupId) {
+    const groups = await this.getGroups();
+    return groups.find(g => g.id === groupId);
+  }
+};    
 // ---------------------------------------------------------------------------
 //  UTILS (keeping all original utils)
 // ---------------------------------------------------------------------------
@@ -2574,6 +2763,218 @@ async function updateUnreadBadge() {
   }
 }
 
+
+const GroupCore = {
+  // Generate random group ID
+  generateGroupId() {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return 'group-' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  },
+
+  // Generate random symmetric key for group
+  async generateGroupKey() {
+    const key = await crypto.subtle.generateKey(
+      { name: "AES-GCM", length: 256 },
+      true,
+      ["encrypt", "decrypt"]
+    );
+    
+    // Export to raw bytes
+    const keyBytes = await crypto.subtle.exportKey("raw", key);
+    
+    // Return as base64
+    return btoa(String.fromCharCode(...new Uint8Array(keyBytes)));
+  },
+
+  // Import group key from base64
+  async importGroupKey(keyBase64) {
+    const keyBytes = Uint8Array.from(atob(keyBase64), c => c.charCodeAt(0));
+    
+    return await crypto.subtle.importKey(
+      "raw",
+      keyBytes,
+      { name: "AES-GCM", length: 256 },
+      true,
+      ["encrypt", "decrypt"]
+    );
+  },
+
+  // Create new group
+  async createGroup(name) {
+    const groupId = this.generateGroupId();
+    const keyBase64 = await this.generateGroupKey();
+    
+    const group = {
+      id: groupId,
+      name,
+      key: keyBase64,
+      created: Date.now(),
+      messageCount: 0
+    };
+    
+    await GroupStorage.saveGroup(group);
+    
+    return group;
+  },
+
+  // Send message to group
+  async sendGroupMessage(groupId, content) {
+    const group = await GroupStorage.getGroup(groupId);
+    if (!group) throw new Error('Group not found');
+
+    const myAddress = await WalletCore.getAddress();
+    
+    // Import group key
+    const groupKey = await this.importGroupKey(group.key);
+    
+    // Encrypt message with group key
+    const encrypted = await CryptoHelper.encrypt({ text: content }, groupKey);
+    
+    // Create envelope
+    const envelope = {
+      enc: 'group-message',
+      groupId,
+      from: myAddress,
+      timestamp: Date.now(),
+      data: encrypted
+    };
+    
+    // Upload to Arweave
+    const result = await uploadToCloudFunction(JSON.stringify(envelope), [
+      { name: 'App-Name', value: 'ArweaveWallet-Groups-v1' },
+      { name: 'Group-ID', value: groupId },
+      { name: 'From-Address', value: myAddress },
+      { name: 'Message-Type', value: 'group-chat' },
+      { name: 'Timestamp', value: Date.now().toString() }
+    ]);
+
+    // Save locally
+    const message = {
+      id: result.arweaveId,
+      groupId,
+      from: myAddress,
+      content,
+      timestamp: Date.now(),
+      status: 'confirmed'
+    };
+
+    await GroupStorage.saveGroupMessage(groupId, message);
+
+    // Update group message count
+    group.messageCount++;
+    group.lastMessage = content.substring(0, 50);
+    group.lastMessageTime = Date.now();
+    await GroupStorage.saveGroup(group);
+
+    await logHistory('group-message', {
+      txid: result.arweaveId,
+      groupId,
+      groupName: group.name,
+      content: content.substring(0, 100)
+    });
+
+    return result.arweaveId;
+  },
+
+  // Poll for new group messages
+  async pollGroupMessages(groupId) {
+    const group = await GroupStorage.getGroup(groupId);
+    if (!group) return;
+
+    const query = {
+      query: `{
+        transactions(
+          tags:[
+            { name:"App-Name", values:["ArweaveWallet-Groups-v1"] },
+            { name:"Group-ID", values:["${groupId}"] }
+          ],
+          first: 50,
+          sort: HEIGHT_DESC
+        ){
+          edges{
+            node{
+              id
+              tags { name value }
+            }
+          }
+        }
+      }`
+    };
+
+    const res = await fetch("https://arweave.net/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(query)
+    });
+
+    const parsed = await res.json();
+    const edges = parsed?.data?.transactions?.edges || [];
+
+    let newMessages = 0;
+
+    for (const edge of edges) {
+      const txId = edge.node.id;
+
+      // Check if already have this message
+      const existingMessages = await GroupStorage.getGroupMessages(groupId);
+      if (existingMessages.some(m => m.id === txId)) continue;
+
+      // Fetch and decrypt
+      try {
+        const messageData = await this.fetchAndDecryptGroupMessage(txId, group.key);
+        if (messageData) {
+          await GroupStorage.saveGroupMessage(groupId, messageData);
+          newMessages++;
+        }
+      } catch (err) {
+        console.error('Failed to decrypt group message:', txId, err);
+      }
+    }
+
+    if (newMessages > 0) {
+      // Update group
+      const messages = await GroupStorage.getGroupMessages(groupId);
+      group.messageCount = messages.length;
+      if (messages.length > 0) {
+        const last = messages[messages.length - 1];
+        group.lastMessage = last.content.substring(0, 50);
+        group.lastMessageTime = last.timestamp;
+      }
+      await GroupStorage.saveGroup(group);
+    }
+
+    return newMessages;
+  },
+
+  // Fetch and decrypt a single group message
+  async fetchAndDecryptGroupMessage(txId, groupKeyBase64) {
+    const res = await fetch(`https://arweave.net/${txId}`);
+    if (!res.ok) throw new Error('Failed to fetch message');
+
+    const envelope = JSON.parse(await res.text());
+    
+    if (envelope.enc !== 'group-message') {
+      throw new Error('Not a group message envelope');
+    }
+
+    // Import group key
+    const groupKey = await this.importGroupKey(groupKeyBase64);
+    
+    // Decrypt message
+    const decrypted = await CryptoHelper.decrypt(envelope.data, groupKey);
+
+    return {
+      id: txId,
+      groupId: envelope.groupId,
+      from: envelope.from,
+      content: decrypted.text,
+      timestamp: envelope.timestamp,
+      status: 'confirmed'
+    };
+  }
+};
+    
 // ---------------------------------------------------------------------------
 //  MESSAGING UI FUNCTIONS
 // ---------------------------------------------------------------------------
@@ -3012,6 +3413,7 @@ async function createWallet() {
     await refreshBalance();
     await applyPendingPaymentRequestIfAny();
     await applyPendingContactRequestIfAny();
+    await applyPendingGroupRequestIfAny();
   } catch (error) {
     console.error(error);
     await logHistory('error', {
@@ -3050,7 +3452,7 @@ async function unlockWallet() {
     await refreshBalance();
     await applyPendingPaymentRequestIfAny();
     await applyPendingContactRequestIfAny();
-    
+    await applyPendingGroupRequestIfAny();
     // Check for messages on unlock
     await MessagingCore.pollMessages();
     await updateUnreadBadge();
@@ -4029,6 +4431,13 @@ window.addEventListener('DOMContentLoaded', () => {
       : 'Contact request detected';
     setStatus('unlock-status', msg + '. Please unlock to start conversation.', 'info');
   }
+
+  parseGroupRequestFromUrl();
+  
+  if (pendingGroupRequest) {
+    showUnlockScreen();
+    setStatus('unlock-status', `Group invitation to "${pendingGroupRequest.name}". Please unlock to join.`, 'info');
+  }
   
 });
   
@@ -4125,6 +4534,440 @@ function openRequestQR() {
   window.open(url, "_blank");
 }
 
+let currentGroup = null;
+let pendingGroupRequest = null;
+
+// Parse group from URL with password in fragment
+function parseGroupRequestFromUrl() {
+  const url = new URL(window.location.href);
+  const params = url.searchParams;
+  const fragment = url.hash.substring(1); // Remove #
+  
+  const groupId = params.get('group');
+  const groupName = params.get('groupName');
+  
+  // Parse password from fragment
+  const fragmentParams = new URLSearchParams(fragment);
+  const password = fragmentParams.get('password');
+  
+  if (groupId && password) {
+    pendingGroupRequest = {
+      id: groupId,
+      name: groupName ? decodeURIComponent(groupName) : 'Unnamed Group',
+      key: password
+    };
+    console.log('📬 Group invitation detected');
+  }
+}
+
+async function applyPendingGroupRequestIfAny() {
+  if (!pendingGroupRequest) return;
+
+  const { id, name, key } = pendingGroupRequest;
+  pendingGroupRequest = null;
+
+  showScreen('wallet-screen');
+  showTab('groups');
+
+  // Check if already in this group
+  const existing = await GroupStorage.getGroup(id);
+  if (existing) {
+    notify(`Already in group: ${name}`, 'info');
+    await loadGroups();
+    await openGroupChat(id);
+    return;
+  }
+
+  // Join the group
+  const group = {
+    id,
+    name,
+    key,
+    created: Date.now(),
+    messageCount: 0,
+    joined: Date.now()
+  };
+
+  await GroupStorage.saveGroup(group);
+  notify(`✅ Joined group: ${name}`, 'success');
+
+  // Poll for messages
+  await GroupCore.pollGroupMessages(id);
+
+  await loadGroups();
+  await openGroupChat(id);
+}
+
+function showCreateGroupModal() {
+  const modal = document.getElementById('create-group-modal');
+  const input = document.getElementById('group-name-input');
+  input.value = '';
+  modal.classList.add('show');
+  input.focus();
+}
+
+function closeCreateGroupModal() {
+  document.getElementById('create-group-modal').classList.remove('show');
+}
+
+async function createGroup() {
+  const input = document.getElementById('group-name-input');
+  const name = input.value.trim();
+
+  if (!name) {
+    notify('Please enter a group name', 'error');
+    return;
+  }
+
+  try {
+    const group = await GroupCore.createGroup(name);
+    
+    closeCreateGroupModal();
+    notify(`✅ Group "${name}" created!`, 'success');
+    
+    await loadGroups();
+    
+    // Show share link
+    const link = getGroupInviteLink(group);
+    showGroupInviteLink(link, name);
+    
+  } catch (err) {
+    console.error('Create group error:', err);
+    notify(`Failed: ${err.message}`, 'error');
+  }
+}
+
+function showJoinGroupModal() {
+  const modal = document.getElementById('join-group-modal');
+  const input = document.getElementById('group-link-input');
+  input.value = '';
+  modal.classList.add('show');
+  input.focus();
+}
+
+function closeJoinGroupModal() {
+  document.getElementById('join-group-modal').classList.remove('show');
+}
+
+async function joinGroup() {
+  const input = document.getElementById('group-link-input');
+  const link = input.value.trim();
+
+  if (!link) {
+    notify('Please paste a group link', 'error');
+    return;
+  }
+
+  try {
+    // Parse the link
+    const url = new URL(link);
+    const groupId = url.searchParams.get('group');
+    const groupName = url.searchParams.get('groupName');
+    const fragment = url.hash.substring(1);
+    const fragmentParams = new URLSearchParams(fragment);
+    const password = fragmentParams.get('password');
+
+    if (!groupId || !password) {
+      notify('Invalid group link', 'error');
+      return;
+    }
+
+    // Check if already in group
+    const existing = await GroupStorage.getGroup(groupId);
+    if (existing) {
+      notify('Already in this group', 'info');
+      closeJoinGroupModal();
+      await loadGroups();
+      await openGroupChat(groupId);
+      return;
+    }
+
+    // Join the group
+    const group = {
+      id: groupId,
+      name: groupName ? decodeURIComponent(groupName) : 'Unnamed Group',
+      key: password,
+      created: Date.now(),
+      messageCount: 0,
+      joined: Date.now()
+    };
+
+    await GroupStorage.saveGroup(group);
+    
+    closeJoinGroupModal();
+    notify(`✅ Joined group: ${group.name}`, 'success');
+
+    // Poll for messages
+    await GroupCore.pollGroupMessages(groupId);
+
+    await loadGroups();
+    await openGroupChat(groupId);
+
+  } catch (err) {
+    console.error('Join group error:', err);
+    notify('Invalid group link', 'error');
+  }
+}
+
+async function loadGroups() {
+  const groups = await GroupStorage.getGroups();
+  const list = document.getElementById('groups-list');
+
+  if (groups.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <span class="material-symbols-rounded">groups</span>
+        <p>No groups yet</p>
+        <p style="font-size: 14px; opacity: 0.7;">Create a new group or join an existing one</p>
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = '';
+
+  for (const group of groups) {
+    const item = document.createElement('div');
+    item.className = 'group-item';
+    if (currentGroup === group.id) {
+      item.classList.add('active');
+    }
+
+    item.innerHTML = `
+      <div class="group-name">
+        <span class="material-symbols-rounded">group</span>
+        ${group.name}
+      </div>
+      <div class="group-last-message">${group.lastMessage || 'No messages yet'}</div>
+      <div class="group-members-count">${group.messageCount || 0} messages</div>
+    `;
+
+    item.onclick = () => openGroupChat(group.id);
+
+    list.appendChild(item);
+  }
+}
+
+async function openGroupChat(groupId) {
+  currentGroup = groupId;
+
+  const group = await GroupStorage.getGroup(groupId);
+  if (!group) return;
+
+  // Hide groups list, show chat
+  document.getElementById('groups-list').style.display = 'none';
+  document.querySelector('#groups-tab .button-group').style.display = 'none';
+  document.querySelector('#groups-tab .security-warning').style.display = 'none';
+  document.getElementById('group-chat-container').classList.remove('hidden');
+
+  document.getElementById('group-chat-header').textContent = group.name;
+
+  // Load messages
+  const messages = await GroupStorage.getGroupMessages(groupId);
+  const display = document.getElementById('group-messages-display');
+
+  if (messages.length === 0) {
+    display.innerHTML = `
+      <div class="empty-state">
+        <span class="material-symbols-rounded">chat</span>
+        <p>No messages yet. Start the conversation!</p>
+      </div>
+    `;
+  } else {
+    display.innerHTML = '';
+    
+    const myAddress = await WalletCore.getAddress();
+    
+    messages.forEach(msg => {
+      const bubble = document.createElement('div');
+      const isMe = msg.from === myAddress;
+      bubble.className = `message-bubble ${isMe ? 'sent' : 'received'}`;
+      
+      const time = new Date(msg.timestamp).toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      
+      const shortAddr = msg.from.substring(0, 8) + '...' + msg.from.substring(35);
+
+      bubble.innerHTML = `
+        ${!isMe ? `<div class="message-sender">${shortAddr}</div>` : ''}
+        <div>${msg.content}</div>
+        <div class="message-time">${time}</div>
+      `;
+
+      display.appendChild(bubble);
+    });
+
+    display.scrollTop = display.scrollHeight;
+  }
+
+  document.getElementById('group-message-input').value = '';
+  
+  // Poll for new messages
+  await GroupCore.pollGroupMessages(groupId);
+  
+  await loadGroups();
+}
+
+function closeGroupChat() {
+  currentGroup = null;
+  document.getElementById('group-chat-container').classList.add('hidden');
+  document.getElementById('groups-list').style.display = '';
+  document.querySelector('#groups-tab .button-group').style.display = '';
+  document.querySelector('#groups-tab .security-warning').style.display = '';
+}
+
+async function sendGroupMessage() {
+  if (!currentGroup) return;
+
+  const input = document.getElementById('group-message-input');
+  const content = input.value.trim();
+
+  if (!content) return;
+
+  try {
+    input.value = '';
+    input.disabled = true;
+
+    await GroupCore.sendGroupMessage(currentGroup, content);
+
+    await openGroupChat(currentGroup);
+    await loadGroups();
+
+    notify('Message sent!', 'success');
+  } catch (err) {
+    console.error('Send group message error:', err);
+    notify(`Failed: ${err.message}`, 'error');
+  } finally {
+    input.disabled = false;
+    input.focus();
+  }
+}
+
+// Add Enter key support
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('group-message-input');
+  if (input) {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendGroupMessage();
+      }
+    });
+  }
+});
+
+function getGroupInviteLink(group) {
+  const baseUrl = window.location.origin + window.location.pathname;
+  return `${baseUrl}?group=${group.id}&groupName=${encodeURIComponent(group.name)}#password=${group.key}`;
+}
+
+function showGroupInviteLink(link, groupName) {
+  const modal = document.createElement('div');
+  modal.className = 'name-modal show';
+  
+  const content = document.createElement('div');
+  content.className = 'name-modal-content';
+  
+  content.innerHTML = `
+    <h3>Invite Link Created</h3>
+    <p style="color: var(--md-sys-color-on-surface-variant); font-size: 14px;">
+      Share this link to invite people to "${groupName}":
+    </p>
+    <div style="
+      background: var(--md-sys-color-surface-variant);
+      padding: 12px;
+      border-radius: 8px;
+      word-break: break-all;
+      font-size: 12px;
+      margin: 16px 0;
+      user-select: all;
+    ">${link}</div>
+    <div class="security-warning" style="margin: 16px 0; padding: 12px; background: #fff3cd; border-radius: 8px;">
+      <p style="margin: 0; font-size: 13px; color: #856404;">
+        ⚠️ Anyone with this link can read all group messages!
+      </p>
+    </div>
+    <div class="name-modal-buttons">
+      <button class="btn btn-secondary" onclick="this.closest('.name-modal').remove()">Close</button>
+      <button class="btn btn-primary" onclick="copyGroupLink('${link}')">Copy Link</button>
+    </div>
+  `;
+  
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+}
+
+async function copyGroupLink(link) {
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Join my group',
+        text: 'Join this encrypted group chat',
+        url: link
+      });
+      return;
+    } catch (err) {}
+  }
+
+  try {
+    await navigator.clipboard.writeText(link);
+    notify('📋 Link copied!', 'success');
+  } catch (err) {
+    prompt('Copy this link:', link);
+  }
+}
+
+function showGroupInfo() {
+  if (!currentGroup) return;
+  
+  GroupStorage.getGroup(currentGroup).then(group => {
+    const modal = document.getElementById('group-info-modal');
+    const content = document.getElementById('group-info-content');
+    
+    const link = getGroupInviteLink(group);
+    
+    content.innerHTML = `
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-weight: 600; margin-bottom: 8px;">Group Name</label>
+        <div>${group.name}</div>
+      </div>
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-weight: 600; margin-bottom: 8px;">Messages</label>
+        <div>${group.messageCount || 0} messages</div>
+      </div>
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-weight: 600; margin-bottom: 8px;">Invite Link</label>
+        <button class="btn btn-secondary" onclick="copyGroupLink('${link}')" style="width: 100%; margin: 0;">
+          <span class="material-symbols-rounded">share</span>
+          Share Invite Link
+        </button>
+      </div>
+    `;
+    
+    modal.classList.add('show');
+  });
+}
+
+function closeGroupInfoModal() {
+  document.getElementById('group-info-modal').classList.remove('show');
+}
+
+async function leaveGroup() {
+  if (!currentGroup) return;
+  
+  const group = await GroupStorage.getGroup(currentGroup);
+  
+  if (confirm(`Leave "${group.name}"? You'll need a new invite link to rejoin.`)) {
+    await GroupStorage.deleteGroup(currentGroup);
+    closeGroupInfoModal();
+    closeGroupChat();
+    await loadGroups();
+    notify('Left group', 'info');
+  }
+}
+    
 // Export functions to window
 window.showCreateScreen = showCreateScreen;
 window.showUnlockScreen = showUnlockScreen;
@@ -4161,7 +5004,76 @@ window.applyPendingContactRequestIfAny = applyPendingContactRequestIfAny;
 window.copyContactLink = copyContactLink;
 window.showContactQR = showContactQR;
 window.showRenameModal = showRenameModal;
-  </script>
 
+window.GroupStorage = GroupStorage;
+window.GroupCore = GroupCore;
+window.parseGroupRequestFromUrl = parseGroupRequestFromUrl;
+window.applyPendingGroupRequestIfAny = applyPendingGroupRequestIfAny;
+window.showCreateGroupModal = showCreateGroupModal;
+window.closeCreateGroupModal = closeCreateGroupModal;
+window.createGroup = createGroup;
+window.showJoinGroupModal = showJoinGroupModal;
+window.closeJoinGroupModal = closeJoinGroupModal;
+window.joinGroup = joinGroup;
+window.loadGroups = loadGroups;
+window.openGroupChat = openGroupChat;
+window.closeGroupChat = closeGroupChat;
+window.sendGroupMessage = sendGroupMessage;
+window.getGroupInviteLink = getGroupInviteLink;
+window.copyGroupLink = copyGroupLink;
+window.showGroupInfo = showGroupInfo;
+window.closeGroupInfoModal = closeGroupInfoModal;
+window.leaveGroup = leaveGroup;    
+    
+  </script>
+<!-- Create Group Modal -->
+<div id="create-group-modal" class="name-modal">
+  <div class="name-modal-content">
+    <h3>Create New Group</h3>
+    <div class="input-group">
+      <label for="group-name-input">Group Name</label>
+      <input type="text" id="group-name-input" placeholder="e.g., Family, Friends, Team..." maxlength="50">
+    </div>
+    <div class="security-warning" style="margin: 16px 0; padding: 12px; background: #fff3cd; border-radius: 8px;">
+      <p style="margin: 0; font-size: 13px; color: #856404;">
+        ⚠️ Groups use shared encryption. Anyone with the link can read all messages.
+      </p>
+    </div>
+    <div class="name-modal-buttons">
+      <button class="btn btn-secondary" onclick="closeCreateGroupModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="createGroup()">Create Group</button>
+    </div>
+  </div>
+</div>
+
+<!-- Join Group Modal -->
+<div id="join-group-modal" class="name-modal">
+  <div class="name-modal-content">
+    <h3>Join Group</h3>
+    <div class="input-group">
+      <label for="group-link-input">Group Link</label>
+      <input type="text" id="group-link-input" placeholder="Paste group invitation link...">
+    </div>
+    <p style="font-size: 13px; color: var(--md-sys-color-on-surface-variant); margin-top: 8px;">
+      The link should look like: https://wallet.com/?group=...#password=...
+    </p>
+    <div class="name-modal-buttons">
+      <button class="btn btn-secondary" onclick="closeJoinGroupModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="joinGroup()">Join Group</button>
+    </div>
+  </div>
+</div>
+
+<!-- Group Info Modal -->
+<div id="group-info-modal" class="name-modal">
+  <div class="name-modal-content">
+    <h3>Group Information</h3>
+    <div id="group-info-content"></div>
+    <div class="name-modal-buttons">
+      <button class="btn btn-danger" onclick="leaveGroup()">Leave Group</button>
+      <button class="btn btn-secondary" onclick="closeGroupInfoModal()">Close</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
