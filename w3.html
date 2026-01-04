@@ -2720,7 +2720,7 @@ async fetchAndDecryptMessage(txId, tagMap) {
   const envelope = JSON.parse(await res.text());
   
   if (envelope.enc !== 'message') {
-    throw new Error('Not a message envelope');
+    return null;  // ← Changed from throw to return null
   }
 
   // Determine if this is a sent or received message
