@@ -2911,6 +2911,7 @@ const GroupCore = {
   },
 
   // Send message to group
+  // Send message to group
   async sendGroupMessage(groupId, content) {
     const group = await GroupStorage.getGroup(groupId);
     if (!group) throw new Error('Group not found');
@@ -2932,8 +2933,9 @@ const GroupCore = {
       data: encrypted
     };
     
-    // Upload to Arweave
-    const result = await uploadToCloudFunction(JSON.stringify(envelope), [
+    // FIX: Pass 'envelope' object directly. Do NOT JSON.stringify() it here, 
+    // because uploadToCloudFunction does that internally.
+    const result = await uploadToCloudFunction(envelope, [
       { name: 'App-Name', value: 'ArweaveWallet-Groups-v1' },
       { name: 'Group-ID', value: groupId },
       { name: 'From-Address', value: myAddress },
@@ -2968,7 +2970,7 @@ const GroupCore = {
 
     return result.arweaveId;
   },
-
+  
   // Poll for new group messages
   async pollGroupMessages(groupId) {
     const group = await GroupStorage.getGroup(groupId);
@@ -3403,7 +3405,7 @@ function showTab(tabName) {
     }
   });
 
-  ['send-tab', 'data-tab', 'sign-tab', 'messages-tab'].forEach(id => {
+  ['send-tab', 'data-tab', 'sign-tab', 'messages-tab', 'groups-tab'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
   });
@@ -3416,6 +3418,10 @@ function showTab(tabName) {
     loadConversations();
     updateUnreadBadge();
     MessagingCore.pollMessages(); // Check for new messages immediately
+  }
+  
+  if (tabName === 'groups') {
+    loadGroups();
   }
 }
 
