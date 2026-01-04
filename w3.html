@@ -2922,7 +2922,7 @@ async sendGroupMessage(groupId, content) {
     if (!group) throw new Error('Group not found');
 
     const myAddress = await WalletCore.getAddress();
-    const myName = localStorage.getItem('user_display_name') || 'Member';
+    const myName = await WalletStorage.get(STORAGE_KEYS.username) || myAddress.substring(0, 8) + '...';
     
     // Import group key
     const groupKey = await this.importGroupKey(group.key);
