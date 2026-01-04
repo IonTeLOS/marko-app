@@ -1074,7 +1074,55 @@
   <button id="fabScan" onclick="openScanner()">
     <span class="material-symbols-rounded">qr_code_scanner</span>
   </button>
+<!-- Create Group Modal -->
+<div id="create-group-modal" class="name-modal">
+  <div class="name-modal-content">
+    <h3>Create New Group</h3>
+    <div class="input-group">
+      <label for="group-name-input">Group Name</label>
+      <input type="text" id="group-name-input" placeholder="e.g., Family, Friends, Team..." maxlength="50">
+    </div>
+    <div class="security-warning" style="margin: 16px 0; padding: 12px; background: #fff3cd; border-radius: 8px;">
+      <p style="margin: 0; font-size: 13px; color: #856404;">
+        ⚠️ Groups use shared encryption. Anyone with the link can read all messages.
+      </p>
+    </div>
+    <div class="name-modal-buttons">
+      <button class="btn btn-secondary" onclick="closeCreateGroupModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="createGroup()">Create Group</button>
+    </div>
+  </div>
+</div>
 
+<!-- Join Group Modal -->
+<div id="join-group-modal" class="name-modal">
+  <div class="name-modal-content">
+    <h3>Join Group</h3>
+    <div class="input-group">
+      <label for="group-link-input">Group Link</label>
+      <input type="text" id="group-link-input" placeholder="Paste group invitation link...">
+    </div>
+    <p style="font-size: 13px; color: var(--md-sys-color-on-surface-variant); margin-top: 8px;">
+      The link should look like: https://wallet.com/?group=...#password=...
+    </p>
+    <div class="name-modal-buttons">
+      <button class="btn btn-secondary" onclick="closeJoinGroupModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="joinGroup()">Join Group</button>
+    </div>
+  </div>
+</div>
+
+<!-- Group Info Modal -->
+<div id="group-info-modal" class="name-modal">
+  <div class="name-modal-content">
+    <h3>Group Information</h3>
+    <div id="group-info-content"></div>
+    <div class="name-modal-buttons">
+      <button class="btn btn-danger" onclick="leaveGroup()">Leave Group</button>
+      <button class="btn btn-secondary" onclick="closeGroupInfoModal()">Close</button>
+    </div>
+  </div>
+</div>
   <script>
 // ORIGINAL WALLET CODE CONTINUES HERE - I'm including all the original functionality
 // plus the new messaging features
@@ -5030,54 +5078,6 @@ window.closeGroupInfoModal = closeGroupInfoModal;
 window.leaveGroup = leaveGroup;    
     
   </script>
-<!-- Create Group Modal -->
-<div id="create-group-modal" class="name-modal">
-  <div class="name-modal-content">
-    <h3>Create New Group</h3>
-    <div class="input-group">
-      <label for="group-name-input">Group Name</label>
-      <input type="text" id="group-name-input" placeholder="e.g., Family, Friends, Team..." maxlength="50">
-    </div>
-    <div class="security-warning" style="margin: 16px 0; padding: 12px; background: #fff3cd; border-radius: 8px;">
-      <p style="margin: 0; font-size: 13px; color: #856404;">
-        ⚠️ Groups use shared encryption. Anyone with the link can read all messages.
-      </p>
-    </div>
-    <div class="name-modal-buttons">
-      <button class="btn btn-secondary" onclick="closeCreateGroupModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="createGroup()">Create Group</button>
-    </div>
-  </div>
-</div>
 
-<!-- Join Group Modal -->
-<div id="join-group-modal" class="name-modal">
-  <div class="name-modal-content">
-    <h3>Join Group</h3>
-    <div class="input-group">
-      <label for="group-link-input">Group Link</label>
-      <input type="text" id="group-link-input" placeholder="Paste group invitation link...">
-    </div>
-    <p style="font-size: 13px; color: var(--md-sys-color-on-surface-variant); margin-top: 8px;">
-      The link should look like: https://wallet.com/?group=...#password=...
-    </p>
-    <div class="name-modal-buttons">
-      <button class="btn btn-secondary" onclick="closeJoinGroupModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="joinGroup()">Join Group</button>
-    </div>
-  </div>
-</div>
-
-<!-- Group Info Modal -->
-<div id="group-info-modal" class="name-modal">
-  <div class="name-modal-content">
-    <h3>Group Information</h3>
-    <div id="group-info-content"></div>
-    <div class="name-modal-buttons">
-      <button class="btn btn-danger" onclick="leaveGroup()">Leave Group</button>
-      <button class="btn btn-secondary" onclick="closeGroupInfoModal()">Close</button>
-    </div>
-  </div>
-</div>
 </body>
 </html>
