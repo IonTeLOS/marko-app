@@ -1345,6 +1345,7 @@ const GroupStorage = {
   async saveGroupMessage(groupId, message) {
     const messages = await this.getGroupMessages(groupId);
     messages.push(message);
+    messages.sort((a, b) => a.timestamp - b.timestamp); 
     await localforage.setItem(`group-messages:${groupId}`, JSON.stringify(messages));
   },
 
