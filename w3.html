@@ -3062,23 +3062,20 @@ async sendGroupMessage(groupId, content) {
     const envelope = JSON.parse(await res.text());
     
     if (envelope.enc !== 'group-message') {
-      throw new Error('Not a group message envelope');
+        throw new Error('Not a group message envelope');
     }
 
-    // Import group key
     const groupKey = await this.importGroupKey(groupKeyBase64);
-    
-    // Decrypt message
     const decrypted = await CryptoHelper.decrypt(envelope.data, groupKey);
 
     return {
-      id: txId,
-      groupId: envelope.groupId, // Preserved from envelope
-      // Change: Use the name from the encrypted payload, fallback to address if missing
-      from: decrypted.senderName || envelope.from, 
-      content: decrypted.text,
-      timestamp: envelope.timestamp, // Preserved from envelope
-      status: 'confirmed'
+        id: txId,
+        groupId: envelope.groupId,
+        from: envelope.from, // Wallet address from the envelope
+        senderName: decrypted.senderName, // <--- EXPLICITLY ADD THIS
+        content: decrypted.text,
+        timestamp: envelope.timestamp,
+        status: 'confirmed'
     };
   }
 };
@@ -4910,8 +4907,9 @@ async function openGroupChat(groupId) {
       });
       
       // FIX: Determine the display name (Name from encrypted payload -> Address -> 'Member')
-      const displayName = msg.senderName || msg.from || 'Member';
-
+      const shortAddr = msg.from ? (msg.from.substring(0, 8) + '...') : null;
+      const displayName = msg.senderName || shortAddr || 'Member';
+      
       bubble.innerHTML = `
         ${!isMe ? `<div class="message-sender" style="font-weight: bold; font-size: 0.85em; margin-bottom: 4px; color: var(--md-sys-color-primary);">${displayName}</div>` : ''}
         <div>${msg.content}</div>
