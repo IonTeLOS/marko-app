@@ -2881,7 +2881,13 @@ const GroupCore = {
 
   // Import group key from base64
   async importGroupKey(keyBase64) {
-    const keyBytes = Uint8Array.from(atob(keyBase64), c => c.charCodeAt(0));
+    // FIX: URL decoding often turns '+' into spaces. Replace them back before decoding.
+    const cleanKey = keyBase64.replace(/ /g, '+');
+    
+    // Safety check for padding
+    const paddedKey = cleanKey.padEnd(cleanKey.length + (4 - cleanKey.length % 4) % 4, '=');
+
+    const keyBytes = Uint8Array.from(atob(paddedKey), c => c.charCodeAt(0));
     
     return await crypto.subtle.importKey(
       "raw",
@@ -4959,7 +4965,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function getGroupInviteLink(group) {
   const baseUrl = window.location.origin + window.location.pathname;
-  return `${baseUrl}?group=${group.id}&groupName=${encodeURIComponent(group.name)}#password=${group.key}`;
+  // FIX: Use encodeURIComponent on the key to protect special characters like '+'
+  return `${baseUrl}?group=${group.id}&groupName=${encodeURIComponent(group.name)}#password=${encodeURIComponent(group.key)}`;
 }
 
 function showGroupInviteLink(link, groupName) {
