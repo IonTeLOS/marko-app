@@ -2923,21 +2923,17 @@ const GroupCore = {
     if (!group) throw new Error('Group not found');
 
     const myAddress = await WalletCore.getAddress();
-    
+    const myName = localStorage.getItem('user_display_name') || 'Member';
     // Import group key
     const groupKey = await this.importGroupKey(group.key);
     
     // Encrypt message with group key
-    const encrypted = await CryptoHelper.encrypt({ text: content }, groupKey);
-    
-    // Create envelope
-    const envelope = {
-      enc: 'group-message',
-      groupId,
-      from: myAddress,
-      timestamp: Date.now(),
-      data: encrypted
+    const payload = { 
+      senderName: myName,
+      text: content
     };
+    
+    const encrypted = await CryptoHelper.encrypt(payload, groupKey);
     
     // FIX: Pass 'envelope' object directly. Do NOT JSON.stringify() it here, 
     // because uploadToCloudFunction does that internally.
@@ -3066,10 +3062,11 @@ const GroupCore = {
 
     return {
       id: txId,
-      groupId: envelope.groupId,
-      from: envelope.from,
+      groupId: envelope.groupId, // Preserved from envelope
+      // Change: Use the name from the encrypted payload, fallback to address if missing
+      from: decrypted.senderName || envelope.from, 
       content: decrypted.text,
-      timestamp: envelope.timestamp,
+      timestamp: envelope.timestamp, // Preserved from envelope
       status: 'confirmed'
     };
   }
@@ -4901,10 +4898,11 @@ async function openGroupChat(groupId) {
         minute: '2-digit' 
       });
       
-      const shortAddr = msg.from.substring(0, 8) + '...' + msg.from.substring(35);
+      // FIX: Determine the display name (Name from encrypted payload -> Address -> 'Member')
+      const displayName = msg.senderName || msg.from || 'Member';
 
       bubble.innerHTML = `
-        ${!isMe ? `<div class="message-sender">${shortAddr}</div>` : ''}
+        ${!isMe ? `<div class="message-sender" style="font-weight: bold; font-size: 0.85em; margin-bottom: 4px; color: var(--md-sys-color-primary);">${displayName}</div>` : ''}
         <div>${msg.content}</div>
         <div class="message-time">${time}</div>
       `;
