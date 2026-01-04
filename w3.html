@@ -2861,7 +2861,7 @@ async function showContactQR() {
 function startMessagePolling() {
   if (messagePollingInterval) {
     clearInterval(messagePollingInterval);
-  }
+}
 
   messagePollingInterval = setInterval(async () => {
     const activeTab = document.querySelector('.tab.active');
@@ -4159,7 +4159,7 @@ window.getDisplayName = getDisplayName;
 window.parseContactRequestFromUrl = parseContactRequestFromUrl;
 window.applyPendingContactRequestIfAny = applyPendingContactRequestIfAny;
 window.copyContactLink = copyContactLink;
-window.copyContactLink = showContactQR;
+window.showContactQR = showContactQR;
 window.showRenameModal = showRenameModal;
   </script>
 
