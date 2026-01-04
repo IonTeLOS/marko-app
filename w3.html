@@ -1039,14 +1039,15 @@
   </div>
 
   <div class="button-group" style="margin-bottom: 20px;">
-    <button class="btn btn-primary" onclick="showCreateGroupModal()">
-      <span class="material-symbols-rounded">add</span>
-      Create New Group
-    </button>
-    <button class="btn btn-secondary" onclick="showJoinGroupModal()">
-      <span class="material-symbols-rounded">group_add</span>
-      Join Group
-    </button>
+    <!-- REMOVE onclick from these buttons -->
+<button class="btn btn-primary" id="create-group-btn">
+  <span class="material-symbols-rounded">add</span>
+  Create New Group
+</button>
+<button class="btn btn-secondary" id="join-group-btn">
+  <span class="material-symbols-rounded">group_add</span>
+  Join Group
+</button>
   </div>
 
   <div id="groups-list"></div>
@@ -4529,7 +4530,8 @@ window.addEventListener('DOMContentLoaded', () => {
     showUnlockScreen();
     setStatus('unlock-status', `Group invitation to "${pendingGroupRequest.name}". Please unlock to join.`, 'info');
   }
-  
+  document.getElementById('create-group-btn')?.addEventListener('click', showCreateGroupModal);
+  document.getElementById('join-group-btn')?.addEventListener('click', showJoinGroupModal);
 });
   
 (function initFiatSelector() {
