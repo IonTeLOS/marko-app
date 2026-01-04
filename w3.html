@@ -909,6 +909,10 @@
         <span class="material-symbols-rounded">share</span>
         Share Contact Link
       </button>
+        <button class="btn btn-secondary" onclick="showContactQR()">
+          <span class="material-symbols-rounded">qr_code_2</span>
+            Show Share Contact QR
+        </button>
         <button class="btn btn-secondary" onclick="openRequestQR()">
           <span class="material-symbols-rounded">qr_code</span>
           Request (QR)
@@ -2799,13 +2803,49 @@ async function copyContactLink() {
   const baseUrl = window.location.origin + window.location.pathname;
   const link = `${baseUrl}?contact=${myAddress}&name=${encodeURIComponent(username)}`;
   
-  try {
-    await navigator.clipboard.writeText(link);
-    notify('📋 Contact link copied!', 'success');
-  } catch (err) {
-    prompt('Copy this link:', link);
+  // 🍎 iOS: Use native share sheet
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Message me on Arweave',
+        text: 'Send me an encrypted message',
+        url: link
+      });
+      notify('✅ Shared!', 'success');
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return; // User cancelled
+    }
   }
-}    
+  
+  // 💻 Desktop: Try clipboard
+  if (navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(link);
+      notify('📋 Copied!', 'success');
+      return;
+    } catch (err) {}
+  }
+
+async function showContactQR() {
+  const myAddress = await WalletCore.getAddress();
+  const username = await WalletStorage.get('username') || 'User';
+  const link = `${window.location.origin}${window.location.pathname}?contact=${myAddress}&name=${encodeURIComponent(username)}`;
+  
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(link)}`;
+  window.open(qrUrl, '_blank');
+}
+  // 📱 Fallback: Old iOS method
+  const input = document.createElement('input');
+  input.style.position = 'fixed';
+  input.style.opacity = '0';
+  input.value = link;
+  document.body.appendChild(input);
+  input.select();
+  document.execCommand('copy');
+  document.body.removeChild(input);
+  notify('📋 Copied!', 'success');
+}
 // Auto-poll when messages tab is active
 function startMessagePolling() {
   if (messagePollingInterval) {
@@ -4108,6 +4148,7 @@ window.getDisplayName = getDisplayName;
 window.parseContactRequestFromUrl = parseContactRequestFromUrl;
 window.applyPendingContactRequestIfAny = applyPendingContactRequestIfAny;
 window.copyContactLink = copyContactLink;
+window.copyContactLink = showContactQR;
 window.showRenameModal = showRenameModal;
   </script>
 
