@@ -2917,13 +2917,13 @@ const GroupCore = {
   },
 
   // Send message to group
-  // Send message to group
-  async sendGroupMessage(groupId, content) {
+async sendGroupMessage(groupId, content) {
     const group = await GroupStorage.getGroup(groupId);
     if (!group) throw new Error('Group not found');
 
     const myAddress = await WalletCore.getAddress();
     const myName = localStorage.getItem('user_display_name') || 'Member';
+    
     // Import group key
     const groupKey = await this.importGroupKey(group.key);
     
@@ -2935,8 +2935,18 @@ const GroupCore = {
     
     const encrypted = await CryptoHelper.encrypt(payload, groupKey);
     
-    // FIX: Pass 'envelope' object directly. Do NOT JSON.stringify() it here, 
-    // because uploadToCloudFunction does that internally.
+    // --- ADD THIS BLOCK HERE ---
+    // You must define the envelope before passing it to the function below
+    const envelope = {
+      enc: 'group-message',
+      groupId: groupId,
+      from: myAddress,
+      timestamp: Date.now(),
+      data: encrypted // This is the encrypted payload from above
+    };
+    // ----------------------------
+    
+    // Now 'envelope' is defined and can be passed here
     const result = await uploadToCloudFunction(envelope, [
       { name: 'App-Name', value: 'ArweaveWallet-Groups-v1' },
       { name: 'Group-ID', value: groupId },
@@ -2950,6 +2960,7 @@ const GroupCore = {
       id: result.arweaveId,
       groupId,
       from: myAddress,
+      senderName: 'You', // Adding this ensures your own messages show "You"
       content,
       timestamp: Date.now(),
       status: 'confirmed'
@@ -2971,7 +2982,7 @@ const GroupCore = {
     });
 
     return result.arweaveId;
-  },
+}
   
   // Poll for new group messages
   async pollGroupMessages(groupId) {
