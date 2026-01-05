@@ -5,17 +5,17 @@
     <title>Arweave Text Test</title>
 </head>
 <body>
-    <h2>Arweave Free Tier Text Test</h2>
+    <h2>Arweave Free Tier Text Test (< 100KB)</h2>
     
     <textarea id="textInput" rows="5" cols="40" placeholder="Type text here..."></textarea><br>
     <button id="uploadBtn">Upload to Arweave</button>
 
     <script type="module">
+        // Using a reliable ESM build for browser compatibility
         import Arweave from 'https://esm.sh/arweave@1.15.1';
 
         const uploadBtn = document.getElementById('uploadBtn');
 
-        // Main upload function
         async function uploadData() {
             const text = document.getElementById('textInput').value;
             if (!text) return alert("Please enter some text.");
@@ -30,24 +30,24 @@
                     protocol: 'https'
                 });
 
-                // 1. Generate temp wallet
+                // 1. Generate temp wallet (required for signing structure)
                 const tempWallet = await arweave.wallets.generate();
 
                 // 2. Create Transaction
+                // We pass the string directly; Arweave.js handles encoding.
                 const transaction = await arweave.createTransaction({
-                    data: text // Arweave.js handles string to buffer conversion here
+                    data: text 
                 }, tempWallet);
 
-                // 3. Add Tags - This is what defines the file for the browser
+                // 3. Add internal tags (metadata for the permaweb)
                 transaction.addTag('Content-Type', 'text/plain');
-                transaction.addTag('App-Name', 'Plain-JS-Tester');
+                transaction.addTag('App-Name', 'Turbo-Plain-JS-Test');
 
-                // 4. Sign
+                // 4. Sign locally
                 await arweave.transactions.sign(transaction, tempWallet);
 
-                // 5. Submit to Turbo
-                // Note: We use the v1/tx endpoint. 
-                // We must ensure the transaction is sent as a clean JSON object.
+                // 5. Submit to Turbo's transaction endpoint
+                // Ensure headers are strictly JSON
                 const response = await fetch('https://turbo.ardrive.io/v1/tx', {
                     method: 'POST',
                     headers: {
@@ -58,21 +58,20 @@
                 });
 
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    // If you see "Invalid Content Type" here, it's Turbo being picky about JSON format
-                    throw new Error(`Turbo Error: ${errorText}`);
+                    const errorMsg = await response.text();
+                    throw new Error(`Turbo rejected: ${errorMsg}`);
                 }
 
                 const result = await response.json();
                 const url = `https://arweave.net/${transaction.id}`;
                 
-                alert(`SUCCESS!\nID: ${transaction.id}`);
-                console.log("View your text at:", url);
+                alert(`SUCCESS!\nTransaction ID: ${transaction.id}`);
+                console.log("Your text is live at:", url);
                 window.open(url, '_blank');
 
             } catch (err) {
-                console.error("Detailed Error:", err);
-                alert(err.message);
+                console.error("Submission Error:", err);
+                alert("Upload Failed: " + err.message);
             } finally {
                 uploadBtn.disabled = false;
                 uploadBtn.innerText = "Upload to Arweave";
