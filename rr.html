@@ -2,83 +2,57 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Arweave Text Test</title>
+    <title>Arweave Free Text Upload</title>
 </head>
 <body>
-    <h2>Arweave Free Tier Text Test (< 100KB)</h2>
-    
+    <h2>Arweave Free Text Upload (< 100KB)</h2>
     <textarea id="textInput" rows="5" cols="40" placeholder="Type text here..."></textarea><br>
     <button id="uploadBtn">Upload to Arweave</button>
 
     <script type="module">
-        // Using a reliable ESM build for browser compatibility
-        import Arweave from 'https://esm.sh/arweave@1.15.1';
+        import { TurboFactory } from 'https://cdn.jsdelivr.net/npm/@ardrive/turbo-sdk@latest/bundles/web.bundle.min.js';
 
         const uploadBtn = document.getElementById('uploadBtn');
 
-        async function uploadData() {
+        uploadBtn.addEventListener('click', async () => {
             const text = document.getElementById('textInput').value;
-            if (!text) return alert("Please enter some text.");
+            if (!text) return alert("Please enter text");
 
             try {
                 uploadBtn.disabled = true;
-                uploadBtn.innerText = "Processing...";
+                uploadBtn.innerText = "Bundling & Sending...";
 
-                const arweave = Arweave.init({
-                    host: 'arweave.net',
-                    port: 443,
-                    protocol: 'https'
+                // 1. Initialize the unauthenticated client (for free tier)
+                const turbo = TurboFactory.unauthenticated();
+
+                // 2. Prepare the data as a Blob (browser native)
+                const blob = new Blob([text], { type: 'text/plain' });
+
+                // 3. Upload using the SDK's internal bundling logic
+                // This handles the "ANS-104" format that raw fetch calls miss.
+                const result = await turbo.uploadFile({
+                    fileStreamFactory: () => blob.stream(),
+                    fileSizeFactory: () => blob.size,
+                    dataItemOpts: {
+                        tags: [
+                            { name: 'Content-Type', value: 'text/plain' },
+                            { name: 'App-Name', value: 'Plain-JS-Tester-2026' }
+                        ]
+                    }
                 });
 
-                // 1. Generate temp wallet (required for signing structure)
-                const tempWallet = await arweave.wallets.generate();
+                console.log("Upload Success:", result);
+                alert(`SUCCESS!\nArweave ID: ${result.id}`);
+                window.open(`https://arweave.net/${result.id}`, '_blank');
 
-                // 2. Create Transaction
-                // We pass the string directly; Arweave.js handles encoding.
-                const transaction = await arweave.createTransaction({
-                    data: text 
-                }, tempWallet);
-
-                // 3. Add internal tags (metadata for the permaweb)
-                transaction.addTag('Content-Type', 'text/plain');
-                transaction.addTag('App-Name', 'Turbo-Plain-JS-Test');
-
-                // 4. Sign locally
-                await arweave.transactions.sign(transaction, tempWallet);
-
-                // 5. Submit to Turbo's transaction endpoint
-                // Ensure headers are strictly JSON
-                const response = await fetch('https://turbo.ardrive.io/v1/tx', {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(transaction)
-                });
-
-                if (!response.ok) {
-                    const errorMsg = await response.text();
-                    throw new Error(`Turbo rejected: ${errorMsg}`);
-                }
-
-                const result = await response.json();
-                const url = `https://arweave.net/${transaction.id}`;
-                
-                alert(`SUCCESS!\nTransaction ID: ${transaction.id}`);
-                console.log("Your text is live at:", url);
-                window.open(url, '_blank');
-
-            } catch (err) {
-                console.error("Submission Error:", err);
-                alert("Upload Failed: " + err.message);
+            } catch (error) {
+                console.error("SDK Error:", error);
+                alert("Error: " + error.message);
             } finally {
                 uploadBtn.disabled = false;
                 uploadBtn.innerText = "Upload to Arweave";
             }
-        }
-
-        uploadBtn.addEventListener('click', uploadData);
+        });
     </script>
 </body>
 </html>
