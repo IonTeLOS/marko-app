@@ -74,6 +74,7 @@
     
     <script type="module">
         import Arweave from 'https://esm.sh/arweave@1.15.1';
+        import { ArweaveSigner, createData } from 'https://unpkg.com/arbundles@0.11.0/build/web/index.js';
         
         const uploadBtn = document.getElementById('uploadBtn');
         const statusDiv = document.getElementById('status');
@@ -83,62 +84,6 @@
             statusDiv.style.display = 'block';
             statusDiv.className = type;
             statusDiv.innerHTML = message;
-        }
-        
-        async function uploadToTurbo(data, jwk, tags = []) {
-            // Create properly formatted data item for Turbo
-            const arweave = Arweave.init({ 
-                host: 'arweave.net', 
-                port: 443, 
-                protocol: 'https' 
-            });
-            
-            // Get public key from JWK
-            const publicKey = jwk.n;
-            
-            // Prepare data as Uint8Array
-            const dataBytes = typeof data === 'string' 
-                ? new TextEncoder().encode(data) 
-                : data;
-            
-            // Build tags in Turbo format
-            const formattedTags = tags.map(t => ({
-                name: t.name,
-                value: t.value
-            }));
-            
-            // Create the payload for Turbo's API
-            const payload = {
-                data: btoa(String.fromCharCode(...dataBytes)),
-                tags: formattedTags,
-                owner: publicKey
-            };
-            
-            // Get signature
-            const dataToSign = new TextEncoder().encode(JSON.stringify({
-                data: payload.data,
-                tags: payload.tags
-            }));
-            
-            const signature = await arweave.crypto.sign(jwk, dataToSign);
-            payload.signature = btoa(String.fromCharCode(...new Uint8Array(signature)));
-            
-            // Upload to Turbo
-            const response = await fetch('https://turbo.ardrive.io/v1/tx', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Turbo error (${response.status}): ${errorText}`);
-            }
-            
-            return await response.json();
         }
         
         uploadBtn.addEventListener('click', async () => {
@@ -167,27 +112,57 @@
                 });
                 const jwk = await arweave.wallets.generate();
                 
-                showStatus(`⬆️ Uploading ${textBytes} bytes to Arweave...`, 'info');
+                showStatus('📦 Building ANS-104 data item...', 'info');
                 
-                // Upload to Turbo
-                const result = await uploadToTurbo(text, jwk, [
-                    { name: 'Content-Type', value: 'text/plain' },
-                    { name: 'App-Name', value: 'Turbo-Free-Tier-Upload' },
-                    { name: 'App-Version', value: '1.0' }
-                ]);
+                // Create signer from JWK
+                const signer = new ArweaveSigner(jwk);
+                
+                // Create ANS-104 data item (what Turbo expects)
+                const dataItem = createData(text, signer, {
+                    tags: [
+                        { name: 'Content-Type', value: 'text/plain' },
+                        { name: 'App-Name', value: 'Turbo-Free-Tier-Upload' },
+                        { name: 'App-Version', value: '1.0' }
+                    ]
+                });
+                
+                await dataItem.sign(signer);
+                
+                // Get binary representation
+                const dataItemBinary = dataItem.getRaw();
+                
+                showStatus(`⬆️ Uploading ${dataItemBinary.length} bytes to Arweave...`, 'info');
+                
+                // Upload to Turbo's free tier endpoint
+                const response = await fetch('https://turbo.ardrive.io/v1/tx', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/octet-stream'
+                    },
+                    body: dataItemBinary
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Turbo error (${response.status}): ${errorText}`);
+                }
+                
+                const result = await response.json();
+                const txId = dataItem.id;
                 
                 // Success!
-                const txId = result.id || result.txId || result.transactionId;
                 showStatus(`
                     <strong>✅ Upload Successful!</strong><br><br>
                     <strong>Transaction ID:</strong><br>
                     <code>${txId}</code><br><br>
                     <strong>Size:</strong> ${textBytes.toLocaleString()} bytes<br><br>
                     <a href="https://arweave.net/${txId}" target="_blank">📄 View on Arweave</a><br>
+                    <a href="https://viewblock.io/arweave/tx/${txId}" target="_blank">🔍 ViewBlock</a><br>
                     <small style="color: #666;">Note: May take 1-2 minutes to become available</small>
                 `, 'success');
                 
                 console.log('Full upload result:', result);
+                console.log('Transaction ID:', txId);
                 
             } catch (error) {
                 console.error('Upload error:', error);
