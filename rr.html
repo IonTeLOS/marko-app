@@ -36,30 +36,11 @@
             border-radius: 4px;
             display: none;
         }
-        .success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-        .error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-        }
-        .info {
-            background: #d1ecf1;
-            border: 1px solid #bee5eb;
-            color: #0c5460;
-        }
-        code {
-            background: #f4f4f4;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: monospace;
-        }
-        a {
-            color: #007bff;
-        }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        a { color: #007bff; }
     </style>
 </head>
 <body>
@@ -73,7 +54,7 @@
     <div id="status"></div>
     
     <script type="module">
-        import Arweave from 'https://esm.sh/arweave@1.15.1';
+        import Arweave from 'https://cdn.jsdelivr.net/npm/arweave@1.15.1/+esm';
         
         const uploadBtn = document.getElementById('uploadBtn');
         const statusDiv = document.getElementById('status');
@@ -85,114 +66,6 @@
             statusDiv.innerHTML = message;
         }
         
-        // Helper functions for ANS-104 data item construction
-        function concatBuffers(...buffers) {
-            const totalLength = buffers.reduce((acc, buf) => acc + buf.length, 0);
-            const result = new Uint8Array(totalLength);
-            let offset = 0;
-            for (const buf of buffers) {
-                result.set(buf, offset);
-                offset += buf.length;
-            }
-            return result;
-        }
-        
-        function base64UrlEncode(buffer) {
-            const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
-            return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-        }
-        
-        function base64UrlDecode(str) {
-            str = str.replace(/-/g, '+').replace(/_/g, '/');
-            while (str.length % 4) str += '=';
-            const binary = atob(str);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) {
-                bytes[i] = binary.charCodeAt(i);
-            }
-            return bytes;
-        }
-        
-        function serializeTags(tags) {
-            const numTags = new Uint8Array(new Uint16Array([tags.length]).buffer);
-            const numTagsBytes = new Uint8Array(new Uint32Array([tags.length]).buffer).slice(0, 8);
-            
-            const tagBuffers = tags.map(tag => {
-                const nameBytes = new TextEncoder().encode(tag.name);
-                const valueBytes = new TextEncoder().encode(tag.value);
-                
-                const nameLengthBytes = new Uint8Array(new Uint32Array([nameBytes.length]).buffer).slice(0, 8);
-                const valueLengthBytes = new Uint8Array(new Uint32Array([valueBytes.length]).buffer).slice(0, 8);
-                
-                return concatBuffers(nameLengthBytes, nameBytes, valueLengthBytes, valueBytes);
-            });
-            
-            return concatBuffers(numTagsBytes, ...tagBuffers);
-        }
-        
-        async function createDataItem(data, jwk, tags = []) {
-            const arweave = Arweave.init({ host: 'arweave.net', port: 443, protocol: 'https' });
-            
-            // Convert data to bytes
-            const dataBytes = typeof data === 'string' ? new TextEncoder().encode(data) : data;
-            
-            // Get owner (public key) from JWK
-            const ownerBytes = base64UrlDecode(jwk.n);
-            
-            // Signature type (1 = Arweave, 2 bytes)
-            const signatureType = new Uint8Array([1, 0]);
-            
-            // Placeholder signature (512 bytes for RSA)
-            const signatureLength = 512;
-            const signature = new Uint8Array(signatureLength);
-            
-            // Owner length (512 bytes for RSA-4096)
-            const ownerLength = 512;
-            
-            // Target (0 = no target)
-            const target = new Uint8Array([0]);
-            
-            // Anchor (0 = no anchor)
-            const anchor = new Uint8Array([0]);
-            
-            // Serialize tags
-            const tagsBytes = serializeTags(tags);
-            
-            // Build the data item (without signature first)
-            const unsignedItem = concatBuffers(
-                signatureType,
-                signature,
-                ownerBytes,
-                target,
-                anchor,
-                tagsBytes,
-                dataBytes
-            );
-            
-            // Create deep hash for signing
-            const dataToSign = await arweave.crypto.hash(unsignedItem);
-            
-            // Sign the data
-            const signatureBytes = await arweave.crypto.sign(jwk, dataToSign);
-            
-            // Replace placeholder signature with actual signature
-            const signedItem = concatBuffers(
-                signatureType,
-                new Uint8Array(signatureBytes),
-                ownerBytes,
-                target,
-                anchor,
-                tagsBytes,
-                dataBytes
-            );
-            
-            // Calculate ID (SHA-256 of signature)
-            const idHash = await crypto.subtle.digest('SHA-256', signatureBytes);
-            const id = base64UrlEncode(idHash);
-            
-            return { binary: signedItem, id };
-        }
-        
         uploadBtn.addEventListener('click', async () => {
             const text = textInput.value.trim();
             if (!text) {
@@ -200,10 +73,9 @@
                 return;
             }
             
-            // Check size (100 KB = 102,400 bytes)
-            const textBytes = new TextEncoder().encode(text).length;
-            if (textBytes > 102400) {
-                showStatus(`⚠️ Text is too large (${textBytes} bytes). Free tier limit is 100 KB (102,400 bytes)`, 'error');
+            const textBytes = new TextEncoder().encode(text);
+            if (textBytes.length > 102400) {
+                showStatus(`⚠️ Too large (${textBytes.length} bytes). Max 100 KB`, 'error');
                 return;
             }
             
@@ -211,61 +83,69 @@
                 uploadBtn.disabled = true;
                 showStatus('🔑 Creating ephemeral wallet...', 'info');
                 
-                // Generate ephemeral Arweave wallet
                 const arweave = Arweave.init({ 
                     host: 'arweave.net', 
                     port: 443, 
                     protocol: 'https' 
                 });
                 const jwk = await arweave.wallets.generate();
+                const address = await arweave.wallets.jwkToAddress(jwk);
                 
-                showStatus('📦 Building ANS-104 data item...', 'info');
+                showStatus('📝 Creating transaction...', 'info');
                 
-                // Create ANS-104 data item
-                const dataItem = await createDataItem(text, jwk, [
-                    { name: 'Content-Type', value: 'text/plain' },
-                    { name: 'App-Name', value: 'Turbo-Free-Tier-Upload' },
-                    { name: 'App-Version', value: '1.0' }
-                ]);
+                // Create a standard Arweave transaction
+                const tx = await arweave.createTransaction({ 
+                    data: text 
+                }, jwk);
                 
-                showStatus(`⬆️ Uploading ${dataItem.binary.length} bytes to Arweave...`, 'info');
+                // Add tags
+                tx.addTag('Content-Type', 'text/plain');
+                tx.addTag('App-Name', 'Turbo-Free-Upload');
                 
-                // Upload to Turbo's free tier endpoint
-                const response = await fetch('https://turbo.ardrive.io/v1/tx', {
+                // Sign transaction
+                await arweave.transactions.sign(tx, jwk);
+                
+                showStatus(`⬆️ Uploading to Turbo (${textBytes.length} bytes)...`, 'info');
+                
+                // Try Turbo's payment service for free tier
+                const response = await fetch('https://payment.ardrive.io/v1/tx/arweave', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/octet-stream'
+                        'Content-Type': 'application/json'
                     },
-                    body: dataItem.binary
+                    body: JSON.stringify({
+                        tx: tx,
+                        address: address
+                    })
                 });
                 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    throw new Error(`Turbo error (${response.status}): ${errorText}`);
+                    throw new Error(`Upload error (${response.status}): ${errorText}`);
                 }
                 
                 const result = await response.json();
                 
-                // Success!
                 showStatus(`
                     <strong>✅ Upload Successful!</strong><br><br>
                     <strong>Transaction ID:</strong><br>
-                    <code>${dataItem.id}</code><br><br>
-                    <strong>Size:</strong> ${textBytes.toLocaleString()} bytes<br><br>
-                    <a href="https://arweave.net/${dataItem.id}" target="_blank">📄 View on Arweave</a><br>
-                    <a href="https://viewblock.io/arweave/tx/${dataItem.id}" target="_blank">🔍 ViewBlock</a><br>
-                    <small style="color: #666;">Note: May take 1-2 minutes to become available</small>
+                    <code>${tx.id}</code><br><br>
+                    <strong>Size:</strong> ${textBytes.length.toLocaleString()} bytes<br><br>
+                    <a href="https://arweave.net/${tx.id}" target="_blank">📄 View on Arweave</a><br>
+                    <a href="https://viewblock.io/arweave/tx/${tx.id}" target="_blank">🔍 ViewBlock</a><br>
+                    <small style="color: #666;">Note: May take 1-2 minutes to appear</small>
                 `, 'success');
                 
-                console.log('Full upload result:', result);
-                console.log('Transaction ID:', dataItem.id);
+                console.log('Result:', result);
+                console.log('TX ID:', tx.id);
                 
             } catch (error) {
                 console.error('Upload error:', error);
                 showStatus(`
                     <strong>❌ Upload Failed</strong><br><br>
                     ${error.message}<br><br>
-                    <small>Check console for details</small>
+                    <small>The free tier might require bundlr/arbundles library. 
+                    Consider using the Turbo CLI or paying for uploads.</small>
                 `, 'error');
             } finally {
                 uploadBtn.disabled = false;
