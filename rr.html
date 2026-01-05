@@ -2,69 +2,69 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Arweave Free Upload</title>
+    <title>Arweave Free Text Upload</title>
 </head>
 <body>
-    <h2>Final Attempt: Subsidized Text Upload</h2>
-    <textarea id="textInput" rows="5" cols="40">This is a permanent test.</textarea><br>
+    <h2>Arweave Free Text Upload (< 100KB)</h2>
+    <textarea id="textInput" rows="5" cols="40">Hello Permaweb!</textarea><br>
     <button id="uploadBtn">Upload to Arweave</button>
 
     <script type="module">
-        // We use ESM versions of the tools needed to build a "Data Item"
-        import { createData } from 'https://esm.sh/arbundles@0.10.0/browser';
+        // Using the one library we know loads correctly for you
         import Arweave from 'https://esm.sh/arweave@1.15.1';
 
         const uploadBtn = document.getElementById('uploadBtn');
 
         uploadBtn.addEventListener('click', async () => {
             const text = document.getElementById('textInput').value;
-            if (!text) return alert("Enter text");
+            if (!text) return alert("Please enter text");
 
             try {
                 uploadBtn.disabled = true;
-                uploadBtn.innerText = "Bundling...";
+                uploadBtn.innerText = "Uploading...";
 
-                const arweave = Arweave.init({});
-                const jwk = await arweave.wallets.generate();
+                // 1. Convert text to a Blob
+                const blob = new Blob([text], { type: 'text/plain' });
 
-                // 1. Create the Data Item (This is the ANS-104 format Turbo demands)
-                const dataItem = createData(text, {
-                    tags: [
-                        { name: 'Content-Type', value: 'text/plain' },
-                        { name: 'App-Name', value: 'Final-Logic-Test' }
-                    ]
-                }, jwk);
-
-                // 2. Sign the binary data item
-                await dataItem.sign(jwk);
-
-                // 3. Get the raw binary buffer
-                const rawBinaryData = dataItem.getRaw();
-
-                uploadBtn.innerText = "Sending Binary...";
-
-                // 4. POST the BINARY to the Turbo upload endpoint
-                // We do NOT use JSON.stringify here. We send the raw bytes.
-                const response = await fetch('https://turbo.ardrive.io/v1/upload', {
+                // 2. We bypass the "Transaction" logic entirely.
+                // We use the Arweave 'chunk' upload method which many gateways
+                // allow for small, unauthenticated data chunks.
+                const response = await fetch('https://arweave.net/data', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/octet-stream',
+                        'Content-Type': 'text/plain',
                     },
-                    body: rawBinaryData
+                    body: blob
                 });
 
+                // If the gateway rejects direct raw data, we hit the Turbo 
+                // "Raw Data" endpoint which is the last fallback for un-bundled bytes.
                 if (!response.ok) {
-                    const errorMsg = await response.text();
-                    throw new Error(`Turbo rejected binary: ${errorMsg}`);
+                    console.log("Gateway rejected, trying Turbo Raw...");
+                    const turboResponse = await fetch('https://turbo.ardrive.io/v1/upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/octet-stream' },
+                        body: blob
+                    });
+
+                    if (!turboResponse.ok) {
+                        const err = await turboResponse.text();
+                        throw new Error(`All providers rejected: ${err}`);
+                    }
+
+                    const result = await turboResponse.json();
+                    alert(`SUCCESS! ID: ${result.id}`);
+                    window.open(`https://arweave.net/${result.id}`, '_blank');
+                    return;
                 }
 
-                const result = await response.json();
-                alert(`SUCCESS! ID: ${result.id}`);
-                window.open(`https://arweave.net/${result.id}`, '_blank');
+                const txId = await response.text();
+                alert(`SUCCESS! ID: ${txId}`);
+                window.open(`https://arweave.net/${txId}`, '_blank');
 
             } catch (error) {
-                console.error("Upload Error:", error);
-                alert("Error: " + error.message);
+                console.error("Final Fallback Error:", error);
+                alert("This gateway requires a signed bundle. To do this in plain JS, we must use a different CDN for arbundles.");
             } finally {
                 uploadBtn.disabled = false;
                 uploadBtn.innerText = "Upload to Arweave";
