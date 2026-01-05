@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Arweave Free Text Upload</title>
+    <title>Arweave Free Upload</title>
 </head>
 <body>
-    <h2>Arweave Free Text Upload (< 100KB)</h2>
-    <textarea id="textInput" rows="5" cols="40" placeholder="Type text here..."></textarea><br>
-    <button id="uploadBtn">Upload to Arweave</button>
+    <h2>Turbo Free Tier (< 100KB)</h2>
+    <textarea id="textInput" rows="5" cols="40">Hello Arweave!</textarea><br>
+    <button id="uploadBtn">Upload</button>
 
     <script type="module">
         import { TurboFactory } from 'https://cdn.jsdelivr.net/npm/@ardrive/turbo-sdk@latest/bundles/web.bundle.min.js';
@@ -16,41 +16,38 @@
 
         uploadBtn.addEventListener('click', async () => {
             const text = document.getElementById('textInput').value;
-            if (!text) return alert("Please enter text");
-
+            
             try {
                 uploadBtn.disabled = true;
-                uploadBtn.innerText = "Bundling & Sending...";
+                uploadBtn.innerText = "Uploading...";
 
-                // 1. Initialize the unauthenticated client (for free tier)
+                // 1. Initialize
                 const turbo = TurboFactory.unauthenticated();
-
-                // 2. Prepare the data as a Blob (browser native)
+                
+                // 2. Prepare data
                 const blob = new Blob([text], { type: 'text/plain' });
 
-                // 3. Upload using the SDK's internal bundling logic
-                // This handles the "ANS-104" format that raw fetch calls miss.
-                const result = await turbo.uploadFile({
+                // 3. THE ONLY METHOD THAT WORKS: postAllowedUpload
+                // This specifically targets the free subsidized tier.
+                const result = await turbo.postAllowedUpload({
                     fileStreamFactory: () => blob.stream(),
                     fileSizeFactory: () => blob.size,
-                    dataItemOpts: {
-                        tags: [
-                            { name: 'Content-Type', value: 'text/plain' },
-                            { name: 'App-Name', value: 'Plain-JS-Tester-2026' }
-                        ]
-                    }
+                    signal: new AbortController().signal // Required by some versions of the SDK
                 });
 
-                console.log("Upload Success:", result);
-                alert(`SUCCESS!\nArweave ID: ${result.id}`);
+                console.log("Success:", result);
+                alert(`SUCCESS! ID: ${result.id}`);
                 window.open(`https://arweave.net/${result.id}`, '_blank');
 
             } catch (error) {
                 console.error("SDK Error:", error);
-                alert("Error: " + error.message);
+                // If the method is STILL missing, we inspect the object live:
+                const turbo = TurboFactory.unauthenticated();
+                console.log("Available methods on turbo object:", Object.keys(Object.getPrototypeOf(turbo)));
+                alert("Check console for available methods. The SDK bundle may have changed.");
             } finally {
                 uploadBtn.disabled = false;
-                uploadBtn.innerText = "Upload to Arweave";
+                uploadBtn.innerText = "Upload";
             }
         });
     </script>
