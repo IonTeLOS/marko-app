@@ -74,7 +74,6 @@
     
     <script type="module">
         import Arweave from 'https://esm.sh/arweave@1.15.1';
-        import { ArweaveSigner, createData } from 'https://unpkg.com/arbundles@0.11.0/build/web/index.js';
         
         const uploadBtn = document.getElementById('uploadBtn');
         const statusDiv = document.getElementById('status');
@@ -84,6 +83,114 @@
             statusDiv.style.display = 'block';
             statusDiv.className = type;
             statusDiv.innerHTML = message;
+        }
+        
+        // Helper functions for ANS-104 data item construction
+        function concatBuffers(...buffers) {
+            const totalLength = buffers.reduce((acc, buf) => acc + buf.length, 0);
+            const result = new Uint8Array(totalLength);
+            let offset = 0;
+            for (const buf of buffers) {
+                result.set(buf, offset);
+                offset += buf.length;
+            }
+            return result;
+        }
+        
+        function base64UrlEncode(buffer) {
+            const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+            return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        }
+        
+        function base64UrlDecode(str) {
+            str = str.replace(/-/g, '+').replace(/_/g, '/');
+            while (str.length % 4) str += '=';
+            const binary = atob(str);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return bytes;
+        }
+        
+        function serializeTags(tags) {
+            const numTags = new Uint8Array(new Uint16Array([tags.length]).buffer);
+            const numTagsBytes = new Uint8Array(new Uint32Array([tags.length]).buffer).slice(0, 8);
+            
+            const tagBuffers = tags.map(tag => {
+                const nameBytes = new TextEncoder().encode(tag.name);
+                const valueBytes = new TextEncoder().encode(tag.value);
+                
+                const nameLengthBytes = new Uint8Array(new Uint32Array([nameBytes.length]).buffer).slice(0, 8);
+                const valueLengthBytes = new Uint8Array(new Uint32Array([valueBytes.length]).buffer).slice(0, 8);
+                
+                return concatBuffers(nameLengthBytes, nameBytes, valueLengthBytes, valueBytes);
+            });
+            
+            return concatBuffers(numTagsBytes, ...tagBuffers);
+        }
+        
+        async function createDataItem(data, jwk, tags = []) {
+            const arweave = Arweave.init({ host: 'arweave.net', port: 443, protocol: 'https' });
+            
+            // Convert data to bytes
+            const dataBytes = typeof data === 'string' ? new TextEncoder().encode(data) : data;
+            
+            // Get owner (public key) from JWK
+            const ownerBytes = base64UrlDecode(jwk.n);
+            
+            // Signature type (1 = Arweave, 2 bytes)
+            const signatureType = new Uint8Array([1, 0]);
+            
+            // Placeholder signature (512 bytes for RSA)
+            const signatureLength = 512;
+            const signature = new Uint8Array(signatureLength);
+            
+            // Owner length (512 bytes for RSA-4096)
+            const ownerLength = 512;
+            
+            // Target (0 = no target)
+            const target = new Uint8Array([0]);
+            
+            // Anchor (0 = no anchor)
+            const anchor = new Uint8Array([0]);
+            
+            // Serialize tags
+            const tagsBytes = serializeTags(tags);
+            
+            // Build the data item (without signature first)
+            const unsignedItem = concatBuffers(
+                signatureType,
+                signature,
+                ownerBytes,
+                target,
+                anchor,
+                tagsBytes,
+                dataBytes
+            );
+            
+            // Create deep hash for signing
+            const dataToSign = await arweave.crypto.hash(unsignedItem);
+            
+            // Sign the data
+            const signatureBytes = await arweave.crypto.sign(jwk, dataToSign);
+            
+            // Replace placeholder signature with actual signature
+            const signedItem = concatBuffers(
+                signatureType,
+                new Uint8Array(signatureBytes),
+                ownerBytes,
+                target,
+                anchor,
+                tagsBytes,
+                dataBytes
+            );
+            
+            // Calculate ID (SHA-256 of signature)
+            const idHash = await crypto.subtle.digest('SHA-256', signatureBytes);
+            const id = base64UrlEncode(idHash);
+            
+            return { binary: signedItem, id };
         }
         
         uploadBtn.addEventListener('click', async () => {
@@ -114,24 +221,14 @@
                 
                 showStatus('📦 Building ANS-104 data item...', 'info');
                 
-                // Create signer from JWK
-                const signer = new ArweaveSigner(jwk);
+                // Create ANS-104 data item
+                const dataItem = await createDataItem(text, jwk, [
+                    { name: 'Content-Type', value: 'text/plain' },
+                    { name: 'App-Name', value: 'Turbo-Free-Tier-Upload' },
+                    { name: 'App-Version', value: '1.0' }
+                ]);
                 
-                // Create ANS-104 data item (what Turbo expects)
-                const dataItem = createData(text, signer, {
-                    tags: [
-                        { name: 'Content-Type', value: 'text/plain' },
-                        { name: 'App-Name', value: 'Turbo-Free-Tier-Upload' },
-                        { name: 'App-Version', value: '1.0' }
-                    ]
-                });
-                
-                await dataItem.sign(signer);
-                
-                // Get binary representation
-                const dataItemBinary = dataItem.getRaw();
-                
-                showStatus(`⬆️ Uploading ${dataItemBinary.length} bytes to Arweave...`, 'info');
+                showStatus(`⬆️ Uploading ${dataItem.binary.length} bytes to Arweave...`, 'info');
                 
                 // Upload to Turbo's free tier endpoint
                 const response = await fetch('https://turbo.ardrive.io/v1/tx', {
@@ -139,7 +236,7 @@
                     headers: {
                         'Content-Type': 'application/octet-stream'
                     },
-                    body: dataItemBinary
+                    body: dataItem.binary
                 });
                 
                 if (!response.ok) {
@@ -148,21 +245,20 @@
                 }
                 
                 const result = await response.json();
-                const txId = dataItem.id;
                 
                 // Success!
                 showStatus(`
                     <strong>✅ Upload Successful!</strong><br><br>
                     <strong>Transaction ID:</strong><br>
-                    <code>${txId}</code><br><br>
+                    <code>${dataItem.id}</code><br><br>
                     <strong>Size:</strong> ${textBytes.toLocaleString()} bytes<br><br>
-                    <a href="https://arweave.net/${txId}" target="_blank">📄 View on Arweave</a><br>
-                    <a href="https://viewblock.io/arweave/tx/${txId}" target="_blank">🔍 ViewBlock</a><br>
+                    <a href="https://arweave.net/${dataItem.id}" target="_blank">📄 View on Arweave</a><br>
+                    <a href="https://viewblock.io/arweave/tx/${dataItem.id}" target="_blank">🔍 ViewBlock</a><br>
                     <small style="color: #666;">Note: May take 1-2 minutes to become available</small>
                 `, 'success');
                 
                 console.log('Full upload result:', result);
-                console.log('Transaction ID:', txId);
+                console.log('Transaction ID:', dataItem.id);
                 
             } catch (error) {
                 console.error('Upload error:', error);
