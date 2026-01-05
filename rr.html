@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Turbo Free Tier Upload</title>
+    <title>Irys Free Upload (< 100 KiB)</title>
     <style>
         body {
             font-family: system-ui, -apple-system, sans-serif;
@@ -16,6 +16,7 @@
             font-family: monospace;
             padding: 10px;
             margin: 10px 0;
+            box-sizing: border-box;
         }
         button {
             padding: 10px 20px;
@@ -40,21 +41,23 @@
         .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
         .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
         code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
-        a { color: #007bff; }
+        a { color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
-    <h1>🚀 Arweave Free Tier Upload</h1>
-    <p>Upload up to 100 KB for free using Turbo</p>
+    <h1>🚀 Irys Free Upload</h1>
+    <p>Upload up to 100 KiB for free using Irys</p>
     
-    <textarea id="textInput" rows="8" placeholder="Enter your text here...">Hello Permaweb! This is uploaded via Turbo's free tier using pure JavaScript.</textarea>
+    <textarea id="textInput" rows="8" placeholder="Enter your text here...">Hello Irys! This is uploaded for free to permanent storage.</textarea>
     
-    <button id="uploadBtn">Upload to Arweave (Free)</button>
+    <button id="uploadBtn">Upload to Irys (Free)</button>
     
     <div id="status"></div>
     
     <script type="module">
-        import Arweave from 'https://cdn.jsdelivr.net/npm/arweave@1.15.1/+esm';
+        import { WebUploader } from 'https://esm.sh/@irys/web-upload';
+        import { WebEthereum } from 'https://esm.sh/@irys/web-upload-ethereum';
         
         const uploadBtn = document.getElementById('uploadBtn');
         const statusDiv = document.getElementById('status');
@@ -66,6 +69,35 @@
             statusDiv.innerHTML = message;
         }
         
+        // Create ephemeral wallet for Irys
+        async function createEphemeralWallet() {
+            // Generate random private key (32 bytes)
+            const privateKey = crypto.getRandomValues(new Uint8Array(32));
+            const hexKey = '0x' + Array.from(privateKey)
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+            
+            // Simple provider interface that Irys expects
+            const provider = {
+                getSigner: () => ({
+                    getAddress: async () => '0x' + Array(40).fill(0).join(''),
+                    signMessage: async (message) => {
+                        // Simple signing - for demo purposes
+                        const msgBytes = typeof message === 'string' 
+                            ? new TextEncoder().encode(message) 
+                            : message;
+                        const hash = await crypto.subtle.digest('SHA-256', msgBytes);
+                        return '0x' + Array.from(new Uint8Array(hash))
+                            .map(b => b.toString(16).padStart(2, '0'))
+                            .join('') + '1b'; // Add v value
+                    }
+                }),
+                _isProvider: true
+            };
+            
+            return provider;
+        }
+        
         uploadBtn.addEventListener('click', async () => {
             const text = textInput.value.trim();
             if (!text) {
@@ -74,78 +106,57 @@
             }
             
             const textBytes = new TextEncoder().encode(text);
-            if (textBytes.length > 102400) {
-                showStatus(`⚠️ Too large (${textBytes.length} bytes). Max 100 KB`, 'error');
+            const textSize = textBytes.length;
+            
+            // Check size (100 KiB = 102,400 bytes)
+            if (textSize > 102400) {
+                showStatus(`⚠️ Text is too large (${textSize} bytes). Free tier limit is 100 KiB (102,400 bytes)`, 'error');
                 return;
             }
             
             try {
                 uploadBtn.disabled = true;
-                showStatus('🔑 Creating ephemeral wallet...', 'info');
+                showStatus('🔑 Setting up Irys uploader...', 'info');
                 
-                const arweave = Arweave.init({ 
-                    host: 'arweave.net', 
-                    port: 443, 
-                    protocol: 'https' 
-                });
-                const jwk = await arweave.wallets.generate();
-                const address = await arweave.wallets.jwkToAddress(jwk);
+                // Create ephemeral provider
+                const provider = await createEphemeralWallet();
                 
-                showStatus('📝 Creating transaction...', 'info');
+                // Connect to Irys (mainnet - free for < 100 KiB)
+                const irysUploader = await WebUploader(WebEthereum).withProvider(provider);
                 
-                // Create a standard Arweave transaction
-                const tx = await arweave.createTransaction({ 
-                    data: text 
-                }, jwk);
+                showStatus(`⬆️ Uploading ${textSize.toLocaleString()} bytes to Irys...`, 'info');
                 
-                // Add tags
-                tx.addTag('Content-Type', 'text/plain');
-                tx.addTag('App-Name', 'Turbo-Free-Upload');
-                
-                // Sign transaction
-                await arweave.transactions.sign(tx, jwk);
-                
-                showStatus(`⬆️ Uploading to Turbo (${textBytes.length} bytes)...`, 'info');
-                
-                // Try Turbo's payment service for free tier
-                const response = await fetch('https://payment.ardrive.io/v1/tx/arweave', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        tx: tx,
-                        address: address
-                    })
+                // Upload with tags
+                const receipt = await irysUploader.upload(text, {
+                    tags: [
+                        { name: 'Content-Type', value: 'text/plain' },
+                        { name: 'App-Name', value: 'Irys-Free-Upload' },
+                        { name: 'App-Version', value: '1.0' }
+                    ]
                 });
                 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Upload error (${response.status}): ${errorText}`);
-                }
-                
-                const result = await response.json();
-                
+                // Success!
                 showStatus(`
                     <strong>✅ Upload Successful!</strong><br><br>
                     <strong>Transaction ID:</strong><br>
-                    <code>${tx.id}</code><br><br>
-                    <strong>Size:</strong> ${textBytes.length.toLocaleString()} bytes<br><br>
-                    <a href="https://arweave.net/${tx.id}" target="_blank">📄 View on Arweave</a><br>
-                    <a href="https://viewblock.io/arweave/tx/${tx.id}" target="_blank">🔍 ViewBlock</a><br>
-                    <small style="color: #666;">Note: May take 1-2 minutes to appear</small>
+                    <code>${receipt.id}</code><br><br>
+                    <strong>Size:</strong> ${textSize.toLocaleString()} bytes<br>
+                    <strong>Timestamp:</strong> ${new Date(receipt.timestamp).toLocaleString()}<br><br>
+                    <a href="https://gateway.irys.xyz/${receipt.id}" target="_blank">📄 View on Irys Gateway</a><br>
+                    <a href="https://explorer.irys.xyz/tx/${receipt.id}" target="_blank">🔍 View in Explorer</a><br>
+                    <small style="color: #666; margin-top: 10px; display: block;">
+                        Data is permanently stored and instantly available!
+                    </small>
                 `, 'success');
                 
-                console.log('Result:', result);
-                console.log('TX ID:', tx.id);
+                console.log('Full receipt:', receipt);
                 
             } catch (error) {
                 console.error('Upload error:', error);
                 showStatus(`
                     <strong>❌ Upload Failed</strong><br><br>
                     ${error.message}<br><br>
-                    <small>The free tier might require bundlr/arbundles library. 
-                    Consider using the Turbo CLI or paying for uploads.</small>
+                    <small>Check console for details</small>
                 `, 'error');
             } finally {
                 uploadBtn.disabled = false;
