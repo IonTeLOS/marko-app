@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Arweave Free Upload</title>
+    <script src="https://unpkg.com/arweave/bundle.js"></script>
+</head>
+<body>
+    <h2>Arweave Free Tier (< 100KB)</h2>
+    <input type="file" id="fileInput">
+    <button id="uploadBtn">Upload to Arweave</button>
+
+    <script>
+        const arweave = Arweave.init({});
+
+        document.getElementById('uploadBtn').addEventListener('click', async () => {
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) return alert("Select a file");
+            if (file.size > 102400) return alert("File too large (>100KB)");
+
+            try {
+                uploadBtn.disabled = true;
+                uploadBtn.innerText = "Processing...";
+
+                // 1. Convert file to ArrayBuffer
+                const arrayBuffer = await file.arrayBuffer();
+
+                // 2. Create a "Data Item"
+                // For the free tier, we need a 'mock' wallet just to satisfy the SDK
+                const tempWallet = await arweave.wallets.generate();
+                
+                const transaction = await arweave.createTransaction({
+                    data: arrayBuffer
+                }, tempWallet);
+
+                transaction.addTag('Content-Type', file.type);
+                transaction.addTag('App-Name', 'Plain-JS-Free-Upload');
+
+                // 3. Sign locally (this doesn't cost anything yet)
+                await arweave.transactions.sign(transaction, tempWallet);
+
+                // 4. POST the signed transaction to Turbo's specific "upload" endpoint
+                // We send it to Turbo because they will pay the fee for us.
+                const response = await fetch('https://turbo.ardrive.io/v1/tx', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(transaction)
+                });
+
+                if (!response.ok) {
+                    const err = await response.text();
+                    throw new Error(`Turbo rejected the data: ${err}`);
+                }
+
+                const result = await response.json();
+                alert(`SUCCESS! Arweave ID: ${transaction.id}`);
+                console.log("Transaction ID:", transaction.id);
+
+            } catch (error) {
+                console.error(error);
+                alert("Error: " + error.message);
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.innerText = "Upload to Arweave";
+            }
+        });
+    </script>
+</body>
+</html>
