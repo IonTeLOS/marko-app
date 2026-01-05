@@ -2,82 +2,89 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Arweave Free Upload</title>
+    <title>Arweave Text Test</title>
 </head>
 <body>
-    <h2>Arweave Free Tier (< 100KB)</h2>
-    <input type="file" id="fileInput">
-    <button id="uploadBtn">Upload to Arweave</button>
+    <h2>Test: Plain Text to Arweave (< 100KB)</h2>
+    
+    <div style="margin-bottom: 20px;">
+        <textarea id="textInput" rows="5" cols="40" placeholder="Type something to upload..."></textarea><br>
+        <button id="uploadTextBtn">Upload Typed Text</button>
+    </div>
+
+    <hr>
+
+    <div style="margin-bottom: 20px;">
+        <input type="file" id="fileInput" accept=".txt,text/plain">
+        <button id="uploadFileBtn">Upload .txt File</button>
+    </div>
 
     <script type="module">
-        // Using esm.sh for a clean, bundler-free import of Arweave.js
         import Arweave from 'https://esm.sh/arweave@1.15.1';
 
-        const uploadBtn = document.getElementById('uploadBtn');
-        const fileInput = document.getElementById('fileInput');
+        const arweave = Arweave.init({
+            host: 'arweave.net',
+            port: 443,
+            protocol: 'https'
+        });
 
-        uploadBtn.addEventListener('click', async () => {
-            const file = fileInput.files[0];
-            if (!file) return alert("Select a file");
-            
-            // Limit for Turbo's free tier
-            if (file.size > 102400) return alert("File too large (>100KB)");
-
+        async function uploadData(data, type) {
             try {
-                uploadBtn.disabled = true;
-                uploadBtn.innerText = "Processing...";
+                const btn = event.target;
+                btn.disabled = true;
+                btn.innerText = "Uploading...";
 
-                const arweave = Arweave.init({
-                    host: 'arweave.net',
-                    port: 443,
-                    protocol: 'https'
-                });
+                // 1. Prepare Data (Arweave.js expects Uint8Array)
+                const encoder = new TextEncoder();
+                const bytes = (typeof data === 'string') ? encoder.encode(data) : new Uint8Array(await data.arrayBuffer());
 
-                // 1. Create a "mock" wallet for signing (required for the transaction format)
+                if (bytes.byteLength > 102400) return alert("Too large!");
+
+                // 2. Setup Mock Transaction
                 const tempWallet = await arweave.wallets.generate();
-                const arrayBuffer = await file.arrayBuffer();
+                const transaction = await arweave.createTransaction({ data: bytes }, tempWallet);
+                
+                // IMPORTANT: This tag tells the gateway to render as text
+                transaction.addTag('Content-Type', 'text/plain');
+                transaction.addTag('App-Name', 'Plain-JS-Text-Test');
 
-                // 2. Create the Arweave Transaction
-                const transaction = await arweave.createTransaction({
-                    data: new Uint8Array(arrayBuffer)
-                }, tempWallet);
-
-                // 3. Add tags (This defines how the file is viewed on Arweave)
-                transaction.addTag('Content-Type', file.type || 'application/octet-stream');
-                transaction.addTag('App-Name', 'Turbo-Free-Upload-Plain-JS');
-
-                // 4. Sign locally (No cost)
                 await arweave.transactions.sign(transaction, tempWallet);
 
-                // 5. Submit to Turbo
-                // IMPORTANT: Headers must be exactly 'application/json' for the POST body
+                // 3. Submit to Turbo
                 const response = await fetch('https://turbo.ardrive.io/v1/tx', {
                     method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(transaction)
                 });
 
-                if (!response.ok) {
-                    const errText = await response.text();
-                    throw new Error(`Turbo rejected: ${errText}`);
-                }
+                if (!response.ok) throw new Error(await response.text());
 
                 const result = await response.json();
-                console.log("Success Result:", result);
+                const url = `https://arweave.net/${transaction.id}`;
                 
-                alert(`SUCCESS! Arweave ID: ${transaction.id}`);
-                console.log("View your file at: https://arweave.net/" + transaction.id);
+                console.log("Success:", result);
+                alert(`SUCCESS!\nView text at: ${url}`);
+                window.open(url, '_blank');
 
-            } catch (error) {
-                console.error("Upload Error:", error);
-                alert("Error: " + error.message);
+            } catch (err) {
+                console.error(err);
+                alert("Error: " + err.message);
             } finally {
-                uploadBtn.disabled = false;
-                uploadBtn.innerText = "Upload to Arweave";
+                event.target.disabled = false;
+                event.target.innerText = event.target.id === 'uploadTextBtn' ? "Upload Typed Text" : "Upload .txt File";
             }
+        }
+
+        document.getElementById('uploadTextBtn').addEventListener('click', (e) => {
+            const val = document.getElementById('textInput').value;
+            if (!val) return alert("Type something!");
+            uploadData(val, 'text/plain');
+        });
+
+        document.getElementById('uploadFileBtn').addEventListener('click', (e) => {
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) return alert("Select a file!");
+            uploadData(file, 'text/plain');
         });
     </script>
 </body>
