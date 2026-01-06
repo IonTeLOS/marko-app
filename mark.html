@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Editor</title>
+
+    <!-- EasyMDE CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+    <!-- Font Awesome for toolbar icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 900px;
+            padding: 30px;
+            animation: slideIn 0.4s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 24px;
+            font-size: 14px;
+        }
+
+        .editor-wrapper {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .download-btn:active {
+            transform: translateY(0);
+        }
+
+        .align-btn {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            padding: 12px 28px;
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s ease;
+            margin-bottom: 12px;
+        }
+
+        .align-btn:hover {
+            background: #f0f4ff;
+            transform: translateY(-1px);
+        }
+
+        .align-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Emoji picker */
+        .emoji-picker {
+            position: absolute;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            display: none;
+            max-width: 320px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .emoji-picker.active {
+            display: block;
+        }
+
+        .emoji-picker-header {
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #333;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .emoji-category {
+            margin-bottom: 16px;
+        }
+
+        .emoji-category-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 6px;
+        }
+
+        .emoji-item {
+            font-size: 24px;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            text-align: center;
+            user-select: none;
+        }
+
+        .emoji-item:hover {
+            background: #f0f4ff;
+            transform: scale(1.2);
+        }
+
+        /* Customize EasyMDE */
+        .EasyMDEContainer .CodeMirror {
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 15px;
+            min-height: 300px;
+        }
+
+        .EasyMDEContainer .CodeMirror-focused {
+            border-color: #667eea;
+        }
+
+        .editor-toolbar {
+            border: none;
+            border-bottom: 2px solid #e5e7eb;
+            border-radius: 8px 8px 0 0;
+            background: #f9fafb;
+        }
+
+        .editor-toolbar button {
+            color: #555 !important;
+        }
+
+        .editor-toolbar button:hover {
+            background: #e5e7eb;
+            border-color: transparent;
+        }
+
+        .editor-toolbar.fullscreen {
+            background: white;
+        }
+
+        /* Preview pane styling */
+        .editor-preview, .editor-preview-side {
+            padding: 16px !important;
+            background: white;
+        }
+
+        .editor-preview h1, .editor-preview-side h1,
+        .editor-preview h2, .editor-preview-side h2,
+        .editor-preview h3, .editor-preview-side h3 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+
+        .editor-preview h1, .editor-preview-side h1 {
+            font-size: 2em;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 8px;
+        }
+
+        .editor-preview h2, .editor-preview-side h2 {
+            font-size: 1.5em;
+        }
+
+        .editor-preview p, .editor-preview-side p {
+            margin-bottom: 16px;
+        }
+
+        .editor-preview ul, .editor-preview-side ul,
+        .editor-preview ol, .editor-preview-side ol {
+            margin-bottom: 16px;
+            padding-left: 28px;
+        }
+
+        .editor-preview li, .editor-preview-side li {
+            margin-bottom: 8px;
+        }
+
+        .editor-preview blockquote, .editor-preview-side blockquote {
+            border-left: 4px solid #667eea;
+            padding-left: 16px;
+            margin: 16px 0;
+            color: #666;
+            font-style: italic;
+        }
+
+        .editor-preview code, .editor-preview-side code {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .editor-preview pre, .editor-preview-side pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin-bottom: 16px;
+        }
+
+        .editor-preview hr, .editor-preview-side hr {
+            border: none;
+            border-top: 2px solid #e5e7eb;
+            margin: 24px 0;
+        }
+
+        .editor-preview strong, .editor-preview-side strong {
+            font-weight: 600;
+        }
+
+        .editor-preview a, .editor-preview-side a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .editor-preview img, .editor-preview-side img {
+            display: block;
+            margin: 16px auto;
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Text alignment toggle - doesn't affect images */
+        .editor-preview.text-center, .editor-preview-side.text-center {
+            text-align: center;
+        }
+
+        .editor-preview.text-center img, .editor-preview-side.text-center img,
+        .editor-preview.text-center ul, .editor-preview-side.text-center ul,
+        .editor-preview.text-center ol, .editor-preview-side.text-center ol,
+        .editor-preview.text-center blockquote, .editor-preview-side.text-center blockquote,
+        .editor-preview.text-center pre, .editor-preview-side.text-center pre {
+            text-align: left;
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .emoji-picker {
+                max-width: 280px;
+                padding: 12px;
+                left: 10px !important;
+                right: 10px;
+            }
+
+            .emoji-grid {
+                grid-template-columns: repeat(6, 1fr);
+            }
+
+            .emoji-item {
+                font-size: 20px;
+                padding: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✍️ Markdown Editor</h1>
+        <p class="subtitle">Write in markdown, preview in real-time, download as HTML</p>
+
+        <div class="editor-wrapper">
+            <textarea id="markdown-editor"></textarea>
+            <div id="emojiPicker" class="emoji-picker"></div>
+        </div>
+
+        <button class="align-btn" id="alignToggle" onclick="toggleAlignment()">
+            📐 Text Align: Left
+        </button>
+
+        <button class="download-btn" onclick="downloadAsHTML()">
+            📥 Download as HTML
+        </button>
+    </div>
+
+    <!-- Marked.js for proper markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <!-- EasyMDE JS -->
+    <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+
+    <script>
+        // Wait for marked to load
+        window.addEventListener('load', function() {
+            // Configure marked for better rendering
+            if (typeof marked !== 'undefined') {
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true
+                });
+            }
+
+            const easyMDE = new EasyMDE({
+                element: document.getElementById('markdown-editor'),
+                placeholder: 'Start typing your markdown here...\n\nTry:\n# Heading\n**bold text**\n- bullet point',
+                spellChecker: false,
+                autoDownloadFontAwesome: true,
+                scrollbarStyle: null,
+                previewImagesInEditor: true,
+                promptURLs: true,
+                uploadImage: true,
+                autofocus: true,
+                toolbar: [
+                    'bold', 'italic', 'strikethrough', 'heading', '|',
+                    'quote', 'code', 'unordered-list', 'ordered-list', 'table', '|',
+                    'link', 'image',
+                    {
+                        name: 'emoji',
+                        action: function(editor) {
+                            toggleEmojiPicker(editor);
+                        },
+                        className: 'fa fa-smile-o',
+                        title: 'Insert Emoji'
+                    },
+                    'horizontal-rule', '|',
+                    'preview', 'side-by-side', 'fullscreen', '|', 'undo', 'redo'
+                ],
+                status: ['lines', 'words', 'cursor', {
+                    className: 'filesize',
+                    defaultValue: (el) => {
+                        el.innerHTML = '0 KB';
+                    },
+                    onUpdate: (el) => {
+                        const text = easyMDE.value();
+                        const bytes = new Blob([text]).size;
+                        const kb = (bytes / 1024).toFixed(2);
+                        el.innerHTML = kb + ' KB';
+                    }
+                }],
+                sideBySideFullscreen: false,
+                previewRender: function(plainText) {
+                    if (typeof marked !== 'undefined') {
+                        return marked.parse(plainText);
+                    }
+                    return plainText;
+                },
+                renderingConfig: {
+                    singleLineBreaks: false,
+                    codeSyntaxHighlighting: true
+                }
+            });
+
+
+            // Emoji categories
+            const emojiCategories = {
+                'Smileys': ['😀', '😃', '😄', '😁', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒'],
+                'Gestures': ['👋', '🤚', '🖐', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏'],
+                'Hearts': ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❤️‍🔥', '❤️‍🩹', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟'],
+                'Animals': ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋', '🐌', '🐞'],
+                'Food': ['🍎', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶', '🌽', '🥕', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨'],
+                'Activities': ['⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '⛳', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛼', '⛸', '🥌', '🎿', '⛷', '🏂', '🎯', '🎮'],
+                'Travel': ['🚗', '🚕', '🚙', '🚌', '🚎', '🏎', '🚓', '🚑', '🚒', '🚐', '🛻', '🚚', '🚛', '🚜', '🦯', '🦽', '🦼', '🛴', '🚲', '🛵', '🏍', '🛺', '🚨', '🚔', '🚍', '🚘', '🚖', '🚡', '🚠', '🚟', '🚃', '🚋'],
+                'Objects': ['⌚', '📱', '💻', '⌨️', '🖥', '🖨', '🖱', '🖲', '🕹', '🗜', '💾', '💿', '📀', '📼', '📷', '📸', '📹', '🎥', '📽', '🎞', '📞', '☎️', '📟', '📠', '📺', '📻', '🎙', '🎚', '🎛', '🧭', '⏱', '⏲'],
+                'Symbols': ['❤️', '💯', '💢', '💥', '💫', '💦', '💨', '🕳', '💬', '👁️‍🗨️', '🗨', '🗯', '💭', '💤', '✨', '⭐', '🌟', '💫', '🔥', '💥', '❗', '❓', '✅', '❌', '⭕', '🔴', '🟠', '🟡', '🟢', '🔵', '🟣']
+            };
+
+            // Create emoji picker content
+            const emojiPicker = document.getElementById('emojiPicker');
+            let pickerHTML = '<div class="emoji-picker-header">Pick an Emoji</div>';
+
+            for (const [category, emojis] of Object.entries(emojiCategories)) {
+                pickerHTML += `
+                    <div class="emoji-category">
+                        <div class="emoji-category-title">${category}</div>
+                        <div class="emoji-grid">
+                            ${emojis.map(emoji => `<span class="emoji-item" data-emoji="${emoji}">${emoji}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            emojiPicker.innerHTML = pickerHTML;
+
+            // Handle emoji click
+            document.querySelectorAll('.emoji-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const emoji = this.getAttribute('data-emoji');
+                    insertEmoji(emoji);
+                    emojiPicker.classList.remove('active');
+                });
+            });
+
+            // Close emoji picker when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!emojiPicker.contains(e.target) && !e.target.closest('.fa-smile-o')) {
+                    emojiPicker.classList.remove('active');
+                }
+            });
+
+            // Toggle emoji picker
+            function toggleEmojiPicker(editor) {
+                const picker = document.getElementById('emojiPicker');
+                const toolbar = document.querySelector('.editor-toolbar');
+                const emojiButton = document.querySelector('.fa-smile-o');
+
+                if (picker.classList.contains('active')) {
+                    picker.classList.remove('active');
+                } else {
+                    // Position picker below the emoji button
+                    const rect = emojiButton.getBoundingClientRect();
+                    const toolbarRect = toolbar.getBoundingClientRect();
+                    picker.style.top = (toolbarRect.bottom - document.querySelector('.container').getBoundingClientRect().top + 5) + 'px';
+                    picker.style.left = (rect.left - document.querySelector('.container').getBoundingClientRect().left) + 'px';
+                    picker.classList.add('active');
+                }
+            }
+
+            // Insert emoji at cursor position
+            function insertEmoji(emoji) {
+                const cm = easyMDE.codemirror;
+                const doc = cm.getDoc();
+                const cursor = doc.getCursor();
+                doc.replaceRange(emoji, cursor);
+            }
+
+            // Set initial sample content
+            easyMDE.value(`# Welcome to Markdown Editor! 👋
+
+This is a simple and friendly markdown editor. Start typing to see the magic happen!
+
+## Features ✨
+
+- **Bold** and *italic* text
+- Create lists easily
+- Add [links](https://example.com)
+- And much more!
+
+### Unordered Lists
+
+- First item
+- Second item
+  - Nested item
+  - Another nested item
+- Third item
+
+### Ordered Lists
+
+1. First step
+2. Second step
+3. Third step
+
+### Blockquotes
+
+> This is a quote
+> It can span multiple lines
+>
+> And even have multiple paragraphs!
+
+### Try the Preview
+
+Click the eye icon (👁️) in the toolbar to see your markdown rendered in real-time.
+
+---
+
+**Tip:** Click the "Download as HTML" button below to save your work as a mobile-friendly HTML file.`);
+
+            // Alignment state
+            let isTextCentered = false;
+
+            // Toggle alignment function
+            window.toggleAlignment = function() {
+                isTextCentered = !isTextCentered;
+                const previewPanes = document.querySelectorAll('.editor-preview, .editor-preview-side');
+                const button = document.getElementById('alignToggle');
+
+                if (isTextCentered) {
+                    previewPanes.forEach(pane => pane.classList.add('text-center'));
+                    button.innerHTML = '📐 Text Align: Center';
+                } else {
+                    previewPanes.forEach(pane => pane.classList.remove('text-center'));
+                    button.innerHTML = '📐 Text Align: Left';
+                }
+            };
+
+            // Download function
+            window.downloadAsHTML = function() {
+                // Get the markdown content
+                const markdown = easyMDE.value();
+
+                // Convert markdown to HTML using marked.js
+                const htmlContent = typeof marked !== 'undefined' ? marked.parse(markdown) : markdown;
+
+            // Create a complete HTML document optimized for mobile
+            const fullHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Markdown Document</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f9fafb;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+            color: #1a1a1a;
+        }
+
+        h1 { font-size: 2em; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }
+        h2 { font-size: 1.5em; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
+        h3 { font-size: 1.25em; }
+        h4 { font-size: 1em; }
+        h5 { font-size: 0.875em; }
+        h6 { font-size: 0.85em; color: #666; }
+
+        p {
+            margin-bottom: 16px;
+        }
+
+        a {
+            color: #667eea;
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: border-color 0.2s;
+        }
+
+        a:hover {
+            border-bottom-color: #667eea;
+        }
+
+        ul, ol {
+            margin-bottom: 16px;
+            padding-left: 24px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        code {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #d63384;
+        }
+
+        pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin-bottom: 16px;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+            font-size: 0.875em;
+        }
+
+        blockquote {
+            border-left: 4px solid #667eea;
+            padding-left: 16px;
+            margin: 16px 0;
+            color: #666;
+            font-style: italic;
+        }
+
+        img {
+            display: block;
+            margin: 16px auto;
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        hr {
+            border: none;
+            border-top: 2px solid #e5e7eb;
+            margin: 24px 0;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 16px;
+            overflow-x: auto;
+            display: block;
+        }
+
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #f9fafb;
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background: #f9fafb;
+        }
+
+        strong {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        em {
+            font-style: italic;
+        }
+
+        /* Text alignment - doesn't affect images, lists, blockquotes, or code blocks */
+        ${isTextCentered ? `
+        .content {
+            text-align: center;
+        }
+
+        .content img,
+        .content ul,
+        .content ol,
+        .content blockquote,
+        .content pre {
+            text-align: left;
+        }
+        ` : ''}
+
+        /* Mobile optimizations */
+        @media (max-width: 640px) {
+            body {
+                padding: 12px;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            h1 { font-size: 1.75em; }
+            h2 { font-size: 1.375em; }
+            h3 { font-size: 1.125em; }
+
+            pre {
+                padding: 12px;
+                font-size: 0.8em;
+            }
+
+            table {
+                font-size: 0.875em;
+            }
+
+            th, td {
+                padding: 8px;
+            }
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .content {
+                box-shadow: none;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="content">
+${htmlContent}
+    </div>
+</body>
+</html>`;
+
+            // Create blob and download
+            const blob = new Blob([fullHTML], { type: 'text/html' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'markdown-document.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+        });
+    </script>
+</body>
+</html>
