@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ActivityPub Client-Side Signing Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0f0f0f;
+            color: #e0e0e0;
+        }
+        h1 {
+            color: #fff;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px 10px 10px 0;
+        }
+        button:hover {
+            background: #0052a3;
+        }
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+        .results {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #222;
+        }
+        .metric:last-child {
+            border-bottom: none;
+        }
+        .metric-label {
+            color: #888;
+        }
+        .metric-value {
+            color: #0f0;
+            font-weight: bold;
+        }
+        .warning {
+            color: #ff9800;
+        }
+        .good {
+            color: #4caf50;
+        }
+        .code-block {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+        pre {
+            margin: 0;
+            color: #aaa;
+        }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #444;
+            border-top-color: #0066cc;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>🔐 ActivityPub Client-Side Signing Performance Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Configuration</h2>
+        <div class="metric">
+            <span class="metric-label">Number of Servers:</span>
+            <span class="metric-value">50</span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Followers per Server:</span>
+            <span class="metric-value">10</span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Total Signatures:</span>
+            <span class="metric-value">500</span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Key Type:</span>
+            <span class="metric-value">RSA-SHA256 (2048-bit)</span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Run Test</h2>
+        <button id="runTest" onclick="runFullTest()">▶️ Run Full Test</button>
+        <button id="runQuick" onclick="runQuickTest()">⚡ Quick Test (10 servers)</button>
+        <div id="status"></div>
+    </div>
+
+    <div id="resultsContainer" style="display: none;">
+        <div class="test-section">
+            <h2>⏱️ Performance Results</h2>
+            <div id="performanceResults" class="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Detailed Breakdown</h2>
+            <div id="detailedResults" class="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📝 Sample Signed Request</h2>
+            <div id="sampleRequest" class="code-block"></div>
+        </div>
+    </div>
+
+    <script>
+        let keyPair = null;
+        let publicKeyPem = null;
+
+        // Generate RSA key pair for ActivityPub (2048-bit)
+        async function generateKeyPair() {
+            console.log('Generating RSA key pair...');
+            keyPair = await window.crypto.subtle.generateKey(
+                {
+                    name: "RSASSA-PKCS1-v1_5",
+                    modulusLength: 2048,
+                    publicExponent: new Uint8Array([1, 0, 1]),
+                    hash: "SHA-256",
+                },
+                true,
+                ["sign", "verify"]
+            );
+
+            // Export public key to PEM format
+            const exported = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
+            publicKeyPem = pemEncode(exported, "PUBLIC KEY");
+            
+            console.log('Key pair generated');
+            return keyPair;
+        }
+
+        function pemEncode(arrayBuffer, label) {
+            const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+            const formatted = base64.match(/.{1,64}/g).join('\n');
+            return `-----BEGIN ${label}-----\n${formatted}\n-----END ${label}-----`;
+        }
+
+        // Create a realistic ActivityPub Note
+        function createActivityPubNote() {
+            const now = new Date().toISOString();
+            return {
+                "@context": "https://www.w3.org/ns/activitystreams",
+                "id": `https://alice.example.com/posts/${Date.now()}`,
+                "type": "Create",
+                "actor": "https://alice.example.com/actor",
+                "published": now,
+                "to": ["https://www.w3.org/ns/activitystreams#Public"],
+                "cc": ["https://alice.example.com/followers"],
+                "object": {
+                    "id": `https://alice.example.com/notes/${Date.now()}`,
+                    "type": "Note",
+                    "attributedTo": "https://alice.example.com/actor",
+                    "content": "<p>Testing client-side signing for sovereign ActivityPub! 🚀</p>",
+                    "published": now,
+                    "to": ["https://www.w3.org/ns/activitystreams#Public"],
+                    "cc": ["https://alice.example.com/followers"],
+                    "sensitive": false,
+                    "atomUri": `https://alice.example.com/notes/${Date.now()}`,
+                    "inReplyToAtomUri": null,
+                    "conversation": `tag:alice.example.com,${now.split('T')[0]}:objectId=${Date.now()}:objectType=Conversation`
+                }
+            };
+        }
+
+        // Calculate SHA-256 digest of body
+        async function calculateDigest(body) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(body);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashBase64 = btoa(String.fromCharCode(...hashArray));
+            return `SHA-256=${hashBase64}`;
+        }
+
+        // Sign HTTP request following ActivityPub spec
+        async function signRequest(method, path, host, body, keyId) {
+            const date = new Date().toUTCString();
+            const digest = await calculateDigest(body);
+            
+            // Build signing string
+            const signingString = [
+                `(request-target): ${method.toLowerCase()} ${path}`,
+                `host: ${host}`,
+                `date: ${date}`,
+                `digest: ${digest}`
+            ].join('\n');
+
+            // Sign the string
+            const encoder = new TextEncoder();
+            const data = encoder.encode(signingString);
+            const signatureBuffer = await crypto.subtle.sign(
+                "RSASSA-PKCS1-v1_5",
+                keyPair.privateKey,
+                data
+            );
+            
+            const signatureArray = Array.from(new Uint8Array(signatureBuffer));
+            const signatureBase64 = btoa(String.fromCharCode(...signatureArray));
+
+            // Build signature header
+            const signatureHeader = [
+                `keyId="${keyId}"`,
+                `algorithm="rsa-sha256"`,
+                `headers="(request-target) host date digest"`,
+                `signature="${signatureBase64}"`
+            ].join(',');
+
+            return {
+                headers: {
+                    'Host': host,
+                    'Date': date,
+                    'Digest': digest,
+                    'Signature': signatureHeader,
+                    'Content-Type': 'application/activity+json',
+                    'Accept': 'application/activity+json'
+                },
+                body: body,
+                signingString: signingString
+            };
+        }
+
+        // Generate test servers and followers
+        function generateTestData(numServers, followersPerServer) {
+            const servers = [];
+            for (let i = 0; i < numServers; i++) {
+                const server = {
+                    domain: `mastodon${i}.example.com`,
+                    followers: []
+                };
+                for (let j = 0; j < followersPerServer; j++) {
+                    server.followers.push({
+                        username: `user${j}`,
+                        inbox: `https://mastodon${i}.example.com/users/user${j}/inbox`
+                    });
+                }
+                servers.push(server);
+            }
+            return servers;
+        }
+
+        // Run the signing test
+        async function runSigningTest(numServers = 50, followersPerServer = 10) {
+            const results = {
+                keyGenTime: 0,
+                noteCreationTime: 0,
+                totalSigningTime: 0,
+                averageSigningTime: 0,
+                signaturesPerSecond: 0,
+                totalSignatures: 0,
+                serverBreakdown: []
+            };
+
+            // Step 1: Generate key pair
+            const keyGenStart = performance.now();
+            if (!keyPair) {
+                await generateKeyPair();
+            }
+            results.keyGenTime = performance.now() - keyGenStart;
+
+            // Step 2: Create Note
+            const noteStart = performance.now();
+            const activity = createActivityPubNote();
+            const activityJson = JSON.stringify(activity);
+            results.noteCreationTime = performance.now() - noteStart;
+
+            // Step 3: Generate test servers
+            const servers = generateTestData(numServers, followersPerServer);
+            const keyId = "https://alice.example.com/actor#main-key";
+
+            // Step 4: Sign for each server
+            const totalSigningStart = performance.now();
+            const signedRequests = [];
+
+            for (const server of servers) {
+                const serverStart = performance.now();
+                
+                // In real implementation, you'd sign once per server (for shared inbox)
+                // or once per follower (for individual inboxes)
+                // Here we'll sign once per server to simulate shared inbox optimization
+                const signed = await signRequest(
+                    'POST',
+                    '/inbox',
+                    server.domain,
+                    activityJson,
+                    keyId
+                );
+
+                const serverTime = performance.now() - serverStart;
+                results.serverBreakdown.push({
+                    domain: server.domain,
+                    time: serverTime,
+                    followers: server.followers.length
+                });
+
+                signedRequests.push({
+                    server: server.domain,
+                    ...signed
+                });
+            }
+
+            const totalSigningTime = performance.now() - totalSigningStart;
+            results.totalSigningTime = totalSigningTime;
+            results.averageSigningTime = totalSigningTime / numServers;
+            results.totalSignatures = numServers;
+            results.signaturesPerSecond = (numServers / totalSigningTime) * 1000;
+
+            return { results, signedRequests, activity };
+        }
+
+        // Display results
+        function displayResults(testData) {
+            const { results, signedRequests, activity } = testData;
+
+            document.getElementById('resultsContainer').style.display = 'block';
+
+            // Performance summary
+            const perfDiv = document.getElementById('performanceResults');
+            const totalTime = results.keyGenTime + results.noteCreationTime + results.totalSigningTime;
+            
+            let perfHtml = '<div class="metric">';
+            perfHtml += '<span class="metric-label">🔑 Key Generation:</span>';
+            perfHtml += `<span class="metric-value">${results.keyGenTime.toFixed(2)} ms</span>`;
+            perfHtml += '</div>';
+
+            perfHtml += '<div class="metric">';
+            perfHtml += '<span class="metric-label">📝 Note Creation:</span>';
+            perfHtml += `<span class="metric-value">${results.noteCreationTime.toFixed(2)} ms</span>`;
+            perfHtml += '</div>';
+
+            perfHtml += '<div class="metric">';
+            perfHtml += '<span class="metric-label">✍️ Total Signing Time:</span>';
+            const signingClass = results.totalSigningTime < 1000 ? 'good' : 'warning';
+            perfHtml += `<span class="metric-value ${signingClass}">${results.totalSigningTime.toFixed(2)} ms</span>`;
+            perfHtml += '</div>';
+
+            perfHtml += '<div class="metric">';
+            perfHtml += '<span class="metric-label">⚡ Average per Server:</span>';
+            perfHtml += `<span class="metric-value">${results.averageSigningTime.toFixed(2)} ms</span>`;
+            perfHtml += '</div>';
+
+            perfHtml += '<div class="metric">';
+            perfHtml += '<span class="metric-label">🚀 Signatures/Second:</span>';
+            perfHtml += `<span class="metric-value">${results.signaturesPerSecond.toFixed(2)}</span>`;
+            perfHtml += '</div>';
+
+            perfHtml += '<div class="metric">';
+            perfHtml += '<span class="metric-label">⏱️ Total Time:</span>';
+            const totalClass = totalTime < 1500 ? 'good' : 'warning';
+            perfHtml += `<span class="metric-value ${totalClass}">${totalTime.toFixed(2)} ms</span>`;
+            perfHtml += '</div>';
+
+            perfDiv.innerHTML = perfHtml;
+
+            // Detailed breakdown
+            const detailDiv = document.getElementById('detailedResults');
+            let detailHtml = '';
+            
+            // Show first 5 and last 5 servers
+            const showServers = [
+                ...results.serverBreakdown.slice(0, 5),
+                ...results.serverBreakdown.slice(-5)
+            ];
+
+            showServers.forEach((server, idx) => {
+                if (idx === 5) {
+                    detailHtml += '\n... (showing first 5 and last 5) ...\n\n';
+                }
+                detailHtml += `${server.domain.padEnd(30)} ${server.time.toFixed(2).padStart(8)} ms\n`;
+            });
+
+            detailDiv.textContent = detailHtml;
+
+            // Sample request
+            const sampleDiv = document.getElementById('sampleRequest');
+            const sample = signedRequests[0];
+            let sampleHtml = '<pre>';
+            sampleHtml += `<span style="color: #0f0">POST /inbox HTTP/1.1</span>\n`;
+            sampleHtml += `<span style="color: #0f0">Host:</span> ${sample.headers.Host}\n`;
+            sampleHtml += `<span style="color: #0f0">Date:</span> ${sample.headers.Date}\n`;
+            sampleHtml += `<span style="color: #0f0">Digest:</span> ${sample.headers.Digest}\n`;
+            sampleHtml += `<span style="color: #0f0">Content-Type:</span> ${sample.headers['Content-Type']}\n`;
+            sampleHtml += `<span style="color: #0f0">Signature:</span> ${sample.headers.Signature.substring(0, 100)}...\n\n`;
+            sampleHtml += `<span style="color: #888">// Signing String:</span>\n`;
+            sampleHtml += `<span style="color: #666">${sample.signingString.split('\n').join('\n')}</span>\n\n`;
+            sampleHtml += `<span style="color: #888">// Activity Body (first 500 chars):</span>\n`;
+            sampleHtml += `<span style="color: #666">${JSON.stringify(activity, null, 2).substring(0, 500)}...</span>`;
+            sampleHtml += '</pre>';
+            sampleDiv.innerHTML = sampleHtml;
+        }
+
+        async function runFullTest() {
+            const btn = document.getElementById('runTest');
+            const status = document.getElementById('status');
+            
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Running... <span class="spinner"></span>';
+            status.innerHTML = '<p style="color: #0066cc">Testing 50 servers × 10 followers = 500 signatures...</p>';
+
+            try {
+                const testData = await runSigningTest(50, 10);
+                displayResults(testData);
+                status.innerHTML = '<p style="color: #4caf50">✅ Test completed successfully!</p>';
+            } catch (error) {
+                status.innerHTML = `<p style="color: #f44336">❌ Error: ${error.message}</p>`;
+                console.error(error);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '▶️ Run Full Test';
+            }
+        }
+
+        async function runQuickTest() {
+            const btn = document.getElementById('runQuick');
+            const status = document.getElementById('status');
+            
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Running... <span class="spinner"></span>';
+            status.innerHTML = '<p style="color: #0066cc">Quick test: 10 servers × 10 followers = 100 signatures...</p>';
+
+            try {
+                const testData = await runSigningTest(10, 10);
+                displayResults(testData);
+                status.innerHTML = '<p style="color: #4caf50">✅ Quick test completed!</p>';
+            } catch (error) {
+                status.innerHTML = `<p style="color: #f44336">❌ Error: ${error.message}</p>`;
+                console.error(error);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '⚡ Quick Test (10 servers)';
+            }
+        }
+
+        // Pre-generate keys on load for faster testing
+        window.addEventListener('load', async () => {
+            console.log('Pre-generating keys...');
+            await generateKeyPair();
+            console.log('Ready to test!');
+        });
+    </script>
+</body>
+</html>
