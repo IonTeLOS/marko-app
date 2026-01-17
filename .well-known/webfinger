@@ -1,0 +1,10 @@
+{
+  "subject": "acct:bling765@marko-app.netlify.app",
+  "links": [
+    {
+      "rel": "self",
+      "type": "application/activity+json",
+      "href": "https://marko-app.netlify.app/actor"
+    }
+  ]
+}
