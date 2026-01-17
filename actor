@@ -5,7 +5,7 @@
   ],
   "id": "https://marko-app.netlify.app/actor",
   "type": "Person",
-  "preferredUsername": "Bling765",
+  "preferredUsername": "Blingo",
   "inbox": "https://107ffea14491.ngrok-free.app/inbox",
   "outbox": "https://107ffea14491.ngrok-free.app/outbox",
   "followers": "https://107ffea14491.ngrok-free.app/followers",
