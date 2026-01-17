@@ -4,7 +4,7 @@
     {
       "rel": "self",
       "type": "application/activity+json",
-      "href": "https://marko-app.netlify.app/actor"
+      "href": "https://marko-app.netlify.app/actor/1"
     }
   ]
 }
