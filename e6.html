@@ -425,7 +425,10 @@ const SIWEHelper = {
     const nonce = this.generateNonce();
     const message = this.createMessage(wallet.address, domain, nonce);
     const signature = await wallet.signMessage(message);
-    return { message, signature, token: `${message}:${signature}` };
+    // Base64 encode the token to avoid newline issues in HTTP headers
+    const rawToken = `${message}:${signature}`;
+    const encodedToken = btoa(rawToken);
+    return { message, signature, token: encodedToken };
   }
 };
 
