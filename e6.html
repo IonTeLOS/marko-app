@@ -419,7 +419,9 @@ const SIWEHelper = {
   createMessage(address, domain, nonce, statement = 'Sign in to Sovereign Relay') {
     const issuedAt = new Date().toISOString();
     const expirationTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    return `${domain} wants you to sign in with your Ethereum account:\n${address}\n\n${statement}\n\nURI: https://${domain}\nVersion: 1\nChain ID: 137\nNonce: ${nonce}\nIssued At: ${issuedAt}\nExpiration Time: ${expirationTime}`;
+    // Use lowercase address for SIWE compatibility
+    const lowerAddress = address.toLowerCase();
+    return `${domain} wants you to sign in with your Ethereum account:\n${lowerAddress}\n\n${statement}\n\nURI: https://${domain}\nVersion: 1\nChain ID: 137\nNonce: ${nonce}\nIssued At: ${issuedAt}\nExpiration Time: ${expirationTime}`;
   },
   async signMessage(wallet, domain) {
     const nonce = this.generateNonce();
