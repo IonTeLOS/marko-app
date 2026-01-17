@@ -276,17 +276,41 @@
         <span class="material-symbols-rounded">lock</span>
         Lock Wallet
       </button>
+      
+      <button class="btn btn-secondary" onclick="showPublicKey()" style="margin-top: 8px;">
+        <span class="material-symbols-rounded">key</span>
+        Show ActivityPub Public Key
+      </button>
+      
+      <div id="pubkey-display" class="wallet-info hidden" style="margin-top: 12px;">
+        <div class="wallet-info-label">ActivityPub Public Key (for actor.json)</div>
+        <div class="wallet-info-value" id="pubkey-value" style="white-space: pre-wrap; font-size: 11px;">--</div>
+        <button class="btn btn-secondary" onclick="copyPublicKey()" style="margin-top: 8px; padding: 8px;">
+          Copy to Clipboard
+        </button>
+      </div>
+      
       <div id="wallet-status"></div>
     </div>
   </div>
 
 <script>
-// CONFIG
+// ============================================================================
+// CONFIGURATION - Update these for your setup
+// ============================================================================
 const CLOUD_FUNCTION_URL = 'https://marko-app.netlify.app/.netlify/functions/arload';
 const WALLET_APP_NAME = 'Sovereign-Fedi-v1';
+
+// UPDATE THIS: Your relay server URL (must include http:// or https://)
 const RELAY_URL = 'http://localhost:8080';
+
+// UPDATE THIS: Your static domain where actor.json will be hosted
 const ACTOR_DOMAIN = 'alice.example.com';
 const ACTOR_URL = `https://${ACTOR_DOMAIN}/actor`;
+
+// ============================================================================
+// End Configuration
+// ============================================================================
 
 let arweave, evmProvider, evmWallet, arweaveWallet;
 let apPrivateKey, apPublicKeyPEM;
@@ -297,9 +321,9 @@ evmProvider = new ethers.providers.JsonRpcProvider('https://polygon-rpc.com');
 
 // Storage
 const WalletStorage = {
-  async get(key) { return localStorage.getItem('sfwallet:' + key); },
-  async set(key, value) { localStorage.setItem('sfwallet:' + key, value); },
-  async remove(key) { localStorage.removeItem('sfwallet:' + key); }
+  async get(key) { return localStorage.getItem('mcwallet:' + key); },
+  async set(key, value) { localStorage.setItem('mcwallet:' + key, value); },
+  async remove(key) { localStorage.removeItem('mcwallet:' + key); }
 };
 
 // Helpers
@@ -325,7 +349,10 @@ const WebAuthnHelper = {
           name: username,
           displayName: username
         },
-        pubKeyCredParams: [{ alg: -7, type: 'public-key' }],
+        pubKeyCredParams: [
+          { alg: -7, type: 'public-key' },  // ES256
+          { alg: -257, type: 'public-key' } // RS256
+        ],
         authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
         timeout: 60000,
         extensions: { prf: { eval: { first: prfSalt } } }
@@ -748,7 +775,7 @@ async function publishPost() {
     
     const followers = await FollowerDB.getFollowers();
     if (followers.length === 0) {
-      setStatus('post-status', '⚠️ No followers. Add some in Followers tab.', 'error');
+      setStatus('post-status', '⚠️ No followers. Add some in Followers tab first.', 'error');
       return;
     }
     
@@ -775,31 +802,60 @@ async function publishPost() {
     const grouped = await FollowerDB.groupBySharedInbox();
     const servers = grouped.map(g => ({ inbox: g.inbox }));
     
+    console.log('Signing for', servers.length, 'servers');
+    
     const keyId = `${ACTOR_URL}#main-key`;
     const bundles = await ActivityPubSigner.signForServers(activity, servers, keyId, apPrivateKey);
     
-    const relayDomain = new URL(RELAY_URL).hostname;
-    const siwe = await SIWEHelper.signMessage(evmWallet, relayDomain);
+    console.log('Generated', bundles.length, 'signed bundles');
     
-    const response = await fetch(`${RELAY_URL}/relay`, {
+    // Get relay URL
+    let relayUrl = RELAY_URL;
+    if (!relayUrl.startsWith('http://') && !relayUrl.startsWith('https://')) {
+      relayUrl = 'http://' + relayUrl;
+    }
+    
+    const relayDomain = new URL(relayUrl).hostname;
+    console.log('Authenticating to relay:', relayDomain);
+    
+    const siwe = await SIWEHelper.signMessage(evmWallet, relayDomain);
+    console.log('SIWE token generated');
+    
+    const relayEndpoint = relayUrl + '/relay';
+    console.log('Posting to:', relayEndpoint);
+    
+    const requestBody = {
+      user_id: evmWallet.address.toLowerCase(),
+      bundles: bundles
+    };
+    
+    console.log('Request body:', JSON.stringify(requestBody, null, 2));
+    
+    const response = await fetch(relayEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${siwe.token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        user_id: evmWallet.address.toLowerCase(),
-        bundles: bundles
-      })
+      body: JSON.stringify(requestBody)
     });
     
-    if (!response.ok) throw new Error(`Relay error: ${response.status}`);
+    console.log('Response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Relay error response:', errorText);
+      throw new Error(`Relay error: ${response.status} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log('Relay response:', result);
     
     setStatus('post-status', `✅ Post published to ${followers.length} followers across ${servers.length} servers!`, 'success');
     document.getElementById('post-content').value = '';
     
   } catch (error) {
-    console.error(error);
+    console.error('Publishing error:', error);
     setStatus('post-status', `❌ Error: ${error.message}`, 'error');
   }
 }
@@ -898,7 +954,30 @@ function lockWallet() {
   arweaveWallet = null;
   evmWallet = null;
   apPrivateKey = null;
+  apPublicKeyPEM = null;
   showLanding();
+}
+
+function showPublicKey() {
+  if (!apPublicKeyPEM) {
+    setStatus('wallet-status', '❌ Wallet not loaded', 'error');
+    return;
+  }
+  
+  document.getElementById('pubkey-value').textContent = apPublicKeyPEM;
+  document.getElementById('pubkey-display').classList.remove('hidden');
+  setStatus('wallet-status', 'Public key displayed. Use this in your actor.json', 'info');
+}
+
+function copyPublicKey() {
+  if (!apPublicKeyPEM) return;
+  
+  navigator.clipboard.writeText(apPublicKeyPEM).then(() => {
+    setStatus('wallet-status', '✅ Public key copied to clipboard', 'success');
+  }).catch(err => {
+    console.error(err);
+    setStatus('wallet-status', '❌ Failed to copy', 'error');
+  });
 }
 
 // Global bindings
@@ -914,6 +993,25 @@ window.addFollower = addFollower;
 window.removeFollower = removeFollower;
 window.refreshFollowersList = refreshFollowersList;
 window.signEvmMessage = signEvmMessage;
+window.showPublicKey = showPublicKey;
+window.copyPublicKey = copyPublicKey;
+
+// Check if wallet exists on load
+(async function() {
+  console.log('Sovereign Fedi Wallet initialized');
+  console.log('Relay URL:', RELAY_URL);
+  console.log('Actor Domain:', ACTOR_DOMAIN);
+  
+  const credentialId = await WalletStorage.get('credentialId');
+  if (credentialId) {
+    console.log('Existing wallet found');
+    const evmAddress = await WalletStorage.get('evmAddress');
+    console.log('EVM Address:', evmAddress);
+  } else {
+    console.log('No wallet found - create a new one');
+  }
+})();
+
 </script>
 </body>
 </html>
