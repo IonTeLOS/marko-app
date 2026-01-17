@@ -3,7 +3,7 @@
     "https://www.w3.org/ns/activitystreams",
     "https://w3id.org/security/v1"
   ],
-  "id": "https://marko-app.netlify.app/actor",
+  "id": "https://marko-app.netlify.app/actor/bling765",
   "type": "Person",
   "preferredUsername": "Blingo",
   "inbox": "https://107ffea14491.ngrok-free.app/inbox",
@@ -11,8 +11,8 @@
   "followers": "https://107ffea14491.ngrok-free.app/followers",
   "following": "https://107ffea14491.ngrok-free.app/following",
   "publicKey": {
-    "id": "https://marko-app.netlify.app/actor#main-key",
-    "owner": "https://marko-app.netlify.app/actor",
+    "id": "https://marko-app.netlify.app/actor/bling765#main-key",
+    "owner": "https://marko-app.netlify.app/actor/bling765",
     "publicKeyPem": "-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAny/GAALugik6MHSpal2m
 RrsL2fBdtz2UkGFg9Tfb0Tlj5OtBCBXqRv3uMtGn+ntr/sktX4DSR3HhnyEQddBg
