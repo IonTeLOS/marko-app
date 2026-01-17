@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sovereign Fedi Wallet</title>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <script src="https://unpkg.com/arweave@1.15.5/bundles/web.bundle.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --md-sys-color-primary: #6750A4;
+      --md-sys-color-on-primary: #ffffff;
+      --md-sys-color-primary-container: #EADDFF;
+      --md-sys-color-secondary: #625B71;
+      --md-sys-color-surface: #FFFBFE;
+      --md-sys-color-on-surface: #1C1B1F;
+      --md-sys-color-surface-variant: #E7E0EC;
+      --md-sys-color-on-surface-variant: #49454F;
+      --md-sys-color-outline: #79747E;
+      --md-sys-color-error: #B3261E;
+      --radius-lg: 28px;
+      --radius-md: 18px;
+      --radius-sm: 12px;
+      --elev-1: 0 1px 2px rgba(0,0,0,0.12);
+      --elev-2: 0 3px 6px rgba(0,0,0,0.16);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --md-sys-color-primary: #D0BCFF;
+        --md-sys-color-on-primary: #381E72;
+        --md-sys-color-surface: #1C1B1F;
+        --md-sys-color-on-surface: #E6E1E5;
+        --md-sys-color-surface-variant: #49454F;
+        --md-sys-color-on-surface-variant: #CAC4D0;
+        --md-sys-color-outline: #938F99;
+      }
+    }
+    body {
+      background: var(--md-sys-color-surface);
+      color: var(--md-sys-color-on-surface);
+      font-family: system-ui, sans-serif;
+      padding: 32px 16px 80px;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 860px;
+      background: var(--md-sys-color-surface);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      box-shadow: var(--elev-2);
+    }
+    h1 { text-align: center; font-size: 32px; margin-bottom: 16px; }
+    .security-badge {
+      background: var(--md-sys-color-surface-variant);
+      padding: 18px;
+      border-radius: var(--radius-md);
+      font-size: 15px;
+      margin-bottom: 36px;
+      border: 1px solid var(--md-sys-color-outline);
+    }
+    .btn {
+      width: 100%;
+      padding: 16px;
+      border-radius: var(--radius-md);
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0;
+      transition: all 0.2s;
+      box-shadow: var(--elev-1);
+    }
+    .btn-primary { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
+    .btn-secondary { background: var(--md-sys-color-surface-variant); color: var(--md-sys-color-on-surface-variant); }
+    .btn-danger { background: var(--md-sys-color-error); color: white; }
+    .btn:hover:not(:disabled) { transform: scale(1.01); filter: brightness(1.05); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .input-group { margin-bottom: 24px; }
+    .input-group label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 500; }
+    .input-group input, .input-group textarea {
+      width: 100%;
+      padding: 14px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--md-sys-color-outline);
+      background: var(--md-sys-color-surface-variant);
+      color: var(--md-sys-color-on-surface);
+      font-size: 16px;
+      font-family: inherit;
+    }
+    .status {
+      padding: 18px;
+      border-radius: var(--radius-md);
+      margin-top: 20px;
+      font-size: 15px;
+      line-height: 1.4;
+    }
+    .status-info { background: rgba(100,150,255,0.18); }
+    .status-success { background: rgba(0,200,83,0.18); }
+    .status-error { background: rgba(255,82,82,0.18); }
+    .tabs {
+      display: flex;
+      gap: 6px;
+      border-bottom: 2px solid var(--md-sys-color-outline);
+      margin-bottom: 20px;
+      overflow-x: auto;
+    }
+    .tab {
+      padding: 12px 18px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 15px;
+      color: var(--md-sys-color-on-surface);
+      border-bottom: 3px solid transparent;
+      transition: all 0.25s;
+      white-space: nowrap;
+    }
+    .tab.active {
+      color: var(--md-sys-color-primary);
+      border-bottom-color: var(--md-sys-color-primary);
+      font-weight: 600;
+    }
+    .wallet-info {
+      background: var(--md-sys-color-surface-variant);
+      padding: 20px;
+      border-radius: var(--radius-md);
+      margin-bottom: 20px;
+    }
+    .wallet-info-label { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .wallet-info-value {
+      font-family: monospace;
+      padding: 10px;
+      background: var(--md-sys-color-surface);
+      border-radius: var(--radius-sm);
+      word-break: break-all;
+      font-size: 13px;
+    }
+    .hidden { display: none !important; }
+    .material-symbols-rounded {
+      font-family: 'Material Symbols Rounded';
+      font-size: 24px;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔐 Sovereign Fedi Wallet</h1>
+    <div class="security-badge">
+      <strong>Non-Custodial + ActivityPub Enabled</strong><br>
+      Your keys are encrypted with WebAuthn biometrics and backed up to Arweave.
+      Post to the fediverse with sovereign identity.
+    </div>
+
+    <!-- LANDING -->
+    <div id="landing-screen">
+      <button class="btn btn-primary" onclick="showCreateScreen()">
+        <span class="material-symbols-rounded">add_circle</span>
+        Create New Wallet
+      </button>
+      <button class="btn btn-secondary" onclick="showUnlockScreen()">
+        <span class="material-symbols-rounded">lock_open</span>
+        Unlock Existing Wallet
+      </button>
+    </div>
+
+    <!-- CREATE -->
+    <div id="create-screen" class="hidden">
+      <h2>Create Wallet</h2>
+      <div class="input-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Enter username">
+      </div>
+      <button class="btn btn-primary" onclick="createWallet()" id="create-btn">Create</button>
+      <button class="btn btn-secondary" onclick="showLanding()">Back</button>
+      <div id="create-status"></div>
+    </div>
+
+    <!-- UNLOCK -->
+    <div id="unlock-screen" class="hidden">
+      <h2>Unlock Wallet</h2>
+      <button class="btn btn-primary" onclick="unlockWallet()" id="unlock-btn">
+        <span class="material-symbols-rounded">fingerprint</span>
+        Unlock with Biometrics
+      </button>
+      <button class="btn btn-secondary" onclick="showLanding()">Back</button>
+      <div id="unlock-status"></div>
+    </div>
+
+    <!-- WALLET -->
+    <div id="wallet-screen" class="hidden">
+      <h2>Sovereign Wallet Active</h2>
+      <div class="wallet-info">
+        <div class="wallet-info-label">EVM Address</div>
+        <div class="wallet-info-value" id="wallet-address">--</div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" onclick="showTab('post')">
+          <span class="material-symbols-rounded">edit</span> Post
+        </button>
+        <button class="tab" onclick="showTab('followers')">
+          <span class="material-symbols-rounded">group</span> Followers
+        </button>
+        <button class="tab" onclick="showTab('sign')">
+          <span class="material-symbols-rounded">edit_note</span> Sign
+        </button>
+      </div>
+
+      <!-- POST TAB -->
+      <div id="post-tab" class="tab-content">
+        <div class="wallet-info">
+          <div class="wallet-info-label">Posting As</div>
+          <div class="wallet-info-value" id="posting-as">--</div>
+        </div>
+        <div class="wallet-info">
+          <div class="wallet-info-label">Followers</div>
+          <div class="wallet-info-value" id="follower-count">0 followers</div>
+        </div>
+        <div class="input-group">
+          <label for="post-content">What's on your mind?</label>
+          <textarea id="post-content" placeholder="Write your post..." rows="4"></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="publishPost()">
+          <span class="material-symbols-rounded">send</span>
+          Publish to Federation
+        </button>
+        <div id="post-status"></div>
+      </div>
+
+      <!-- FOLLOWERS TAB -->
+      <div id="followers-tab" class="tab-content hidden">
+        <div class="input-group">
+          <label for="follower-actor">Follower Actor URL</label>
+          <input type="text" id="follower-actor" placeholder="https://mastodon.social/users/alice">
+        </div>
+        <div class="input-group">
+          <label for="follower-inbox">Inbox URL (optional)</label>
+          <input type="text" id="follower-inbox" placeholder="Auto-detected if left blank">
+        </div>
+        <button class="btn btn-primary" onclick="addFollower()">
+          <span class="material-symbols-rounded">person_add</span>
+          Add Follower
+        </button>
+        <h3 style="margin: 24px 0 12px;">Current Followers</h3>
+        <div id="followers-list" class="wallet-info">
+          <p>No followers yet</p>
+        </div>
+      </div>
+
+      <!-- SIGN TAB -->
+      <div id="sign-tab" class="tab-content hidden">
+        <div class="input-group">
+          <label for="sign-message">Message to Sign</label>
+          <textarea id="sign-message" placeholder="Enter message..."></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="signEvmMessage()">
+          <span class="material-symbols-rounded">edit_note</span>
+          Sign Message
+        </button>
+        <div id="signature-container" class="wallet-info hidden">
+          <div class="wallet-info-label">Signature</div>
+          <div class="wallet-info-value" id="signature-value">--</div>
+        </div>
+      </div>
+
+      <button class="btn btn-danger" onclick="lockWallet()" style="margin-top: 20px;">
+        <span class="material-symbols-rounded">lock</span>
+        Lock Wallet
+      </button>
+      <div id="wallet-status"></div>
+    </div>
+  </div>
+
+<script>
+// CONFIG
+const CLOUD_FUNCTION_URL = 'https://marko-app.netlify.app/.netlify/functions/arload';
+const WALLET_APP_NAME = 'Sovereign-Fedi-v1';
+const RELAY_URL = 'http://localhost:8080';
+const ACTOR_DOMAIN = 'alice.example.com';
+const ACTOR_URL = `https://${ACTOR_DOMAIN}/actor`;
+
+let arweave, evmProvider, evmWallet, arweaveWallet;
+let apPrivateKey, apPublicKeyPEM;
+let lastEvmSignature = null;
+
+if (window.Arweave) arweave = Arweave.init({ host: 'arweave.net', port: 443, protocol: 'https' });
+evmProvider = new ethers.providers.JsonRpcProvider('https://polygon-rpc.com');
+
+// Storage
+const WalletStorage = {
+  async get(key) { return localStorage.getItem('sfwallet:' + key); },
+  async set(key, value) { localStorage.setItem('sfwallet:' + key, value); },
+  async remove(key) { localStorage.removeItem('sfwallet:' + key); }
+};
+
+// Helpers
+function bytesToHex(bytes) { return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(''); }
+function hexToBytes(hex) {
+  const clean = hex.startsWith('0x') ? hex.slice(2) : hex;
+  const bytes = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(clean.substr(i * 2, 2), 16);
+  return bytes;
+}
+
+// WebAuthn
+const WebAuthnHelper = {
+  async register(username) {
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const prfSalt = crypto.getRandomValues(new Uint8Array(32));
+    const credential = await navigator.credentials.create({
+      publicKey: {
+        challenge,
+        rp: { name: 'SovereignFedi', id: window.location.hostname },
+        user: {
+          id: crypto.getRandomValues(new Uint8Array(16)),
+          name: username,
+          displayName: username
+        },
+        pubKeyCredParams: [{ alg: -7, type: 'public-key' }],
+        authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+        timeout: 60000,
+        extensions: { prf: { eval: { first: prfSalt } } }
+      }
+    });
+    const credentialIdHex = bytesToHex(new Uint8Array(credential.rawId));
+    let prfKeyHex = null;
+    const ext = credential.getClientExtensionResults?.();
+    if (ext?.prf?.results?.first) prfKeyHex = bytesToHex(new Uint8Array(ext.prf.results.first));
+    return { credentialId: credentialIdHex, prfKeyHex, prfSaltHex: bytesToHex(prfSalt) };
+  },
+  async authenticate(credentialIdHex) {
+    await navigator.credentials.get({
+      publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        allowCredentials: [{ id: hexToBytes(credentialIdHex), type: 'public-key' }],
+        userVerification: 'required',
+        timeout: 60000
+      }
+    });
+  },
+  async evaluatePrf(credentialIdHex, saltBytes) {
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        allowCredentials: [{ id: hexToBytes(credentialIdHex), type: 'public-key' }],
+        userVerification: 'required',
+        timeout: 60000,
+        extensions: { prf: { eval: { first: saltBytes } } }
+      }
+    });
+    const ext = assertion.getClientExtensionResults?.();
+    if (!ext?.prf?.results?.first) throw new Error('PRF not available');
+    return new Uint8Array(ext.prf.results.first);
+  }
+};
+
+// Crypto
+const CryptoHelper = {
+  async encrypt(data, key) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      new TextEncoder().encode(JSON.stringify(data))
+    );
+    return { ciphertext: bytesToHex(new Uint8Array(encrypted)), iv: bytesToHex(iv) };
+  },
+  async decrypt(encryptedData, key) {
+    const ciphertext = hexToBytes(encryptedData.ciphertext);
+    const iv = hexToBytes(encryptedData.iv);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+    return JSON.parse(new TextDecoder().decode(decrypted));
+  }
+};
+
+// SIWE Helper
+const SIWEHelper = {
+  generateNonce() {
+    const array = new Uint8Array(16);
+    crypto.getRandomValues(array);
+    return Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+  },
+  createMessage(address, domain, nonce, statement = 'Sign in to Sovereign Relay') {
+    const issuedAt = new Date().toISOString();
+    const expirationTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    return `${domain} wants you to sign in with your Ethereum account:\n${address}\n\n${statement}\n\nURI: https://${domain}\nVersion: 1\nChain ID: 137\nNonce: ${nonce}\nIssued At: ${issuedAt}\nExpiration Time: ${expirationTime}`;
+  },
+  async signMessage(wallet, domain) {
+    const nonce = this.generateNonce();
+    const message = this.createMessage(wallet.address, domain, nonce);
+    const signature = await wallet.signMessage(message);
+    return { message, signature, token: `${message}:${signature}` };
+  }
+};
+
+// ActivityPub Signer
+const ActivityPubSigner = {
+  async generateKeyPair() {
+    return await crypto.subtle.generateKey(
+      { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: "SHA-256" },
+      true,
+      ["sign", "verify"]
+    );
+  },
+  async exportPublicKeyPEM(publicKey) {
+    const exported = await crypto.subtle.exportKey("spki", publicKey);
+    const exportedAsBase64 = btoa(String.fromCharCode(...new Uint8Array(exported)));
+    return `-----BEGIN PUBLIC KEY-----\n${exportedAsBase64.match(/.{1,64}/g).join('\n')}\n-----END PUBLIC KEY-----`;
+  },
+  async calculateDigest(body) {
+    const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body));
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return `SHA-256=${btoa(String.fromCharCode(...hashArray))}`;
+  },
+  async signRequest(method, path, host, body, keyId, privateKey) {
+    const date = new Date().toUTCString();
+    const digest = await this.calculateDigest(body);
+    const signingString = `(request-target): ${method.toLowerCase()} ${path}\nhost: ${host}\ndate: ${date}\ndigest: ${digest}`;
+    const signatureBuffer = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", privateKey, new TextEncoder().encode(signingString));
+    const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)));
+    const signatureHeader = `keyId="${keyId}",algorithm="rsa-sha256",headers="(request-target) host date digest",signature="${signatureBase64}"`;
+    return {
+      headers: {
+        'Host': host, 'Date': date, 'Digest': digest, 'Signature': signatureHeader,
+        'Content-Type': 'application/activity+json', 'Accept': 'application/activity+json'
+      }
+    };
+  },
+  async signForServers(activity, servers, keyId, privateKey) {
+    const activityJson = JSON.stringify(activity);
+    const bundles = [];
+    for (const server of servers) {
+      const url = new URL(server.inbox);
+      const { headers } = await this.signRequest('POST', url.pathname, url.hostname, activityJson, keyId, privateKey);
+      bundles.push({
+        target_url: server.inbox,
+        host: url.hostname,
+        headers,
+        body: activityJson,
+        activity_id: activity.id,
+        activity_type: activity.type
+      });
+    }
+    return bundles;
+  }
+};
+
+// Follower DB
+const FollowerDB = {
+  dbName: 'sovereign-fedi-followers',
+  storeName: 'followers',
+  async init() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains(this.storeName)) {
+          db.createObjectStore(this.storeName, { keyPath: 'actor' });
+        }
+      };
+    });
+  },
+  async addFollower(follower) {
+    const db = await this.init();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.storeName, 'readwrite');
+      const request = tx.objectStore(this.storeName).put({
+        actor: follower.actor,
+        inbox: follower.inbox,
+        sharedInbox: follower.sharedInbox || follower.inbox,
+        addedAt: Date.now()
+      });
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  },
+  async removeFollower(actorUrl) {
+    const db = await this.init();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.storeName, 'readwrite');
+      const request = tx.objectStore(this.storeName).delete(actorUrl);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  },
+  async getFollowers() {
+    const db = await this.init();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.storeName, 'readonly');
+      const request = tx.objectStore(this.storeName).getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  },
+  async groupBySharedInbox() {
+    const followers = await this.getFollowers();
+    const grouped = new Map();
+    for (const follower of followers) {
+      const inbox = follower.sharedInbox || follower.inbox;
+      if (!grouped.has(inbox)) grouped.set(inbox, []);
+      grouped.get(inbox).push(follower);
+    }
+    return Array.from(grouped.entries()).map(([inbox, followers]) => ({ inbox, followers }));
+  }
+};
+
+// Upload
+async function uploadToCloudFunction(data, tags) {
+  const response = await fetch(CLOUD_FUNCTION_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      content: JSON.stringify(data),
+      isBase64: false,
+      encrypt: false,
+      extraTags: tags
+    })
+  });
+  const result = await response.json();
+  if (!response.ok || !result.success) throw new Error(result.message || 'Upload failed');
+  return result;
+}
+
+// Wallet Core
+const WalletCore = {
+  async createWallet(username) {
+    const { credentialId, prfKeyHex, prfSaltHex } = await WebAuthnHelper.register(username);
+    const arJwk = await arweave.wallets.generate();
+    const evmMnemonic = ethers.Wallet.createRandom().mnemonic.phrase;
+    const evmPrivateKey = ethers.Wallet.fromMnemonic(evmMnemonic).privateKey;
+    const evmAddress = ethers.Wallet.fromMnemonic(evmMnemonic).address;
+    
+    // Generate ActivityPub keypair
+    const apKeyPair = await ActivityPubSigner.generateKeyPair();
+    const apPubKeyPEM = await ActivityPubSigner.exportPublicKeyPEM(apKeyPair.publicKey);
+    const apPrivKeyJWK = await crypto.subtle.exportKey('jwk', apKeyPair.privateKey);
+    
+    let aesKey, keyMode;
+    if (prfKeyHex) {
+      keyMode = 'prf';
+      const hkdfKey = await crypto.subtle.importKey("raw", hexToBytes(prfKeyHex), "HKDF", false, ["deriveKey"]);
+      aesKey = await crypto.subtle.deriveKey(
+        { name: "HKDF", hash: "SHA-256", salt: hexToBytes(prfSaltHex), info: new Uint8Array([]) },
+        hkdfKey,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    } else {
+      keyMode = 'wrapped';
+      const rawKey = crypto.getRandomValues(new Uint8Array(32));
+      aesKey = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['encrypt', 'decrypt']);
+      await WalletStorage.set('aesKeyHex', bytesToHex(rawKey));
+    }
+    
+    const keysToBackup = {
+      arweaveJwk: arJwk,
+      evmPrivateKey,
+      evmMnemonic,
+      apPrivateKeyJWK: apPrivKeyJWK,
+      apPublicKeyPEM: apPubKeyPEM
+    };
+    const encrypted = await CryptoHelper.encrypt(keysToBackup, aesKey);
+    const arAddress = await arweave.wallets.jwkToAddress(arJwk);
+    
+    const meta = {
+      version: '1',
+      keyMode,
+      credentialId,
+      prfSaltHex: keyMode === 'prf' ? prfSaltHex : null,
+      username: username || '',
+      arweaveAddress: arAddress,
+      evmAddress
+    };
+    
+    const backupPayload = { meta, encrypted };
+    const tags = {
+      'App-Name': WALLET_APP_NAME,
+      'User-Arweave-Address': arAddress,
+      'User-EVM-Address': evmAddress,
+      'User-Name': username || '',
+      'Timestamp': Date.now().toString()
+    };
+    
+    const uploadResult = await uploadToCloudFunction(backupPayload, tags);
+    const txId = uploadResult.arweaveId;
+    
+    await WalletStorage.set('credentialId', credentialId);
+    await WalletStorage.set('arweaveAddress', arAddress);
+    await WalletStorage.set('evmAddress', evmAddress);
+    await WalletStorage.set('backupTxId', txId);
+    await WalletStorage.set('keyMode', keyMode);
+    await WalletStorage.set('username', username || '');
+    if (keyMode === 'prf') await WalletStorage.set('prfSaltHex', prfSaltHex);
+    
+    arweaveWallet = arJwk;
+    evmWallet = new ethers.Wallet(evmPrivateKey, evmProvider);
+    apPrivateKey = apKeyPair.privateKey;
+    apPublicKeyPEM = apPubKeyPEM;
+    
+    return { arweaveAddress: arAddress, evmAddress, backupTxId: txId };
+  },
+  
+  async unlockWallet() {
+    const credentialId = await WalletStorage.get('credentialId');
+    const backupTxId = await WalletStorage.get('backupTxId');
+    if (!credentialId || !backupTxId) throw new Error('No wallet data found');
+    
+    const res = await fetch(`https://arweave.net/${backupTxId}`);
+    if (!res.ok) throw new Error('Failed to fetch wallet backup');
+    const encryptedBlob = await res.json();
+    const meta = encryptedBlob.meta || {};
+    let keyMode = await WalletStorage.get('keyMode') || meta.keyMode;
+    
+    let aesKey;
+    if (keyMode === 'prf') {
+      const prfSaltHex = await WalletStorage.get('prfSaltHex') || meta.prfSaltHex;
+      const prfBytes = await WebAuthnHelper.evaluatePrf(credentialId, hexToBytes(prfSaltHex));
+      const hkdfKey = await crypto.subtle.importKey("raw", prfBytes, "HKDF", false, ["deriveKey"]);
+      aesKey = await crypto.subtle.deriveKey(
+        { name: "HKDF", hash: "SHA-256", salt: hexToBytes(prfSaltHex), info: new Uint8Array([]) },
+        hkdfKey,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    } else {
+      const aesKeyHex = await WalletStorage.get('aesKeyHex');
+      await WebAuthnHelper.authenticate(credentialId);
+      aesKey = await crypto.subtle.importKey('raw', hexToBytes(aesKeyHex), 'AES-GCM', false, ['encrypt', 'decrypt']);
+    }
+    
+    const decrypted = await CryptoHelper.decrypt(encryptedBlob.encrypted, aesKey);
+    arweaveWallet = decrypted.arweaveJwk;
+    evmWallet = new ethers.Wallet(decrypted.evmPrivateKey, evmProvider);
+    
+    if (decrypted.apPrivateKeyJWK) {
+      apPrivateKey = await crypto.subtle.importKey(
+        'jwk',
+        decrypted.apPrivateKeyJWK,
+        { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+        true,
+        ['sign']
+      );
+      apPublicKeyPEM = decrypted.apPublicKeyPEM;
+    }
+    
+    const arAddress = await arweave.wallets.jwkToAddress(arweaveWallet);
+    const evmAddress = evmWallet.address;
+    await WalletStorage.set('arweaveAddress', arAddress);
+    await WalletStorage.set('evmAddress', evmAddress);
+    
+    return { arweaveAddress: arAddress, evmAddress, backupTxId };
+  }
+};
+
+// UI
+function showScreen(screenId) {
+  ['landing-screen', 'create-screen', 'unlock-screen', 'wallet-screen'].forEach(id => {
+    document.getElementById(id)?.classList.add('hidden');
+  });
+  document.getElementById(screenId)?.classList.remove('hidden');
+}
+function showLanding() { showScreen('landing-screen'); }
+function showCreateScreen() { showScreen('create-screen'); }
+function showUnlockScreen() { showScreen('unlock-screen'); }
+function showTab(tabName) {
+  document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+  document.querySelectorAll('.tabs .tab').forEach(btn => {
+    if (btn.textContent.toLowerCase().includes(tabName)) btn.classList.add('active');
+  });
+  ['post-tab', 'followers-tab', 'sign-tab'].forEach(id => {
+    document.getElementById(id)?.classList.add('hidden');
+  });
+  document.getElementById(`${tabName}-tab`)?.classList.remove('hidden');
+}
+function setStatus(elementId, message, type = 'info') {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+  element.innerHTML = message ? `<div class="status status-${type}">${message}</div>` : '';
+}
+
+async function initWalletUI() {
+  const evmAddress = await WalletStorage.get('evmAddress');
+  document.getElementById('wallet-address').textContent = evmAddress || '--';
+  document.getElementById('posting-as').textContent = ACTOR_URL;
+  await updateFollowerCount();
+  await refreshFollowersList();
+}
+
+async function createWallet() {
+  const username = document.getElementById('username').value.trim();
+  if (!username) { setStatus('create-status', 'Please enter a username', 'error'); return; }
+  
+  const btn = document.getElementById('create-btn');
+  btn.disabled = true;
+  setStatus('create-status', 'Creating wallet...', 'info');
+  
+  try {
+    const result = await WalletCore.createWallet(username);
+    showScreen('wallet-screen');
+    await initWalletUI();
+    setStatus('wallet-status', `✅ Wallet created! Address: ${result.evmAddress}`, 'success');
+  } catch (error) {
+    console.error(error);
+    setStatus('create-status', `❌ Error: ${error.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function unlockWallet() {
+  const btn = document.getElementById('unlock-btn');
+  btn.disabled = true;
+  setStatus('unlock-status', 'Unlocking wallet...', 'info');
+  
+  try {
+    await WalletCore.unlockWallet();
+    showScreen('wallet-screen');
+    await initWalletUI();
+    setStatus('wallet-status', '✅ Wallet unlocked!', 'success');
+  } catch (error) {
+    console.error(error);
+    setStatus('unlock-status', `❌ Error: ${error.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function publishPost() {
+  const content = document.getElementById('post-content').value.trim();
+  if (!content) { setStatus('post-status', '❌ Please enter content', 'error'); return; }
+  if (!evmWallet || !apPrivateKey) { setStatus('post-status', '❌ Wallet not loaded', 'error'); return; }
+  
+  try {
+    setStatus('post-status', 'Publishing post...', 'info');
+    
+    const followers = await FollowerDB.getFollowers();
+    if (followers.length === 0) {
+      setStatus('post-status', '⚠️ No followers. Add some in Followers tab.', 'error');
+      return;
+    }
+    
+    const noteId = `https://${ACTOR_DOMAIN}/posts/${Date.now()}`;
+    const activity = {
+      "@context": "https://www.w3.org/ns/activitystreams",
+      "id": noteId,
+      "type": "Create",
+      "actor": ACTOR_URL,
+      "published": new Date().toISOString(),
+      "to": ["https://www.w3.org/ns/activitystreams#Public"],
+      "cc": [`https://${ACTOR_DOMAIN}/followers`],
+      "object": {
+        "id": noteId,
+        "type": "Note",
+        "attributedTo": ACTOR_URL,
+        "content": `<p>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`,
+        "published": new Date().toISOString(),
+        "to": ["https://www.w3.org/ns/activitystreams#Public"],
+        "cc": [`https://${ACTOR_DOMAIN}/followers`]
+      }
+    };
+    
+    const grouped = await FollowerDB.groupBySharedInbox();
+    const servers = grouped.map(g => ({ inbox: g.inbox }));
+    
+    const keyId = `${ACTOR_URL}#main-key`;
+    const bundles = await ActivityPubSigner.signForServers(activity, servers, keyId, apPrivateKey);
+    
+    const relayDomain = new URL(RELAY_URL).hostname;
+    const siwe = await SIWEHelper.signMessage(evmWallet, relayDomain);
+    
+    const response = await fetch(`${RELAY_URL}/relay`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${siwe.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        user_id: evmWallet.address.toLowerCase(),
+        bundles: bundles
+      })
+    });
+    
+    if (!response.ok) throw new Error(`Relay error: ${response.status}`);
+    
+    setStatus('post-status', `✅ Post published to ${followers.length} followers across ${servers.length} servers!`, 'success');
+    document.getElementById('post-content').value = '';
+    
+  } catch (error) {
+    console.error(error);
+    setStatus('post-status', `❌ Error: ${error.message}`, 'error');
+  }
+}
+
+async function addFollower() {
+  const actorUrl = document.getElementById('follower-actor').value.trim();
+  let inboxUrl = document.getElementById('follower-inbox').value.trim();
+  
+  if (!actorUrl) { setStatus('wallet-status', '❌ Enter actor URL', 'error'); return; }
+  
+  try {
+    setStatus('wallet-status', 'Adding follower...', 'info');
+    
+    const actorResponse = await fetch(actorUrl, { headers: { 'Accept': 'application/activity+json' } });
+    const actor = await actorResponse.json();
+    
+    if (!inboxUrl) {
+      inboxUrl = actor.inbox;
+      if (!inboxUrl) throw new Error('Could not find inbox URL');
+    }
+    
+    const sharedInbox = actor.endpoints?.sharedInbox || inboxUrl;
+    
+    await FollowerDB.addFollower({ actor: actorUrl, inbox: inboxUrl, sharedInbox });
+    
+    setStatus('wallet-status', `✅ Added: ${actorUrl}`, 'success');
+    document.getElementById('follower-actor').value = '';
+    document.getElementById('follower-inbox').value = '';
+    
+    await refreshFollowersList();
+    await updateFollowerCount();
+    
+  } catch (error) {
+    console.error(error);
+    setStatus('wallet-status', `❌ Error: ${error.message}`, 'error');
+  }
+}
+
+async function removeFollower(actorUrl) {
+  if (!confirm(`Remove ${actorUrl}?`)) return;
+  try {
+    await FollowerDB.removeFollower(actorUrl);
+    await refreshFollowersList();
+    await updateFollowerCount();
+    setStatus('wallet-status', '✅ Follower removed', 'success');
+  } catch (error) {
+    setStatus('wallet-status', `❌ Error: ${error.message}`, 'error');
+  }
+}
+
+async function refreshFollowersList() {
+  const followers = await FollowerDB.getFollowers();
+  const listEl = document.getElementById('followers-list');
+  if (!listEl) return;
+  
+  if (followers.length === 0) {
+    listEl.innerHTML = '<p>No followers yet</p>';
+    return;
+  }
+  
+  let html = '';
+  for (const f of followers) {
+    html += `<div style="padding: 12px; border-bottom: 1px solid var(--md-sys-color-outline);">
+      <div style="font-weight: 600; margin-bottom: 4px;">${f.actor}</div>
+      <div style="font-size: 12px; font-family: monospace; color: var(--md-sys-color-on-surface-variant);">${f.inbox}</div>
+      <button class="btn btn-danger" style="margin-top: 8px; padding: 6px 12px; font-size: 14px;" onclick="removeFollower('${f.actor}')">
+        Remove
+      </button>
+    </div>`;
+  }
+  listEl.innerHTML = html;
+}
+
+async function updateFollowerCount() {
+  const followers = await FollowerDB.getFollowers();
+  const el = document.getElementById('follower-count');
+  if (el) el.textContent = `${followers.length} follower${followers.length !== 1 ? 's' : ''}`;
+}
+
+async function signEvmMessage() {
+  const msg = document.getElementById('sign-message').value.trim();
+  if (!msg) { setStatus('wallet-status', '❌ Enter a message', 'error'); return; }
+  if (!evmWallet) { setStatus('wallet-status', '❌ Wallet not loaded', 'error'); return; }
+  
+  try {
+    const signature = await evmWallet.signMessage(msg);
+    document.getElementById('signature-value').textContent = signature;
+    document.getElementById('signature-container').classList.remove('hidden');
+    setStatus('wallet-status', '✅ Message signed', 'success');
+  } catch (error) {
+    setStatus('wallet-status', `❌ Error: ${error.message}`, 'error');
+  }
+}
+
+function lockWallet() {
+  arweaveWallet = null;
+  evmWallet = null;
+  apPrivateKey = null;
+  showLanding();
+}
+
+// Global bindings
+window.showCreateScreen = showCreateScreen;
+window.showUnlockScreen = showUnlockScreen;
+window.showLanding = showLanding;
+window.createWallet = createWallet;
+window.unlockWallet = unlockWallet;
+window.lockWallet = lockWallet;
+window.showTab = showTab;
+window.publishPost = publishPost;
+window.addFollower = addFollower;
+window.removeFollower = removeFollower;
+window.refreshFollowersList = refreshFollowersList;
+window.signEvmMessage = signEvmMessage;
+</script>
+</body>
+</html>
