@@ -1,0 +1,26 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1"
+  ],
+  "id": "https://marko-app.netlify.app/actor",
+  "type": "Person",
+  "preferredUsername": "Blingo",
+  "inbox": "https://107ffea14491.ngrok-free.app/inbox",
+  "outbox": "https://107ffea14491.ngrok-free.app/outbox",
+  "followers": "https://107ffea14491.ngrok-free.app/followers",
+  "following": "https://107ffea14491.ngrok-free.app/following",
+  "publicKey": {
+    "id": "https://marko-app.netlify.app/actor#main-key",
+    "owner": "https://marko-app.netlify.app/actor",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAny/GAALugik6MHSpal2m
+RrsL2fBdtz2UkGFg9Tfb0Tlj5OtBCBXqRv3uMtGn+ntr/sktX4DSR3HhnyEQddBg
+sSHS1Ex0EXiL4UTX5FcCQfoYgeiLQpIMeNnug2IYkA7e8TPB2e1BIyTP5IlAF3C2
+Ll4ek9DMGFaXPNd/OaLDxg6q59oTvO0DHRYNjhRG/HvER4cpP7pKSicunUQc96As
+G1xYs69Crs43o8smczK9DT2YgrNtPIElQePv299h3zy3unb4kyoDFwUlPrVXVbM9
+9PUWoVR0VNbrar1VPh8jxl8nJhenFnJAK1Z/2CtvIEXHvFUbi4o+SiCmZFE5OAKY
+YQIDAQAB
+-----END PUBLIC KEY-----"
+  }
+}
