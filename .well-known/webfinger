@@ -1,10 +1,13 @@
 {
   "subject": "acct:bling765@marko-app.netlify.app",
+  "aliases": [
+      "https://marko-app.netlify.app/bling765"
+  ],
   "links": [
     {
       "rel": "self",
       "type": "application/activity+json",
-      "href": "https://marko-app.netlify.app/actor/1"
+      "href": "https://marko-app.netlify.app/actor/bling765"
     }
   ]
 }
