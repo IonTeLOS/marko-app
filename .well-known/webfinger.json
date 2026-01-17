@@ -1,7 +1,7 @@
 {
   "subject": "acct:bling765@marko-app.netlify.app",
   "aliases": [
-      "https://marko-app.netlify.app/bling765"
+      "https://marko-app.netlify.app/actor/bling765"
   ],
   "links": [
     {
