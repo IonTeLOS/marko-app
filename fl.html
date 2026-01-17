@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sovereign Fedi - Followers Viewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 600px;
+      width: 100%;
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 32px;
+      text-align: center;
+    }
+    h1 { font-size: 28px; margin-bottom: 8px; }
+    .subtitle { opacity: 0.9; font-size: 14px; }
+    .content { padding: 32px; }
+    .search {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border 0.2s;
+    }
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    button {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    button:hover { transform: translateY(-2px); }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+      padding: 16px;
+      background: #f7fafc;
+      border-radius: 8px;
+    }
+    .stat { text-align: center; }
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #667eea;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: #718096;
+      margin-top: 4px;
+    }
+    .followers-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .follower {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: #f7fafc;
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+    .follower:hover { background: #edf2f7; }
+    .avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 18px;
+    }
+    .follower-info { flex: 1; }
+    .follower-name {
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: 4px;
+    }
+    .follower-date {
+      font-size: 12px;
+      color: #718096;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #718096;
+    }
+    .error {
+      padding: 16px;
+      background: #fed7d7;
+      color: #c53030;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .empty {
+      text-align: center;
+      padding: 40px;
+      color: #718096;
+    }
+    .link {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🦎 Followers Viewer</h1>
+      <p class="subtitle">Query followers from Arweave/Irys</p>
+    </div>
+    
+    <div class="content">
+      <div class="search">
+        <input 
+          type="text" 
+          id="userHandle" 
+          placeholder="Enter user handle (e.g., blin@example.com)"
+          value="blin@example.com"
+        />
+        <button id="loadBtn" onclick="loadFollowers()">Load</button>
+      </div>
+      
+      <div id="error" class="error" style="display: none;"></div>
+      
+      <div id="stats" class="stats" style="display: none;">
+        <div class="stat">
+          <div class="stat-value" id="followerCount">0</div>
+          <div class="stat-label">Followers</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="version">0</div>
+          <div class="stat-label">Version</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="updatedAt">-</div>
+          <div class="stat-label">Updated</div>
+        </div>
+      </div>
+      
+      <div id="loading" class="loading" style="display: none;">
+        Loading followers...
+      </div>
+      
+      <div id="empty" class="empty" style="display: none;">
+        No followers yet. Be the first to follow!
+      </div>
+      
+      <div id="followersList" class="followers-list"></div>
+    </div>
+  </div>
+
+  <script>
+    async function loadFollowers() {
+      const userHandle = document.getElementById('userHandle').value.trim();
+      if (!userHandle) {
+        showError('Please enter a user handle');
+        return;
+      }
+
+      // Reset UI
+      document.getElementById('error').style.display = 'none';
+      document.getElementById('stats').style.display = 'none';
+      document.getElementById('empty').style.display = 'none';
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('followersList').innerHTML = '';
+      document.getElementById('loadBtn').disabled = true;
+
+      try {
+        // Query Arweave GraphQL for latest followers list
+        const query = `
+          query {
+            transactions(
+              tags: [
+                { name: "App-Name", values: ["sovereign-fedi-relay"] }
+                { name: "Message-Type", values: ["followers-list"] }
+                { name: "User-ID", values: ["${userHandle}"] }
+              ]
+              sort: HEIGHT_DESC
+              first: 1
+            ) {
+              edges {
+                node {
+                  id
+                  tags {
+                    name
+                    value
+                  }
+                }
+              }
+            }
+          }
+        `;
+
+        console.log('Querying Arweave for:', userHandle);
+
+        const graphqlResponse = await fetch('https://uploader.irys.xyz/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query })
+        });
+
+        const result = await graphqlResponse.json();
+        console.log('GraphQL result:', result);
+
+        if (!result.data?.transactions?.edges?.length) {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('empty').style.display = 'block';
+          return;
+        }
+
+        const txId = result.data.transactions.edges[0].node.id;
+        console.log('Found transaction:', txId);
+
+        // Fetch the actual followers data
+        const dataResponse = await fetch(`https://gateway.irys.xyz/${txId}`);
+        if (!dataResponse.ok) {
+          throw new Error('Failed to fetch followers data');
+        }
+
+        const followersList = await dataResponse.json();
+        console.log('Followers list:', followersList);
+
+        // Display stats
+        document.getElementById('followerCount').textContent = followersList.followers.length;
+        document.getElementById('version').textContent = followersList.version;
+        
+        const updatedDate = new Date(followersList.updated_at * 1000);
+        document.getElementById('updatedAt').textContent = formatRelativeTime(updatedDate);
+        
+        document.getElementById('stats').style.display = 'grid';
+
+        // Display followers
+        if (followersList.followers.length === 0) {
+          document.getElementById('empty').style.display = 'block';
+        } else {
+          displayFollowers(followersList.followers);
+        }
+
+      } catch (error) {
+        console.error('Error loading followers:', error);
+        showError('Failed to load followers: ' + error.message);
+      } finally {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('loadBtn').disabled = false;
+      }
+    }
+
+    function displayFollowers(followers) {
+      const container = document.getElementById('followersList');
+      container.innerHTML = '';
+
+      followers.forEach(follower => {
+        const div = document.createElement('div');
+        div.className = 'follower';
+
+        // Extract username from actor URL
+        const username = extractUsername(follower.actor);
+        const initial = username.charAt(0).toUpperCase();
+
+        const followDate = new Date(follower.followed_at * 1000);
+
+        div.innerHTML = `
+          <div class="avatar">${initial}</div>
+          <div class="follower-info">
+            <div class="follower-name">
+              <a href="${follower.actor}" class="link" target="_blank" rel="noopener">
+                ${username}
+              </a>
+            </div>
+            <div class="follower-date">
+              Followed ${formatRelativeTime(followDate)}
+            </div>
+          </div>
+        `;
+
+        container.appendChild(div);
+      });
+    }
+
+    function extractUsername(actorUrl) {
+      try {
+        const url = new URL(actorUrl);
+        const parts = url.pathname.split('/');
+        return parts[parts.length - 1] || url.hostname;
+      } catch {
+        return 'Unknown';
+      }
+    }
+
+    function formatRelativeTime(date) {
+      const seconds = Math.floor((new Date() - date) / 1000);
+      
+      if (seconds < 60) return 'just now';
+      if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+      if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+      
+      return date.toLocaleDateString();
+    }
+
+    function showError(message) {
+      const errorDiv = document.getElementById('error');
+      errorDiv.textContent = message;
+      errorDiv.style.display = 'block';
+    }
+
+    // Load on enter key
+    document.getElementById('userHandle').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') loadFollowers();
+    });
+
+    // Auto-load on page load
+    // window.addEventListener('load', () => loadFollowers());
+  </script>
+</body>
+</html>
