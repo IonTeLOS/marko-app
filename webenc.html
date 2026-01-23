@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebPusher - Encrypted Messaging Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.3s;
+    }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    button {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .status {
+      padding: 15px;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-top: 15px;
+      display: none;
+    }
+    .status.info {
+      background: #e3f2fd;
+      color: #1976d2;
+      border-left: 4px solid #1976d2;
+    }
+    .status.success {
+      background: #e8f5e9;
+      color: #388e3c;
+      border-left: 4px solid #388e3c;
+    }
+    .status.error {
+      background: #ffebee;
+      color: #d32f2f;
+      border-left: 4px solid #d32f2f;
+    }
+    .status.show {
+      display: block;
+    }
+    .help-text {
+      font-size: 12px;
+      color: #999;
+      margin-top: 5px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #e8f5e9;
+      color: #388e3c;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>🔐 Encrypted Messaging Test</h1>
+      <p class="subtitle">
+        Send end-to-end encrypted push notifications. Messages are encrypted on your device and only the recipient can decrypt them.
+      </p>
+
+      <div class="form-group">
+        <label for="workerUrl">Worker URL</label>
+        <input 
+          type="url" 
+          id="workerUrl" 
+          placeholder="https://wobpusher.diavlos.workers.dev"
+          required
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="guestToken">Your Token (Guest)</label>
+        <input 
+          type="text" 
+          id="guestToken" 
+          placeholder="Your access token"
+          required
+        >
+        <div class="help-text">Your guest token for authentication</div>
+      </div>
+
+      <div class="form-group">
+        <label for="message">Message</label>
+        <textarea 
+          id="message" 
+          placeholder="Enter your secret message..."
+          required
+        ></textarea>
+        <div class="help-text">
+          <span class="badge">🔒 End-to-End Encrypted</span>
+          Only the admin can read this
+        </div>
+      </div>
+
+      <button onclick="sendEncrypted()">🚀 Send Encrypted Message</button>
+
+      <div id="status" class="status"></div>
+    </div>
+
+    <div class="card">
+      <h2>💡 How It Works</h2>
+      <ul style="line-height: 1.8; color: #666;">
+        <li><strong>Your device</strong> encrypts the message with admin's public key</li>
+        <li><strong>Worker</strong> passes the encrypted data through (can't read it!)</li>
+        <li><strong>Admin's device</strong> decrypts with their private key</li>
+        <li><strong>Service worker</strong> automatically decrypts and shows plaintext</li>
+      </ul>
+    </div>
+  </div>
+
+  <script src="webpusher-crypto.js"></script>
+  <script>
+    function showStatus(message, type = 'info') {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type} show`;
+    }
+
+    async function sendEncrypted() {
+      try {
+        let workerUrl = document.getElementById('workerUrl').value.trim();
+        const token = document.getElementById('guestToken').value.trim();
+        const message = document.getElementById('message').value;
+
+        if (!workerUrl || !token || !message) {
+          showStatus('Please fill in all fields', 'error');
+          return;
+        }
+
+        // Ensure protocol
+        if (!workerUrl.startsWith('http://') && !workerUrl.startsWith('https://')) {
+          workerUrl = 'https://' + workerUrl;
+        }
+        workerUrl = workerUrl.replace(/\/$/, '');
+
+        showStatus('Fetching admin public key...', 'info');
+
+        // Get admin's public key
+        const adminResponse = await fetch(`${workerUrl}/admin/public-key`, {
+          method: 'GET'
+        });
+
+        if (!adminResponse.ok) {
+          throw new Error('Failed to get admin public key. Admin may not be registered.');
+        }
+
+        const { publicKeyJwk } = await adminResponse.json();
+
+        showStatus('Encrypting message...', 'info');
+
+        // Encrypt the message
+        const encrypted = await WebPusherCrypto.encryptMessage(message, publicKeyJwk);
+
+        showStatus('Sending encrypted message...', 'info');
+
+        // Send encrypted payload as JSON
+        const response = await fetch(`${workerUrl}/send`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(encrypted)
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`Failed (${response.status}): ${text}`);
+        }
+
+        showStatus('✅ Encrypted message sent! Only admin can read it.', 'success');
+
+        // Save config
+        localStorage.setItem('webpusher_e2ee_config', JSON.stringify({
+          workerUrl,
+          guestToken: token
+        }));
+
+      } catch (error) {
+        console.error('Send error:', error);
+        showStatus(`❌ Error: ${error.message}`, 'error');
+      }
+    }
+
+    // Load saved config on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      const saved = localStorage.getItem('webpusher_e2ee_config') || 
+                   localStorage.getItem('webpusher_send_config');
+      if (saved) {
+        try {
+          const config = JSON.parse(saved);
+          if (config.workerUrl) document.getElementById('workerUrl').value = config.workerUrl;
+          if (config.guestToken) document.getElementById('guestToken').value = config.guestToken;
+        } catch (e) {}
+      }
+
+      // Load token from registration
+      const savedToken = localStorage.getItem('webpusher_guest_token');
+      if (savedToken && !document.getElementById('guestToken').value) {
+        document.getElementById('guestToken').value = savedToken;
+      }
+    });
+  </script>
+</body>
+</html>
