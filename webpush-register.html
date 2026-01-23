@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebPusher - Guest Registration</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 40px;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    p {
+      color: #666;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+    .info-box {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    .info-box strong {
+      color: #333;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 6px;
+      font-size: 14px;
+      display: none;
+    }
+    .status.info {
+      background: #e3f2fd;
+      color: #1976d2;
+      border-left: 4px solid #1976d2;
+    }
+    .status.success {
+      background: #e8f5e9;
+      color: #388e3c;
+      border-left: 4px solid #388e3c;
+    }
+    .status.error {
+      background: #ffebee;
+      color: #d32f2f;
+      border-left: 4px solid #d32f2f;
+    }
+    .status.show {
+      display: block;
+    }
+    .credentials {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 6px;
+      margin-top: 15px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      word-break: break-all;
+      display: none;
+    }
+    .credentials.show {
+      display: block;
+    }
+    .credentials strong {
+      display: block;
+      margin-bottom: 5px;
+      color: #333;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .copy-btn {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>👤 Guest Registration</h1>
+    <p>You've been invited to join WebPusher. Click below to complete your registration.</p>
+
+    <div id="inviteInfo" class="info-box" style="display: none;">
+      <strong>Invite Code:</strong> <span id="inviteCode"></span>
+    </div>
+
+    <button id="registerBtn" onclick="registerGuest()">
+      Register & Enable Notifications
+    </button>
+
+    <div id="credentials" class="credentials">
+      <strong>Your Access Token:</strong>
+      <div id="tokenDisplay"></div>
+      <button class="copy-btn" onclick="copyToken()">📋 Copy Token</button>
+      <div style="margin-top: 15px; font-size: 12px; color: #666; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        ⚠️ Save this token securely - you'll need it to send messages!
+      </div>
+    </div>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const inviteCode = params.get('invite');
+
+    if (!inviteCode) {
+      document.getElementById('status').textContent = '❌ No invite code provided in URL';
+      document.getElementById('status').className = 'status error show';
+      document.getElementById('registerBtn').disabled = true;
+    } else {
+      document.getElementById('inviteInfo').style.display = 'block';
+      document.getElementById('inviteCode').textContent = inviteCode;
+    }
+
+    function showStatus(message, type = 'info') {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type} show`;
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding)
+        .replace(/\-/g, '+')
+        .replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
+    }
+
+    async function registerServiceWorker() {
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+      return registration;
+    }
+
+    async function registerGuest() {
+      const btn = document.getElementById('registerBtn');
+      btn.disabled = true;
+
+      try {
+        // Get worker URL from saved config or use default
+        const saved = localStorage.getItem('webpusher_admin');
+        let workerUrl = 'https://webpusher.diavlos.workers.dev';
+        
+        if (saved) {
+          try {
+            const config = JSON.parse(saved);
+            workerUrl = config.workerUrl || workerUrl;
+          } catch (e) {}
+        }
+
+        // Strip trailing slash
+        workerUrl = workerUrl.replace(/\/$/, '');
+
+        // Step 1: Request notification permission
+        showStatus('Requesting notification permission...', 'info');
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          throw new Error('Notification permission denied');
+        }
+
+        // Step 2: Register service worker
+        showStatus('Setting up notifications...', 'info');
+        const registration = await registerServiceWorker();
+
+        // Get VAPID public key from saved config
+        const configSaved = localStorage.getItem('webpusher_config');
+        let vapidPublic = '';
+        if (configSaved) {
+          try {
+            const config = JSON.parse(configSaved);
+            vapidPublic = config.vapidPublic;
+          } catch (e) {}
+        }
+
+        if (!vapidPublic) {
+          throw new Error('VAPID public key not found. Please run admin setup first.');
+        }
+
+        // Step 3: Subscribe to push
+        showStatus('Creating push subscription...', 'info');
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublic)
+        });
+
+        // Step 4: Generate E2EE key pair
+        showStatus('Generating encryption keys...', 'info');
+        const keyPair = await crypto.subtle.generateKey(
+          { name: 'ECDH', namedCurve: 'P-256' },
+          true,
+          ['deriveKey']
+        );
+        const publicKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+
+        // Step 5: Register with server
+        showStatus('Registering with server...', 'info');
+        const response = await fetch(`${workerUrl}/guest/register/${inviteCode}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            publicKeyJwk,
+            subscription: subscription.toJSON()
+          })
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`Registration failed: ${text}`);
+        }
+
+        const { guestId, token } = await response.json();
+
+        // Display token
+        document.getElementById('tokenDisplay').textContent = token;
+        document.getElementById('credentials').classList.add('show');
+
+        // Save token locally
+        localStorage.setItem('webpusher_guest_token', token);
+        localStorage.setItem('webpusher_guest_id', guestId);
+
+        showStatus('✅ Registration successful! You can now receive messages.', 'success');
+        btn.textContent = '✓ Registered';
+
+      } catch (error) {
+        console.error(error);
+        showStatus(`❌ Error: ${error.message}`, 'error');
+        btn.disabled = false;
+      }
+    }
+
+    function copyToken() {
+      const token = document.getElementById('tokenDisplay').textContent;
+      navigator.clipboard.writeText(token).then(() => {
+        showStatus('✅ Token copied to clipboard!', 'success');
+      });
+    }
+  </script>
+</body>
+</html>
