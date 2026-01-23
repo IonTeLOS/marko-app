@@ -130,9 +130,9 @@
     <form id="setupForm">
       <div class="form-group">
         <label for="workerUrl">Worker URL</label>
-        <input
-          type="url"
-          id="workerUrl"
+        <input 
+          type="url" 
+          id="workerUrl" 
           placeholder="https://webpusher.diavlos.workers.dev"
           required
         >
@@ -141,9 +141,9 @@
 
       <div class="form-group">
         <label for="adminSecret">Admin Secret</label>
-        <input
-          type="password"
-          id="adminSecret"
+        <input 
+          type="password" 
+          id="adminSecret" 
           placeholder="Enter your ADMIN_SECRET"
           required
         >
@@ -152,8 +152,8 @@
 
       <div class="form-group">
         <label for="vapidPublic">VAPID Public Key</label>
-        <textarea
-          id="vapidPublic"
+        <textarea 
+          id="vapidPublic" 
           placeholder="Paste public key from generate-vapid.js"
           required
         ></textarea>
@@ -161,8 +161,8 @@
 
       <div class="form-group">
         <label for="vapidPrivate">VAPID Private Key</label>
-        <textarea
-          id="vapidPrivate"
+        <textarea 
+          id="vapidPrivate" 
           placeholder="Paste private key from generate-vapid.js"
           required
         ></textarea>
@@ -187,30 +187,14 @@
     }
 
     async function registerServiceWorker() {
-      // Create a minimal service worker inline
-      const swCode = `
-        self.addEventListener('push', event => {
-          const data = event.data ? event.data.text() : 'New message';
-          event.waitUntil(
-            self.registration.showNotification('WebPusher', {
-              body: data,
-              icon: 'https://cdn-icons-png.flaticon.com/512/733/733585.png'
-            })
-          );
-        });
-      `;
-
-      const blob = new Blob([swCode], { type: 'application/javascript' });
-      const url = URL.createObjectURL(blob);
-
-      const registration = await navigator.serviceWorker.register(url);
+      const registration = await navigator.serviceWorker.register('/sw.js');
       await navigator.serviceWorker.ready;
       return registration;
     }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-
+      
       registerBtn.disabled = true;
       showStatus('Starting registration...', 'info');
 
@@ -311,7 +295,7 @@ CREATE TABLE IF NOT EXISTS guests (
         }
 
         showStatus('✅ Admin registration successful! You can now use the system.', 'success');
-
+        
         // Store credentials in localStorage for convenience
         localStorage.setItem('webpusher_config', JSON.stringify({
           workerUrl,
