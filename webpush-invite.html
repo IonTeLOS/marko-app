@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebPusher - Invite Manager</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    h2 {
+      color: #333;
+      margin-bottom: 20px;
+      font-size: 20px;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    button {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .invite-link {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 6px;
+      margin-top: 15px;
+      word-break: break-all;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      display: none;
+    }
+    .invite-link.show {
+      display: block;
+    }
+    .copy-btn {
+      margin-top: 10px;
+      width: 100%;
+    }
+    .status {
+      padding: 15px;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-top: 15px;
+      display: none;
+    }
+    .status.info {
+      background: #e3f2fd;
+      color: #1976d2;
+      border-left: 4px solid #1976d2;
+    }
+    .status.success {
+      background: #e8f5e9;
+      color: #388e3c;
+      border-left: 4px solid #388e3c;
+    }
+    .status.error {
+      background: #ffebee;
+      color: #d32f2f;
+      border-left: 4px solid #d32f2f;
+    }
+    .status.show {
+      display: block;
+    }
+    .help-text {
+      font-size: 12px;
+      color: #999;
+      margin-top: 5px;
+    }
+    .config-saved {
+      color: #388e3c;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>📨 Invite Manager</h1>
+      <p class="subtitle">Generate invite links for guests to register.</p>
+
+      <div class="form-group">
+        <label for="workerUrl">Worker URL</label>
+        <input 
+          type="url" 
+          id="workerUrl" 
+          placeholder="https://webpusher.diavlos.workers.dev"
+          required
+        >
+        <div class="config-saved" id="configStatus"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="adminSecret">Admin Secret</label>
+        <input 
+          type="password" 
+          id="adminSecret" 
+          placeholder="Enter your ADMIN_SECRET"
+          required
+        >
+      </div>
+
+      <button onclick="saveConfig()">💾 Save Configuration</button>
+    </div>
+
+    <div class="card">
+      <h2>Generate Invite</h2>
+      
+      <div class="form-group">
+        <label for="guestName">Guest Name</label>
+        <input 
+          type="text" 
+          id="guestName" 
+          placeholder="john-doe"
+          required
+        >
+        <div class="help-text">A friendly identifier for this guest</div>
+      </div>
+
+      <div class="form-group">
+        <label for="ttlMinutes">Expiration (minutes)</label>
+        <select id="ttlMinutes">
+          <option value="15">15 minutes</option>
+          <option value="30">30 minutes</option>
+          <option value="60" selected>1 hour</option>
+          <option value="240">4 hours</option>
+          <option value="1440">24 hours</option>
+        </select>
+      </div>
+
+      <button onclick="generateInvite()">✨ Generate Invite Link</button>
+
+      <div id="inviteLink" class="invite-link"></div>
+      <button id="copyBtn" class="copy-btn" onclick="copyInvite()" style="display: none;">
+        📋 Copy Invite Link
+      </button>
+
+      <div id="status" class="status"></div>
+    </div>
+  </div>
+
+  <script>
+    function showStatus(message, type = 'info') {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type} show`;
+    }
+
+    function saveConfig() {
+      const workerUrl = document.getElementById('workerUrl').value.trim();
+      const adminSecret = document.getElementById('adminSecret').value.trim();
+
+      if (!workerUrl || !adminSecret) {
+        showStatus('Please fill in both fields', 'error');
+        return;
+      }
+
+      localStorage.setItem('webpusher_admin', JSON.stringify({
+        workerUrl,
+        adminSecret
+      }));
+
+      document.getElementById('configStatus').textContent = '✓ Configuration saved';
+      showStatus('Configuration saved successfully!', 'success');
+    }
+
+    async function generateInvite() {
+      const workerUrl = document.getElementById('workerUrl').value.trim();
+      const adminSecret = document.getElementById('adminSecret').value.trim();
+      const guestName = document.getElementById('guestName').value.trim();
+      const ttlMinutes = parseInt(document.getElementById('ttlMinutes').value);
+
+      if (!workerUrl || !adminSecret || !guestName) {
+        showStatus('Please fill in all fields', 'error');
+        return;
+      }
+
+      try {
+        showStatus('Generating invite...', 'info');
+
+        const response = await fetch(`${workerUrl}/admin/invite`, {
+          method: 'POST',
+          headers: {
+            'x-admin-secret': adminSecret,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ guestName, ttlMinutes })
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`Failed: ${text}`);
+        }
+
+        const { invite } = await response.json();
+        
+        // Get the base URL for guest registration
+        const baseUrl = window.location.origin + window.location.pathname.replace('invite-manager.html', '');
+        const inviteUrl = `${baseUrl}guest-register.html?invite=${invite}`;
+
+        document.getElementById('inviteLink').textContent = inviteUrl;
+        document.getElementById('inviteLink').classList.add('show');
+        document.getElementById('copyBtn').style.display = 'block';
+
+        showStatus(`✅ Invite created! Valid for ${ttlMinutes} minutes.`, 'success');
+      } catch (error) {
+        console.error(error);
+        showStatus(`❌ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function copyInvite() {
+      const inviteLink = document.getElementById('inviteLink').textContent;
+      navigator.clipboard.writeText(inviteLink).then(() => {
+        showStatus('✅ Invite link copied to clipboard!', 'success');
+      });
+    }
+
+    // Load saved config
+    const saved = localStorage.getItem('webpusher_admin');
+    if (saved) {
+      try {
+        const config = JSON.parse(saved);
+        document.getElementById('workerUrl').value = config.workerUrl || '';
+        document.getElementById('adminSecret').value = config.adminSecret || '';
+        document.getElementById('configStatus').textContent = '✓ Configuration loaded';
+      } catch (e) {}
+    }
+  </script>
+</body>
+</html>
