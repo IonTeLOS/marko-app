@@ -187,6 +187,13 @@
             required
           >
           <div class="help-text">This was shown when you registered as a guest</div>
+          <button class="copy-btn" style="margin-top: 5px;" onclick="getMyGuestId()">
+            🆔 Get My Guest ID
+          </button>
+          <div id="myGuestId" style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px; display: none;">
+            <strong>Your Guest ID:</strong> <span id="guestIdValue"></span>
+            <button class="copy-btn" onclick="copyMyGuestId()">📋 Copy</button>
+          </div>
         </div>
 
         <div class="form-group">
@@ -327,6 +334,59 @@
         console.error('Send error:', error);
         showStatus('guestStatus', `❌ Error: ${error.message}`, 'error');
       }
+    }
+
+    async function getMyGuestId() {
+      try {
+        let workerUrl = document.getElementById('guestWorkerUrl').value.trim();
+        const token = document.getElementById('guestToken').value.trim();
+
+        if (!workerUrl || !token) {
+          showStatus('guestStatus', 'Please enter Worker URL and Token first', 'error');
+          return;
+        }
+
+        // Ensure protocol
+        if (!workerUrl.startsWith('http://') && !workerUrl.startsWith('https://')) {
+          workerUrl = 'https://' + workerUrl;
+        }
+        workerUrl = workerUrl.replace(/\/$/, '');
+
+        showStatus('guestStatus', 'Fetching your info...', 'info');
+
+        const response = await fetch(`${workerUrl}/whoami`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`Failed (${response.status}): ${text}`);
+        }
+
+        const data = await response.json();
+        
+        document.getElementById('guestIdValue').textContent = data.id;
+        document.getElementById('myGuestId').style.display = 'block';
+        
+        // Save it
+        localStorage.setItem('webpusher_guest_id', data.id);
+        
+        showStatus('guestStatus', `✅ Found your info! Name: ${data.name}`, 'success');
+
+      } catch (error) {
+        console.error('Whoami error:', error);
+        showStatus('guestStatus', `❌ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function copyMyGuestId() {
+      const guestId = document.getElementById('guestIdValue').textContent;
+      navigator.clipboard.writeText(guestId).then(() => {
+        showStatus('guestStatus', '✅ Guest ID copied to clipboard!', 'success');
+      });
     }
 
     async function sendAsAdmin() {
