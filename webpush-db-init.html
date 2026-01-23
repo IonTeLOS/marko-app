@@ -185,7 +185,12 @@
       showStatus('Initializing database...', 'info');
 
       try {
-        const workerUrl = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
+        let workerUrl = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
+        
+        // Ensure protocol is present
+        if (!workerUrl.startsWith('http://') && !workerUrl.startsWith('https://')) {
+          workerUrl = 'https://' + workerUrl;
+        }
 
         const response = await fetch(`${workerUrl}/__init`, {
           method: 'POST',
