@@ -185,7 +185,7 @@
       showStatus('Initializing database...', 'info');
 
       try {
-        const workerUrl = document.getElementById('workerUrl').value.trim();
+        const workerUrl = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
 
         const response = await fetch(`${workerUrl}/__init`, {
           method: 'POST',
