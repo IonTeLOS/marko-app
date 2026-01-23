@@ -1,5 +1,5 @@
-// WebPusher Service Worker
-// Handles incoming push notifications
+// WebPusher Service Worker with E2EE support
+// Handles incoming push notifications and decrypts them
 
 self.addEventListener('install', (event) => {
   console.log('Service Worker installing...');
@@ -10,6 +10,108 @@ self.addEventListener('activate', (event) => {
   console.log('Service Worker activating...');
   event.waitUntil(self.clients.claim());
 });
+
+// Helper: base64url decode
+function base64UrlDecode(str) {
+  // Add padding
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) {
+    str += '=';
+  }
+  const binary = atob(str);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+// Helper: Get private key from IndexedDB
+async function getPrivateKey() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('webpusher-keys', 1);
+    
+    request.onerror = () => reject(request.error);
+    
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction(['keys'], 'readonly');
+      const store = transaction.objectStore('keys');
+      const getRequest = store.get('privateKey');
+      
+      getRequest.onsuccess = () => {
+        if (getRequest.result) {
+          resolve(getRequest.result.key);
+        } else {
+          resolve(null);
+        }
+      };
+      
+      getRequest.onerror = () => reject(getRequest.error);
+    };
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('keys')) {
+        db.createObjectStore('keys');
+      }
+    };
+  });
+}
+
+// Helper: Decrypt message using ECDH
+async function decryptMessage(encryptedData, ephemeralPublicKeyJwk) {
+  try {
+    // Get our private key
+    const privateKeyJwk = await getPrivateKey();
+    if (!privateKeyJwk) {
+      console.log('No private key found, showing encrypted message');
+      return null;
+    }
+
+    // Import keys
+    const privateKey = await crypto.subtle.importKey(
+      'jwk',
+      privateKeyJwk,
+      { name: 'ECDH', namedCurve: 'P-256' },
+      false,
+      ['deriveKey']
+    );
+
+    const ephemeralPublicKey = await crypto.subtle.importKey(
+      'jwk',
+      ephemeralPublicKeyJwk,
+      { name: 'ECDH', namedCurve: 'P-256' },
+      false,
+      []
+    );
+
+    // Derive shared secret
+    const sharedSecret = await crypto.subtle.deriveKey(
+      { name: 'ECDH', public: ephemeralPublicKey },
+      privateKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['decrypt']
+    );
+
+    // Decrypt
+    const decrypted = await crypto.subtle.decrypt(
+      {
+        name: 'AES-GCM',
+        iv: encryptedData.iv
+      },
+      sharedSecret,
+      encryptedData.ciphertext
+    );
+
+    const decoder = new TextDecoder();
+    return decoder.decode(decrypted);
+  } catch (error) {
+    console.error('Decryption failed:', error);
+    return null;
+  }
+}
 
 self.addEventListener('push', (event) => {
   console.log('Push notification received:', event);
@@ -23,27 +125,53 @@ self.addEventListener('push', (event) => {
     requireInteraction: false
   };
 
-  if (event.data) {
-    try {
-      // Try to parse as JSON first
-      const data = event.data.json();
-      notificationData.body = data.message || data.body || JSON.stringify(data);
-      if (data.title) notificationData.title = data.title;
-    } catch (e) {
-      // If not JSON, use as text
-      notificationData.body = event.data.text();
+  const showNotification = async () => {
+    if (event.data) {
+      try {
+        // Try to parse as JSON (encrypted message format)
+        const data = event.data.json();
+        
+        if (data.encrypted && data.ephemeralPublicKey && data.iv && data.ciphertext) {
+          // This is an encrypted message
+          console.log('Received encrypted message, attempting to decrypt...');
+          
+          const encryptedData = {
+            iv: base64UrlDecode(data.iv),
+            ciphertext: base64UrlDecode(data.ciphertext)
+          };
+          
+          const decrypted = await decryptMessage(encryptedData, data.ephemeralPublicKey);
+          
+          if (decrypted) {
+            notificationData.body = decrypted;
+            notificationData.data = { decrypted: true };
+            console.log('Message decrypted successfully');
+          } else {
+            notificationData.body = '🔒 Encrypted message (unable to decrypt)';
+            notificationData.data = { encrypted: true };
+          }
+        } else {
+          // Plain JSON message
+          notificationData.body = data.message || data.body || JSON.stringify(data);
+          if (data.title) notificationData.title = data.title;
+        }
+      } catch (e) {
+        // Not JSON, treat as plain text
+        notificationData.body = event.data.text();
+      }
     }
-  }
 
-  event.waitUntil(
-    self.registration.showNotification(notificationData.title, {
+    await self.registration.showNotification(notificationData.title, {
       body: notificationData.body,
       icon: notificationData.icon,
       badge: notificationData.badge,
       tag: notificationData.tag,
-      requireInteraction: notificationData.requireInteraction
-    })
-  );
+      requireInteraction: notificationData.requireInteraction,
+      data: notificationData.data || {}
+    });
+  };
+
+  event.waitUntil(showNotification());
 });
 
 self.addEventListener('notificationclick', (event) => {
