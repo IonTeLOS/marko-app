@@ -211,7 +211,13 @@
     }
 
     function saveConfig() {
-      const workerUrl = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
+      let workerUrl = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
+      
+      // Ensure protocol is present
+      if (!workerUrl.startsWith('http://') && !workerUrl.startsWith('https://')) {
+        workerUrl = 'https://' + workerUrl;
+      }
+      
       const adminSecret = document.getElementById('adminSecret').value.trim();
 
       if (!workerUrl || !adminSecret) {
@@ -229,7 +235,13 @@
     }
 
     async function generateInvite() {
-      const workerUrl = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
+      let workerUrl = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
+      
+      // Ensure protocol is present
+      if (!workerUrl.startsWith('http://') && !workerUrl.startsWith('https://')) {
+        workerUrl = 'https://' + workerUrl;
+      }
+      
       const adminSecret = document.getElementById('adminSecret').value.trim();
       const guestName = document.getElementById('guestName').value.trim();
       const ttlMinutes = parseInt(document.getElementById('ttlMinutes').value);
