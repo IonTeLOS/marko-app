@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebPusher - Guest Management</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    button {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .guests-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    .guests-table th {
+      background: #f5f5f5;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 2px solid #e0e0e0;
+    }
+    .guests-table td {
+      padding: 12px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .guests-table tr:hover {
+      background: #f9f9f9;
+    }
+    .guest-id {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #666;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge.active {
+      background: #e8f5e9;
+      color: #388e3c;
+    }
+    .badge.banned {
+      background: #ffebee;
+      color: #d32f2f;
+    }
+    .copy-btn {
+      padding: 4px 8px;
+      font-size: 12px;
+      margin-left: 8px;
+    }
+    .status {
+      padding: 15px;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-top: 15px;
+      display: none;
+    }
+    .status.info {
+      background: #e3f2fd;
+      color: #1976d2;
+      border-left: 4px solid #1976d2;
+    }
+    .status.success {
+      background: #e8f5e9;
+      color: #388e3c;
+      border-left: 4px solid #388e3c;
+    }
+    .status.error {
+      background: #ffebee;
+      color: #d32f2f;
+      border-left: 4px solid #d32f2f;
+    }
+    .status.show {
+      display: block;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+    .config-saved {
+      color: #388e3c;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>👥 Guest Management</h1>
+      <p class="subtitle">View and manage all registered guests.</p>
+
+      <div class="form-group">
+        <label for="workerUrl">Worker URL</label>
+        <input 
+          type="url" 
+          id="workerUrl" 
+          placeholder="https://wobpusher.diavlos.workers.dev"
+          required
+        >
+        <div class="config-saved" id="configStatus"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="adminSecret">Admin Secret</label>
+        <input 
+          type="password" 
+          id="adminSecret" 
+          placeholder="Enter your ADMIN_SECRET"
+          required
+        >
+      </div>
+
+      <div class="actions">
+        <button onclick="saveConfig()">💾 Save Configuration</button>
+        <button onclick="loadGuests()">🔄 Load Guests</button>
+      </div>
+
+      <div id="status" class="status"></div>
+    </div>
+
+    <div class="card" id="guestsCard" style="display: none;">
+      <h2>Registered Guests</h2>
+      <table class="guests-table" id="guestsTable">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Guest ID</th>
+            <th>Registered</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="guestsBody">
+        </tbody>
+      </table>
+      <div id="emptyState" class="empty-state">
+        No guests registered yet. Create an invite to get started!
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showStatus(message, type = 'info') {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type} show`;
+    }
+
+    function saveConfig() {
+      let workerUrl = document.getElementById('workerUrl').value.trim();
+      const adminSecret = document.getElementById('adminSecret').value.trim();
+
+      if (!workerUrl || !adminSecret) {
+        showStatus('Please fill in both fields', 'error');
+        return;
+      }
+
+      // Ensure protocol
+      if (!workerUrl.startsWith('http://') && !workerUrl.startsWith('https://')) {
+        workerUrl = 'https://' + workerUrl;
+      }
+      workerUrl = workerUrl.replace(/\/$/, '');
+
+      localStorage.setItem('webpusher_guest_mgmt', JSON.stringify({
+        workerUrl,
+        adminSecret
+      }));
+
+      document.getElementById('configStatus').textContent = '✓ Configuration saved';
+      showStatus('Configuration saved successfully!', 'success');
+    }
+
+    async function loadGuests() {
+      let workerUrl = document.getElementById('workerUrl').value.trim();
+      const adminSecret = document.getElementById('adminSecret').value.trim();
+
+      if (!workerUrl || !adminSecret) {
+        showStatus('Please fill in configuration fields', 'error');
+        return;
+      }
+
+      // Ensure protocol
+      if (!workerUrl.startsWith('http://') && !workerUrl.startsWith('https://')) {
+        workerUrl = 'https://' + workerUrl;
+      }
+      workerUrl = workerUrl.replace(/\/$/, '');
+
+      try {
+        showStatus('Loading guests...', 'info');
+
+        const response = await fetch(`${workerUrl}/admin/guests`, {
+          method: 'GET',
+          headers: {
+            'x-admin-secret': adminSecret
+          }
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`Failed to load guests (${response.status}): ${text}`);
+        }
+
+        const { guests } = await response.json();
+
+        displayGuests(guests);
+        showStatus(`✅ Loaded ${guests.length} guest(s)`, 'success');
+
+        // Save config
+        localStorage.setItem('webpusher_guest_mgmt', JSON.stringify({
+          workerUrl,
+          adminSecret
+        }));
+
+      } catch (error) {
+        console.error('Load error:', error);
+        showStatus(`❌ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function displayGuests(guests) {
+      const card = document.getElementById('guestsCard');
+      const tbody = document.getElementById('guestsBody');
+      const emptyState = document.getElementById('emptyState');
+
+      if (guests.length === 0) {
+        emptyState.style.display = 'block';
+        document.getElementById('guestsTable').style.display = 'none';
+      } else {
+        emptyState.style.display = 'none';
+        document.getElementById('guestsTable').style.display = 'table';
+
+        tbody.innerHTML = guests.map(guest => {
+          const date = new Date(guest.created_at).toLocaleString();
+          const statusBadge = guest.banned 
+            ? '<span class="badge banned">Banned</span>'
+            : '<span class="badge active">Active</span>';
+
+          return `
+            <tr>
+              <td><strong>${escapeHtml(guest.name)}</strong></td>
+              <td>
+                <span class="guest-id">${escapeHtml(guest.id)}</span>
+                <button class="copy-btn" onclick="copyGuestId('${escapeHtml(guest.id)}')">📋 Copy</button>
+              </td>
+              <td>${date}</td>
+              <td>${statusBadge}</td>
+              <td>
+                <button class="copy-btn" onclick="sendToGuest('${escapeHtml(guest.id)}', '${escapeHtml(guest.name)}')">
+                  📨 Send
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      card.style.display = 'block';
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function copyGuestId(guestId) {
+      navigator.clipboard.writeText(guestId).then(() => {
+        showStatus('✅ Guest ID copied to clipboard!', 'success');
+      }).catch(err => {
+        console.error('Copy failed:', err);
+        showStatus('❌ Failed to copy', 'error');
+      });
+    }
+
+    function sendToGuest(guestId, guestName) {
+      const message = prompt(`Send a message to ${guestName}:`);
+      if (!message) return;
+
+      let workerUrl = document.getElementById('workerUrl').value.trim();
+      const adminSecret = document.getElementById('adminSecret').value.trim();
+
+      // Ensure protocol
+      if (!workerUrl.startsWith('http://') && !workerUrl.startsWith('https://')) {
+        workerUrl = 'https://' + workerUrl;
+      }
+      workerUrl = workerUrl.replace(/\/$/, '');
+
+      showStatus('Sending...', 'info');
+
+      fetch(`${workerUrl}/admin/send/${guestId}`, {
+        method: 'POST',
+        headers: {
+          'x-admin-secret': adminSecret,
+          'Content-Type': 'text/plain'
+        },
+        body: message
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Failed to send (${response.status})`);
+        }
+        showStatus(`✅ Message sent to ${guestName}!`, 'success');
+      })
+      .catch(error => {
+        console.error('Send error:', error);
+        showStatus(`❌ Error: ${error.message}`, 'error');
+      });
+    }
+
+    // Load saved config on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      const saved = localStorage.getItem('webpusher_guest_mgmt') || 
+                   localStorage.getItem('webpusher_admin');
+      if (saved) {
+        try {
+          const config = JSON.parse(saved);
+          if (config.workerUrl) document.getElementById('workerUrl').value = config.workerUrl;
+          if (config.adminSecret) document.getElementById('adminSecret').value = config.adminSecret;
+          document.getElementById('configStatus').textContent = '✓ Configuration loaded';
+        } catch (e) {}
+      }
+    });
+  </script>
+</body>
+</html>
