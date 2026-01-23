@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebPusher - Send Notification</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    h2 {
+      color: #333;
+      margin-bottom: 20px;
+      font-size: 20px;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+    .tab {
+      padding: 10px 20px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      color: #666;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s;
+    }
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.3s;
+    }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    button {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .status {
+      padding: 15px;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-top: 15px;
+      display: none;
+    }
+    .status.info {
+      background: #e3f2fd;
+      color: #1976d2;
+      border-left: 4px solid #1976d2;
+    }
+    .status.success {
+      background: #e8f5e9;
+      color: #388e3c;
+      border-left: 4px solid #388e3c;
+    }
+    .status.error {
+      background: #ffebee;
+      color: #d32f2f;
+      border-left: 4px solid #d32f2f;
+    }
+    .status.show {
+      display: block;
+    }
+    .help-text {
+      font-size: 12px;
+      color: #999;
+      margin-top: 5px;
+    }
+    code {
+      background: #f5f5f5;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>📨 Send Notification</h1>
+      <p class="subtitle">Test sending push notifications between guests and admin.</p>
+
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('guest')">Guest → Admin</button>
+        <button class="tab" onclick="switchTab('admin')">Admin → Guest</button>
+      </div>
+
+      <!-- Guest to Admin Tab -->
+      <div id="guest-tab" class="tab-content active">
+        <h2>Send as Guest</h2>
+        
+        <div class="form-group">
+          <label for="guestWorkerUrl">Worker URL</label>
+          <input 
+            type="url" 
+            id="guestWorkerUrl" 
+            placeholder="https://wobpusher.diavlos.workers.dev"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="guestToken">Guest Token</label>
+          <input 
+            type="text" 
+            id="guestToken" 
+            placeholder="Your access token"
+            required
+          >
+          <div class="help-text">This was shown when you registered as a guest</div>
+        </div>
+
+        <div class="form-group">
+          <label for="guestMessage">Message</label>
+          <textarea 
+            id="guestMessage" 
+            placeholder="Enter your message..."
+            required
+          ></textarea>
+          <div class="help-text">Max 3000 bytes</div>
+        </div>
+
+        <button onclick="sendAsGuest()">Send to Admin</button>
+        <div id="guestStatus" class="status"></div>
+      </div>
+
+      <!-- Admin to Guest Tab -->
+      <div id="admin-tab" class="tab-content">
+        <h2>Send as Admin</h2>
+        
+        <div class="form-group">
+          <label for="adminWorkerUrl">Worker URL</label>
+          <input 
+            type="url" 
+            id="adminWorkerUrl" 
+            placeholder="https://wobpusher.diavlos.workers.dev"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="adminSecret">Admin Secret</label>
+          <input 
+            type="password" 
+            id="adminSecret" 
+            placeholder="Your admin secret"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="guestId">Guest ID</label>
+          <input 
+            type="text" 
+            id="guestId" 
+            placeholder="abc-123-def-456"
+            required
+          >
+          <div class="help-text">The guest ID returned during registration</div>
+        </div>
+
+        <div class="form-group">
+          <label for="adminMessage">Message</label>
+          <textarea 
+            id="adminMessage" 
+            placeholder="Enter your message..."
+            required
+          ></textarea>
+          <div class="help-text">Max 3000 bytes</div>
+        </div>
+
+        <button onclick="sendAsAdmin()">Send to Guest</button>
+        <div id="adminStatus" class="status"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>💡 Quick Tips</h2>
+      <ul style="line-height: 1.8; color: #666;">
+        <li>Make sure the recipient has notifications enabled</li>
+        <li>Guest tokens are saved in localStorage after registration</li>
+        <li>Messages are limited to 3000 bytes (~3KB)</li>
+        <li>You can send plain text or JSON data</li>
+        <li>Check browser console for detailed errors</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    function switchTab(tab) {
+      // Update tab buttons
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      // Update tab content
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.getElementById(`${tab}-tab`).classList.add('active');
+    }
+
+    function showStatus(elementId, message, type = 'info') {
+      const statusDiv = document.getElementById(elementId);
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type} show`;
+    }
+
+    async function sendAsGuest() {
+      try {
+        let workerUrl = document.getElementById('guestWorkerUrl').value.trim();
+        const token = document.getElementById('guestToken').value.trim();
+        const message = document.getElementById('guestMessage').value;
+
+        if (!workerUrl || !token || !message) {
+          showStatus('guestStatus', 'Please fill in all fields', 'error');
+          return;
+        }
+
+        // Ensure protocol
+        if (!workerUrl.startsWith('http://') && !workerUrl.startsWith('https://')) {
+          workerUrl = 'https://' + workerUrl;
+        }
+        workerUrl = workerUrl.replace(/\/$/, '');
+
+        showStatus('guestStatus', 'Sending...', 'info');
+
+        const response = await fetch(`${workerUrl}/send`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'text/plain'
+          },
+          body: message
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`Failed (${response.status}): ${text}`);
+        }
+
+        showStatus('guestStatus', '✅ Notification sent! Admin should receive it now.', 'success');
+        
+        // Save config
+        localStorage.setItem('webpusher_send_config', JSON.stringify({
+          workerUrl,
+          guestToken: token
+        }));
+
+      } catch (error) {
+        console.error('Send error:', error);
+        showStatus('guestStatus', `❌ Error: ${error.message}`, 'error');
+      }
+    }
+
+    async function sendAsAdmin() {
+      try {
+        let workerUrl = document.getElementById('adminWorkerUrl').value.trim();
+        const adminSecret = document.getElementById('adminSecret').value.trim();
+        const guestId = document.getElementById('guestId').value.trim();
+        const message = document.getElementById('adminMessage').value;
+
+        if (!workerUrl || !adminSecret || !guestId || !message) {
+          showStatus('adminStatus', 'Please fill in all fields', 'error');
+          return;
+        }
+
+        // Ensure protocol
+        if (!workerUrl.startsWith('http://') && !workerUrl.startsWith('https://')) {
+          workerUrl = 'https://' + workerUrl;
+        }
+        workerUrl = workerUrl.replace(/\/$/, '');
+
+        showStatus('adminStatus', 'Sending...', 'info');
+
+        const response = await fetch(`${workerUrl}/admin/send/${guestId}`, {
+          method: 'POST',
+          headers: {
+            'x-admin-secret': adminSecret,
+            'Content-Type': 'text/plain'
+          },
+          body: message
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`Failed (${response.status}): ${text}`);
+        }
+
+        showStatus('adminStatus', '✅ Notification sent! Guest should receive it now.', 'success');
+        
+        // Save config
+        localStorage.setItem('webpusher_admin_send_config', JSON.stringify({
+          workerUrl,
+          adminSecret
+        }));
+
+      } catch (error) {
+        console.error('Send error:', error);
+        showStatus('adminStatus', `❌ Error: ${error.message}`, 'error');
+      }
+    }
+
+    // Load saved configs on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      // Load guest config
+      const guestConfig = localStorage.getItem('webpusher_send_config') || 
+                         localStorage.getItem('webpusher_config');
+      if (guestConfig) {
+        try {
+          const config = JSON.parse(guestConfig);
+          if (config.workerUrl) document.getElementById('guestWorkerUrl').value = config.workerUrl;
+          if (config.guestToken) document.getElementById('guestToken').value = config.guestToken;
+        } catch (e) {}
+      }
+
+      // Load guest token from registration
+      const savedToken = localStorage.getItem('webpusher_guest_token');
+      if (savedToken && !document.getElementById('guestToken').value) {
+        document.getElementById('guestToken').value = savedToken;
+      }
+
+      // Load admin config
+      const adminConfig = localStorage.getItem('webpusher_admin_send_config') || 
+                         localStorage.getItem('webpusher_admin');
+      if (adminConfig) {
+        try {
+          const config = JSON.parse(adminConfig);
+          if (config.workerUrl) document.getElementById('adminWorkerUrl').value = config.workerUrl;
+          if (config.adminSecret) document.getElementById('adminSecret').value = config.adminSecret;
+        } catch (e) {}
+      }
+    });
+  </script>
+</body>
+</html>
