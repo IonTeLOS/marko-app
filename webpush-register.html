@@ -199,6 +199,34 @@
       return outputArray;
     }
 
+    async function savePrivateKey(privateKeyJwk) {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open('webpusher-keys', 1);
+        
+        request.onerror = () => reject(request.error);
+        
+        request.onsuccess = () => {
+          const db = request.result;
+          const transaction = db.transaction(['keys'], 'readwrite');
+          const store = transaction.objectStore('keys');
+          store.put({ key: privateKeyJwk }, 'privateKey');
+          
+          transaction.oncomplete = () => {
+            console.log('Private key saved to IndexedDB');
+            resolve();
+          };
+          transaction.onerror = () => reject(transaction.error);
+        };
+        
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains('keys')) {
+            db.createObjectStore('keys');
+          }
+        };
+      });
+    }
+
     async function registerServiceWorker() {
       const registration = await navigator.serviceWorker.register('/sw.js');
       await navigator.serviceWorker.ready;
@@ -280,6 +308,10 @@
           ['deriveKey']
         );
         const publicKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+        const privateKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
+
+        // Save private key locally for decryption
+        await savePrivateKey(privateKeyJwk);
 
         // Step 5: Register with server
         showStatus('Registering with server...', 'info');
