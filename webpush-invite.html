@@ -260,7 +260,27 @@
         
         // Get the base URL for guest registration
         const baseUrl = window.location.origin + window.location.pathname.replace('invite-manager.html', '');
-        const inviteUrl = `${baseUrl}guest-register.html?invite=${invite}`;
+        
+        // Get VAPID public key and worker URL to include in invite
+        const savedConfig = localStorage.getItem('webpusher_config') || localStorage.getItem('webpusher_admin');
+        let vapidPublic = '';
+        let savedWorkerUrl = '';
+        if (savedConfig) {
+          try {
+            const config = JSON.parse(savedConfig);
+            vapidPublic = config.vapidPublic || '';
+            savedWorkerUrl = config.workerUrl || workerUrl;
+          } catch (e) {}
+        }
+        
+        // Build invite URL with VAPID key and worker URL
+        let inviteUrl = `${baseUrl}guest-register.html?invite=${invite}`;
+        if (savedWorkerUrl) {
+          inviteUrl += `&worker=${encodeURIComponent(savedWorkerUrl)}`;
+        }
+        if (vapidPublic) {
+          inviteUrl += `&vapid=${encodeURIComponent(vapidPublic)}`;
+        }
 
         document.getElementById('inviteLink').textContent = inviteUrl;
         document.getElementById('inviteLink').classList.add('show');
