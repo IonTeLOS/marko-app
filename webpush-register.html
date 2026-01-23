@@ -241,6 +241,11 @@
 
         // Strip trailing slash
         workerUrl = workerUrl.replace(/\/$/, '');
+        
+        // Ensure protocol is present
+        if (!workerUrl.startsWith('http://') && !workerUrl.startsWith('https://')) {
+          workerUrl = 'https://' + workerUrl;
+        }
 
         console.log('Using worker URL:', workerUrl);
         console.log('Using VAPID key length:', vapidPublic.length);
