@@ -144,6 +144,8 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const inviteCode = params.get('invite');
+    const vapidFromUrl = params.get('vapid');
+    const workerFromUrl = params.get('worker');
 
     if (!inviteCode) {
       document.getElementById('status').textContent = '❌ No invite code provided in URL';
@@ -152,6 +154,26 @@
     } else {
       document.getElementById('inviteInfo').style.display = 'block';
       document.getElementById('inviteCode').textContent = inviteCode;
+    }
+
+    // Save config from URL if present
+    if (vapidFromUrl || workerFromUrl) {
+      const existing = localStorage.getItem('webpusher_config');
+      let config = {};
+      if (existing) {
+        try {
+          config = JSON.parse(existing);
+        } catch (e) {}
+      }
+      if (vapidFromUrl) {
+        config.vapidPublic = vapidFromUrl;
+        console.log('VAPID key saved from invite link');
+      }
+      if (workerFromUrl) {
+        config.workerUrl = workerFromUrl;
+        console.log('Worker URL saved from invite link');
+      }
+      localStorage.setItem('webpusher_config', JSON.stringify(config));
     }
 
     function showStatus(message, type = 'info') {
@@ -184,19 +206,44 @@
       btn.disabled = true;
 
       try {
-        // Get worker URL from saved config or use default
-        const saved = localStorage.getItem('webpusher_admin');
-        let workerUrl = 'https://webpusher.diavlos.workers.dev';
+        // Get worker URL from saved config or prompt user
+        const saved = localStorage.getItem('webpusher_config') || localStorage.getItem('webpusher_admin');
+        let workerUrl = '';
+        let vapidPublic = '';
         
         if (saved) {
           try {
             const config = JSON.parse(saved);
-            workerUrl = config.workerUrl || workerUrl;
-          } catch (e) {}
+            workerUrl = config.workerUrl || '';
+            vapidPublic = config.vapidPublic || '';
+          } catch (e) {
+            console.error('Failed to parse saved config:', e);
+          }
+        }
+
+        // Prompt for worker URL if not saved
+        if (!workerUrl) {
+          workerUrl = prompt('Enter your Worker URL (e.g., https://webpusher.diavlos.workers.dev)');
+          if (!workerUrl) {
+            throw new Error('Worker URL is required');
+          }
+        }
+
+        // Prompt for VAPID public key if not saved
+        if (!vapidPublic) {
+          vapidPublic = prompt('Enter VAPID Public Key (from generate-vapid.js or ask your admin)');
+          if (!vapidPublic) {
+            throw new Error('VAPID public key is required');
+          }
+          // Save it for next time
+          localStorage.setItem('webpusher_config', JSON.stringify({ workerUrl, vapidPublic }));
         }
 
         // Strip trailing slash
         workerUrl = workerUrl.replace(/\/$/, '');
+
+        console.log('Using worker URL:', workerUrl);
+        console.log('Using VAPID key length:', vapidPublic.length);
 
         // Step 1: Request notification permission
         showStatus('Requesting notification permission...', 'info');
@@ -208,20 +255,6 @@
         // Step 2: Register service worker
         showStatus('Setting up notifications...', 'info');
         const registration = await registerServiceWorker();
-
-        // Get VAPID public key from saved config
-        const configSaved = localStorage.getItem('webpusher_config');
-        let vapidPublic = '';
-        if (configSaved) {
-          try {
-            const config = JSON.parse(configSaved);
-            vapidPublic = config.vapidPublic;
-          } catch (e) {}
-        }
-
-        if (!vapidPublic) {
-          throw new Error('VAPID public key not found. Please run admin setup first.');
-        }
 
         // Step 3: Subscribe to push
         showStatus('Creating push subscription...', 'info');
@@ -241,6 +274,8 @@
 
         // Step 5: Register with server
         showStatus('Registering with server...', 'info');
+        console.log('Registering at:', `${workerUrl}/guest/register/${inviteCode}`);
+        
         const response = await fetch(`${workerUrl}/guest/register/${inviteCode}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -252,7 +287,7 @@
 
         if (!response.ok) {
           const text = await response.text();
-          throw new Error(`Registration failed: ${text}`);
+          throw new Error(`Registration failed (${response.status}): ${text}`);
         }
 
         const { guestId, token } = await response.json();
@@ -269,7 +304,7 @@
         btn.textContent = '✓ Registered';
 
       } catch (error) {
-        console.error(error);
+        console.error('Registration error:', error);
         showStatus(`❌ Error: ${error.message}`, 'error');
         btn.disabled = false;
       }
