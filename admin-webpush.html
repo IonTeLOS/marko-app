@@ -212,7 +212,7 @@
       showStatus('Starting registration...', 'info');
 
       try {
-        const workerUrl = document.getElementById('workerUrl').value.trim();
+        const workerUrl = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
         const adminSecret = document.getElementById('adminSecret').value.trim();
         const vapidPublic = document.getElementById('vapidPublic').value.trim();
         const vapidPrivate = document.getElementById('vapidPrivate').value.trim();
@@ -244,49 +244,7 @@
         );
         const publicKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
 
-        // Step 5: Initialize database schema
-        showStatus('Initializing database...', 'info');
-        const schemaResponse = await fetch(`${workerUrl}/__init`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: `
-CREATE TABLE IF NOT EXISTS admin (
-  id INTEGER PRIMARY KEY,
-  public_key_jwk TEXT NOT NULL,
-  created_at INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS admin_push (
-  id INTEGER PRIMARY KEY,
-  subscription_json TEXT NOT NULL,
-  updated_at INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS vapid (
-  id INTEGER PRIMARY KEY,
-  public_key TEXT NOT NULL,
-  private_key TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS invites (
-  uuid TEXT PRIMARY KEY,
-  guest_name TEXT NOT NULL,
-  expires_at INTEGER NOT NULL,
-  used INTEGER DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS guests (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  public_key_jwk TEXT NOT NULL,
-  push_subscription_json TEXT NOT NULL,
-  token_hash TEXT NOT NULL,
-  banned INTEGER DEFAULT 0,
-  created_at INTEGER NOT NULL
-);`
-        });
-
-        if (!schemaResponse.ok) {
-          throw new Error('Database initialization failed');
-        }
-
-        // Step 6: Register admin
+        // Step 5: Register admin
         showStatus('Registering admin account...', 'info');
         const response = await fetch(`${workerUrl}/admin/register`, {
           method: 'POST',
