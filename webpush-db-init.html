@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebPusher - Initialize Database</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 40px;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    p {
+      color: #666;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+    .warning {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 6px;
+      font-size: 14px;
+      display: none;
+    }
+    .status.info {
+      background: #e3f2fd;
+      color: #1976d2;
+      border-left: 4px solid #1976d2;
+    }
+    .status.success {
+      background: #e8f5e9;
+      color: #388e3c;
+      border-left: 4px solid #388e3c;
+    }
+    .status.error {
+      background: #ffebee;
+      color: #d32f2f;
+      border-left: 4px solid #d32f2f;
+    }
+    .status.show {
+      display: block;
+    }
+    .next-step {
+      margin-top: 15px;
+      padding: 15px;
+      background: #f5f5f5;
+      border-radius: 6px;
+      font-size: 14px;
+      display: none;
+    }
+    .next-step.show {
+      display: block;
+    }
+    .next-step a {
+      color: #667eea;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .next-step a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🗄️ Initialize Database</h1>
+    <p>This is a one-time setup step. Initialize the database schema before registering as admin.</p>
+
+    <div class="warning">
+      ⚠️ <strong>Important:</strong> Only run this once! This creates the database tables for your WebPusher system.
+    </div>
+
+    <form id="initForm">
+      <div class="form-group">
+        <label for="workerUrl">Worker URL</label>
+        <input 
+          type="url" 
+          id="workerUrl" 
+          placeholder="https://webpusher.diavlos.workers.dev"
+          required
+        >
+      </div>
+
+      <button type="submit" id="initBtn">
+        Initialize Database
+      </button>
+    </form>
+
+    <div id="status" class="status"></div>
+    
+    <div id="nextStep" class="next-step">
+      ✅ Database initialized successfully!<br><br>
+      <strong>Next step:</strong> <a href="admin-setup.html">Register as Admin →</a>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('initForm');
+    const statusDiv = document.getElementById('status');
+    const initBtn = document.getElementById('initBtn');
+    const nextStep = document.getElementById('nextStep');
+
+    function showStatus(message, type = 'info') {
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type} show`;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      initBtn.disabled = true;
+      nextStep.classList.remove('show');
+      showStatus('Initializing database...', 'info');
+
+      try {
+        const workerUrl = document.getElementById('workerUrl').value.trim();
+
+        const response = await fetch(`${workerUrl}/__init`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: `
+CREATE TABLE IF NOT EXISTS admin (
+  id INTEGER PRIMARY KEY,
+  public_key_jwk TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS admin_push (
+  id INTEGER PRIMARY KEY,
+  subscription_json TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS vapid (
+  id INTEGER PRIMARY KEY,
+  public_key TEXT NOT NULL,
+  private_key TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS invites (
+  uuid TEXT PRIMARY KEY,
+  guest_name TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS guests (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  public_key_jwk TEXT NOT NULL,
+  push_subscription_json TEXT NOT NULL,
+  token_hash TEXT NOT NULL,
+  banned INTEGER DEFAULT 0,
+  created_at INTEGER NOT NULL
+);`
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`Database initialization failed: ${text}`);
+        }
+
+        showStatus('Database initialized successfully!', 'success');
+        nextStep.classList.add('show');
+
+        // Save worker URL for next steps
+        localStorage.setItem('webpusher_config', JSON.stringify({
+          workerUrl
+        }));
+
+        initBtn.textContent = '✓ Initialized';
+
+      } catch (error) {
+        console.error(error);
+        showStatus(`❌ Error: ${error.message}`, 'error');
+        initBtn.disabled = false;
+      }
+    });
+
+    // Load saved config if available
+    const saved = localStorage.getItem('webpusher_config');
+    if (saved) {
+      try {
+        const config = JSON.parse(saved);
+        document.getElementById('workerUrl').value = config.workerUrl || '';
+      } catch (e) {}
+    }
+  </script>
+</body>
+</html>
