@@ -212,7 +212,13 @@
       showStatus('Starting registration...', 'info');
 
       try {
-        const workerUrl = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
+        let workerUrl = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
+        
+        // Ensure protocol is present
+        if (!workerUrl.startsWith('http://') && !workerUrl.startsWith('https://')) {
+          workerUrl = 'https://' + workerUrl;
+        }
+        
         const adminSecret = document.getElementById('adminSecret').value.trim();
         const vapidPublic = document.getElementById('vapidPublic').value.trim();
         const vapidPrivate = document.getElementById('vapidPrivate').value.trim();
@@ -262,7 +268,10 @@
 
         if (!response.ok) {
           const text = await response.text();
-          throw new Error(`Registration failed: ${text}`);
+          if (response.status === 401) {
+            throw new Error(`Admin secret is incorrect. Please check your ADMIN_SECRET matches what you set with 'wrangler secret put ADMIN_SECRET'`);
+          }
+          throw new Error(`Registration failed (${response.status}): ${text}`);
         }
 
         showStatus('✅ Admin registration successful! You can now use the system.', 'success');
