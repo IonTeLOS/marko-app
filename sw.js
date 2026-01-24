@@ -113,17 +113,117 @@ async function decryptMessage(encryptedData, ephemeralPublicKeyJwk) {
   }
 }
 
+// Helper: Apply rich notification format
+function applyRichFormat(notificationData, messageData) {
+  // Handle simple string
+  if (typeof messageData === 'string') {
+    notificationData.body = messageData;
+    return;
+  }
+  
+  // Handle rich object
+  if (typeof messageData !== 'object') {
+    notificationData.body = String(messageData);
+    return;
+  }
+  
+  // Required: message/body
+  const body = messageData.message || messageData.body || '';
+  
+  // Optional: title, icon, badge, image
+  if (messageData.title) notificationData.title = messageData.title;
+  if (messageData.icon) notificationData.icon = messageData.icon;
+  if (messageData.badge) notificationData.badge = messageData.badge;
+  if (messageData.image) notificationData.image = messageData.image;
+  
+  // Optional: tag (replacement behavior)
+  if (messageData.tag) notificationData.tag = messageData.tag;
+  
+  // Optional: behavior
+  if (messageData.requireInteraction !== undefined) {
+    notificationData.requireInteraction = messageData.requireInteraction;
+  }
+  if (messageData.silent !== undefined) {
+    notificationData.silent = messageData.silent;
+  }
+  if (messageData.timestamp) {
+    notificationData.timestamp = messageData.timestamp;
+  }
+  
+  // Optional: vibrate pattern (mobile)
+  if (messageData.vibrate) {
+    notificationData.vibrate = messageData.vibrate;
+  }
+  
+  // Optional: actions (interactive buttons)
+  if (Array.isArray(messageData.actions) && messageData.actions.length > 0) {
+    notificationData.actions = messageData.actions.map(action => ({
+      action: action.action,
+      title: action.title,
+      icon: action.icon
+    }));
+    console.log('Added actions:', notificationData.actions);
+  }
+  
+  // Store metadata in data field for click handler
+  notificationData.data = {
+    messageData: messageData, // Full message for reference
+    click: messageData.click, // Click URL
+    tags: messageData.tags     // Tags for filtering/logic
+  };
+  
+  // Handle markdown stripping if needed
+  let displayBody = body;
+  if (Array.isArray(messageData.tags)) {
+    const hasMarkdown = messageData.tags.some(tag => 
+      tag === 'isMarkdown:true' || tag === 'isMarkdown' || tag.toLowerCase() === 'markdown'
+    );
+    
+    if (hasMarkdown) {
+      console.log('Markdown detected, stripping for notification');
+      notificationData.data.markdownBody = body; // Store original
+      displayBody = stripMarkdown(body);         // Strip for display
+    }
+  }
+  
+  notificationData.body = displayBody;
+  
+  console.log('Applied rich format:', {
+    title: notificationData.title,
+    hasImage: !!notificationData.image,
+    hasActions: !!notificationData.actions,
+    hasClick: !!messageData.click,
+    tags: messageData.tags
+  });
+}
+
+// Helper: Strip markdown for notification display
+function stripMarkdown(text) {
+  if (!text) return text;
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')  // **bold**
+    .replace(/\*([^*]+)\*/g, '$1')      // *italic*
+    .replace(/`([^`]+)`/g, '$1')        // `code`
+    .replace(/~~([^~]+)~~/g, '$1')      // ~~strikethrough~~
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // [link](url)
+    .replace(/^#+\s+/gm, '')            // # headers
+    .replace(/^>\s+/gm, '')             // > quotes
+    .replace(/^[-*]\s+/gm, '• ');       // - lists to bullets
+}
+
 self.addEventListener('push', (event) => {
   console.log('Push notification received:', event);
   console.log('Push data available:', !!event.data);
   
+  // Default notification options
   let notificationData = {
     title: 'WebPusher',
     body: 'New message received',
     icon: 'https://cdn-icons-png.flaticon.com/512/733/733585.png',
     badge: 'https://cdn-icons-png.flaticon.com/512/733/733585.png',
-    tag: 'webpusher-notification',
-    requireInteraction: false
+    tag: crypto.randomUUID(), // Unique by default (show all notifications)
+    requireInteraction: false,
+    data: {} // Store metadata here
   };
 
   const showNotification = async () => {
@@ -196,19 +296,30 @@ self.addEventListener('push', (event) => {
         const decrypted = await decryptMessage(encryptedData, data.ephemeralPublicKey);
         
         if (decrypted) {
-          notificationData.body = decrypted;
-          notificationData.data = { decrypted: true };
-          console.log('✅ Message decrypted successfully:', decrypted);
+          console.log('✅ Message decrypted successfully');
+          
+          // Try to parse decrypted content as rich JSON
+          let messageData;
+          try {
+            messageData = JSON.parse(decrypted);
+            console.log('Decrypted content is rich JSON:', messageData);
+          } catch (e) {
+            // Decrypted content is plain text
+            messageData = decrypted;
+            console.log('Decrypted content is plain text');
+          }
+          
+          // Apply rich notification format
+          applyRichFormat(notificationData, messageData);
+          
         } else {
           notificationData.body = '🔒 Encrypted message (unable to decrypt)';
-          notificationData.data = { encrypted: true };
           console.log('❌ Failed to decrypt message');
         }
       } else {
-        // Plain JSON message
-        notificationData.body = data.message || data.body || JSON.stringify(data);
-        if (data.title) notificationData.title = data.title;
-        console.log('Plain message:', notificationData.body);
+        // Plain JSON message (unencrypted)
+        console.log('Plain JSON message');
+        applyRichFormat(notificationData, data);
       }
     } catch (e) {
       console.error('Error processing push data:', e);
@@ -226,6 +337,58 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(showNotification());
+});
+
+// Handle notification clicks (including action buttons)
+self.addEventListener('notificationclick', (event) => {
+  console.log('Notification clicked:', event);
+  console.log('Action:', event.action);
+  console.log('Notification data:', event.notification.data);
+  
+  event.notification.close();
+  
+  const data = event.notification.data || {};
+  const messageData = data.messageData || {};
+  
+  // Determine which URL to open
+  let urlToOpen = null;
+  
+  if (event.action) {
+    // Action button clicked - check if action has custom URL
+    const actionConfig = messageData.actions?.find(a => a.action === event.action);
+    if (actionConfig && actionConfig.url) {
+      urlToOpen = actionConfig.url;
+    } else {
+      // Action has no URL, might trigger custom logic in future
+      console.log('Action clicked without URL:', event.action);
+      // Custom apps could add logic here based on action type
+      // For now, fall back to main click URL
+      urlToOpen = data.click;
+    }
+  } else {
+    // Main notification body clicked
+    urlToOpen = data.click;
+  }
+  
+  // Open URL if we have one
+  if (urlToOpen) {
+    console.log('Opening URL:', urlToOpen);
+    event.waitUntil(
+      clients.openWindow(urlToOpen)
+    );
+  } else {
+    console.log('No URL to open');
+    // Could focus existing window or do nothing
+    event.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then(clientList => {
+          // Focus first window if available
+          if (clientList.length > 0) {
+            return clientList[0].focus();
+          }
+        })
+    );
+  }
 });
 
 self.addEventListener('notificationclick', (event) => {
