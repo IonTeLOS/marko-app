@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebPusher - Notifications</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .header h1 {
+      color: #333;
+      font-size: 28px;
+    }
+    
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .user-badge {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    
+    .user-badge.admin {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+    
+    .user-badge.guest {
+      background: #f3e5f5;
+      color: #7b1fa2;
+    }
+    
+    .notifications-empty {
+      background: white;
+      border-radius: 12px;
+      padding: 60px 30px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      color: #999;
+    }
+    
+    .notifications-empty svg {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 20px;
+      opacity: 0.3;
+    }
+    
+    .notification-chip {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 15px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .notification-chip:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    }
+    
+    .notification-chip.unread {
+      border-left: 4px solid #667eea;
+    }
+    
+    .notification-chip.unread::before {
+      content: '';
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 10px;
+      height: 10px;
+      background: #667eea;
+      border-radius: 50%;
+    }
+    
+    .notification-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    
+    .sender-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .sender-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 16px;
+      color: white;
+    }
+    
+    .sender-avatar.admin {
+      background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
+    }
+    
+    .sender-avatar.guest {
+      background: linear-gradient(135deg, #7b1fa2 0%, #ba68c8 100%);
+    }
+    
+    .sender-details h3 {
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 2px;
+    }
+    
+    .sender-details .time {
+      font-size: 12px;
+      color: #999;
+    }
+    
+    .notification-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .action-btn {
+      background: none;
+      border: none;
+      padding: 8px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.2s;
+      color: #666;
+      font-size: 18px;
+    }
+    
+    .action-btn:hover {
+      background: #f5f5f5;
+      color: #333;
+    }
+    
+    .action-btn.delete:hover {
+      background: #ffebee;
+      color: #d32f2f;
+    }
+    
+    .notification-content {
+      margin-bottom: 12px;
+    }
+    
+    .notification-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+    
+    .notification-message {
+      font-size: 14px;
+      color: #666;
+      line-height: 1.5;
+    }
+    
+    .notification-image {
+      width: 100%;
+      max-height: 300px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin-top: 12px;
+    }
+    
+    .notification-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 12px;
+    }
+    
+    .tag {
+      background: #f5f5f5;
+      color: #666;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+    }
+    
+    .tag.urgent {
+      background: #ffebee;
+      color: #d32f2f;
+    }
+    
+    .notification-footer {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #f0f0f0;
+    }
+    
+    .footer-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .footer-btn.primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .footer-btn.primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .footer-btn.secondary {
+      background: #f5f5f5;
+      color: #666;
+    }
+    
+    .footer-btn.secondary:hover {
+      background: #e0e0e0;
+    }
+    
+    .reply-form {
+      background: #f9f9f9;
+      border-radius: 12px;
+      padding: 15px;
+      margin-top: 12px;
+      display: none;
+    }
+    
+    .reply-form.show {
+      display: block;
+    }
+    
+    .reply-form textarea {
+      width: 100%;
+      min-height: 80px;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      resize: vertical;
+      margin-bottom: 10px;
+    }
+    
+    .reply-form textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .reply-form-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    
+    .reply-form button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    
+    .reply-form .send {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .reply-form .cancel {
+      background: #e0e0e0;
+      color: #666;
+    }
+    
+    .filter-bar {
+      background: white;
+      border-radius: 12px;
+      padding: 15px 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    
+    .filter-btn {
+      padding: 8px 16px;
+      border: 2px solid #e0e0e0;
+      background: white;
+      border-radius: 20px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .filter-btn.active {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-color: transparent;
+    }
+    
+    .status-bar {
+      background: white;
+      border-radius: 12px;
+      padding: 15px 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .status-text {
+      color: #666;
+      font-size: 14px;
+    }
+    
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4caf50;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .mark-all-read {
+      padding: 8px 16px;
+      background: none;
+      border: 2px solid #667eea;
+      color: #667eea;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .mark-all-read:hover {
+      background: #667eea;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>📬 Notifications</h1>
+      <div class="user-info">
+        <span id="userBadge" class="user-badge"></span>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <div class="status-text">
+        <span id="notificationCount">0 notifications</span>
+      </div>
+      <div style="display: flex; gap: 15px; align-items: center;">
+        <div class="status-indicator">
+          <span class="status-dot"></span>
+          <span>Live</span>
+        </div>
+        <button class="mark-all-read" onclick="markAllRead()">Mark all read</button>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <span style="color: #999; font-size: 14px; font-weight: 600;">Filter:</span>
+      <button class="filter-btn active" onclick="setFilter('all')">All</button>
+      <button class="filter-btn" onclick="setFilter('unread')">Unread</button>
+      <button class="filter-btn" onclick="setFilter('fromAdmin')">From Admin</button>
+      <button class="filter-btn" onclick="setFilter('fromGuests')">From Guests</button>
+    </div>
+
+    <!-- Notifications List -->
+    <div id="notificationsList">
+      <div class="notifications-empty">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        <h3>No notifications yet</h3>
+        <p>Notifications will appear here when you receive them</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="webpusher-crypto.js"></script>
+  <script src="protocol-handler.js"></script>
+  <script>
+    let notifications = [];
+    let currentFilter = 'all';
+    let isAdmin = false;
+    let userId = null;
+    let workerUrl = '';
+    let credential = '';
+
+    // Initialize
+    async function init() {
+      // Detect user role
+      const savedGuest = localStorage.getItem('webpusher_guest');
+      const savedAdmin = localStorage.getItem('webpusher_admin');
+      
+      if (savedAdmin) {
+        const config = JSON.parse(savedAdmin);
+        isAdmin = true;
+        userId = 'admin';
+        workerUrl = config.workerUrl;
+        credential = config.secret;
+        document.getElementById('userBadge').textContent = '👤 Admin';
+        document.getElementById('userBadge').className = 'user-badge admin';
+      } else if (savedGuest) {
+        const config = JSON.parse(savedGuest);
+        isAdmin = false;
+        userId = config.id;
+        workerUrl = config.workerUrl;
+        credential = config.token;
+        document.getElementById('userBadge').textContent = '👤 Guest';
+        document.getElementById('userBadge').className = 'user-badge guest';
+      }
+
+      // Load notifications from IndexedDB
+      await loadNotifications();
+      
+      // Listen for new notifications
+      listenForNotifications();
+      
+      // Render
+      renderNotifications();
+    }
+
+    // Load notifications from IndexedDB
+    async function loadNotifications() {
+      const db = await openNotificationsDB();
+      const tx = db.transaction('notifications', 'readonly');
+      const store = tx.objectStore('notifications');
+      const allNotifications = await store.getAll();
+      
+      notifications = allNotifications.sort((a, b) => b.timestamp - a.timestamp);
+      console.log('Loaded', notifications.length, 'notifications');
+    }
+
+    // Open IndexedDB
+    function openNotificationsDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open('WebPusherNotifications', 1);
+        
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains('notifications')) {
+            const store = db.createObjectStore('notifications', { keyPath: 'id', autoIncrement: true });
+            store.createIndex('timestamp', 'timestamp', { unique: false });
+            store.createIndex('read', 'read', { unique: false });
+            store.createIndex('sender', 'sender', { unique: false });
+          }
+        };
+      });
+    }
+
+    // Listen for new notifications
+    function listenForNotifications() {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', async (event) => {
+          if (event.data && event.data.type === 'NEW_NOTIFICATION') {
+            console.log('Received new notification:', event.data.notification);
+            
+            // Add to notifications array
+            const notification = event.data.notification;
+            notification.read = false;
+            notification.timestamp = Date.now();
+            
+            // Save to IndexedDB
+            const db = await openNotificationsDB();
+            const tx = db.transaction('notifications', 'readwrite');
+            const store = tx.objectStore('notifications');
+            await store.add(notification);
+            
+            // Reload and render
+            await loadNotifications();
+            renderNotifications();
+            
+            // Show browser notification if in background
+            if (document.hidden) {
+              showBrowserNotification(notification);
+            }
+          }
+        });
+      }
+    }
+
+    // Render notifications
+    function renderNotifications() {
+      const listEl = document.getElementById('notificationsList');
+      
+      // Filter notifications
+      let filtered = notifications;
+      
+      if (currentFilter === 'unread') {
+        filtered = notifications.filter(n => !n.read);
+      } else if (currentFilter === 'fromAdmin') {
+        filtered = notifications.filter(n => n.sender === 'admin');
+      } else if (currentFilter === 'fromGuests') {
+        filtered = notifications.filter(n => n.sender !== 'admin');
+      }
+      
+      // Update count
+      const unreadCount = notifications.filter(n => !n.read).length;
+      const countText = filtered.length === 1 ? '1 notification' : `${filtered.length} notifications`;
+      document.getElementById('notificationCount').textContent = unreadCount > 0 
+        ? `${countText} (${unreadCount} unread)` 
+        : countText;
+      
+      // Render
+      if (filtered.length === 0) {
+        listEl.innerHTML = `
+          <div class="notifications-empty">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            <h3>No notifications</h3>
+            <p>${currentFilter === 'all' ? 'Notifications will appear here when you receive them' : 'No notifications match this filter'}</p>
+          </div>
+        `;
+        return;
+      }
+      
+      listEl.innerHTML = filtered.map(n => renderNotificationChip(n)).join('');
+    }
+
+    // Render single notification chip
+    function renderNotificationChip(notification) {
+      const isFromAdmin = notification.sender === 'admin';
+      const senderName = isFromAdmin ? 'Admin' : (notification.senderName || 'Guest');
+      const senderAvatar = isFromAdmin ? '👑' : '👤';
+      const senderClass = isFromAdmin ? 'admin' : 'guest';
+      const timeAgo = getTimeAgo(notification.timestamp);
+      
+      const tags = notification.tags || [];
+      const hasUrgent = tags.some(t => t.toLowerCase() === 'urgent');
+      
+      return `
+        <div class="notification-chip ${!notification.read ? 'unread' : ''}" id="notif-${notification.id}">
+          <div class="notification-header">
+            <div class="sender-info">
+              <div class="sender-avatar ${senderClass}">${senderAvatar}</div>
+              <div class="sender-details">
+                <h3>${senderName}</h3>
+                <div class="time">${timeAgo}</div>
+              </div>
+            </div>
+            <div class="notification-actions">
+              ${!notification.read ? `<button class="action-btn" onclick="markAsRead(${notification.id})" title="Mark as read">✓</button>` : ''}
+              <button class="action-btn delete" onclick="deleteNotification(${notification.id})" title="Delete">🗑️</button>
+            </div>
+          </div>
+          
+          <div class="notification-content" onclick="markAsRead(${notification.id})">
+            ${notification.title ? `<div class="notification-title">${escapeHtml(notification.title)}</div>` : ''}
+            <div class="notification-message">${escapeHtml(notification.message)}</div>
+            ${notification.image ? `<img src="${notification.image}" class="notification-image" alt="Notification image">` : ''}
+            ${tags.length > 0 ? `
+              <div class="notification-tags">
+                ${tags.map(tag => `<span class="tag ${tag.toLowerCase() === 'urgent' ? 'urgent' : ''}">${escapeHtml(tag)}</span>`).join('')}
+              </div>
+            ` : ''}
+          </div>
+          
+          <div class="notification-footer">
+            <button class="footer-btn primary" onclick="reply(${notification.id})">💬 Reply</button>
+            ${notification.click ? `<button class="footer-btn secondary" onclick="openLink('${notification.click}')">🔗 Open Link</button>` : ''}
+          </div>
+          
+          <div class="reply-form" id="reply-${notification.id}">
+            <textarea placeholder="Type your reply..." id="reply-text-${notification.id}"></textarea>
+            <div class="reply-form-actions">
+              <button class="cancel" onclick="cancelReply(${notification.id})">Cancel</button>
+              <button class="send" onclick="sendReply(${notification.id})">Send</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Helper: time ago
+    function getTimeAgo(timestamp) {
+      const now = Date.now();
+      const diff = now - timestamp;
+      const seconds = Math.floor(diff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+      
+      if (days > 0) return days === 1 ? '1 day ago' : `${days} days ago`;
+      if (hours > 0) return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+      if (minutes > 0) return minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`;
+      return 'Just now';
+    }
+
+    // Helper: escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Mark as read
+    async function markAsRead(id) {
+      const notification = notifications.find(n => n.id === id);
+      if (!notification || notification.read) return;
+      
+      notification.read = true;
+      
+      const db = await openNotificationsDB();
+      const tx = db.transaction('notifications', 'readwrite');
+      const store = tx.objectStore('notifications');
+      await store.put(notification);
+      
+      renderNotifications();
+    }
+
+    // Mark all as read
+    async function markAllRead() {
+      const db = await openNotificationsDB();
+      const tx = db.transaction('notifications', 'readwrite');
+      const store = tx.objectStore('notifications');
+      
+      for (const notification of notifications) {
+        if (!notification.read) {
+          notification.read = true;
+          await store.put(notification);
+        }
+      }
+      
+      renderNotifications();
+    }
+
+    // Delete notification
+    async function deleteNotification(id) {
+      if (!confirm('Delete this notification?')) return;
+      
+      const db = await openNotificationsDB();
+      const tx = db.transaction('notifications', 'readwrite');
+      const store = tx.objectStore('notifications');
+      await store.delete(id);
+      
+      await loadNotifications();
+      renderNotifications();
+    }
+
+    // Set filter
+    function setFilter(filter) {
+      currentFilter = filter;
+      
+      // Update button states
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+      
+      renderNotifications();
+    }
+
+    // Reply
+    function reply(id) {
+      const replyForm = document.getElementById(`reply-${id}`);
+      replyForm.classList.toggle('show');
+      
+      if (replyForm.classList.contains('show')) {
+        document.getElementById(`reply-text-${id}`).focus();
+      }
+    }
+
+    // Cancel reply
+    function cancelReply(id) {
+      document.getElementById(`reply-${id}`).classList.remove('show');
+      document.getElementById(`reply-text-${id}`).value = '';
+    }
+
+    // Send reply
+    async function sendReply(id) {
+      const notification = notifications.find(n => n.id === id);
+      const replyText = document.getElementById(`reply-text-${id}`).value.trim();
+      
+      if (!replyText) {
+        alert('Please enter a message');
+        return;
+      }
+      
+      if (!workerUrl || !credential) {
+        alert('Not configured. Please set up admin/guest first.');
+        return;
+      }
+      
+      try {
+        let url = workerUrl;
+        if (!url.startsWith('http')) url = 'https://' + url;
+        url = url.replace(/\/$/, '');
+        
+        // Fetch public key
+        let publicKeyJwk;
+        
+        if (isAdmin) {
+          // Admin replying to guest
+          const guestId = notification.sender;
+          const keyResponse = await fetch(`${url}/admin/guest/${guestId}/public-key`, {
+            headers: { 'x-admin-secret': credential }
+          });
+          
+          if (!keyResponse.ok) throw new Error('Failed to get guest public key');
+          
+          const data = await keyResponse.json();
+          publicKeyJwk = data.publicKeyJwk;
+        } else {
+          // Guest replying to admin
+          const keyResponse = await fetch(`${url}/admin/public-key`);
+          
+          if (!keyResponse.ok) throw new Error('Failed to get admin public key');
+          
+          const data = await keyResponse.json();
+          publicKeyJwk = data.publicKeyJwk;
+        }
+        
+        // Encrypt message
+        const encrypted = await WebPusherCrypto.encryptMessage(replyText, publicKeyJwk);
+        
+        // Send
+        let sendUrl, headers;
+        
+        if (isAdmin) {
+          sendUrl = `${url}/admin/send/${notification.sender}`;
+          headers = {
+            'x-admin-secret': credential,
+            'Content-Type': 'application/json'
+          };
+        } else {
+          sendUrl = `${url}/send`;
+          headers = {
+            'Authorization': `Bearer ${credential}`,
+            'Content-Type': 'application/json'
+          };
+        }
+        
+        const response = await fetch(sendUrl, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(encrypted)
+        });
+        
+        if (!response.ok) throw new Error('Failed to send reply');
+        
+        // Success!
+        cancelReply(id);
+        alert('✅ Reply sent!');
+        
+      } catch (error) {
+        console.error('Reply error:', error);
+        alert(`❌ Error: ${error.message}`);
+      }
+    }
+
+    // Open link
+    function openLink(url) {
+      window.open(url, '_blank');
+    }
+
+    // Show browser notification
+    function showBrowserNotification(notification) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(notification.title || 'New Message', {
+          body: notification.message,
+          icon: notification.icon,
+          image: notification.image
+        });
+      }
+    }
+
+    // Initialize on load
+    init();
+  </script>
+</body>
+</html>
