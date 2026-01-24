@@ -271,6 +271,10 @@
           localStorage.setItem('webpusher_config', JSON.stringify({ workerUrl, vapidPublic }));
         }
 
+        // Prompt for name (optional)
+        const guestName = prompt('Enter your name (optional, or press Cancel to use guest ID):') || null;
+        console.log('Guest name:', guestName || 'Not provided');
+
         // Strip trailing slash
         workerUrl = workerUrl.replace(/\/$/, '');
         
@@ -338,7 +342,15 @@
         document.getElementById('tokenDisplay').textContent = token;
         document.getElementById('credentials').classList.add('show');
 
-        // Save both to localStorage
+        // Save to localStorage in consolidated format
+        localStorage.setItem('webpusher_guest', JSON.stringify({
+          id: guestId,
+          token: token,
+          workerUrl: workerUrl,
+          name: guestName || guestId  // Use name if provided, fallback to ID
+        }));
+
+        // Keep legacy format for backward compatibility
         localStorage.setItem('webpusher_guest_token', token);
         localStorage.setItem('webpusher_guest_id', guestId);
 
