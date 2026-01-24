@@ -411,6 +411,37 @@ self.addEventListener('push', (event) => {
     const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const visibleClients = clients.filter(client => client.visibilityState === 'visible');
     
+    // Extract sender information from tags
+    // Tags format: ["sender:Alice", "senderId:guest-abc123", "urgent", ...]
+    let messageSender = 'guest';      // Default
+    let messageSenderName = 'Guest';  // Default
+    
+    if (actualMessageData?.tags && Array.isArray(actualMessageData.tags)) {
+      console.log('Parsing tags for sender info:', actualMessageData.tags);
+      
+      for (const tag of actualMessageData.tags) {
+        if (typeof tag === 'string') {
+          // Extract sender name: "sender:Alice" → "Alice"
+          if (tag.startsWith('sender:')) {
+            messageSenderName = tag.substring(7); // Remove "sender:" prefix
+            console.log('Found sender name:', messageSenderName);
+          }
+          // Extract sender ID: "senderId:guest-abc123" → "guest-abc123"
+          else if (tag.startsWith('senderId:')) {
+            messageSender = tag.substring(9); // Remove "senderId:" prefix
+            console.log('Found sender ID:', messageSender);
+          }
+        }
+      }
+    } else {
+      // Fallback: try old format (direct sender field)
+      messageSender = actualMessageData?.sender || 'guest';
+      messageSenderName = actualMessageData?.senderName || 'Guest';
+      console.log('Using legacy sender format:', messageSender, '/', messageSenderName);
+    }
+    
+    console.log('Final sender:', messageSender, '/', messageSenderName);
+    
     // Prepare notification data for storage/forwarding
     const notificationForStorage = {
       title: notificationData.title || 'WebPusher',
@@ -419,14 +450,15 @@ self.addEventListener('push', (event) => {
       image: notificationOptions.image,
       click: notificationOptions.data?.click || actualMessageData?.click,
       tags: actualMessageData?.tags || [],
-      sender: actualMessageData?.sender || 'admin',
-      senderName: actualMessageData?.senderName,
+      sender: messageSender,
+      senderName: messageSenderName,
       timestamp: Date.now(),
       read: false
     };
     
     // ALWAYS save to IndexedDB (for inbox page to read later)
     await saveNotification(notificationForStorage);
+    console.log('Saved notification with sender:', messageSender, '/', messageSenderName);
     
     if (visibleClients.length > 0 && actualMessageData) {
       // Send to inbox page for live update
