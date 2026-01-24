@@ -279,8 +279,7 @@ self.addEventListener('push', (event) => {
       let messageData;
       try {
         messageData = JSON.parse(textData);
-        console.log('Parsed JSON data successfully');
-        console.log('messageData:', messageData);
+        console.log('Parsed JSON successfully');
         console.log('messageData.encrypted:', messageData.encrypted);
         console.log('typeof messageData:', typeof messageData);
       } catch (e) {
