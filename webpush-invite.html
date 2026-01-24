@@ -286,7 +286,7 @@
         }
         
         // Build invite URL with VAPID key and worker URL
-        let inviteUrl = `${baseUrl}guest-register.html?invite=${invite}`;
+        let inviteUrl = `${baseUrl}?invite=${invite}`;
         if (savedWorkerUrl) {
           inviteUrl += `&worker=${encodeURIComponent(savedWorkerUrl)}`;
         }
