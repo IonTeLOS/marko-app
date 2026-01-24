@@ -221,7 +221,7 @@ self.addEventListener('push', (event) => {
     body: 'New message received',
     icon: 'https://cdn-icons-png.flaticon.com/512/733/733585.png',
     badge: 'https://cdn-icons-png.flaticon.com/512/733/733585.png',
-    tag: crypto.randomUUID(), // Unique by default (show all notifications)
+    tag: 'webpusher-' + Date.now(), // Unique by default
     requireInteraction: false,
     data: {} // Store metadata here
   };
@@ -374,11 +374,23 @@ self.addEventListener('notificationclick', (event) => {
   if (urlToOpen) {
     console.log('Opening URL:', urlToOpen);
     event.waitUntil(
-      clients.openWindow(urlToOpen)
+      clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then(clientList => {
+          // Try to find existing window with this URL
+          for (let client of clientList) {
+            if (client.url === urlToOpen && 'focus' in client) {
+              return client.focus();
+            }
+          }
+          // No existing window, open new one
+          if (clients.openWindow) {
+            return clients.openWindow(urlToOpen);
+          }
+        })
     );
   } else {
-    console.log('No URL to open');
-    // Could focus existing window or do nothing
+    console.log('No URL to open, focusing existing window');
+    // No URL specified, just focus an existing window
     event.waitUntil(
       clients.matchAll({ type: 'window', includeUncontrolled: true })
         .then(clientList => {
