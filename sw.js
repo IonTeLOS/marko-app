@@ -235,34 +235,38 @@ self.addEventListener('push', (event) => {
 
     try {
       // The push service JSON-stringifies Uint8Arrays, so we need to handle that
+      // PushForge sends data as a JSON string, not serialized bytes
       let textData;
       
       try {
-        // First try to parse as JSON to see if it's a stringified array
-        const parsed = event.data.json();
-        
-        // Check if this is a JSON-stringified Uint8Array (has numeric keys 0, 1, 2, ...)
-        if (typeof parsed === 'object' && '0' in parsed && '1' in parsed) {
-          console.log('Detected JSON-stringified Uint8Array, converting back...');
-          // Convert back to Uint8Array
-          const length = Object.keys(parsed).length;
-          const bytes = new Uint8Array(length);
-          for (let i = 0; i < length; i++) {
-            bytes[i] = parsed[i];
-          }
-          // Decode to string
-          const decoder = new TextDecoder();
-          textData = decoder.decode(bytes);
-          console.log('Decoded from byte array:', textData);
-        } else {
-          // It's already proper JSON
-          textData = JSON.stringify(parsed);
-          console.log('Already proper JSON:', textData);
-        }
-      } catch (e) {
-        // Not JSON, try as text
+        // Try to get as text first (works with PushForge)
         textData = event.data.text();
-        console.log('Got as text:', textData);
+        console.log('Got push data as text:', textData.substring(0, 100) + '...');
+      } catch (e) {
+        console.log('Text failed, trying JSON...', e);
+        try {
+          // Fallback: try as JSON (old aesgcm format)
+          const parsed = event.data.json();
+          
+          // Check if this is a JSON-stringified Uint8Array (old format)
+          if (typeof parsed === 'object' && '0' in parsed && '1' in parsed) {
+            console.log('Detected JSON-stringified Uint8Array, converting back...');
+            const length = Object.keys(parsed).length;
+            const bytes = new Uint8Array(length);
+            for (let i = 0; i < length; i++) {
+              bytes[i] = parsed[i];
+            }
+            const decoder = new TextDecoder();
+            textData = decoder.decode(bytes);
+            console.log('Decoded from byte array');
+          } else {
+            textData = JSON.stringify(parsed);
+            console.log('Got as JSON object');
+          }
+        } catch (e2) {
+          console.error('Both text() and json() failed:', e2);
+          textData = null;
+        }
       }
       
       if (!textData) {
@@ -285,6 +289,14 @@ self.addEventListener('push', (event) => {
       }
       
       // Check if this is an encrypted message
+      console.log('Checking if encrypted:', {
+        hasEncrypted: !!data.encrypted,
+        encryptedValue: data.encrypted,
+        hasEphemeralPublicKey: !!data.ephemeralPublicKey,
+        hasIv: !!data.iv,
+        hasCiphertext: !!data.ciphertext
+      });
+      
       if (data.encrypted && data.ephemeralPublicKey && data.iv && data.ciphertext) {
         console.log('Received encrypted message, attempting to decrypt...');
         
