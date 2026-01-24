@@ -4,9 +4,11 @@
 if ('serviceWorker' in navigator) {
   // Listen for messages from service worker
   navigator.serviceWorker.addEventListener('message', (event) => {
+    console.log('Received SW message:', event.data);
+    
     if (event.data && event.data.type === 'OPEN_CUSTOM_PROTOCOL') {
       const url = event.data.url;
-      console.log('Opening custom protocol from message:', url);
+      console.log('✅ Opening custom protocol:', url);
       
       // Open the custom protocol URL
       // This will trigger the OS/browser to handle it (mail app, phone dialer, etc.)
@@ -14,22 +16,7 @@ if ('serviceWorker' in navigator) {
     }
   });
   
-  // Check if we were opened with a ?protocol= parameter
-  // This happens when notification is clicked and no windows were open
-  const urlParams = new URLSearchParams(window.location.search);
-  const protocolUrl = urlParams.get('protocol');
-  
-  if (protocolUrl) {
-    console.log('Opening custom protocol from URL parameter:', protocolUrl);
-    
-    // Remove the parameter from URL to avoid re-triggering
-    const newUrl = new URL(window.location.href);
-    newUrl.searchParams.delete('protocol');
-    window.history.replaceState({}, '', newUrl);
-    
-    // Open the custom protocol
-    window.location.href = protocolUrl;
-  }
-  
-  console.log('Protocol handler registered');
+  console.log('✅ Protocol handler registered');
+} else {
+  console.warn('⚠️ Service worker not supported');
 }
