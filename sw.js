@@ -1,6 +1,39 @@
 // WebPusher Service Worker with E2EE support
 // Handles incoming push notifications and decrypts them
 
+// Helper: Open notifications database
+async function openNotificationsDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('WebPusherNotifications', 1);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('notifications')) {
+        const store = db.createObjectStore('notifications', { keyPath: 'id', autoIncrement: true });
+        store.createIndex('timestamp', 'timestamp', { unique: false });
+        store.createIndex('read', 'read', { unique: false });
+        store.createIndex('sender', 'sender', { unique: false });
+      }
+    };
+  });
+}
+
+// Helper: Save notification to IndexedDB
+async function saveNotification(notification) {
+  try {
+    const db = await openNotificationsDB();
+    const tx = db.transaction('notifications', 'readwrite');
+    const store = tx.objectStore('notifications');
+    await store.add(notification);
+    console.log('Notification saved to IndexedDB');
+  } catch (error) {
+    console.error('Failed to save notification:', error);
+  }
+}
+
 self.addEventListener('install', (event) => {
   console.log('Service Worker installing...');
   self.skipWaiting();
@@ -378,23 +411,31 @@ self.addEventListener('push', (event) => {
     const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const visibleClients = clients.filter(client => client.visibilityState === 'visible');
     
+    // Prepare notification data for storage/forwarding
+    const notificationForStorage = {
+      title: notificationData.title || 'WebPusher',
+      message: notificationData.body || '',
+      icon: notificationOptions.icon,
+      image: notificationOptions.image,
+      click: notificationOptions.data?.click || actualMessageData?.click,
+      tags: actualMessageData?.tags || [],
+      sender: actualMessageData?.sender || 'admin',
+      senderName: actualMessageData?.senderName,
+      timestamp: Date.now(),
+      read: false
+    };
+    
+    // ALWAYS save to IndexedDB (for inbox page to read later)
+    await saveNotification(notificationForStorage);
+    
     if (visibleClients.length > 0 && actualMessageData) {
-      // Send to inbox page instead of showing browser notification
+      // Send to inbox page for live update
       console.log('Sending to', visibleClients.length, 'visible client(s)');
       
       visibleClients.forEach(client => {
         client.postMessage({
           type: 'NEW_NOTIFICATION',
-          notification: {
-            title: notificationData.title || 'WebPusher',
-            message: notificationData.body || actualMessageData.message || '',
-            icon: notificationOptions.icon,
-            image: notificationOptions.image,
-            click: notificationOptions.data?.click || actualMessageData.click,
-            tags: actualMessageData.tags || [],
-            sender: actualMessageData.sender || 'admin',
-            senderName: actualMessageData.senderName
-          }
+          notification: notificationForStorage
         });
       });
       
@@ -451,28 +492,36 @@ self.addEventListener('notificationclick', (event) => {
     if (isCustomProtocol) {
       console.log('Custom protocol detected:', urlToOpen.split(':')[0]);
       
-      // For custom protocols, we need to use a different approach
-      // Service workers can't directly open custom protocols via clients.openWindow()
+      // For custom protocols, try to find a window to send message to
       event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true })
           .then(clientList => {
-            // Try to use an existing window
             if (clientList.length > 0) {
+              // Send to any existing window
               const client = clientList[0];
-              // Send message to client to handle the custom protocol
               client.postMessage({
                 type: 'OPEN_CUSTOM_PROTOCOL',
                 url: urlToOpen
               });
               return client.focus();
             } else {
-              // No existing window - open main page with protocol parameter
-              // The page will handle the protocol on load
-              const baseUrl = self.registration.scope || '/';
-              const protocolHandlerUrl = `${baseUrl}?protocol=${encodeURIComponent(urlToOpen)}`;
+              // No windows open - create a simple redirect page
+              const htmlContent = `<!DOCTYPE html>
+<html>
+<head><title>Opening...</title></head>
+<body>
+<p>Opening ${urlToOpen.split(':')[0]}...</p>
+<script>
+  window.location.href = "${urlToOpen.replace(/"/g, '\\"')}";
+  setTimeout(() => { window.close(); }, 2000);
+</script>
+</body>
+</html>`;
+              
+              const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(htmlContent);
               
               if (clients.openWindow) {
-                return clients.openWindow(protocolHandlerUrl);
+                return clients.openWindow(dataUrl);
               }
             }
           })
