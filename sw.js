@@ -233,6 +233,9 @@ self.addEventListener('push', (event) => {
       return;
     }
 
+    // Store the actual message data for forwarding to clients
+    let actualMessageData = null;
+
     try {
       // The push service JSON-stringifies Uint8Arrays, so we need to handle that
       // PushForge sends data as a JSON string, not serialized bytes
@@ -326,6 +329,9 @@ self.addEventListener('push', (event) => {
             console.log('Decrypted content is plain text');
           }
           
+          // Store for client notification
+          actualMessageData = typeof decryptedData === 'object' ? decryptedData : { message: decryptedData };
+          
           // Apply rich notification format
           applyRichFormat(notificationData, decryptedData);
           
@@ -336,6 +342,7 @@ self.addEventListener('push', (event) => {
       } else {
         // Plain JSON message (unencrypted)
         console.log('Plain JSON message (unencrypted)');
+        actualMessageData = messageData;
         applyRichFormat(notificationData, messageData);
       }
     } catch (e) {
@@ -366,6 +373,34 @@ self.addEventListener('push', (event) => {
       hasActions: !!notificationOptions.actions,
       actionsCount: notificationOptions.actions?.length || 0
     });
+    
+    // Check for visible clients (inbox page open)
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const visibleClients = clients.filter(client => client.visibilityState === 'visible');
+    
+    if (visibleClients.length > 0 && actualMessageData) {
+      // Send to inbox page instead of showing browser notification
+      console.log('Sending to', visibleClients.length, 'visible client(s)');
+      
+      visibleClients.forEach(client => {
+        client.postMessage({
+          type: 'NEW_NOTIFICATION',
+          notification: {
+            title: notificationData.title || 'WebPusher',
+            message: notificationData.body || actualMessageData.message || '',
+            icon: notificationOptions.icon,
+            image: notificationOptions.image,
+            click: notificationOptions.data?.click || actualMessageData.click,
+            tags: actualMessageData.tags || [],
+            sender: actualMessageData.sender || 'admin',
+            senderName: actualMessageData.senderName
+          }
+        });
+      });
+      
+      // Still show browser notification but silent (just for notification center)
+      notificationOptions.silent = true;
+    }
     
     await self.registration.showNotification(notificationData.title, notificationOptions);
   };
