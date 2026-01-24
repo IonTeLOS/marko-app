@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Service Worker Updater</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 40px;
+      max-width: 600px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+      font-size: 28px;
+    }
+    .step {
+      background: #f5f5f5;
+      padding: 20px;
+      margin: 15px 0;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+    .step h3 {
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+    button {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 10px 5px 10px 0;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    }
+    .status {
+      padding: 15px;
+      border-radius: 6px;
+      margin-top: 15px;
+      display: none;
+    }
+    .status.info {
+      background: #e3f2fd;
+      color: #1976d2;
+      border-left: 4px solid #1976d2;
+    }
+    .status.success {
+      background: #e8f5e9;
+      color: #388e3c;
+      border-left: 4px solid #388e3c;
+    }
+    .status.error {
+      background: #ffebee;
+      color: #d32f2f;
+      border-left: 4px solid #d32f2f;
+    }
+    .status.show {
+      display: block;
+    }
+    pre {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔄 Service Worker Updater</h1>
+    <p style="color: #666; margin-bottom: 30px;">
+      Update your service worker to enable E2EE message decryption.
+    </p>
+
+    <div class="step">
+      <h3>Step 1: Unregister Old Service Worker</h3>
+      <p style="color: #666; margin-bottom: 10px;">
+        Remove the old service worker that has the bug.
+      </p>
+      <button onclick="unregisterSW()">🗑️ Unregister Service Worker</button>
+    </div>
+
+    <div class="step">
+      <h3>Step 2: Clear Cache & Reload</h3>
+      <p style="color: #666; margin-bottom: 10px;">
+        After unregistering, you need to hard refresh to clear the cache.
+      </p>
+      <button onclick="hardReload()">🔄 Hard Reload Page</button>
+      <p style="font-size: 12px; color: #999; margin-top: 10px;">
+        Or press: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac)
+      </p>
+    </div>
+
+    <div class="step">
+      <h3>Step 3: Re-register for Notifications</h3>
+      <p style="color: #666; margin-bottom: 10px;">
+        After reloading, visit the page where you originally registered (admin-setup.html or guest-register.html) and register again. This will install the new service worker.
+      </p>
+    </div>
+
+    <div class="step">
+      <h3>Verification</h3>
+      <p style="color: #666; margin-bottom: 10px;">
+        Check if the new service worker is running:
+      </p>
+      <button onclick="checkSW()">✓ Check Service Worker</button>
+      <div id="swInfo" style="margin-top: 10px;"></div>
+    </div>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <script>
+    function showStatus(message, type = 'info') {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type} show`;
+    }
+
+    async function unregisterSW() {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        
+        if (registrations.length === 0) {
+          showStatus('No service workers registered.', 'info');
+          return;
+        }
+
+        for (const registration of registrations) {
+          await registration.unregister();
+        }
+
+        showStatus(`✅ Unregistered ${registrations.length} service worker(s). Now click "Hard Reload Page".`, 'success');
+      } catch (error) {
+        showStatus(`❌ Error: ${error.message}`, 'error');
+      }
+    }
+
+    function hardReload() {
+      // Clear service worker cache and reload
+      if ('caches' in window) {
+        caches.keys().then(names => {
+          names.forEach(name => caches.delete(name));
+        }).then(() => {
+          location.reload(true);
+        });
+      } else {
+        location.reload(true);
+      }
+    }
+
+    async function checkSW() {
+      const infoDiv = document.getElementById('swInfo');
+      
+      if (!('serviceWorker' in navigator)) {
+        infoDiv.innerHTML = '<p style="color: #d32f2f;">Service Workers not supported in this browser.</p>';
+        return;
+      }
+
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      
+      if (registrations.length === 0) {
+        infoDiv.innerHTML = '<p style="color: #999;">No service workers registered. Go register for notifications.</p>';
+        return;
+      }
+
+      let html = '<div style="margin-top: 10px;">';
+      for (const reg of registrations) {
+        const sw = reg.active || reg.installing || reg.waiting;
+        if (sw) {
+          html += `
+            <div style="background: #e8f5e9; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+              <strong>✓ Service Worker Active</strong><br>
+              <span style="font-size: 12px; color: #666;">
+                Scope: ${reg.scope}<br>
+                State: ${sw.state}
+              </span>
+            </div>
+          `;
+        }
+      }
+      html += '</div>';
+      
+      infoDiv.innerHTML = html;
+      showStatus('Service worker info loaded.', 'info');
+    }
+
+    // Auto-check on load
+    window.addEventListener('DOMContentLoaded', checkSW);
+  </script>
+</body>
+</html>
