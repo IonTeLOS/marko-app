@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebPusher - Send Rich Notification</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container { max-width: 800px; margin: 0 auto; }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 { color: #333; margin-bottom: 10px; font-size: 28px; }
+    h2 { color: #333; margin-bottom: 15px; font-size: 20px; margin-top: 20px; }
+    .subtitle { color: #666; margin-bottom: 30px; line-height: 1.6; }
+    .form-group { margin-bottom: 15px; }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    .hint { font-size: 12px; color: #999; margin-top: 3px; }
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 5px;
+    }
+    .checkbox-group input[type="checkbox"] {
+      width: auto;
+    }
+    button {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 10px;
+      margin-right: 10px;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    }
+    button.secondary {
+      background: #6c757d;
+    }
+    .status {
+      padding: 15px;
+      border-radius: 6px;
+      margin-top: 15px;
+      display: none;
+    }
+    .status.info { background: #e3f2fd; color: #1976d2; }
+    .status.success { background: #e8f5e9; color: #388e3c; }
+    .status.error { background: #ffebee; color: #d32f2f; }
+    .status.show { display: block; }
+    .actions-list {
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 5px;
+    }
+    .action-item {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+    .action-item input { flex: 1; }
+    .action-item button {
+      padding: 6px 12px;
+      margin: 0;
+      background: #dc3545;
+    }
+    .tags-input {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      padding: 8px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      min-height: 40px;
+    }
+    .tag-pill {
+      background: #667eea;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .tag-pill button {
+      background: none;
+      border: none;
+      color: white;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+    }
+    #tagInput {
+      border: none;
+      flex: 1;
+      min-width: 120px;
+      padding: 4px;
+    }
+    #tagInput:focus { outline: none; border: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>📨 Send Rich Notification</h1>
+      <p class="subtitle">Create and send rich notifications with all supported features.</p>
+
+      <!-- Config -->
+      <div class="form-group">
+        <label for="workerUrl">Worker URL</label>
+        <input type="url" id="workerUrl" placeholder="https://wobpusher.diavlos.workers.dev">
+      </div>
+
+      <div class="form-group">
+        <label for="token">Guest Token</label>
+        <input type="password" id="token" placeholder="Enter your guest token">
+      </div>
+
+      <!-- Required Fields -->
+      <h2>📝 Required</h2>
+      
+      <div class="form-group">
+        <label for="message">Message *</label>
+        <textarea id="message" placeholder="Enter your message" required></textarea>
+        <div class="hint">The main notification body text</div>
+      </div>
+
+      <!-- Optional Fields -->
+      <h2>🎨 Optional</h2>
+
+      <div class="form-group">
+        <label for="title">Title</label>
+        <input type="text" id="title" placeholder="WebPusher">
+        <div class="hint">Defaults to "WebPusher" if not set</div>
+      </div>
+
+      <div class="form-group">
+        <label for="icon">Icon URL</label>
+        <input type="url" id="icon" placeholder="https://example.com/icon.png">
+        <div class="hint">Large icon shown in notification</div>
+      </div>
+
+      <div class="form-group">
+        <label for="badge">Badge URL</label>
+        <input type="url" id="badge" placeholder="https://example.com/badge.png">
+        <div class="hint">Small icon in notification tray (monochrome recommended)</div>
+      </div>
+
+      <div class="form-group">
+        <label for="image">Image URL</label>
+        <input type="url" id="image" placeholder="https://example.com/photo.jpg">
+        <div class="hint">Large banner photo in notification</div>
+      </div>
+
+      <div class="form-group">
+        <label for="click">Click URL</label>
+        <input type="url" id="click" placeholder="https://example.com/page">
+        <div class="hint">URL to open when notification is clicked</div>
+      </div>
+
+      <!-- Grouping & Tags -->
+      <h2>🏷️ Grouping & Tags</h2>
+
+      <div class="form-group">
+        <label for="tag">Tag (Replacement Behavior)</label>
+        <input type="text" id="tag" placeholder="chat-messages">
+        <div class="hint">Notifications with same tag replace each other. Leave empty for unique notifications.</div>
+      </div>
+
+      <div class="form-group">
+        <label>Tags (Metadata)</label>
+        <div class="tags-input" id="tagsContainer">
+          <input type="text" id="tagInput" placeholder="Type and press Enter">
+        </div>
+        <div class="hint">Add tags like "urgent", "Order:12345", or "isMarkdown:true". Press Enter to add.</div>
+      </div>
+
+      <!-- Actions -->
+      <h2>🔘 Actions (Buttons)</h2>
+      
+      <div class="form-group">
+        <label>Action Buttons</label>
+        <div id="actionsList" class="actions-list">
+          <div class="hint" style="margin-bottom: 10px;">Add interactive buttons to your notification</div>
+        </div>
+        <button type="button" class="secondary" onclick="addAction()">+ Add Action</button>
+      </div>
+
+      <!-- Behavior -->
+      <h2>⚙️ Behavior</h2>
+
+      <div class="checkbox-group">
+        <input type="checkbox" id="requireInteraction">
+        <label for="requireInteraction" style="margin: 0;">Require Interaction (Sticky)</label>
+      </div>
+      <div class="hint" style="margin-left: 28px;">Notification stays until user dismisses it</div>
+
+      <div class="checkbox-group" style="margin-top: 10px;">
+        <input type="checkbox" id="silent">
+        <label for="silent" style="margin: 0;">Silent (No Sound/Vibration)</label>
+      </div>
+
+      <!-- Actions -->
+      <button onclick="sendRichNotification()">🚀 Send Rich Notification</button>
+      <button class="secondary" onclick="sendSimpleNotification()">📤 Send Simple (Message Only)</button>
+
+      <div id="status" class="status"></div>
+    </div>
+  </div>
+
+  <script src="webpusher-crypto.js"></script>
+  <script>
+    let tags = [];
+    let actions = [];
+
+    function showStatus(message, type = 'info') {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type} show`;
+    }
+
+    // Tags management
+    document.getElementById('tagInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const input = e.target;
+        const value = input.value.trim();
+        if (value && !tags.includes(value)) {
+          tags.push(value);
+          renderTags();
+          input.value = '';
+        }
+      }
+    });
+
+    function removeTag(tag) {
+      tags = tags.filter(t => t !== tag);
+      renderTags();
+    }
+
+    function renderTags() {
+      const container = document.getElementById('tagsContainer');
+      const input = document.getElementById('tagInput');
+      
+      // Remove all tag pills
+      container.querySelectorAll('.tag-pill').forEach(el => el.remove());
+      
+      // Add current tags
+      tags.forEach(tag => {
+        const pill = document.createElement('div');
+        pill.className = 'tag-pill';
+        pill.innerHTML = `
+          ${tag}
+          <button onclick="removeTag('${tag}')" type="button">×</button>
+        `;
+        container.insertBefore(pill, input);
+      });
+    }
+
+    // Actions management
+    function addAction() {
+      const actionId = Date.now();
+      actions.push({ id: actionId, action: '', title: '', url: '' });
+      renderActions();
+    }
+
+    function removeAction(id) {
+      actions = actions.filter(a => a.id !== id);
+      renderActions();
+    }
+
+    function renderActions() {
+      const container = document.getElementById('actionsList');
+      const hint = container.querySelector('.hint');
+      container.innerHTML = '';
+      if (hint) container.appendChild(hint);
+      
+      actions.forEach(action => {
+        const div = document.createElement('div');
+        div.className = 'action-item';
+        div.innerHTML = `
+          <input type="text" placeholder="action" value="${action.action}" 
+                 onchange="updateAction(${action.id}, 'action', this.value)">
+          <input type="text" placeholder="Title" value="${action.title}"
+                 onchange="updateAction(${action.id}, 'title', this.value)">
+          <input type="url" placeholder="URL (optional)" value="${action.url}"
+                 onchange="updateAction(${action.id}, 'url', this.value)">
+          <button type="button" onclick="removeAction(${action.id})">Remove</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function updateAction(id, field, value) {
+      const action = actions.find(a => a.id === id);
+      if (action) action[field] = value;
+    }
+
+    async function sendRichNotification() {
+      const message = document.getElementById('message').value.trim();
+      if (!message) {
+        showStatus('Message is required', 'error');
+        return;
+      }
+
+      const richMessage = createRichMessage({
+        message: message,
+        title: document.getElementById('title').value.trim() || undefined,
+        icon: document.getElementById('icon').value.trim() || undefined,
+        badge: document.getElementById('badge').value.trim() || undefined,
+        image: document.getElementById('image').value.trim() || undefined,
+        click: document.getElementById('click').value.trim() || undefined,
+        tag: document.getElementById('tag').value.trim() || undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        requireInteraction: document.getElementById('requireInteraction').checked || undefined,
+        silent: document.getElementById('silent').checked || undefined,
+        actions: actions.length > 0 ? actions.filter(a => a.action && a.title).map(a => ({
+          action: a.action,
+          title: a.title,
+          url: a.url || undefined
+        })) : undefined
+      });
+
+      await sendNotification(richMessage);
+    }
+
+    async function sendSimpleNotification() {
+      const message = document.getElementById('message').value.trim();
+      if (!message) {
+        showStatus('Message is required', 'error');
+        return;
+      }
+
+      await sendNotification(message);
+    }
+
+    async function sendNotification(messageData) {
+      let workerUrl = document.getElementById('workerUrl').value.trim();
+      const token = document.getElementById('token').value.trim();
+
+      if (!workerUrl || !token) {
+        showStatus('Worker URL and Token are required', 'error');
+        return;
+      }
+
+      if (!workerUrl.startsWith('http')) {
+        workerUrl = 'https://' + workerUrl;
+      }
+      workerUrl = workerUrl.replace(/\/$/, '');
+
+      try {
+        showStatus('Fetching admin public key...', 'info');
+
+        const keyResponse = await fetch(`${workerUrl}/admin/public-key`);
+        if (!keyResponse.ok) {
+          throw new Error(`Failed to get public key (${keyResponse.status})`);
+        }
+
+        const { publicKeyJwk } = await keyResponse.json();
+
+        showStatus('Encrypting message...', 'info');
+
+        const messageString = typeof messageData === 'string' 
+          ? messageData 
+          : JSON.stringify(messageData);
+        
+        const encrypted = await WebPusherCrypto.encryptMessage(messageString, publicKeyJwk);
+
+        showStatus('Sending encrypted notification...', 'info');
+
+        const response = await fetch(`${workerUrl}/send`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(encrypted)
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to send (${response.status})`);
+        }
+
+        showStatus('✅ Rich notification sent successfully!', 'success');
+        console.log('Sent message:', messageData);
+      } catch (error) {
+        console.error('Send error:', error);
+        showStatus(`❌ Error: ${error.message}`, 'error');
+      }
+    }
+
+    // Load saved config
+    window.addEventListener('DOMContentLoaded', () => {
+      const saved = localStorage.getItem('webpusher_guest');
+      if (saved) {
+        try {
+          const config = JSON.parse(saved);
+          if (config.workerUrl) document.getElementById('workerUrl').value = config.workerUrl;
+          if (config.token) document.getElementById('token').value = config.token;
+        } catch (e) {}
+      }
+    });
+  </script>
+</body>
+</html>
