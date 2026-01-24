@@ -328,40 +328,46 @@
       }
     });
 
-    async function loadGuests(workerUrl, adminSecret) {
-      if (!workerUrl.startsWith('http')) {
-        workerUrl = 'https://' + workerUrl;
-      }
-      workerUrl = workerUrl.replace(/\/$/, '');
+async function loadGuests(workerUrl, adminSecret) {
+  if (!workerUrl.startsWith('http')) {
+    workerUrl = 'https://' + workerUrl;
+  }
+  workerUrl = workerUrl.replace(/\/$/, '');
 
-      try {
-        const response = await fetch(`${workerUrl}/admin/guests`, {
-          headers: { 'x-admin-secret': adminSecret }
-        });
+  try {
+    const response = await fetch(`${workerUrl}/admin/guests`, {
+      headers: { 'x-admin-secret': adminSecret }
+    });
 
-        if (!response.ok) {
-          console.error('Failed to load guests');
-          return;
-        }
-
-        guests = await response.json();
-        
-        const recipientSelect = document.getElementById('recipient');
-        recipientSelect.innerHTML = '<option value="">Select a guest...</option>';
-        
-        guests.forEach(guest => {
-          const option = document.createElement('option');
-          option.value = guest.id;
-          option.textContent = `${guest.name} (${guest.id})`;
-          recipientSelect.appendChild(option);
-        });
-
-        // Show recipient section
-        document.getElementById('recipientSection').classList.remove('hidden');
-      } catch (error) {
-        console.error('Error loading guests:', error);
-      }
+    if (!response.ok) {
+      console.error('Failed to load guests');
+      return;
     }
+
+    const data = await response.json();
+
+    // ✅ Normalize response shape
+    guests = Array.isArray(data)
+      ? data
+      : Array.isArray(data.guests)
+        ? data.guests
+        : [];
+
+    const recipientSelect = document.getElementById('recipient');
+    recipientSelect.innerHTML = '<option value="">Select a guest...</option>';
+
+    guests.forEach(guest => {
+      const option = document.createElement('option');
+      option.value = guest.id;
+      option.textContent = `${guest.name ?? 'Guest'} (${guest.id})`;
+      recipientSelect.appendChild(option);
+    });
+
+    document.getElementById('recipientSection').classList.remove('hidden');
+  } catch (error) {
+    console.error('Error loading guests:', error);
+  }
+}
 
     // Re-detect role when credential changes
     document.getElementById('credential').addEventListener('change', async (e) => {
