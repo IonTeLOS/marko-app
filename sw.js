@@ -134,9 +134,12 @@ self.addEventListener('push', (event) => {
     }
 
     try {
-      // First try to get the text
-      const textData = event.data.text();
-      console.log('Push data text:', textData);
+      // Get the data as ArrayBuffer and decode it properly
+      const arrayBuffer = await event.data.arrayBuffer();
+      const decoder = new TextDecoder();
+      const textData = decoder.decode(arrayBuffer);
+      
+      console.log('Decoded push data:', textData);
       
       if (!textData) {
         console.log('Empty push data');
