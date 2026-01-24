@@ -276,10 +276,13 @@ self.addEventListener('push', (event) => {
       }
 
       // Try to parse as JSON
-      let data;
+      let messageData;
       try {
-        data = JSON.parse(textData);
-        console.log('Parsed JSON data:', data);
+        messageData = JSON.parse(textData);
+        console.log('Parsed JSON data successfully');
+        console.log('messageData:', messageData);
+        console.log('messageData.encrypted:', messageData.encrypted);
+        console.log('typeof messageData:', typeof messageData);
       } catch (e) {
         // Not JSON, use as plain text
         console.log('Not JSON, using as plain text');
@@ -289,40 +292,43 @@ self.addEventListener('push', (event) => {
       }
       
       // Check if this is an encrypted message
-      console.log('Checking if encrypted:', {
-        hasEncrypted: !!data.encrypted,
-        encryptedValue: data.encrypted,
-        hasEphemeralPublicKey: !!data.ephemeralPublicKey,
-        hasIv: !!data.iv,
-        hasCiphertext: !!data.ciphertext
-      });
+      const isEncrypted = (
+        messageData && 
+        typeof messageData === 'object' &&
+        messageData.encrypted === true &&
+        messageData.ephemeralPublicKey &&
+        messageData.iv &&
+        messageData.ciphertext
+      );
       
-      if (data.encrypted && data.ephemeralPublicKey && data.iv && data.ciphertext) {
-        console.log('Received encrypted message, attempting to decrypt...');
+      console.log('Is encrypted?', isEncrypted);
+      
+      if (isEncrypted) {
+        console.log('✅ Detected as encrypted message, attempting to decrypt...');
         
         const encryptedData = {
-          iv: base64UrlDecode(data.iv),
-          ciphertext: base64UrlDecode(data.ciphertext)
+          iv: base64UrlDecode(messageData.iv),
+          ciphertext: base64UrlDecode(messageData.ciphertext)
         };
         
-        const decrypted = await decryptMessage(encryptedData, data.ephemeralPublicKey);
+        const decrypted = await decryptMessage(encryptedData, messageData.ephemeralPublicKey);
         
         if (decrypted) {
           console.log('✅ Message decrypted successfully');
           
           // Try to parse decrypted content as rich JSON
-          let messageData;
+          let decryptedData;
           try {
-            messageData = JSON.parse(decrypted);
-            console.log('Decrypted content is rich JSON:', messageData);
+            decryptedData = JSON.parse(decrypted);
+            console.log('Decrypted content is rich JSON:', decryptedData);
           } catch (e) {
             // Decrypted content is plain text
-            messageData = decrypted;
+            decryptedData = decrypted;
             console.log('Decrypted content is plain text');
           }
           
           // Apply rich notification format
-          applyRichFormat(notificationData, messageData);
+          applyRichFormat(notificationData, decryptedData);
           
         } else {
           notificationData.body = '🔒 Encrypted message (unable to decrypt)';
@@ -330,8 +336,8 @@ self.addEventListener('push', (event) => {
         }
       } else {
         // Plain JSON message (unencrypted)
-        console.log('Plain JSON message');
-        applyRichFormat(notificationData, data);
+        console.log('Plain JSON message (unencrypted)');
+        applyRichFormat(notificationData, messageData);
       }
     } catch (e) {
       console.error('Error processing push data:', e);
