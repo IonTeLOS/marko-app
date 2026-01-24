@@ -407,21 +407,59 @@ self.addEventListener('notificationclick', (event) => {
   // Open URL if we have one
   if (urlToOpen) {
     console.log('Opening URL:', urlToOpen);
-    event.waitUntil(
-      clients.matchAll({ type: 'window', includeUncontrolled: true })
-        .then(clientList => {
-          // Try to find existing window with this URL
-          for (let client of clientList) {
-            if (client.url === urlToOpen && 'focus' in client) {
+    
+    // Check if this is a custom protocol (mailto:, tel:, geo:, myapp:, etc.)
+    const isCustomProtocol = !urlToOpen.startsWith('http://') && 
+                             !urlToOpen.startsWith('https://') && 
+                             urlToOpen.includes(':');
+    
+    if (isCustomProtocol) {
+      console.log('Custom protocol detected:', urlToOpen.split(':')[0]);
+      
+      // For custom protocols, we need to use a different approach
+      // Service workers can't directly open custom protocols via clients.openWindow()
+      event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true })
+          .then(clientList => {
+            // Try to use an existing window
+            if (clientList.length > 0) {
+              const client = clientList[0];
+              // Send message to client to handle the custom protocol
+              client.postMessage({
+                type: 'OPEN_CUSTOM_PROTOCOL',
+                url: urlToOpen
+              });
               return client.focus();
+            } else {
+              // No existing window - open main page with protocol parameter
+              // The page will handle the protocol on load
+              const baseUrl = self.registration.scope || '/';
+              const protocolHandlerUrl = `${baseUrl}?protocol=${encodeURIComponent(urlToOpen)}`;
+              
+              if (clients.openWindow) {
+                return clients.openWindow(protocolHandlerUrl);
+              }
             }
-          }
-          // No existing window, open new one
-          if (clients.openWindow) {
-            return clients.openWindow(urlToOpen);
-          }
-        })
-    );
+          })
+      );
+    } else {
+      // Standard http/https URL - use existing logic
+      event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true })
+          .then(clientList => {
+            // Try to find existing window with this URL
+            for (let client of clientList) {
+              if (client.url === urlToOpen && 'focus' in client) {
+                return client.focus();
+              }
+            }
+            // No existing window, open new one
+            if (clients.openWindow) {
+              return clients.openWindow(urlToOpen);
+            }
+          })
+      );
+    }
   } else {
     console.log('No URL to open, focusing existing window');
     // No URL specified, just focus an existing window
