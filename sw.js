@@ -343,14 +343,31 @@ self.addEventListener('push', (event) => {
       notificationData.body = 'Error processing message';
     }
 
-    await self.registration.showNotification(notificationData.title, {
+    const notificationOptions = {
       body: notificationData.body,
       icon: notificationData.icon,
       badge: notificationData.badge,
+      image: notificationData.image,
       tag: notificationData.tag,
       requireInteraction: notificationData.requireInteraction,
+      silent: notificationData.silent,
+      timestamp: notificationData.timestamp,
+      vibrate: notificationData.vibrate,
+      actions: notificationData.actions,
       data: notificationData.data || {}
+    };
+    
+    console.log('Showing notification with options:', {
+      title: notificationData.title,
+      hasBody: !!notificationOptions.body,
+      hasIcon: !!notificationOptions.icon,
+      hasImage: !!notificationOptions.image,
+      imageUrl: notificationOptions.image,
+      hasActions: !!notificationOptions.actions,
+      actionsCount: notificationOptions.actions?.length || 0
     });
+    
+    await self.registration.showNotification(notificationData.title, notificationOptions);
   };
 
   event.waitUntil(showNotification());
