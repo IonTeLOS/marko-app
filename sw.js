@@ -115,6 +115,7 @@ async function decryptMessage(encryptedData, ephemeralPublicKeyJwk) {
 
 self.addEventListener('push', (event) => {
   console.log('Push notification received:', event);
+  console.log('Push data available:', !!event.data);
   
   let notificationData = {
     title: 'WebPusher',
@@ -126,39 +127,65 @@ self.addEventListener('push', (event) => {
   };
 
   const showNotification = async () => {
-    if (event.data) {
-      try {
-        // Try to parse as JSON (encrypted message format)
-        const data = event.data.json();
-        
-        if (data.encrypted && data.ephemeralPublicKey && data.iv && data.ciphertext) {
-          // This is an encrypted message
-          console.log('Received encrypted message, attempting to decrypt...');
-          
-          const encryptedData = {
-            iv: base64UrlDecode(data.iv),
-            ciphertext: base64UrlDecode(data.ciphertext)
-          };
-          
-          const decrypted = await decryptMessage(encryptedData, data.ephemeralPublicKey);
-          
-          if (decrypted) {
-            notificationData.body = decrypted;
-            notificationData.data = { decrypted: true };
-            console.log('Message decrypted successfully');
-          } else {
-            notificationData.body = '🔒 Encrypted message (unable to decrypt)';
-            notificationData.data = { encrypted: true };
-          }
-        } else {
-          // Plain JSON message
-          notificationData.body = data.message || data.body || JSON.stringify(data);
-          if (data.title) notificationData.title = data.title;
-        }
-      } catch (e) {
-        // Not JSON, treat as plain text
-        notificationData.body = event.data.text();
+    if (!event.data) {
+      console.log('No data in push event');
+      await self.registration.showNotification(notificationData.title, notificationData);
+      return;
+    }
+
+    try {
+      // First try to get the text
+      const textData = event.data.text();
+      console.log('Push data text:', textData);
+      
+      if (!textData) {
+        console.log('Empty push data');
+        await self.registration.showNotification(notificationData.title, notificationData);
+        return;
       }
+
+      // Try to parse as JSON
+      let data;
+      try {
+        data = JSON.parse(textData);
+        console.log('Parsed JSON data:', data);
+      } catch (e) {
+        // Not JSON, use as plain text
+        console.log('Not JSON, using as plain text');
+        notificationData.body = textData;
+        await self.registration.showNotification(notificationData.title, notificationData);
+        return;
+      }
+      
+      // Check if this is an encrypted message
+      if (data.encrypted && data.ephemeralPublicKey && data.iv && data.ciphertext) {
+        console.log('Received encrypted message, attempting to decrypt...');
+        
+        const encryptedData = {
+          iv: base64UrlDecode(data.iv),
+          ciphertext: base64UrlDecode(data.ciphertext)
+        };
+        
+        const decrypted = await decryptMessage(encryptedData, data.ephemeralPublicKey);
+        
+        if (decrypted) {
+          notificationData.body = decrypted;
+          notificationData.data = { decrypted: true };
+          console.log('Message decrypted successfully:', decrypted);
+        } else {
+          notificationData.body = '🔒 Encrypted message (unable to decrypt)';
+          notificationData.data = { encrypted: true };
+          console.log('Failed to decrypt message');
+        }
+      } else {
+        // Plain JSON message
+        notificationData.body = data.message || data.body || JSON.stringify(data);
+        if (data.title) notificationData.title = data.title;
+        console.log('Plain message:', notificationData.body);
+      }
+    } catch (e) {
+      console.error('Error processing push data:', e);
+      notificationData.body = 'Error processing message';
     }
 
     await self.registration.showNotification(notificationData.title, {
