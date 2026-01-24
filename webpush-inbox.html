@@ -412,7 +412,17 @@
 
     <!-- Debug Panel -->
     <div id="debugPanel" style="display: none; background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); font-family: monospace; font-size: 12px;">
-      <h3 style="margin-bottom: 10px;">🐛 Debug Info</h3>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h3 style="margin: 0;">🐛 Debug Info</h3>
+        <div style="display: flex; gap: 10px;">
+          <button onclick="checkConfig()" style="padding: 6px 12px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+            🔍 Check Config
+          </button>
+          <button onclick="clearDB()" style="padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+            🗑️ Clear DB
+          </button>
+        </div>
+      </div>
       <div id="debugOutput" style="background: #f5f5f5; padding: 10px; border-radius: 6px; max-height: 300px; overflow-y: auto;"></div>
     </div>
 
@@ -452,7 +462,7 @@
   </div>
 
   <script src="webpusher-crypto.js"></script>
-  <script src="webpush-protocol-handler.js"></script>
+  <script src="protocol-handler.js"></script>
   <script>
     let notifications = [];
     let currentFilter = 'all';
@@ -486,6 +496,79 @@
       debugLog('Debug panel ' + (debugVisible ? 'opened' : 'closed'));
     }
 
+    function checkConfig() {
+      const savedGuest = localStorage.getItem('webpusher_guest');
+      const savedAdmin = localStorage.getItem('webpusher_admin');
+      
+      const config = {
+        'Current Role': isAdmin ? 'Admin' : 'Guest',
+        'User ID': userId || 'NOT SET',
+        'Worker URL': workerUrl || 'NOT SET',
+        'Has Credential': credential ? 'YES ✅' : 'NO ❌',
+        'localStorage Admin': savedAdmin ? 'EXISTS ✅' : 'NOT FOUND ❌',
+        'localStorage Guest': savedGuest ? 'EXISTS ✅' : 'NOT FOUND ❌'
+      };
+      
+      if (savedAdmin) {
+        try {
+          const parsed = JSON.parse(savedAdmin);
+          config['Admin Config'] = {
+            workerUrl: parsed.workerUrl || 'MISSING',
+            hasSecret: !!parsed.secret
+          };
+        } catch (e) {
+          config['Admin Config'] = 'PARSE ERROR: ' + e.message;
+        }
+      }
+      
+      if (savedGuest) {
+        try {
+          const parsed = JSON.parse(savedGuest);
+          config['Guest Config'] = {
+            workerUrl: parsed.workerUrl || 'MISSING',
+            id: parsed.id || 'MISSING',
+            hasToken: !!parsed.token
+          };
+        } catch (e) {
+          config['Guest Config'] = 'PARSE ERROR: ' + e.message;
+        }
+      }
+      
+      debugLog('🔍 Configuration Check', config);
+      
+      if (!workerUrl || !credential) {
+        alert('⚠️ Configuration incomplete!\n\nSee debug panel for details.\n\nUse "⚙️ Configure Manually" button or visit setup pages.');
+        if (!debugVisible) toggleDebug();
+      } else {
+        alert('✅ Configuration looks good!\n\nRole: ' + (isAdmin ? 'Admin' : 'Guest') + '\nWorker: ' + workerUrl);
+      }
+    }
+
+    async function clearDB() {
+      if (!confirm('⚠️ Clear all notifications from IndexedDB?\n\nThis cannot be undone!')) {
+        return;
+      }
+      
+      try {
+        const db = await openNotificationsDB();
+        const tx = db.transaction('notifications', 'readwrite');
+        const store = tx.objectStore('notifications');
+        await new Promise((resolve, reject) => {
+          const request = store.clear();
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        });
+        
+        debugLog('✅ Database cleared');
+        await loadNotifications();
+        renderNotifications();
+        alert('✅ Database cleared!');
+      } catch (error) {
+        debugLog('❌ Error clearing database:', error);
+        alert('❌ Error: ' + error.message);
+      }
+    }
+
     // Initialize
     async function init() {
       debugLog('🚀 Initializing notifications inbox...');
@@ -494,31 +577,56 @@
       const savedGuest = localStorage.getItem('webpusher_guest');
       const savedAdmin = localStorage.getItem('webpusher_admin');
       
-      debugLog('Saved guest config:', savedGuest ? 'Found' : 'Not found');
-      debugLog('Saved admin config:', savedAdmin ? 'Found' : 'Not found');
+      debugLog('Checking localStorage...');
+      debugLog('webpusher_guest:', savedGuest || 'NOT FOUND');
+      debugLog('webpusher_admin:', savedAdmin || 'NOT FOUND');
       
       if (savedAdmin) {
-        const config = JSON.parse(savedAdmin);
-        isAdmin = true;
-        userId = 'admin';
-        workerUrl = config.workerUrl;
-        credential = config.secret;
-        document.getElementById('userBadge').textContent = '👤 Admin';
-        document.getElementById('userBadge').className = 'user-badge admin';
-        debugLog('✅ Configured as Admin');
+        try {
+          const config = JSON.parse(savedAdmin);
+          debugLog('Admin config parsed:', config);
+          
+          isAdmin = true;
+          userId = 'admin';
+          workerUrl = config.workerUrl || '';
+          credential = config.secret || '';
+          
+          document.getElementById('userBadge').textContent = '👤 Admin';
+          document.getElementById('userBadge').className = 'user-badge admin';
+          debugLog('✅ Configured as Admin', {
+            workerUrl: workerUrl,
+            hasCredential: !!credential
+          });
+        } catch (e) {
+          debugLog('❌ Error parsing admin config:', e);
+        }
       } else if (savedGuest) {
-        const config = JSON.parse(savedGuest);
-        isAdmin = false;
-        userId = config.id;
-        workerUrl = config.workerUrl;
-        credential = config.token;
-        document.getElementById('userBadge').textContent = '👤 Guest';
-        document.getElementById('userBadge').className = 'user-badge guest';
-        debugLog('✅ Configured as Guest:', userId);
+        try {
+          const config = JSON.parse(savedGuest);
+          debugLog('Guest config parsed:', config);
+          
+          isAdmin = false;
+          userId = config.id || '';
+          workerUrl = config.workerUrl || '';
+          credential = config.token || '';
+          
+          document.getElementById('userBadge').textContent = '👤 Guest';
+          document.getElementById('userBadge').className = 'user-badge guest';
+          debugLog('✅ Configured as Guest', {
+            userId: userId,
+            workerUrl: workerUrl,
+            hasCredential: !!credential
+          });
+        } catch (e) {
+          debugLog('❌ Error parsing guest config:', e);
+        }
       } else {
-        debugLog('⚠️ No user configuration found - please set up admin or guest first');
+        debugLog('⚠️ No user configuration found');
         document.getElementById('userBadge').textContent = '⚠️ Not Configured';
         document.getElementById('userBadge').className = 'user-badge';
+        
+        // Show setup instructions
+        showSetupInstructions();
       }
 
       // Load notifications from IndexedDB
@@ -534,6 +642,72 @@
       renderNotifications();
       
       debugLog('✅ Initialization complete!');
+    }
+
+    function showSetupInstructions() {
+      const statusBar = document.querySelector('.status-bar');
+      if (statusBar) {
+        statusBar.innerHTML = `
+          <div style="flex: 1;">
+            <strong style="color: #d32f2f;">⚠️ Not Configured</strong><br>
+            <span style="font-size: 12px; color: #666;">
+              Please complete setup in 
+              <a href="admin-setup.html" style="color: #667eea;">admin-setup.html</a> or 
+              <a href="guest-register.html" style="color: #667eea;">guest-register.html</a> first
+            </span>
+          </div>
+          <button onclick="manualConfig()" style="padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+            ⚙️ Configure Manually
+          </button>
+        `;
+      }
+    }
+
+    function manualConfig() {
+      const role = prompt('Are you Admin or Guest?\n\nType "admin" or "guest":');
+      if (!role) return;
+      
+      const roleNormalized = role.toLowerCase().trim();
+      
+      if (roleNormalized === 'admin') {
+        const url = prompt('Enter Worker URL:\n(e.g., https://wobpusher.diavlos.workers.dev)');
+        if (!url) return;
+        
+        const secret = prompt('Enter Admin Secret:');
+        if (!secret) return;
+        
+        const config = {
+          workerUrl: url,
+          secret: secret
+        };
+        
+        localStorage.setItem('webpusher_admin', JSON.stringify(config));
+        debugLog('✅ Manual admin configuration saved');
+        location.reload();
+        
+      } else if (roleNormalized === 'guest') {
+        const url = prompt('Enter Worker URL:\n(e.g., https://wobpusher.diavlos.workers.dev)');
+        if (!url) return;
+        
+        const guestId = prompt('Enter Guest ID:');
+        if (!guestId) return;
+        
+        const token = prompt('Enter Guest Token:');
+        if (!token) return;
+        
+        const config = {
+          workerUrl: url,
+          id: guestId,
+          token: token
+        };
+        
+        localStorage.setItem('webpusher_guest', JSON.stringify(config));
+        debugLog('✅ Manual guest configuration saved');
+        location.reload();
+        
+      } else {
+        alert('Invalid role. Please enter "admin" or "guest".');
+      }
     }
 
     // Load notifications from IndexedDB
@@ -856,8 +1030,31 @@
         return;
       }
       
+      debugLog('Attempting to send reply...', {
+        notificationId: id,
+        replyLength: replyText.length,
+        isAdmin: isAdmin,
+        hasWorkerUrl: !!workerUrl,
+        hasCredential: !!credential,
+        workerUrl: workerUrl,
+        sender: notification?.sender
+      });
+      
       if (!workerUrl || !credential) {
-        alert('Not configured. Please set up admin/guest first.');
+        debugLog('❌ Missing configuration!', {
+          workerUrl: workerUrl || 'MISSING',
+          credential: credential ? 'SET' : 'MISSING'
+        });
+        
+        alert('❌ Not configured!\n\nPlease complete setup first:\n\n' +
+              '• For Admin: Visit admin-setup.html\n' +
+              '• For Guest: Visit guest-register.html\n\n' +
+              'Then reload this page.');
+        
+        // Toggle debug panel to show the issue
+        if (!debugVisible) {
+          toggleDebug();
+        }
         return;
       }
       
@@ -866,32 +1063,46 @@
         if (!url.startsWith('http')) url = 'https://' + url;
         url = url.replace(/\/$/, '');
         
+        debugLog('Fetching public key...', { url });
+        
         // Fetch public key
         let publicKeyJwk;
         
         if (isAdmin) {
           // Admin replying to guest
           const guestId = notification.sender;
+          debugLog('Admin replying to guest:', guestId);
+          
           const keyResponse = await fetch(`${url}/admin/guest/${guestId}/public-key`, {
             headers: { 'x-admin-secret': credential }
           });
           
-          if (!keyResponse.ok) throw new Error('Failed to get guest public key');
+          if (!keyResponse.ok) {
+            throw new Error(`Failed to get guest public key (${keyResponse.status})`);
+          }
           
           const data = await keyResponse.json();
           publicKeyJwk = data.publicKeyJwk;
+          debugLog('✅ Got guest public key');
         } else {
           // Guest replying to admin
+          debugLog('Guest replying to admin');
+          
           const keyResponse = await fetch(`${url}/admin/public-key`);
           
-          if (!keyResponse.ok) throw new Error('Failed to get admin public key');
+          if (!keyResponse.ok) {
+            throw new Error(`Failed to get admin public key (${keyResponse.status})`);
+          }
           
           const data = await keyResponse.json();
           publicKeyJwk = data.publicKeyJwk;
+          debugLog('✅ Got admin public key');
         }
         
         // Encrypt message
+        debugLog('Encrypting message...');
         const encrypted = await WebPusherCrypto.encryptMessage(replyText, publicKeyJwk);
+        debugLog('✅ Message encrypted');
         
         // Send
         let sendUrl, headers;
@@ -910,19 +1121,27 @@
           };
         }
         
+        debugLog('Sending to:', sendUrl);
+        
         const response = await fetch(sendUrl, {
           method: 'POST',
           headers: headers,
           body: JSON.stringify(encrypted)
         });
         
-        if (!response.ok) throw new Error('Failed to send reply');
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to send reply (${response.status}): ${errorText}`);
+        }
+        
+        debugLog('✅ Reply sent successfully!');
         
         // Success!
         cancelReply(id);
         alert('✅ Reply sent!');
         
       } catch (error) {
+        debugLog('❌ Reply error:', error);
         console.error('Reply error:', error);
         alert(`❌ Error: ${error.message}`);
       }
