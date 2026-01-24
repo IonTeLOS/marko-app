@@ -134,12 +134,36 @@ self.addEventListener('push', (event) => {
     }
 
     try {
-      // Get the data as ArrayBuffer and decode it properly
-      const arrayBuffer = await event.data.arrayBuffer();
-      const decoder = new TextDecoder();
-      const textData = decoder.decode(arrayBuffer);
+      // The push service JSON-stringifies Uint8Arrays, so we need to handle that
+      let textData;
       
-      console.log('Decoded push data:', textData);
+      try {
+        // First try to parse as JSON to see if it's a stringified array
+        const parsed = event.data.json();
+        
+        // Check if this is a JSON-stringified Uint8Array (has numeric keys 0, 1, 2, ...)
+        if (typeof parsed === 'object' && '0' in parsed && '1' in parsed) {
+          console.log('Detected JSON-stringified Uint8Array, converting back...');
+          // Convert back to Uint8Array
+          const length = Object.keys(parsed).length;
+          const bytes = new Uint8Array(length);
+          for (let i = 0; i < length; i++) {
+            bytes[i] = parsed[i];
+          }
+          // Decode to string
+          const decoder = new TextDecoder();
+          textData = decoder.decode(bytes);
+          console.log('Decoded from byte array:', textData);
+        } else {
+          // It's already proper JSON
+          textData = JSON.stringify(parsed);
+          console.log('Already proper JSON:', textData);
+        }
+      } catch (e) {
+        // Not JSON, try as text
+        textData = event.data.text();
+        console.log('Got as text:', textData);
+      }
       
       if (!textData) {
         console.log('Empty push data');
@@ -174,11 +198,11 @@ self.addEventListener('push', (event) => {
         if (decrypted) {
           notificationData.body = decrypted;
           notificationData.data = { decrypted: true };
-          console.log('Message decrypted successfully:', decrypted);
+          console.log('✅ Message decrypted successfully:', decrypted);
         } else {
           notificationData.body = '🔒 Encrypted message (unable to decrypt)';
           notificationData.data = { encrypted: true };
-          console.log('Failed to decrypt message');
+          console.log('❌ Failed to decrypt message');
         }
       } else {
         // Plain JSON message
