@@ -281,6 +281,7 @@
   </div>
 
   <script src="webpusher-crypto.js"></script>
+  <script src="protocol-handler.js"></script>
   <script>
     let tags = [];
     let actions = [];
@@ -328,46 +329,47 @@
       }
     });
 
-async function loadGuests(workerUrl, adminSecret) {
-  if (!workerUrl.startsWith('http')) {
-    workerUrl = 'https://' + workerUrl;
-  }
-  workerUrl = workerUrl.replace(/\/$/, '');
+    async function loadGuests(workerUrl, adminSecret) {
+      if (!workerUrl.startsWith('http')) {
+        workerUrl = 'https://' + workerUrl;
+      }
+      workerUrl = workerUrl.replace(/\/$/, '');
 
-  try {
-    const response = await fetch(`${workerUrl}/admin/guests`, {
-      headers: { 'x-admin-secret': adminSecret }
-    });
+      try {
+        const response = await fetch(`${workerUrl}/admin/guests`, {
+          headers: { 'x-admin-secret': adminSecret }
+        });
 
-    if (!response.ok) {
-      console.error('Failed to load guests');
-      return;
+        if (!response.ok) {
+          console.error('Failed to load guests');
+          return;
+        }
+
+        const data = await response.json();
+        
+        // ✅ Normalize response shape - handle both array directly or nested in guests property
+        guests = Array.isArray(data)
+          ? data
+          : Array.isArray(data.guests)
+            ? data.guests
+            : [];
+        
+        const recipientSelect = document.getElementById('recipient');
+        recipientSelect.innerHTML = '<option value="">Select a guest...</option>';
+        
+        guests.forEach(guest => {
+          const option = document.createElement('option');
+          option.value = guest.id;
+          option.textContent = `${guest.name ?? 'Guest'} (${guest.id})`;
+          recipientSelect.appendChild(option);
+        });
+
+        // Show recipient section
+        document.getElementById('recipientSection').classList.remove('hidden');
+      } catch (error) {
+        console.error('Error loading guests:', error);
+      }
     }
-
-    const data = await response.json();
-
-    // ✅ Normalize response shape
-    guests = Array.isArray(data)
-      ? data
-      : Array.isArray(data.guests)
-        ? data.guests
-        : [];
-
-    const recipientSelect = document.getElementById('recipient');
-    recipientSelect.innerHTML = '<option value="">Select a guest...</option>';
-
-    guests.forEach(guest => {
-      const option = document.createElement('option');
-      option.value = guest.id;
-      option.textContent = `${guest.name ?? 'Guest'} (${guest.id})`;
-      recipientSelect.appendChild(option);
-    });
-
-    document.getElementById('recipientSection').classList.remove('hidden');
-  } catch (error) {
-    console.error('Error loading guests:', error);
-  }
-}
 
     // Re-detect role when credential changes
     document.getElementById('credential').addEventListener('change', async (e) => {
@@ -406,6 +408,8 @@ async function loadGuests(workerUrl, adminSecret) {
         isAdmin = false;
         document.getElementById('roleBadge').textContent = 'Guest';
         document.getElementById('roleBadge').className = 'role-badge guest';
+        document.getElementById('credentialLabel').textContent = 'Guest Token';
+        document.getElementById('recipientSection').classList.add('hidden');
       }
     });
 
@@ -484,6 +488,52 @@ async function loadGuests(workerUrl, adminSecret) {
       if (action) action[field] = value;
     }
 
+    // Helper to create rich message with sender tags automatically added
+    function createRichMessage(options) {
+      // Start with all the options
+      const message = { ...options };
+      
+      // Initialize tags array if not present
+      if (!message.tags) {
+        message.tags = [];
+      } else if (!Array.isArray(message.tags)) {
+        message.tags = [message.tags];
+      }
+      
+      // Auto-add sender tags based on current user
+      if (isAdmin) {
+        // Get admin name from localStorage
+        const savedAdmin = localStorage.getItem('webpusher_admin');
+        const adminConfig = savedAdmin ? JSON.parse(savedAdmin) : {};
+        const adminName = adminConfig.name || 'Admin';
+        
+        message.tags.push(`sender:${adminName}`);
+        message.tags.push(`senderId:admin`);
+        
+        console.log('✅ Auto-added sender tags:', adminName, 'admin');
+      } else {
+        // Get guest info from localStorage
+        const savedGuest = localStorage.getItem('webpusher_guest');
+        const guestConfig = savedGuest ? JSON.parse(savedGuest) : {};
+        const guestId = guestConfig.id || 'guest';
+        const guestName = guestConfig.name || guestId;
+        
+        message.tags.push(`sender:${guestName}`);
+        message.tags.push(`senderId:${guestId}`);
+        
+        console.log('✅ Auto-added sender tags:', guestName, guestId);
+      }
+      
+      // Remove undefined fields to keep message clean
+      Object.keys(message).forEach(key => {
+        if (message[key] === undefined) {
+          delete message[key];
+        }
+      });
+      
+      return message;
+    }
+
     async function sendRichNotification() {
       const message = document.getElementById('message').value.trim();
       if (!message) {
@@ -539,6 +589,52 @@ async function loadGuests(workerUrl, adminSecret) {
       try {
         document.getElementById('sendButton').disabled = true;
 
+        // Prepare message object
+        let messageObj;
+        if (typeof messageData === 'string') {
+          messageObj = { message: messageData };
+        } else {
+          messageObj = { ...messageData };
+        }
+
+        // Initialize tags array if needed
+        if (!messageObj.tags) {
+          messageObj.tags = [];
+        } else if (!Array.isArray(messageObj.tags)) {
+          messageObj.tags = [messageObj.tags];
+        }
+
+        // Check if sender tags already present (from createRichMessage)
+        const hasSenderTags = messageObj.tags.some(t => 
+          typeof t === 'string' && (t.startsWith('sender:') || t.startsWith('senderId:'))
+        );
+
+        // Only add sender tags if not already present (for simple messages)
+        if (!hasSenderTags) {
+          if (isAdmin) {
+            const savedAdmin = localStorage.getItem('webpusher_admin');
+            const adminConfig = savedAdmin ? JSON.parse(savedAdmin) : {};
+            const adminName = adminConfig.name || 'Admin';
+            
+            messageObj.tags.push(`sender:${adminName}`);
+            messageObj.tags.push(`senderId:admin`);
+            
+            console.log('Adding sender tags:', adminName, 'admin');
+          } else {
+            const savedGuest = localStorage.getItem('webpusher_guest');
+            const guestConfig = savedGuest ? JSON.parse(savedGuest) : {};
+            const guestId = guestConfig.id || 'guest';
+            const guestName = guestConfig.name || guestId;
+            
+            messageObj.tags.push(`sender:${guestName}`);
+            messageObj.tags.push(`senderId:${guestId}`);
+            
+            console.log('Adding sender tags:', guestName, guestId);
+          }
+        } else {
+          console.log('Sender tags already present, skipping');
+        }
+
         if (isAdmin) {
           // Admin sending to guest
           const recipientId = document.getElementById('recipient').value;
@@ -562,11 +658,7 @@ async function loadGuests(workerUrl, adminSecret) {
 
           showStatus('Encrypting message...', 'info');
 
-          const messageString = typeof messageData === 'string' 
-            ? messageData 
-            : JSON.stringify(messageData);
-          
-          const encrypted = await WebPusherCrypto.encryptMessage(messageString, publicKeyJwk);
+          const encrypted = await WebPusherCrypto.encryptMessage(JSON.stringify(messageObj), publicKeyJwk);
 
           showStatus('Sending encrypted notification...', 'info');
 
@@ -597,11 +689,7 @@ async function loadGuests(workerUrl, adminSecret) {
 
           showStatus('Encrypting message...', 'info');
 
-          const messageString = typeof messageData === 'string' 
-            ? messageData 
-            : JSON.stringify(messageData);
-          
-          const encrypted = await WebPusherCrypto.encryptMessage(messageString, publicKeyJwk);
+          const encrypted = await WebPusherCrypto.encryptMessage(JSON.stringify(messageObj), publicKeyJwk);
 
           showStatus('Sending encrypted notification...', 'info');
 
@@ -621,7 +709,7 @@ async function loadGuests(workerUrl, adminSecret) {
           showStatus('✅ Rich notification sent to admin successfully!', 'success');
         }
 
-        console.log('Sent message:', messageData);
+        console.log('Sent message:', messageObj);
       } catch (error) {
         console.error('Send error:', error);
         showStatus(`❌ Error: ${error.message}`, 'error');
