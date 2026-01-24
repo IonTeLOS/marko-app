@@ -23,6 +23,22 @@
     h1 { color: #333; margin-bottom: 10px; font-size: 28px; }
     h2 { color: #333; margin-bottom: 15px; font-size: 20px; margin-top: 20px; }
     .subtitle { color: #666; margin-bottom: 30px; line-height: 1.6; }
+    .role-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+    .role-badge.admin {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+    .role-badge.guest {
+      background: #f3e5f5;
+      color: #7b1fa2;
+    }
     .form-group { margin-bottom: 15px; }
     label {
       display: block;
@@ -32,7 +48,7 @@
       font-size: 14px;
     }
     .hint { font-size: 12px; color: #999; margin-top: 3px; }
-    input, textarea {
+    input, textarea, select {
       width: 100%;
       padding: 10px;
       border: 2px solid #e0e0e0;
@@ -40,7 +56,7 @@
       font-size: 14px;
       font-family: inherit;
     }
-    input:focus, textarea:focus {
+    input:focus, textarea:focus, select:focus {
       outline: none;
       border-color: #667eea;
     }
@@ -72,6 +88,11 @@
     }
     button.secondary {
       background: #6c757d;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
     }
     .status {
       padding: 15px;
@@ -137,23 +158,34 @@
       padding: 4px;
     }
     #tagInput:focus { outline: none; border: none; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="card">
-      <h1>📨 Send Rich Notification</h1>
+      <h1>📨 Send Rich Notification<span id="roleBadge" class="role-badge"></span></h1>
       <p class="subtitle">Create and send rich notifications with all supported features.</p>
 
       <!-- Config -->
       <div class="form-group">
         <label for="workerUrl">Worker URL</label>
-        <input type="url" id="workerUrl" placeholder="https://wobpusher.diavlos.workers.dev">
+        <input type="url" id="workerUrl" placeholder="https://your-worker.workers.dev">
       </div>
 
+      <!-- Recipient Selection (Admin only) -->
+      <div id="recipientSection" class="form-group hidden">
+        <label for="recipient">Send To</label>
+        <select id="recipient">
+          <option value="">Loading guests...</option>
+        </select>
+        <div class="hint">Select which guest to send the notification to</div>
+      </div>
+
+      <!-- Token/Secret (depending on role) -->
       <div class="form-group">
-        <label for="token">Guest Token</label>
-        <input type="password" id="token" placeholder="Enter your guest token">
+        <label for="credential" id="credentialLabel">Guest Token / Admin Secret</label>
+        <input type="password" id="credential" placeholder="Enter your token or secret">
       </div>
 
       <!-- Required Fields -->
@@ -241,7 +273,7 @@
       </div>
 
       <!-- Actions -->
-      <button onclick="sendRichNotification()">🚀 Send Rich Notification</button>
+      <button onclick="sendRichNotification()" id="sendButton">🚀 Send Rich Notification</button>
       <button class="secondary" onclick="sendSimpleNotification()">📤 Send Simple (Message Only)</button>
 
       <div id="status" class="status"></div>
@@ -252,12 +284,124 @@
   <script>
     let tags = [];
     let actions = [];
+    let isAdmin = false;
+    let guests = [];
 
     function showStatus(message, type = 'info') {
       const statusDiv = document.getElementById('status');
       statusDiv.textContent = message;
       statusDiv.className = `status ${type} show`;
     }
+
+    // Detect role on page load
+    window.addEventListener('DOMContentLoaded', async () => {
+      const savedGuest = localStorage.getItem('webpusher_guest');
+      const savedAdmin = localStorage.getItem('webpusher_admin');
+      
+      if (savedAdmin) {
+        try {
+          const config = JSON.parse(savedAdmin);
+          if (config.workerUrl) document.getElementById('workerUrl').value = config.workerUrl;
+          if (config.secret) {
+            document.getElementById('credential').value = config.secret;
+            isAdmin = true;
+            document.getElementById('roleBadge').textContent = 'Admin';
+            document.getElementById('roleBadge').className = 'role-badge admin';
+            document.getElementById('credentialLabel').textContent = 'Admin Secret';
+            
+            // Load guests for admin
+            await loadGuests(config.workerUrl, config.secret);
+          }
+        } catch (e) {}
+      } else if (savedGuest) {
+        try {
+          const config = JSON.parse(savedGuest);
+          if (config.workerUrl) document.getElementById('workerUrl').value = config.workerUrl;
+          if (config.token) {
+            document.getElementById('credential').value = config.token;
+            isAdmin = false;
+            document.getElementById('roleBadge').textContent = 'Guest';
+            document.getElementById('roleBadge').className = 'role-badge guest';
+            document.getElementById('credentialLabel').textContent = 'Guest Token';
+          }
+        } catch (e) {}
+      }
+    });
+
+    async function loadGuests(workerUrl, adminSecret) {
+      if (!workerUrl.startsWith('http')) {
+        workerUrl = 'https://' + workerUrl;
+      }
+      workerUrl = workerUrl.replace(/\/$/, '');
+
+      try {
+        const response = await fetch(`${workerUrl}/admin/guests`, {
+          headers: { 'x-admin-secret': adminSecret }
+        });
+
+        if (!response.ok) {
+          console.error('Failed to load guests');
+          return;
+        }
+
+        guests = await response.json();
+        
+        const recipientSelect = document.getElementById('recipient');
+        recipientSelect.innerHTML = '<option value="">Select a guest...</option>';
+        
+        guests.forEach(guest => {
+          const option = document.createElement('option');
+          option.value = guest.id;
+          option.textContent = `${guest.name} (${guest.id})`;
+          recipientSelect.appendChild(option);
+        });
+
+        // Show recipient section
+        document.getElementById('recipientSection').classList.remove('hidden');
+      } catch (error) {
+        console.error('Error loading guests:', error);
+      }
+    }
+
+    // Re-detect role when credential changes
+    document.getElementById('credential').addEventListener('change', async (e) => {
+      const credential = e.target.value.trim();
+      const workerUrl = document.getElementById('workerUrl').value.trim();
+      
+      if (!credential || !workerUrl) return;
+
+      // Try as admin secret
+      try {
+        let url = workerUrl;
+        if (!url.startsWith('http')) url = 'https://' + url;
+        url = url.replace(/\/$/, '');
+
+        const response = await fetch(`${url}/admin/guests`, {
+          headers: { 'x-admin-secret': credential }
+        });
+
+        if (response.ok) {
+          // It's an admin!
+          isAdmin = true;
+          document.getElementById('roleBadge').textContent = 'Admin';
+          document.getElementById('roleBadge').className = 'role-badge admin';
+          document.getElementById('credentialLabel').textContent = 'Admin Secret';
+          await loadGuests(url, credential);
+        } else {
+          // It's a guest
+          isAdmin = false;
+          document.getElementById('roleBadge').textContent = 'Guest';
+          document.getElementById('roleBadge').className = 'role-badge guest';
+          document.getElementById('credentialLabel').textContent = 'Guest Token';
+          document.getElementById('recipientSection').classList.add('hidden');
+        }
+      } catch (e) {
+        // Assume guest on error
+        isAdmin = false;
+        document.getElementById('roleBadge').textContent = 'Guest';
+        document.getElementById('roleBadge').className = 'role-badge guest';
+      }
+    });
 
     // Tags management
     document.getElementById('tagInput').addEventListener('keydown', (e) => {
@@ -282,10 +426,8 @@
       const container = document.getElementById('tagsContainer');
       const input = document.getElementById('tagInput');
       
-      // Remove all tag pills
       container.querySelectorAll('.tag-pill').forEach(el => el.remove());
       
-      // Add current tags
       tags.forEach(tag => {
         const pill = document.createElement('div');
         pill.className = 'tag-pill';
@@ -376,10 +518,10 @@
 
     async function sendNotification(messageData) {
       let workerUrl = document.getElementById('workerUrl').value.trim();
-      const token = document.getElementById('token').value.trim();
+      const credential = document.getElementById('credential').value.trim();
 
-      if (!workerUrl || !token) {
-        showStatus('Worker URL and Token are required', 'error');
+      if (!workerUrl || !credential) {
+        showStatus('Worker URL and credential are required', 'error');
         return;
       }
 
@@ -389,57 +531,98 @@
       workerUrl = workerUrl.replace(/\/$/, '');
 
       try {
-        showStatus('Fetching admin public key...', 'info');
+        document.getElementById('sendButton').disabled = true;
 
-        const keyResponse = await fetch(`${workerUrl}/admin/public-key`);
-        if (!keyResponse.ok) {
-          throw new Error(`Failed to get public key (${keyResponse.status})`);
+        if (isAdmin) {
+          // Admin sending to guest
+          const recipientId = document.getElementById('recipient').value;
+          if (!recipientId) {
+            showStatus('Please select a recipient', 'error');
+            document.getElementById('sendButton').disabled = false;
+            return;
+          }
+
+          showStatus('Fetching guest public key...', 'info');
+
+          const keyResponse = await fetch(`${workerUrl}/admin/guest/${recipientId}/public-key`, {
+            headers: { 'x-admin-secret': credential }
+          });
+
+          if (!keyResponse.ok) {
+            throw new Error(`Failed to get guest public key (${keyResponse.status})`);
+          }
+
+          const { publicKeyJwk } = await keyResponse.json();
+
+          showStatus('Encrypting message...', 'info');
+
+          const messageString = typeof messageData === 'string' 
+            ? messageData 
+            : JSON.stringify(messageData);
+          
+          const encrypted = await WebPusherCrypto.encryptMessage(messageString, publicKeyJwk);
+
+          showStatus('Sending encrypted notification...', 'info');
+
+          const response = await fetch(`${workerUrl}/admin/send/${recipientId}`, {
+            method: 'POST',
+            headers: {
+              'x-admin-secret': credential,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(encrypted)
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to send (${response.status})`);
+          }
+
+          showStatus('✅ Rich notification sent to guest successfully!', 'success');
+        } else {
+          // Guest sending to admin
+          showStatus('Fetching admin public key...', 'info');
+
+          const keyResponse = await fetch(`${workerUrl}/admin/public-key`);
+          if (!keyResponse.ok) {
+            throw new Error(`Failed to get public key (${keyResponse.status})`);
+          }
+
+          const { publicKeyJwk } = await keyResponse.json();
+
+          showStatus('Encrypting message...', 'info');
+
+          const messageString = typeof messageData === 'string' 
+            ? messageData 
+            : JSON.stringify(messageData);
+          
+          const encrypted = await WebPusherCrypto.encryptMessage(messageString, publicKeyJwk);
+
+          showStatus('Sending encrypted notification...', 'info');
+
+          const response = await fetch(`${workerUrl}/send`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${credential}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(encrypted)
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to send (${response.status})`);
+          }
+
+          showStatus('✅ Rich notification sent to admin successfully!', 'success');
         }
 
-        const { publicKeyJwk } = await keyResponse.json();
-
-        showStatus('Encrypting message...', 'info');
-
-        const messageString = typeof messageData === 'string' 
-          ? messageData 
-          : JSON.stringify(messageData);
-        
-        const encrypted = await WebPusherCrypto.encryptMessage(messageString, publicKeyJwk);
-
-        showStatus('Sending encrypted notification...', 'info');
-
-        const response = await fetch(`${workerUrl}/send`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(encrypted)
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to send (${response.status})`);
-        }
-
-        showStatus('✅ Rich notification sent successfully!', 'success');
         console.log('Sent message:', messageData);
       } catch (error) {
         console.error('Send error:', error);
         showStatus(`❌ Error: ${error.message}`, 'error');
+      } finally {
+        document.getElementById('sendButton').disabled = false;
       }
     }
-
-    // Load saved config
-    window.addEventListener('DOMContentLoaded', () => {
-      const saved = localStorage.getItem('webpusher_guest');
-      if (saved) {
-        try {
-          const config = JSON.parse(saved);
-          if (config.workerUrl) document.getElementById('workerUrl').value = config.workerUrl;
-          if (config.token) document.getElementById('token').value = config.token;
-        } catch (e) {}
-      }
-    });
   </script>
 </body>
 </html>
