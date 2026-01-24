@@ -170,3 +170,46 @@ const WebPusherCrypto = {
     });
   }
 };
+
+// Helper functions for creating rich messages
+function createRichMessage(options) {
+  const message = {};
+  
+  // Required
+  if (!options.message && !options.body) {
+    throw new Error('message or body is required');
+  }
+  message.message = options.message || options.body;
+  
+  // Optional fields
+  if (options.title) message.title = options.title;
+  if (options.icon) message.icon = options.icon;
+  if (options.badge) message.badge = options.badge;
+  if (options.image) message.image = options.image;
+  if (options.tag) message.tag = options.tag;
+  if (options.click) message.click = options.click;
+  
+  // Tags array
+  if (options.tags) {
+    message.tags = Array.isArray(options.tags) ? options.tags : [options.tags];
+  }
+  
+  // Behavior
+  if (options.requireInteraction !== undefined) {
+    message.requireInteraction = options.requireInteraction;
+  }
+  if (options.silent !== undefined) message.silent = options.silent;
+  if (options.timestamp) message.timestamp = options.timestamp;
+  if (options.vibrate) message.vibrate = options.vibrate;
+  
+  // Actions
+  if (options.actions && Array.isArray(options.actions)) {
+    message.actions = options.actions;
+  }
+  
+  return message;
+}
+
+function createSimpleMessage(text) {
+  return text;
+}
