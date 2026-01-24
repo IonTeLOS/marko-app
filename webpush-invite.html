@@ -271,7 +271,7 @@
         const { invite } = await response.json();
         
         // Get the base URL for guest registration
-        const baseUrl = window.location.origin + window.location.pathname.replace('invite-manager.html', '');
+        const baseUrl = window.location.origin + window.location.pathname.replace('webpush-invite', 'webpush-register');
         
         // Get VAPID public key and worker URL to include in invite
         const savedConfig = localStorage.getItem('webpusher_config') || localStorage.getItem('webpusher_admin');
