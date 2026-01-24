@@ -151,6 +151,16 @@
       </div>
 
       <div class="form-group">
+        <label for="adminName">Display Name (Optional)</label>
+        <input 
+          type="text" 
+          id="adminName" 
+          placeholder="Admin"
+        >
+        <div class="help-text">How you'll appear in notifications (default: "Admin")</div>
+      </div>
+
+      <div class="form-group">
         <label for="vapidPublic">VAPID Public Key</label>
         <textarea 
           id="vapidPublic" 
@@ -308,11 +318,14 @@
 
         showStatus('✅ Admin registration successful! You can now use the system.', 'success');
         
+        // Get admin name
+        const adminName = document.getElementById('adminName').value.trim() || 'Admin';
+        
         // Store credentials in localStorage for convenience
-        localStorage.setItem('webpusher_config', JSON.stringify({
+        localStorage.setItem('webpusher_admin', JSON.stringify({
           workerUrl,
-          adminSecret,
-          vapidPublic
+          secret: adminSecret,
+          name: adminName
         }));
 
       } catch (error) {
