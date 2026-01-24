@@ -162,6 +162,7 @@
       gap: 10px;
     }
   </style>
+  <script src="webpusher-crypto.js"></script>
 </head>
 <body>
   <div class="container">
@@ -352,7 +353,7 @@
       });
     }
 
-    function sendToGuest(guestId, guestName) {
+    async function sendToGuest(guestId, guestName) {
       const message = prompt(`Send a message to ${guestName}:`);
       if (!message) return;
 
@@ -365,26 +366,49 @@
       }
       workerUrl = workerUrl.replace(/\/$/, '');
 
-      showStatus('Sending...', 'info');
+      try {
+        showStatus('Fetching guest public key...', 'info');
 
-      fetch(`${workerUrl}/admin/send/${guestId}`, {
-        method: 'POST',
-        headers: {
-          'x-admin-secret': adminSecret,
-          'Content-Type': 'text/plain'
-        },
-        body: message
-      })
-      .then(response => {
+        // Get guest's public key
+        const keyResponse = await fetch(`${workerUrl}/admin/guest/${guestId}/public-key`, {
+          method: 'GET',
+          headers: {
+            'x-admin-secret': adminSecret
+          }
+        });
+
+        if (!keyResponse.ok) {
+          throw new Error(`Failed to get guest public key (${keyResponse.status})`);
+        }
+
+        const { publicKeyJwk } = await keyResponse.json();
+
+        showStatus('Encrypting message...', 'info');
+
+        // Encrypt the message
+        const encrypted = await WebPusherCrypto.encryptMessage(message, publicKeyJwk);
+
+        showStatus('Sending encrypted message...', 'info');
+
+        // Send encrypted message as JSON
+        const response = await fetch(`${workerUrl}/admin/send/${guestId}`, {
+          method: 'POST',
+          headers: {
+            'x-admin-secret': adminSecret,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(encrypted)
+        });
+
         if (!response.ok) {
           throw new Error(`Failed to send (${response.status})`);
         }
-        showStatus(`✅ Message sent to ${guestName}!`, 'success');
-      })
-      .catch(error => {
+
+        showStatus(`✅ Encrypted message sent to ${guestName}!`, 'success');
+      } catch (error) {
         console.error('Send error:', error);
         showStatus(`❌ Error: ${error.message}`, 'error');
-      });
+      }
     }
 
     // Load saved config on page load
