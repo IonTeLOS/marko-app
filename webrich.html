@@ -465,23 +465,30 @@ function updateConnectionsUI() {
 }
 // Detect role on page load
 window.addEventListener('DOMContentLoaded', () => {
-  const myUserId = localStorage.getItem('my_user_id');
-  const myName = localStorage.getItem('my_name');
-  const workerUrl = localStorage.getItem('worker_url');
-  const cached = localStorage.getItem('my_connections');
-  if (cached) {
-    myConnections = JSON.parse(cached);
-    updateConnectionsUI();
-  }
-  if (myUserId && myName) {
-    document.getElementById('roleBadge').textContent = myName;
-    document.getElementById('roleBadge').className = myUserId === 'admin' ? 'role-badge admin' : 'role-badge guest';
-    
-    if (workerUrl) {
-      document.getElementById('workerUrl').value = workerUrl;
+    // Load from cache immediately (for instant UI)
+    const cached = localStorage.getItem('my_connections');
+    if (cached) {
+        myConnections = JSON.parse(cached);
+        updateConnectionsUI();
     }
-  }
-  await syncConnections();
+    
+    const myUserId = localStorage.getItem('my_user_id');
+    const myName = localStorage.getItem('my_name');
+    const workerUrl = localStorage.getItem('worker_url');
+    
+    if (myUserId && myName) {
+        document.getElementById('roleBadge').textContent = myName;
+        document.getElementById('roleBadge').className = myUserId === 'admin' ? 'role-badge admin' : 'role-badge guest';
+        
+        if (workerUrl) {
+            document.getElementById('workerUrl').value = workerUrl;
+        }
+    }
+    
+    // Sync connections from server (non-blocking)
+    syncConnections().catch(err => {
+        console.error('Failed to sync connections:', err);
+    });
 });
 
 // Tags management
