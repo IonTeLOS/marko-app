@@ -183,10 +183,12 @@
       </div>
 
       <!-- Token/Secret (depending on role) -->
-      <div class="form-group">
-        <label for="credential" id="credentialLabel">Guest Token / Admin Secret</label>
-        <input type="password" id="credential" placeholder="Enter your token or secret">
-      </div>
+<!-- Replace the recipientSection and credential divs with this: -->
+<div class="form-group">
+  <label for="recipientUserId">Recipient User ID *</label>
+  <input type="text" id="recipientUserId" placeholder="admin or user-abc-123..." required>
+  <div class="hint">Enter the user ID to send the notification to (e.g., "admin" or "user-7a7353c4-...")</div>
+</div>
 
       <!-- Required Fields -->
       <h2>📝 Required</h2>
