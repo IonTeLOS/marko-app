@@ -230,6 +230,7 @@ async function testAdmin() {
 }
 
 // Store encryption key in service worker's IndexedDB
+// Store encryption key in service worker's IndexedDB
 async function storeEncryptionKeyInServiceWorker() {
     const encryptionPrivateKeyJwk = JSON.parse(localStorage.getItem('encryption_key'));
     
@@ -243,8 +244,8 @@ async function storeEncryptionKeyInServiceWorker() {
             const tx = db.transaction(['keys'], 'readwrite');
             const store = tx.objectStore('keys');
             
-            // Store the actual JWK object, not wrapped
-            store.put(encryptionPrivateKeyJwk, 'privateKey');
+            // Wrap in object with 'key' property (service worker expects this)
+            store.put({ key: encryptionPrivateKeyJwk }, 'privateKey');
             
             tx.oncomplete = () => {
                 console.log('✅ Encryption key stored in service worker DB');
