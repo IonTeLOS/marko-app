@@ -285,8 +285,6 @@
   <script>
 let tags = [];
 let actions = [];
-let isAdmin = false;
-let guests = [];
 
 function showStatus(message, type = 'info') {
   const statusDiv = document.getElementById('status');
@@ -315,13 +313,11 @@ function base64UrlEncode(buffer) {
 
 // Helper: Sign request with ECDSA
 async function signRequest(data, privateKeyJwk) {
-  // Create canonical JSON with ALL keys sorted
   const sortedData = sortKeysRecursively(data);
   const canonical = JSON.stringify(sortedData);
   
   console.log('Canonical JSON:', canonical);
   
-  // Import SIGNING private key (ECDSA)
   const privateKey = await crypto.subtle.importKey(
     'jwk',
     privateKeyJwk,
@@ -330,7 +326,6 @@ async function signRequest(data, privateKeyJwk) {
     ['sign']
   );
 
-  // Sign
   const encoder = new TextEncoder();
   const dataBuffer = encoder.encode(canonical);
   
@@ -340,108 +335,22 @@ async function signRequest(data, privateKeyJwk) {
     dataBuffer
   );
 
-  // Encode as base64url
   return base64UrlEncode(new Uint8Array(signatureBuffer));
 }
 
 // Detect role on page load
-window.addEventListener('DOMContentLoaded', async () => {
-  // Check if user is registered admin
+window.addEventListener('DOMContentLoaded', () => {
   const myUserId = localStorage.getItem('my_user_id');
   const myName = localStorage.getItem('my_name');
-  const signingKey = localStorage.getItem('signing_key');
   const workerUrl = localStorage.getItem('worker_url');
   
-  if (myUserId === 'admin') {
-    isAdmin = true;
-    document.getElementById('roleBadge').textContent = 'Admin';
-    document.getElementById('roleBadge').className = 'role-badge admin';
-    
-    if (workerUrl) {
-      document.getElementById('workerUrl').value = workerUrl;
-      
-      // Load guests for admin
-      const adminSecret = localStorage.getItem('admin_secret');
-      if (adminSecret) {
-        document.getElementById('credential').value = adminSecret;
-        await loadGuests(workerUrl, adminSecret);
-      }
-    }
-  } else if (myUserId && signingKey) {
-    isAdmin = false;
-    document.getElementById('roleBadge').textContent = 'Guest';
-    document.getElementById('roleBadge').className = 'role-badge guest';
-    document.getElementById('recipientSection').classList.add('hidden');
+  if (myUserId && myName) {
+    document.getElementById('roleBadge').textContent = myName;
+    document.getElementById('roleBadge').className = myUserId === 'admin' ? 'role-badge admin' : 'role-badge guest';
     
     if (workerUrl) {
       document.getElementById('workerUrl').value = workerUrl;
     }
-  }
-});
-
-async function loadGuests(workerUrl, adminSecret) {
-  if (!workerUrl.startsWith('http')) {
-    workerUrl = 'https://' + workerUrl;
-  }
-  workerUrl = workerUrl.replace(/\/$/, '');
-
-  try {
-    const response = await fetch(`${workerUrl}/admin/guests`, {
-      headers: { 'x-admin-secret': adminSecret }
-    });
-
-    if (!response.ok) {
-      console.error('Failed to load guests');
-      return;
-    }
-
-    const data = await response.json();
-    guests = Array.isArray(data) ? data : (Array.isArray(data.guests) ? data.guests : []);
-    
-    const recipientSelect = document.getElementById('recipient');
-    recipientSelect.innerHTML = '<option value="">Select a guest...</option>';
-    
-    guests.forEach(guest => {
-      const option = document.createElement('option');
-      option.value = guest.id;
-      option.textContent = `${guest.name ?? 'Guest'} (${guest.id})`;
-      recipientSelect.appendChild(option);
-    });
-
-    document.getElementById('recipientSection').classList.remove('hidden');
-  } catch (error) {
-    console.error('Error loading guests:', error);
-  }
-}
-
-// Re-detect role when credential changes (admin secret)
-document.getElementById('credential').addEventListener('change', async (e) => {
-  const credential = e.target.value.trim();
-  const workerUrl = document.getElementById('workerUrl').value.trim();
-  
-  if (!credential || !workerUrl) return;
-
-  // Try as admin secret
-  try {
-    let url = workerUrl;
-    if (!url.startsWith('http')) url = 'https://' + url;
-    url = url.replace(/\/$/, '');
-
-    const response = await fetch(`${url}/admin/guests`, {
-      headers: { 'x-admin-secret': credential }
-    });
-
-    if (response.ok) {
-      // Save as admin
-      isAdmin = true;
-      localStorage.setItem('admin_secret', credential);
-      localStorage.setItem('worker_url', url);
-      document.getElementById('roleBadge').textContent = 'Admin';
-      document.getElementById('roleBadge').className = 'role-badge admin';
-      await loadGuests(url, credential);
-    }
-  } catch (e) {
-    console.error('Admin check failed:', e);
   }
 });
 
@@ -600,9 +509,15 @@ async function sendSimpleNotification() {
 
 async function sendNotification(messageData) {
   let workerUrl = document.getElementById('workerUrl').value.trim();
+  const recipientId = document.getElementById('recipientUserId').value.trim();
 
   if (!workerUrl) {
     showStatus('Worker URL is required', 'error');
+    return;
+  }
+
+  if (!recipientId) {
+    showStatus('Recipient User ID is required', 'error');
     return;
   }
 
@@ -619,82 +534,42 @@ async function sendNotification(messageData) {
     const signingKeyJson = localStorage.getItem('signing_key');
     
     if (!myUserId || !signingKeyJson) {
-      showStatus('You must be registered first (admin or guest)', 'error');
+      showStatus('You must be registered first (use test-admin.html or test-guest.html)', 'error');
       document.getElementById('sendButton').disabled = false;
       return;
     }
 
     const signingKey = JSON.parse(signingKeyJson);
 
-    if (isAdmin) {
-      // Admin sending to guest
-      const recipientId = document.getElementById('recipient').value;
-      if (!recipientId) {
-        showStatus('Please select a recipient', 'error');
-        document.getElementById('sendButton').disabled = false;
-        return;
-      }
+    showStatus('Sending notification...', 'info');
 
-      showStatus('Sending notification...', 'info');
+    // Build and sign request
+    const timestamp = Date.now();
+    const requestData = {
+      userId: myUserId,
+      toUserId: recipientId,
+      timestamp: timestamp,
+      payload: messageData
+    };
 
-      const timestamp = Date.now();
-      const requestData = {
-        userId: myUserId,
-        toUserId: recipientId,
-        timestamp: timestamp,
-        payload: messageData
-      };
+    const signature = await signRequest(requestData, signingKey);
 
-      const signature = await signRequest(requestData, signingKey);
+    const response = await fetch(`${workerUrl}/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...requestData,
+        signature: signature
+      })
+    });
 
-      const response = await fetch(`${workerUrl}/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...requestData,
-          signature: signature
-        })
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Failed to send (${response.status}): ${error}`);
-      }
-
-      const result = await response.json();
-      showStatus(`✅ Notification sent! (${result.sent} devices)`, 'success');
-
-    } else {
-      // Guest sending to admin
-      showStatus('Sending notification to admin...', 'info');
-
-      const timestamp = Date.now();
-      const requestData = {
-        userId: myUserId,
-        toUserId: 'admin',
-        timestamp: timestamp,
-        payload: messageData
-      };
-
-      const signature = await signRequest(requestData, signingKey);
-
-      const response = await fetch(`${workerUrl}/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...requestData,
-          signature: signature
-        })
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Failed to send (${response.status}): ${error}`);
-      }
-
-      const result = await response.json();
-      showStatus(`✅ Notification sent to admin! (${result.sent} devices)`, 'success');
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to send (${response.status}): ${error}`);
     }
+
+    const result = await response.json();
+    showStatus(`✅ Notification sent! (${result.sent} devices)`, 'success');
 
     console.log('Sent message:', messageData);
   } catch (error) {
