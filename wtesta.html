@@ -40,6 +40,104 @@ async function createInvite() {
     }
 }
 </script>
+    <input type="text" id="recipient" placeholder="Recipient user ID">
+<input type="text" id="message" placeholder="Message">
+<button onclick="sendMessage()">Send Message</button>
+<div id="send-output"></div>
+
+<script>
+async function sendMessage() {
+    const output = document.getElementById('send-output');
+    const recipientId = document.getElementById('recipient').value;
+    const message = document.getElementById('message').value;
+
+    try {
+        const myUserId = localStorage.getItem('my_user_id');
+        const myPrivateKeyJwk = JSON.parse(localStorage.getItem('my_private_key'));
+        
+        // Get recipient's public key (batch sync)
+        const keysResponse = await fetch(`${WORKER_URL}/connections/keys/batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                connectionIds: [recipientId]
+            })
+        });
+        
+        const keysData = await keysResponse.json();
+        const recipientPublicKey = keysData.keys[0].publicKey;
+        
+        output.innerHTML += `✅ Got recipient public key<br>`;
+
+        // Encrypt message (simplified - you'd use proper ECDH)
+        const payload = {
+            message: message,
+            timestamp: Date.now(),
+            // In production: properly encrypted with ECDH
+        };
+
+        // Sign request
+        const timestamp = Date.now();
+        const requestData = {
+            userId: myUserId,
+            toUserId: recipientId,
+            timestamp: timestamp,
+            payload: payload
+        };
+
+        const signature = await signRequest(requestData, myPrivateKeyJwk);
+
+        // Send
+        const response = await fetch(`${WORKER_URL}/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ...requestData,
+                signature: signature
+            })
+        });
+
+        const result = await response.json();
+        output.innerHTML += `✅ Message sent: ${JSON.stringify(result)}<br>`;
+
+    } catch (error) {
+        output.innerHTML += `❌ Error: ${error.message}<br>`;
+        console.error(error);
+    }
+}
+
+async function signRequest(data, privateKeyJwk) {
+    // Create canonical JSON
+    const canonical = JSON.stringify(data, Object.keys(data).sort());
+    
+    // Import private key
+    const privateKey = await crypto.subtle.importKey(
+        'jwk',
+        privateKeyJwk,
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        false,
+        ['sign']
+    );
+
+    // Sign
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(canonical);
+    
+    const signatureBuffer = await crypto.subtle.sign(
+        { name: 'ECDSA', hash: 'SHA-256' },
+        privateKey,
+        dataBuffer
+    );
+
+    // Encode as base64url
+    return base64UrlEncode(new Uint8Array(signatureBuffer));
+}
+
+function base64UrlEncode(buffer) {
+    const base64 = btoa(String.fromCharCode(...buffer));
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+</script>
     <script>
     const WORKER_URL = 'https://f03262192045.ngrok-free.app';
     const ADMIN_SECRET = '123';
