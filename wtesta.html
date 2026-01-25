@@ -219,12 +219,49 @@ async function testAdmin() {
 
         localStorage.setItem('device_id', result.deviceId);
 
+        // NEW: Store encryption key in IndexedDB for service worker
+        await storeEncryptionKeyInServiceWorker();
+        output.innerHTML += '✅ Encryption key stored in service worker<br>';
+        
     } catch (error) {
         output.innerHTML += `❌ Error: ${error.message}<br>`;
         console.error(error);
     }
 }
 
+// Store encryption key in service worker's IndexedDB
+async function storeEncryptionKeyInServiceWorker() {
+    const encryptionPrivateKeyJwk = JSON.parse(localStorage.getItem('encryption_key'));
+    
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('webpusher-keys', 1);
+        
+        request.onerror = () => reject(request.error);
+        
+        request.onsuccess = () => {
+            const db = request.result;
+            const tx = db.transaction(['keys'], 'readwrite');
+            const store = tx.objectStore('keys');
+            
+            // Store the actual JWK object, not wrapped
+            store.put(encryptionPrivateKeyJwk, 'privateKey');
+            
+            tx.oncomplete = () => {
+                console.log('✅ Encryption key stored in service worker DB');
+                resolve();
+            };
+            
+            tx.onerror = () => reject(tx.error);
+        };
+        
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains('keys')) {
+                db.createObjectStore('keys');
+            }
+        };
+    });
+}
     function urlBase64ToUint8Array(base64String) {
         const padding = '='.repeat((4 - base64String.length % 4) % 4);
         const base64 = (base64String + padding)
@@ -238,5 +275,161 @@ async function testAdmin() {
         return outputArray;
     }
     </script>
+    <h3>Encrypted Messaging</h3>
+<input type="text" id="encrypted-recipient" placeholder="Recipient user ID">
+<input type="text" id="encrypted-message" placeholder="Encrypted message">
+<button onclick="sendEncryptedMessage()">Send Encrypted Message</button>
+<div id="encrypted-output"></div>
+
+<script>
+// Helper: base64url encode
+function base64UrlEncode(buffer) {
+    const base64 = btoa(String.fromCharCode(...buffer));
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+// Helper: base64url decode
+function base64UrlDecode(str) {
+    str = str.replace(/-/g, '+').replace(/_/g, '/');
+    while (str.length % 4) {
+        str += '=';
+    }
+    const binary = atob(str);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+}
+
+async function sendEncryptedMessage() {
+    const output = document.getElementById('encrypted-output');
+    const recipientId = document.getElementById('encrypted-recipient').value;
+    const message = document.getElementById('encrypted-message').value;
+    const myUserId = localStorage.getItem('my_user_id');
+    const myName = localStorage.getItem('my_name');
+    
+    output.innerHTML = '🔐 Starting E2EE message send...<br>';
+
+    try {
+        // 1. Get recipient's ENCRYPTION public key
+        output.innerHTML += '📡 Fetching recipient public key...<br>';
+        
+        const keysResponse = await fetch(`${WORKER_URL}/connections/keys/batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                connectionIds: [recipientId]
+            })
+        });
+        
+        const keysData = await keysResponse.json();
+        
+        if (!keysData.keys || keysData.keys.length === 0) {
+            output.innerHTML += '❌ Recipient not found<br>';
+            return;
+        }
+        
+        const recipientPublicKeyJwk = keysData.keys[0].publicKey;
+        output.innerHTML += '✅ Got recipient public key<br>';
+
+        // 2. Create inner message (what gets encrypted)
+        const innerMessage = {
+            message: message,
+            title: "Encrypted Message",
+            tags: [
+                "sender:" + myName,
+                "senderId:" + myUserId
+            ],
+            timestamp: Date.now()
+        };
+
+        output.innerHTML += '🔐 Encrypting message...<br>';
+
+        // 3. Generate ephemeral keypair for this message (forward secrecy)
+        const ephemeralKeypair = await crypto.subtle.generateKey(
+            { name: 'ECDH', namedCurve: 'P-256' },
+            true,
+            ['deriveKey']
+        );
+
+        // 4. Import recipient's public key
+        const recipientPublicKey = await crypto.subtle.importKey(
+            'jwk',
+            recipientPublicKeyJwk,
+            { name: 'ECDH', namedCurve: 'P-256' },
+            false,
+            []
+        );
+
+        // 5. Derive shared secret
+        const sharedSecret = await crypto.subtle.deriveKey(
+            { name: 'ECDH', public: recipientPublicKey },
+            ephemeralKeypair.privateKey,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt']
+        );
+
+        // 6. Encrypt the inner message
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const encoder = new TextEncoder();
+        const messageBytes = encoder.encode(JSON.stringify(innerMessage));
+
+        const ciphertext = await crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv: iv },
+            sharedSecret,
+            messageBytes
+        );
+
+        // 7. Export ephemeral public key
+        const ephemeralPublicKeyJwk = await crypto.subtle.exportKey('jwk', ephemeralKeypair.publicKey);
+
+        // 8. Create encrypted payload
+        const encryptedPayload = {
+            encrypted: true,
+            ephemeralPublicKey: ephemeralPublicKeyJwk,
+            iv: base64UrlEncode(iv),
+            ciphertext: base64UrlEncode(new Uint8Array(ciphertext))
+        };
+
+        output.innerHTML += '✅ Message encrypted<br>';
+        output.innerHTML += '📤 Sending to server...<br>';
+
+        // 9. Sign the API request (with ECDSA signing key)
+        const signingPrivateKeyJwk = JSON.parse(localStorage.getItem('signing_key'));
+        
+        const timestamp = Date.now();
+        const requestData = {
+            userId: myUserId,
+            toUserId: recipientId,
+            timestamp: timestamp,
+            payload: encryptedPayload
+        };
+
+        const signature = await signRequest(requestData, signingPrivateKeyJwk);
+
+        // 10. Send to server
+        const response = await fetch(`${WORKER_URL}/send`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                ...requestData,
+                signature: signature
+            })
+        });
+
+        const result = await response.json();
+        
+        output.innerHTML += `✅ Encrypted message sent!<br>`;
+        output.innerHTML += `Result: ${JSON.stringify(result)}<br>`;
+        output.innerHTML += `<small>Encrypted payload size: ${JSON.stringify(encryptedPayload).length} bytes</small><br>`;
+
+    } catch (error) {
+        output.innerHTML += `❌ Error: ${error.message}<br>`;
+        console.error(error);
+    }
+}
+</script>
 </body>
 </html>
