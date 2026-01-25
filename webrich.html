@@ -173,6 +173,14 @@
         <input type="url" id="workerUrl" placeholder="https://your-worker.workers.dev">
       </div>
 
+      <div class="form-group">
+  <label for="workerUrl">Worker URL</label>
+  <input type="url" id="workerUrl" placeholder="https://your-worker.workers.dev">
+  <button type="button" class="secondary" onclick="manualSync()" style="margin-top: 5px;">
+    🔄 Sync Connections
+  </button>
+  <div class="hint" id="syncStatus"></div>
+</div>
       <!-- Recipient Selection (Admin only) -->
       <div id="recipientSection" class="form-group hidden">
         <label for="recipient">Send To</label>
@@ -288,17 +296,30 @@
 let tags = [];
 let actions = [];
 // Connection sync functionality
+// Connection sync functionality
 let myConnections = [];
 
 // Sync connections from server
 async function syncConnections() {
     const myUserId = localStorage.getItem('my_user_id');
     const signingKeyJson = localStorage.getItem('signing_key');
-    const workerUrl = localStorage.getItem('worker_url') || document.getElementById('workerUrl')?.value;
+    let workerUrl = localStorage.getItem('worker_url');
+    
+    // Try to get from input field if not in localStorage
+    if (!workerUrl) {
+        const urlInput = document.getElementById('workerUrl');
+        if (urlInput) {
+            workerUrl = urlInput.value.trim();
+        }
+    }
     
     if (!myUserId || !signingKeyJson || !workerUrl) {
-        console.log('Cannot sync connections: missing credentials');
-        return;
+        console.log('Cannot sync connections: missing credentials', {
+            hasUserId: !!myUserId,
+            hasSigningKey: !!signingKeyJson,
+            hasWorkerUrl: !!workerUrl
+        });
+        return null;
     }
 
     try {
@@ -357,6 +378,37 @@ async function syncConnections() {
     }
 }
 
+
+// Also sync when worker URL changes
+const workerUrlInput = document.getElementById('workerUrl');
+if (workerUrlInput) {
+    workerUrlInput.addEventListener('blur', () => {
+        const url = workerUrlInput.value.trim();
+        if (url) {
+            localStorage.setItem('worker_url', url);
+            syncConnections().catch(err => {
+                console.error('Failed to sync connections:', err);
+            });
+        }
+    });
+}
+
+async function manualSync() {
+    const statusDiv = document.getElementById('syncStatus');
+    statusDiv.textContent = 'Syncing...';
+    
+    const result = await syncConnections();
+    
+    if (result === null) {
+        statusDiv.textContent = '❌ Please register first (use test-admin.html or test-guest.html)';
+    } else {
+        statusDiv.textContent = `✅ Synced ${result.length} connection(s)`;
+        setTimeout(() => {
+            statusDiv.textContent = '';
+        }, 3000);
+    }
+}    
+    
 function showStatus(message, type = 'info') {
   const statusDiv = document.getElementById('status');
   statusDiv.textContent = message;
@@ -464,6 +516,7 @@ function updateConnectionsUI() {
     recipientInput.replaceWith(select);
 }
 // Detect role on page load
+// Update DOMContentLoaded
 window.addEventListener('DOMContentLoaded', () => {
     // Load from cache immediately (for instant UI)
     const cached = localStorage.getItem('my_connections');
@@ -490,6 +543,7 @@ window.addEventListener('DOMContentLoaded', () => {
         console.error('Failed to sync connections:', err);
     });
 });
+
 
 // Tags management
 document.getElementById('tagInput').addEventListener('keydown', (e) => {
