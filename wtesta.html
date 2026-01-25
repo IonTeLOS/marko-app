@@ -11,6 +11,76 @@
 <div id="invite-output"></div>
 
 <script>
+// Connection sync functionality
+let myConnections = [];
+
+// Sync connections from server
+async function syncConnections() {
+    const myUserId = localStorage.getItem('my_user_id');
+    const signingKeyJson = localStorage.getItem('signing_key');
+    const workerUrl = localStorage.getItem('worker_url') || document.getElementById('workerUrl')?.value;
+    
+    if (!myUserId || !signingKeyJson || !workerUrl) {
+        console.log('Cannot sync connections: missing credentials');
+        return;
+    }
+
+    try {
+        const signingKey = JSON.parse(signingKeyJson);
+        
+        const timestamp = Date.now();
+        const requestData = {
+            userId: myUserId,
+            timestamp: timestamp
+        };
+
+        const signature = await signRequest(requestData, signingKey);
+
+        let url = workerUrl;
+        if (!url.startsWith('http')) url = 'https://' + url;
+        url = url.replace(/\/$/, '');
+
+        const response = await fetch(`${url}/connections/list`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ...requestData,
+                signature: signature
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to sync connections: ${response.status}`);
+        }
+
+        const data = await response.json();
+        myConnections = data.connections || [];
+        
+        // Store in localStorage for persistence
+        localStorage.setItem('my_connections', JSON.stringify(myConnections));
+        
+        console.log(`✅ Synced ${myConnections.length} connections:`, myConnections);
+        
+        // Update UI if needed
+        if (typeof updateConnectionsUI === 'function') {
+            updateConnectionsUI();
+        }
+        
+        return myConnections;
+    } catch (error) {
+        console.error('Error syncing connections:', error);
+        
+        // Fallback to cached connections
+        const cached = localStorage.getItem('my_connections');
+        if (cached) {
+            myConnections = JSON.parse(cached);
+            console.log('Using cached connections:', myConnections.length);
+        }
+        
+        return myConnections;
+    }
+}
+   
 async function createInvite() {
     const output = document.getElementById('invite-output');
     
@@ -431,6 +501,9 @@ async function sendEncryptedMessage() {
         console.error(error);
     }
 }
+window.addEventListener('DOMContentLoaded', async () => {
+    await syncConnections();
+});    
 </script>
 </body>
 </html>
