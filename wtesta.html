@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Test</title>
+</head>
+<body>
+    <h1>Admin Registration Test</h1>
+    <button onclick="testAdmin()">Register Admin</button>
+    <div id="output"></div>
+<button onclick="createInvite()">Create Invite</button>
+<div id="invite-output"></div>
+
+<script>
+async function createInvite() {
+    const output = document.getElementById('invite-output');
+    
+    try {
+        const response = await fetch(`${WORKER_URL}/admin/invite`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-admin-secret': ADMIN_SECRET
+            },
+            body: JSON.stringify({
+                ttlMinutes: 60
+            })
+        });
+
+        const result = await response.json();
+        const inviteUrl = `https://marko-app.netlify.app/wtestg.html?invite=${result.invite}`;
+        
+        output.innerHTML = `
+            ✅ Invite created!<br>
+            <a href="${inviteUrl}" target="_blank">${inviteUrl}</a><br>
+            <small>Invite UUID: ${result.invite}</small>
+        `;
+
+    } catch (error) {
+        output.innerHTML = `❌ Error: ${error.message}`;
+    }
+}
+</script>
+    <script>
+    const WORKER_URL = 'https://f03262192045.ngrok-free.app';
+    const ADMIN_SECRET = '123';
+    const VAPID_PUBLIC_KEY = 'BMhLLoH3-WWIIo-FsZitpf4utuD1X9O8tLGZqxll_hKwlthK4jek6vhuxts00AGdMsO-u7qm0Zvy1w-LgNAhNeM';
+
+    async function testAdmin() {
+        const output = document.getElementById('output');
+        output.innerHTML = 'Testing...<br>';
+
+        try {
+            // 1. Request notification permission
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                output.innerHTML += '❌ Notification permission denied<br>';
+                return;
+            }
+            output.innerHTML += '✅ Notification permission granted<br>';
+
+            // 2. Register service worker
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            await navigator.serviceWorker.ready;
+            output.innerHTML += '✅ Service worker registered<br>';
+
+            // 3. Subscribe to push
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+            output.innerHTML += '✅ Push subscription created<br>';
+
+            // 4. Generate keypair
+            const keypair = await crypto.subtle.generateKey(
+                { name: 'ECDH', namedCurve: 'P-256' },
+                true,
+                ['deriveKey']
+            );
+
+            const publicKeyJwk = await crypto.subtle.exportKey('jwk', keypair.publicKey);
+            const privateKeyJwk = await crypto.subtle.exportKey('jwk', keypair.privateKey);
+
+            output.innerHTML += '✅ Keypair generated<br>';
+
+            // 5. Store keys locally
+            localStorage.setItem('my_private_key', JSON.stringify(privateKeyJwk));
+            localStorage.setItem('my_public_key', JSON.stringify(publicKeyJwk));
+            localStorage.setItem('my_user_id', 'admin');
+
+            // 6. Register with server
+            const response = await fetch(`${WORKER_URL}/admin/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-admin-secret': ADMIN_SECRET
+                },
+                body: JSON.stringify({
+                    publicKeyJwk: publicKeyJwk,
+                    subscription: subscription,
+                    deviceName: 'Test Browser'
+                })
+            });
+
+            const result = await response.json();
+            output.innerHTML += `✅ Admin registered: ${JSON.stringify(result, null, 2)}<br>`;
+
+            localStorage.setItem('device_id', result.deviceId);
+
+        } catch (error) {
+            output.innerHTML += `❌ Error: ${error.message}<br>`;
+            console.error(error);
+        }
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding)
+            .replace(/\-/g, '+')
+            .replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+    </script>
+</body>
+</html>
