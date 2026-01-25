@@ -283,440 +283,427 @@
   <script src="webpusher-crypto.js"></script>
   <script src="protocol-handler.js"></script>
   <script>
-    let tags = [];
-    let actions = [];
-    let isAdmin = false;
-    let guests = [];
+let tags = [];
+let actions = [];
+let isAdmin = false;
+let guests = [];
 
-    function showStatus(message, type = 'info') {
-      const statusDiv = document.getElementById('status');
-      statusDiv.textContent = message;
-      statusDiv.className = `status ${type} show`;
-    }
+function showStatus(message, type = 'info') {
+  const statusDiv = document.getElementById('status');
+  statusDiv.textContent = message;
+  statusDiv.className = `status ${type} show`;
+}
 
-    // Detect role on page load
-    window.addEventListener('DOMContentLoaded', async () => {
-      const savedGuest = localStorage.getItem('webpusher_guest');
-      const savedAdmin = localStorage.getItem('webpusher_admin');
+// Helper: Recursively sort object keys (matches Go's behavior)
+function sortKeysRecursively(obj) {
+  if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
+    return obj;
+  }
+  
+  const sorted = {};
+  Object.keys(obj).sort().forEach(key => {
+    sorted[key] = sortKeysRecursively(obj[key]);
+  });
+  return sorted;
+}
+
+// Helper: base64url encode
+function base64UrlEncode(buffer) {
+  const base64 = btoa(String.fromCharCode(...buffer));
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+// Helper: Sign request with ECDSA
+async function signRequest(data, privateKeyJwk) {
+  // Create canonical JSON with ALL keys sorted
+  const sortedData = sortKeysRecursively(data);
+  const canonical = JSON.stringify(sortedData);
+  
+  console.log('Canonical JSON:', canonical);
+  
+  // Import SIGNING private key (ECDSA)
+  const privateKey = await crypto.subtle.importKey(
+    'jwk',
+    privateKeyJwk,
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false,
+    ['sign']
+  );
+
+  // Sign
+  const encoder = new TextEncoder();
+  const dataBuffer = encoder.encode(canonical);
+  
+  const signatureBuffer = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    privateKey,
+    dataBuffer
+  );
+
+  // Encode as base64url
+  return base64UrlEncode(new Uint8Array(signatureBuffer));
+}
+
+// Detect role on page load
+window.addEventListener('DOMContentLoaded', async () => {
+  // Check if user is registered admin
+  const myUserId = localStorage.getItem('my_user_id');
+  const myName = localStorage.getItem('my_name');
+  const signingKey = localStorage.getItem('signing_key');
+  const workerUrl = localStorage.getItem('worker_url');
+  
+  if (myUserId === 'admin') {
+    isAdmin = true;
+    document.getElementById('roleBadge').textContent = 'Admin';
+    document.getElementById('roleBadge').className = 'role-badge admin';
+    
+    if (workerUrl) {
+      document.getElementById('workerUrl').value = workerUrl;
       
-      if (savedAdmin) {
-        try {
-          const config = JSON.parse(savedAdmin);
-          if (config.workerUrl) document.getElementById('workerUrl').value = config.workerUrl;
-          if (config.secret) {
-            document.getElementById('credential').value = config.secret;
-            isAdmin = true;
-            document.getElementById('roleBadge').textContent = 'Admin';
-            document.getElementById('roleBadge').className = 'role-badge admin';
-            document.getElementById('credentialLabel').textContent = 'Admin Secret';
-            
-            // Load guests for admin
-            await loadGuests(config.workerUrl, config.secret);
-          }
-        } catch (e) {}
-      } else if (savedGuest) {
-        try {
-          const config = JSON.parse(savedGuest);
-          if (config.workerUrl) document.getElementById('workerUrl').value = config.workerUrl;
-          if (config.token) {
-            document.getElementById('credential').value = config.token;
-            isAdmin = false;
-            document.getElementById('roleBadge').textContent = 'Guest';
-            document.getElementById('roleBadge').className = 'role-badge guest';
-            document.getElementById('credentialLabel').textContent = 'Guest Token';
-          }
-        } catch (e) {}
-      }
-    });
-
-    async function loadGuests(workerUrl, adminSecret) {
-      if (!workerUrl.startsWith('http')) {
-        workerUrl = 'https://' + workerUrl;
-      }
-      workerUrl = workerUrl.replace(/\/$/, '');
-
-      try {
-        const response = await fetch(`${workerUrl}/admin/guests`, {
-          headers: { 'x-admin-secret': adminSecret }
-        });
-
-        if (!response.ok) {
-          console.error('Failed to load guests');
-          return;
-        }
-
-        const data = await response.json();
-        
-        // ✅ Normalize response shape - handle both array directly or nested in guests property
-        guests = Array.isArray(data)
-          ? data
-          : Array.isArray(data.guests)
-            ? data.guests
-            : [];
-        
-        const recipientSelect = document.getElementById('recipient');
-        recipientSelect.innerHTML = '<option value="">Select a guest...</option>';
-        
-        guests.forEach(guest => {
-          const option = document.createElement('option');
-          option.value = guest.id;
-          option.textContent = `${guest.name ?? 'Guest'} (${guest.id})`;
-          recipientSelect.appendChild(option);
-        });
-
-        // Show recipient section
-        document.getElementById('recipientSection').classList.remove('hidden');
-      } catch (error) {
-        console.error('Error loading guests:', error);
+      // Load guests for admin
+      const adminSecret = localStorage.getItem('admin_secret');
+      if (adminSecret) {
+        document.getElementById('credential').value = adminSecret;
+        await loadGuests(workerUrl, adminSecret);
       }
     }
+  } else if (myUserId && signingKey) {
+    isAdmin = false;
+    document.getElementById('roleBadge').textContent = 'Guest';
+    document.getElementById('roleBadge').className = 'role-badge guest';
+    document.getElementById('recipientSection').classList.add('hidden');
+    
+    if (workerUrl) {
+      document.getElementById('workerUrl').value = workerUrl;
+    }
+  }
+});
 
-    // Re-detect role when credential changes
-    document.getElementById('credential').addEventListener('change', async (e) => {
-      const credential = e.target.value.trim();
-      const workerUrl = document.getElementById('workerUrl').value.trim();
-      
-      if (!credential || !workerUrl) return;
+async function loadGuests(workerUrl, adminSecret) {
+  if (!workerUrl.startsWith('http')) {
+    workerUrl = 'https://' + workerUrl;
+  }
+  workerUrl = workerUrl.replace(/\/$/, '');
 
-      // Try as admin secret
-      try {
-        let url = workerUrl;
-        if (!url.startsWith('http')) url = 'https://' + url;
-        url = url.replace(/\/$/, '');
-
-        const response = await fetch(`${url}/admin/guests`, {
-          headers: { 'x-admin-secret': credential }
-        });
-
-        if (response.ok) {
-          // It's an admin!
-          isAdmin = true;
-          document.getElementById('roleBadge').textContent = 'Admin';
-          document.getElementById('roleBadge').className = 'role-badge admin';
-          document.getElementById('credentialLabel').textContent = 'Admin Secret';
-          await loadGuests(url, credential);
-        } else {
-          // It's a guest
-          isAdmin = false;
-          document.getElementById('roleBadge').textContent = 'Guest';
-          document.getElementById('roleBadge').className = 'role-badge guest';
-          document.getElementById('credentialLabel').textContent = 'Guest Token';
-          document.getElementById('recipientSection').classList.add('hidden');
-        }
-      } catch (e) {
-        // Assume guest on error
-        isAdmin = false;
-        document.getElementById('roleBadge').textContent = 'Guest';
-        document.getElementById('roleBadge').className = 'role-badge guest';
-        document.getElementById('credentialLabel').textContent = 'Guest Token';
-        document.getElementById('recipientSection').classList.add('hidden');
-      }
+  try {
+    const response = await fetch(`${workerUrl}/admin/guests`, {
+      headers: { 'x-admin-secret': adminSecret }
     });
 
-    // Tags management
-    document.getElementById('tagInput').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const input = e.target;
-        const value = input.value.trim();
-        if (value && !tags.includes(value)) {
-          tags.push(value);
-          renderTags();
-          input.value = '';
-        }
-      }
+    if (!response.ok) {
+      console.error('Failed to load guests');
+      return;
+    }
+
+    const data = await response.json();
+    guests = Array.isArray(data) ? data : (Array.isArray(data.guests) ? data.guests : []);
+    
+    const recipientSelect = document.getElementById('recipient');
+    recipientSelect.innerHTML = '<option value="">Select a guest...</option>';
+    
+    guests.forEach(guest => {
+      const option = document.createElement('option');
+      option.value = guest.id;
+      option.textContent = `${guest.name ?? 'Guest'} (${guest.id})`;
+      recipientSelect.appendChild(option);
     });
 
-    function removeTag(tag) {
-      tags = tags.filter(t => t !== tag);
+    document.getElementById('recipientSection').classList.remove('hidden');
+  } catch (error) {
+    console.error('Error loading guests:', error);
+  }
+}
+
+// Re-detect role when credential changes (admin secret)
+document.getElementById('credential').addEventListener('change', async (e) => {
+  const credential = e.target.value.trim();
+  const workerUrl = document.getElementById('workerUrl').value.trim();
+  
+  if (!credential || !workerUrl) return;
+
+  // Try as admin secret
+  try {
+    let url = workerUrl;
+    if (!url.startsWith('http')) url = 'https://' + url;
+    url = url.replace(/\/$/, '');
+
+    const response = await fetch(`${url}/admin/guests`, {
+      headers: { 'x-admin-secret': credential }
+    });
+
+    if (response.ok) {
+      // Save as admin
+      isAdmin = true;
+      localStorage.setItem('admin_secret', credential);
+      localStorage.setItem('worker_url', url);
+      document.getElementById('roleBadge').textContent = 'Admin';
+      document.getElementById('roleBadge').className = 'role-badge admin';
+      await loadGuests(url, credential);
+    }
+  } catch (e) {
+    console.error('Admin check failed:', e);
+  }
+});
+
+// Tags management
+document.getElementById('tagInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const input = e.target;
+    const value = input.value.trim();
+    if (value && !tags.includes(value)) {
+      tags.push(value);
       renderTags();
+      input.value = '';
+    }
+  }
+});
+
+function removeTag(tag) {
+  tags = tags.filter(t => t !== tag);
+  renderTags();
+}
+
+function renderTags() {
+  const container = document.getElementById('tagsContainer');
+  const input = document.getElementById('tagInput');
+  
+  container.querySelectorAll('.tag-pill').forEach(el => el.remove());
+  
+  tags.forEach(tag => {
+    const pill = document.createElement('div');
+    pill.className = 'tag-pill';
+    pill.innerHTML = `
+      ${tag}
+      <button onclick="removeTag('${tag}')" type="button">×</button>
+    `;
+    container.insertBefore(pill, input);
+  });
+}
+
+// Actions management
+function addAction() {
+  const actionId = Date.now();
+  actions.push({ id: actionId, action: '', title: '', url: '' });
+  renderActions();
+}
+
+function removeAction(id) {
+  actions = actions.filter(a => a.id !== id);
+  renderActions();
+}
+
+function renderActions() {
+  const container = document.getElementById('actionsList');
+  const hint = container.querySelector('.hint');
+  container.innerHTML = '';
+  if (hint) container.appendChild(hint);
+  
+  actions.forEach(action => {
+    const div = document.createElement('div');
+    div.className = 'action-item';
+    div.innerHTML = `
+      <input type="text" placeholder="action" value="${action.action}" 
+             onchange="updateAction(${action.id}, 'action', this.value)">
+      <input type="text" placeholder="Title" value="${action.title}"
+             onchange="updateAction(${action.id}, 'title', this.value)">
+      <input type="url" placeholder="URL (optional)" value="${action.url}"
+             onchange="updateAction(${action.id}, 'url', this.value)">
+      <button type="button" onclick="removeAction(${action.id})">Remove</button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function updateAction(id, field, value) {
+  const action = actions.find(a => a.id === id);
+  if (action) action[field] = value;
+}
+
+// Create rich message with sender tags
+function createRichMessage(options) {
+  const message = { ...options };
+  
+  if (!message.tags) {
+    message.tags = [];
+  } else if (!Array.isArray(message.tags)) {
+    message.tags = [message.tags];
+  }
+  
+  // Auto-add sender tags
+  const myUserId = localStorage.getItem('my_user_id');
+  const myName = localStorage.getItem('my_name');
+  
+  if (myUserId && myName) {
+    message.tags.push(`sender:${myName}`);
+    message.tags.push(`senderId:${myUserId}`);
+  }
+  
+  // Remove undefined fields
+  Object.keys(message).forEach(key => {
+    if (message[key] === undefined) {
+      delete message[key];
+    }
+  });
+  
+  return message;
+}
+
+async function sendRichNotification() {
+  const message = document.getElementById('message').value.trim();
+  if (!message) {
+    showStatus('Message is required', 'error');
+    return;
+  }
+
+  const richMessage = createRichMessage({
+    message: message,
+    title: document.getElementById('title').value.trim() || undefined,
+    icon: document.getElementById('icon').value.trim() || undefined,
+    badge: document.getElementById('badge').value.trim() || undefined,
+    image: document.getElementById('image').value.trim() || undefined,
+    click: document.getElementById('click').value.trim() || undefined,
+    tag: document.getElementById('tag').value.trim() || undefined,
+    tags: tags.length > 0 ? tags : undefined,
+    requireInteraction: document.getElementById('requireInteraction').checked || undefined,
+    silent: document.getElementById('silent').checked || undefined,
+    actions: actions.length > 0 ? actions.filter(a => a.action && a.title).map(a => ({
+      action: a.action,
+      title: a.title,
+      url: a.url || undefined
+    })) : undefined
+  });
+
+  await sendNotification(richMessage);
+}
+
+async function sendSimpleNotification() {
+  const message = document.getElementById('message').value.trim();
+  if (!message) {
+    showStatus('Message is required', 'error');
+    return;
+  }
+
+  const myUserId = localStorage.getItem('my_user_id');
+  const myName = localStorage.getItem('my_name');
+  
+  const simpleMessage = {
+    message: message,
+    tags: [
+      `sender:${myName}`,
+      `senderId:${myUserId}`
+    ]
+  };
+
+  await sendNotification(simpleMessage);
+}
+
+async function sendNotification(messageData) {
+  let workerUrl = document.getElementById('workerUrl').value.trim();
+
+  if (!workerUrl) {
+    showStatus('Worker URL is required', 'error');
+    return;
+  }
+
+  if (!workerUrl.startsWith('http')) {
+    workerUrl = 'https://' + workerUrl;
+  }
+  workerUrl = workerUrl.replace(/\/$/, '');
+
+  try {
+    document.getElementById('sendButton').disabled = true;
+
+    // Get user credentials
+    const myUserId = localStorage.getItem('my_user_id');
+    const signingKeyJson = localStorage.getItem('signing_key');
+    
+    if (!myUserId || !signingKeyJson) {
+      showStatus('You must be registered first (admin or guest)', 'error');
+      document.getElementById('sendButton').disabled = false;
+      return;
     }
 
-    function renderTags() {
-      const container = document.getElementById('tagsContainer');
-      const input = document.getElementById('tagInput');
-      
-      container.querySelectorAll('.tag-pill').forEach(el => el.remove());
-      
-      tags.forEach(tag => {
-        const pill = document.createElement('div');
-        pill.className = 'tag-pill';
-        pill.innerHTML = `
-          ${tag}
-          <button onclick="removeTag('${tag}')" type="button">×</button>
-        `;
-        container.insertBefore(pill, input);
-      });
-    }
+    const signingKey = JSON.parse(signingKeyJson);
 
-    // Actions management
-    function addAction() {
-      const actionId = Date.now();
-      actions.push({ id: actionId, action: '', title: '', url: '' });
-      renderActions();
-    }
-
-    function removeAction(id) {
-      actions = actions.filter(a => a.id !== id);
-      renderActions();
-    }
-
-    function renderActions() {
-      const container = document.getElementById('actionsList');
-      const hint = container.querySelector('.hint');
-      container.innerHTML = '';
-      if (hint) container.appendChild(hint);
-      
-      actions.forEach(action => {
-        const div = document.createElement('div');
-        div.className = 'action-item';
-        div.innerHTML = `
-          <input type="text" placeholder="action" value="${action.action}" 
-                 onchange="updateAction(${action.id}, 'action', this.value)">
-          <input type="text" placeholder="Title" value="${action.title}"
-                 onchange="updateAction(${action.id}, 'title', this.value)">
-          <input type="url" placeholder="URL (optional)" value="${action.url}"
-                 onchange="updateAction(${action.id}, 'url', this.value)">
-          <button type="button" onclick="removeAction(${action.id})">Remove</button>
-        `;
-        container.appendChild(div);
-      });
-    }
-
-    function updateAction(id, field, value) {
-      const action = actions.find(a => a.id === id);
-      if (action) action[field] = value;
-    }
-
-    // Helper to create rich message with sender tags automatically added
-    function createRichMessage(options) {
-      // Start with all the options
-      const message = { ...options };
-      
-      // Initialize tags array if not present
-      if (!message.tags) {
-        message.tags = [];
-      } else if (!Array.isArray(message.tags)) {
-        message.tags = [message.tags];
-      }
-      
-      // Auto-add sender tags based on current user
-      if (isAdmin) {
-        // Get admin name from localStorage
-        const savedAdmin = localStorage.getItem('webpusher_admin');
-        const adminConfig = savedAdmin ? JSON.parse(savedAdmin) : {};
-        const adminName = adminConfig.name || 'Admin';
-        
-        message.tags.push(`sender:${adminName}`);
-        message.tags.push(`senderId:admin`);
-        
-        console.log('✅ Auto-added sender tags:', adminName, 'admin');
-      } else {
-        // Get guest info from localStorage
-        const savedGuest = localStorage.getItem('webpusher_guest');
-        const guestConfig = savedGuest ? JSON.parse(savedGuest) : {};
-        const guestId = guestConfig.id || 'guest';
-        const guestName = guestConfig.name || guestId;
-        
-        message.tags.push(`sender:${guestName}`);
-        message.tags.push(`senderId:${guestId}`);
-        
-        console.log('✅ Auto-added sender tags:', guestName, guestId);
-      }
-      
-      // Remove undefined fields to keep message clean
-      Object.keys(message).forEach(key => {
-        if (message[key] === undefined) {
-          delete message[key];
-        }
-      });
-      
-      return message;
-    }
-
-    async function sendRichNotification() {
-      const message = document.getElementById('message').value.trim();
-      if (!message) {
-        showStatus('Message is required', 'error');
-        return;
-      }
-
-      const richMessage = createRichMessage({
-        message: message,
-        title: document.getElementById('title').value.trim() || undefined,
-        icon: document.getElementById('icon').value.trim() || undefined,
-        badge: document.getElementById('badge').value.trim() || undefined,
-        image: document.getElementById('image').value.trim() || undefined,
-        click: document.getElementById('click').value.trim() || undefined,
-        tag: document.getElementById('tag').value.trim() || undefined,
-        tags: tags.length > 0 ? tags : undefined,
-        requireInteraction: document.getElementById('requireInteraction').checked || undefined,
-        silent: document.getElementById('silent').checked || undefined,
-        actions: actions.length > 0 ? actions.filter(a => a.action && a.title).map(a => ({
-          action: a.action,
-          title: a.title,
-          url: a.url || undefined
-        })) : undefined
-      });
-
-      await sendNotification(richMessage);
-    }
-
-    async function sendSimpleNotification() {
-      const message = document.getElementById('message').value.trim();
-      if (!message) {
-        showStatus('Message is required', 'error');
-        return;
-      }
-
-      await sendNotification(message);
-    }
-
-    async function sendNotification(messageData) {
-      let workerUrl = document.getElementById('workerUrl').value.trim();
-      const credential = document.getElementById('credential').value.trim();
-
-      if (!workerUrl || !credential) {
-        showStatus('Worker URL and credential are required', 'error');
-        return;
-      }
-
-      if (!workerUrl.startsWith('http')) {
-        workerUrl = 'https://' + workerUrl;
-      }
-      workerUrl = workerUrl.replace(/\/$/, '');
-
-      try {
-        document.getElementById('sendButton').disabled = true;
-
-        // Prepare message object
-        let messageObj;
-        if (typeof messageData === 'string') {
-          messageObj = { message: messageData };
-        } else {
-          messageObj = { ...messageData };
-        }
-
-        // Initialize tags array if needed
-        if (!messageObj.tags) {
-          messageObj.tags = [];
-        } else if (!Array.isArray(messageObj.tags)) {
-          messageObj.tags = [messageObj.tags];
-        }
-
-        // Check if sender tags already present (from createRichMessage)
-        const hasSenderTags = messageObj.tags.some(t => 
-          typeof t === 'string' && (t.startsWith('sender:') || t.startsWith('senderId:'))
-        );
-
-        // Only add sender tags if not already present (for simple messages)
-        if (!hasSenderTags) {
-          if (isAdmin) {
-            const savedAdmin = localStorage.getItem('webpusher_admin');
-            const adminConfig = savedAdmin ? JSON.parse(savedAdmin) : {};
-            const adminName = adminConfig.name || 'Admin';
-            
-            messageObj.tags.push(`sender:${adminName}`);
-            messageObj.tags.push(`senderId:admin`);
-            
-            console.log('Adding sender tags:', adminName, 'admin');
-          } else {
-            const savedGuest = localStorage.getItem('webpusher_guest');
-            const guestConfig = savedGuest ? JSON.parse(savedGuest) : {};
-            const guestId = guestConfig.id || 'guest';
-            const guestName = guestConfig.name || guestId;
-            
-            messageObj.tags.push(`sender:${guestName}`);
-            messageObj.tags.push(`senderId:${guestId}`);
-            
-            console.log('Adding sender tags:', guestName, guestId);
-          }
-        } else {
-          console.log('Sender tags already present, skipping');
-        }
-
-        if (isAdmin) {
-          // Admin sending to guest
-          const recipientId = document.getElementById('recipient').value;
-          if (!recipientId) {
-            showStatus('Please select a recipient', 'error');
-            document.getElementById('sendButton').disabled = false;
-            return;
-          }
-
-          showStatus('Fetching guest public key...', 'info');
-
-          const keyResponse = await fetch(`${workerUrl}/admin/guest/${recipientId}/public-key`, {
-            headers: { 'x-admin-secret': credential }
-          });
-
-          if (!keyResponse.ok) {
-            throw new Error(`Failed to get guest public key (${keyResponse.status})`);
-          }
-
-          const { publicKeyJwk } = await keyResponse.json();
-
-          showStatus('Encrypting message...', 'info');
-
-          const encrypted = await WebPusherCrypto.encryptMessage(JSON.stringify(messageObj), publicKeyJwk);
-
-          showStatus('Sending encrypted notification...', 'info');
-
-          const response = await fetch(`${workerUrl}/admin/send/${recipientId}`, {
-            method: 'POST',
-            headers: {
-              'x-admin-secret': credential,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(encrypted)
-          });
-
-          if (!response.ok) {
-            throw new Error(`Failed to send (${response.status})`);
-          }
-
-          showStatus('✅ Rich notification sent to guest successfully!', 'success');
-        } else {
-          // Guest sending to admin
-          showStatus('Fetching admin public key...', 'info');
-
-          const keyResponse = await fetch(`${workerUrl}/admin/public-key`);
-          if (!keyResponse.ok) {
-            throw new Error(`Failed to get public key (${keyResponse.status})`);
-          }
-
-          const { publicKeyJwk } = await keyResponse.json();
-
-          showStatus('Encrypting message...', 'info');
-
-          const encrypted = await WebPusherCrypto.encryptMessage(JSON.stringify(messageObj), publicKeyJwk);
-
-          showStatus('Sending encrypted notification...', 'info');
-
-          const response = await fetch(`${workerUrl}/send`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${credential}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(encrypted)
-          });
-
-          if (!response.ok) {
-            throw new Error(`Failed to send (${response.status})`);
-          }
-
-          showStatus('✅ Rich notification sent to admin successfully!', 'success');
-        }
-
-        console.log('Sent message:', messageObj);
-      } catch (error) {
-        console.error('Send error:', error);
-        showStatus(`❌ Error: ${error.message}`, 'error');
-      } finally {
+    if (isAdmin) {
+      // Admin sending to guest
+      const recipientId = document.getElementById('recipient').value;
+      if (!recipientId) {
+        showStatus('Please select a recipient', 'error');
         document.getElementById('sendButton').disabled = false;
+        return;
       }
+
+      showStatus('Sending notification...', 'info');
+
+      const timestamp = Date.now();
+      const requestData = {
+        userId: myUserId,
+        toUserId: recipientId,
+        timestamp: timestamp,
+        payload: messageData
+      };
+
+      const signature = await signRequest(requestData, signingKey);
+
+      const response = await fetch(`${workerUrl}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...requestData,
+          signature: signature
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to send (${response.status}): ${error}`);
+      }
+
+      const result = await response.json();
+      showStatus(`✅ Notification sent! (${result.sent} devices)`, 'success');
+
+    } else {
+      // Guest sending to admin
+      showStatus('Sending notification to admin...', 'info');
+
+      const timestamp = Date.now();
+      const requestData = {
+        userId: myUserId,
+        toUserId: 'admin',
+        timestamp: timestamp,
+        payload: messageData
+      };
+
+      const signature = await signRequest(requestData, signingKey);
+
+      const response = await fetch(`${workerUrl}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...requestData,
+          signature: signature
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to send (${response.status}): ${error}`);
+      }
+
+      const result = await response.json();
+      showStatus(`✅ Notification sent to admin! (${result.sent} devices)`, 'success');
     }
-  </script>
+
+    console.log('Sent message:', messageData);
+  } catch (error) {
+    console.error('Send error:', error);
+    showStatus(`❌ Error: ${error.message}`, 'error');
+  } finally {
+    document.getElementById('sendButton').disabled = false;
+  }
+}
+</script>
 </body>
 </html>
