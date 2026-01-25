@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Guest Test</title>
+</head>
+<body>
+    <h1>Guest Registration Test</h1>
+    <input type="text" id="name" placeholder="Your name" value="Alice">
+    <button onclick="registerGuest()">Register as Guest</button>
+    <div id="output"></div>
+
+    <script>
+    const WORKER_URL = 'https://f03262192045.ngrok-free.app';
+    const VAPID_PUBLIC_KEY = 'BMhLLoH3-WWIIo-FsZitpf4utuD1X9O8tLGZqxll_hKwlthK4jek6vhuxts00AGdMsO-u7qm0Zvy1w-LgNAhNeM';
+
+    async function registerGuest() {
+        const output = document.getElementById('output');
+        const name = document.getElementById('name').value;
+        
+        // Get invite from URL
+        const params = new URLSearchParams(window.location.search);
+        const inviteUUID = params.get('invite');
+        
+        if (!inviteUUID) {
+            output.innerHTML = '❌ No invite UUID in URL';
+            return;
+        }
+
+        try {
+            // Request permission
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                output.innerHTML = '❌ Permission denied';
+                return;
+            }
+
+            // Register service worker
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            await navigator.serviceWorker.ready;
+
+            // Subscribe to push
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+
+            // Generate keypair
+            const keypair = await crypto.subtle.generateKey(
+                { name: 'ECDH', namedCurve: 'P-256' },
+                true,
+                ['deriveKey']
+            );
+
+            const publicKeyJwk = await crypto.subtle.exportKey('jwk', keypair.publicKey);
+            const privateKeyJwk = await crypto.subtle.exportKey('jwk', keypair.privateKey);
+
+            // Store locally
+            localStorage.setItem('my_private_key', JSON.stringify(privateKeyJwk));
+            localStorage.setItem('my_public_key', JSON.stringify(publicKeyJwk));
+
+            // Register with server
+            const response = await fetch(`${WORKER_URL}/guest/register/${inviteUUID}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name,
+                    publicKeyJwk: publicKeyJwk,
+                    subscription: subscription,
+                    deviceName: 'Guest Browser'
+                })
+            });
+
+            const result = await response.json();
+            localStorage.setItem('my_user_id', result.userId);
+            localStorage.setItem('device_id', result.deviceId);
+
+            output.innerHTML = `✅ Registered as guest!<br>
+                User ID: ${result.userId}<br>
+                Device ID: ${result.deviceId}`;
+
+        } catch (error) {
+            output.innerHTML = `❌ Error: ${error.message}`;
+            console.error(error);
+        }
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding)
+            .replace(/\-/g, '+')
+            .replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+    </script>
+</body>
+</html>
