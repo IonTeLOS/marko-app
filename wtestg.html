@@ -56,7 +56,7 @@
 
             // Store locally
             localStorage.setItem('signing_key', JSON.stringify(privateKeyJwk));
-            localStorage.setItem('encryption_key', JSON.stringify(publicKeyJwk));
+            localStorage.setItem('encryption_key', JSON.stringify(privateKeyJwk));
             await storeEncryptionKeyInServiceWorker();
             output.innerHTML += '✅ Encryption key stored in service worker<br>';
             // Register with server
