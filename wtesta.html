@@ -90,14 +90,30 @@ async function sendMessage() {
 }
 
 async function signRequest(data, privateKeyJwk) {
-    // Create canonical JSON
-    const canonical = JSON.stringify(data, Object.keys(data).sort());
+    // Recursively sort all object keys (matches Go's behavior)
+    function sortKeysRecursively(obj) {
+        if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
+            return obj;
+        }
+        
+        const sorted = {};
+        Object.keys(obj).sort().forEach(key => {
+            sorted[key] = sortKeysRecursively(obj[key]);
+        });
+        return sorted;
+    }
+    
+    // Create canonical JSON with ALL keys sorted
+    const sortedData = sortKeysRecursively(data);
+    const canonical = JSON.stringify(sortedData);
+    
+    console.log('Canonical JSON:', canonical); // Debug
     
     // Import SIGNING private key (ECDSA, not ECDH!)
     const privateKey = await crypto.subtle.importKey(
         'jwk',
         privateKeyJwk,
-        { name: 'ECDSA', namedCurve: 'P-256' },  // ← ECDSA for signing
+        { name: 'ECDSA', namedCurve: 'P-256' },
         false,
         ['sign']
     );
