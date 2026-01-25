@@ -13,77 +13,108 @@
     const WORKER_URL = 'https://f03262192045.ngrok-free.app';
     const VAPID_PUBLIC_KEY = 'BMhLLoH3-WWIIo-FsZitpf4utuD1X9O8tLGZqxll_hKwlthK4jek6vhuxts00AGdMsO-u7qm0Zvy1w-LgNAhNeM';
 
-    async function registerGuest() {
-        const output = document.getElementById('output');
-        const name = document.getElementById('name').value;
-        
-        // Get invite from URL
-        const params = new URLSearchParams(window.location.search);
-        const inviteUUID = params.get('invite');
-        
-        if (!inviteUUID) {
-            output.innerHTML = '❌ No invite UUID in URL';
+async function registerGuest() {
+    const output = document.getElementById('output');
+    const name = document.getElementById('name').value;
+    
+    // Get invite from URL
+    const params = new URLSearchParams(window.location.search);
+    const inviteUUID = params.get('invite');
+    
+    if (!inviteUUID) {
+        output.innerHTML = '❌ No invite UUID in URL';
+        return;
+    }
+
+    try {
+        // Request permission
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            output.innerHTML = '❌ Permission denied';
             return;
         }
+        output.innerHTML += '✅ Notification permission granted<br>';
 
-        try {
-            // Request permission
-            const permission = await Notification.requestPermission();
-            if (permission !== 'granted') {
-                output.innerHTML = '❌ Permission denied';
-                return;
-            }
+        // Register service worker
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.ready;
+        output.innerHTML += '✅ Service worker registered<br>';
 
-            // Register service worker
-            const registration = await navigator.serviceWorker.register('/sw.js');
-            await navigator.serviceWorker.ready;
+        // Subscribe to push
+        const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+        output.innerHTML += '✅ Push subscription created<br>';
 
-            // Subscribe to push
-            const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            });
+        // Generate TWO keypairs: one for encryption (ECDH), one for signing (ECDSA)
+        
+        // For E2EE encryption (ECDH)
+        const encryptionKeypair = await crypto.subtle.generateKey(
+            { name: 'ECDH', namedCurve: 'P-256' },
+            true,
+            ['deriveKey']
+        );
 
-            // Generate keypair
-            const keypair = await crypto.subtle.generateKey(
-                { name: 'ECDH', namedCurve: 'P-256' },
-                true,
-                ['deriveKey']
-            );
+        // For signing requests (ECDSA)
+        const signingKeypair = await crypto.subtle.generateKey(
+            { name: 'ECDSA', namedCurve: 'P-256' },
+            true,
+            ['sign', 'verify']
+        );
 
-            const publicKeyJwk = await crypto.subtle.exportKey('jwk', keypair.publicKey);
-            const privateKeyJwk = await crypto.subtle.exportKey('jwk', keypair.privateKey);
+        // Export all keys
+        const encryptionPublicKeyJwk = await crypto.subtle.exportKey('jwk', encryptionKeypair.publicKey);
+        const encryptionPrivateKeyJwk = await crypto.subtle.exportKey('jwk', encryptionKeypair.privateKey);
+        
+        const signingPublicKeyJwk = await crypto.subtle.exportKey('jwk', signingKeypair.publicKey);
+        const signingPrivateKeyJwk = await crypto.subtle.exportKey('jwk', signingKeypair.privateKey);
 
-            // Store locally
-            localStorage.setItem('signing_key', JSON.stringify(privateKeyJwk));
-            localStorage.setItem('encryption_key', JSON.stringify(privateKeyJwk));
-            await storeEncryptionKeyInServiceWorker();
-            output.innerHTML += '✅ Encryption key stored in service worker<br>';
-            // Register with server
-            const response = await fetch(`${WORKER_URL}/guest/register/${inviteUUID}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: name,
-                    publicKeyJwk: publicKeyJwk,
-                    subscription: subscription,
-                    deviceName: 'Guest Browser'
-                })
-            });
+        output.innerHTML += '✅ Keypairs generated (encryption + signing)<br>';
 
-            const result = await response.json();
-            localStorage.setItem('my_user_id', result.userId);
-            localStorage.setItem('device_id', result.deviceId);
+        // Store keys locally
+        localStorage.setItem('encryption_key', JSON.stringify(encryptionPrivateKeyJwk));
+        localStorage.setItem('public_key', JSON.stringify(encryptionPublicKeyJwk));
+        localStorage.setItem('signing_key', JSON.stringify(signingPrivateKeyJwk));
+        localStorage.setItem('signing_public_key', JSON.stringify(signingPublicKeyJwk));
+        localStorage.setItem('my_name', name);
+        localStorage.setItem('worker_url', WORKER_URL);
 
-            output.innerHTML = `✅ Registered as guest!<br>
-                User ID: ${result.userId}<br>
-                Device ID: ${result.deviceId}`;
+        // Store encryption key in service worker's IndexedDB
+        await storeEncryptionKeyInServiceWorker();
+        output.innerHTML += '✅ Encryption key stored in service worker<br>';
 
-        } catch (error) {
-            output.innerHTML = `❌ Error: ${error.message}`;
-            console.error(error);
+        // Register with server (send SIGNING public key for authentication)
+        const response = await fetch(`${WORKER_URL}/guest/register/${inviteUUID}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: name,
+                publicKeyJwk: signingPublicKeyJwk,  // ← Send signing key to server
+                subscription: subscription,
+                deviceName: 'Guest Browser'
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Registration failed: ${response.status}`);
         }
+
+        const result = await response.json();
+        localStorage.setItem('my_user_id', result.userId);
+        localStorage.setItem('device_id', result.deviceId);
+
+        output.innerHTML += `✅ Registered as guest!<br>
+            User ID: ${result.userId}<br>
+            Device ID: ${result.deviceId}<br>
+            <br>
+            <strong>Copy your User ID to send to others!</strong>`;
+
+    } catch (error) {
+        output.innerHTML += `❌ Error: ${error.message}<br>`;
+        console.error(error);
     }
+}
 
     // Store encryption key in service worker's IndexedDB
 async function storeEncryptionKeyInServiceWorker() {
