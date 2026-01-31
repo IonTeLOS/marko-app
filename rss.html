@@ -141,6 +141,7 @@ const COMMON_FEED_PATHS = [
 ================================ */
 
 const seen = new Set()
+let terminalFeedFound = false
 
 /* ================================
    ENTRY
@@ -151,24 +152,28 @@ async function discover() {
   const out = document.getElementById("out")
   out.innerHTML = ""
   seen.clear()
+  terminalFeedFound = false
 
   if (!input) return
 
   try {
-    // 1️⃣ Direct feed attempt
+    // Phase 1️⃣: direct attempt
     await tryCandidate(input, "direct")
+    if (terminalFeedFound) return
 
-    // 2️⃣ Fetch HTML
+    // Phase 2️⃣: fetch HTML
     const html = await fetchText(input)
     const doc = new DOMParser().parseFromString(html, "text/html")
 
-    // 3️⃣ <link rel="alternate">
+    // Phase 3️⃣: <link rel="alternate">
     discoverFromLinks(doc, input)
+    if (terminalFeedFound) return
 
-    // 4️⃣ <a> heuristics
+    // Phase 4️⃣: anchor heuristics
     discoverFromAnchors(doc, input)
+    if (terminalFeedFound) return
 
-    // 5️⃣ Well-known paths
+    // Phase 5️⃣: well-known paths
     discoverFromCommonPaths(input)
 
   } catch (e) {
@@ -182,6 +187,7 @@ async function discover() {
 
 function discoverFromLinks(doc, base) {
   doc.querySelectorAll('link[rel="alternate"][type]').forEach(l => {
+    if (terminalFeedFound) return
     if (/rss|atom|json/i.test(l.type)) {
       tryCandidate(new URL(l.href, base).href, "auto-discovery")
     }
@@ -190,6 +196,7 @@ function discoverFromLinks(doc, base) {
 
 function discoverFromAnchors(doc, base) {
   doc.querySelectorAll("a[href]").forEach(a => {
+    if (terminalFeedFound) return
     if (/rss|atom|feed|subscribe/i.test(a.textContent)) {
       tryCandidate(new URL(a.href, base).href, "anchor")
     }
@@ -198,6 +205,7 @@ function discoverFromAnchors(doc, base) {
 
 function discoverFromCommonPaths(base) {
   COMMON_FEED_PATHS.forEach(p => {
+    if (terminalFeedFound) return
     tryCandidate(new URL(p, base).href, "well-known path")
   })
 }
@@ -207,23 +215,29 @@ function discoverFromCommonPaths(base) {
 ================================ */
 
 async function tryCandidate(url, source) {
-  if (seen.has(url)) return
+  if (seen.has(url) || terminalFeedFound) return
   seen.add(url)
 
   try {
     const text = await fetchText(url)
 
+    let feed = null
+
     if (text.trim().startsWith("{")) {
-      renderJSONFeed(JSON.parse(text), url, source)
-      return
+      feed = parseJSONFeed(JSON.parse(text), url)
+    } else {
+      feed = parseXMLFeed(text, url)
     }
 
-    const xml = new DOMParser().parseFromString(text, "application/xml")
-    if (xml.querySelector("parsererror")) return
+    if (!feed) return
 
-    if (xml.querySelector("rss") || xml.querySelector("feed")) {
-      renderXMLFeed(xml, url, source)
+    renderFeed(feed, source)
+
+    if (isHighConfidence(feed, source)) {
+      terminalFeedFound = true
+      console.log("🛑 Early exit: high-confidence feed", feed.url)
     }
+
   } catch (_) {}
 }
 
@@ -234,57 +248,80 @@ async function fetchText(url) {
 }
 
 /* ================================
-   RENDERING
+   PARSING
 ================================ */
 
-function renderXMLFeed(xml, url, source) {
+function parseXMLFeed(text, url) {
+  const xml = new DOMParser().parseFromString(text, "application/xml")
+  if (xml.querySelector("parsererror")) return null
+
   const channel = xml.querySelector("channel")
   const feed = xml.querySelector("feed")
+  if (!channel && !feed) return null
 
   const title =
     channel?.querySelector("title")?.textContent ||
-    feed?.querySelector("title")?.textContent ||
-    "Untitled feed"
+    feed?.querySelector("title")?.textContent
 
   const items = channel
     ? [...xml.querySelectorAll("item")]
     : [...xml.querySelectorAll("entry")]
 
-  renderFeed(title, url, source, items.map(i => ({
-    title: i.querySelector("title")?.textContent,
-    link:
-      i.querySelector("link")?.getAttribute("href") ||
-      i.querySelector("link")?.textContent,
-    date:
-      i.querySelector("pubDate")?.textContent ||
-      i.querySelector("updated")?.textContent,
-    content:
-      i.querySelector("description")?.textContent ||
-      i.querySelector("summary")?.textContent ||
-      i.querySelector("content")?.textContent
-  })))
-}
-
-function renderJSONFeed(feed, url, source) {
-  renderFeed(
-    feed.title || "JSON Feed",
+  return {
     url,
-    source,
-    feed.items || []
-  )
+    title,
+    items: items.map(i => ({
+      title: i.querySelector("title")?.textContent,
+      link:
+        i.querySelector("link")?.getAttribute("href") ||
+        i.querySelector("link")?.textContent,
+      date:
+        i.querySelector("pubDate")?.textContent ||
+        i.querySelector("updated")?.textContent,
+      content:
+        i.querySelector("description")?.textContent ||
+        i.querySelector("summary")?.textContent ||
+        i.querySelector("content")?.textContent
+    }))
+  }
 }
 
-function renderFeed(title, url, source, items) {
+function parseJSONFeed(feed, url) {
+  if (!feed || !feed.items) return null
+  return {
+    url,
+    title: feed.title,
+    items: feed.items
+  }
+}
+
+/* ================================
+   CONFIDENCE GATE (BINARY)
+================================ */
+
+function isHighConfidence(feed, source) {
+  if (source !== "auto-discovery" && source !== "direct") return false
+  if (!feed.title) return false
+  if (feed.items.length < 5) return false
+  if (/comments|tag|category/i.test(feed.url)) return false
+  return true
+}
+
+/* ================================
+   RENDERING
+================================ */
+
+function renderFeed(feed, source) {
   const out = document.getElementById("out")
   const box = document.createElement("div")
   box.className = "feed"
 
   box.innerHTML = `
-    <h2>${title}</h2>
-    <div class="source">Found via: ${source} · ${url}</div>
+    <h2>${feed.title || "Untitled feed"}</h2>
+    <div class="source">Found via: ${source} · ${feed.url}</div>
   `
 
-  items.forEach(i => {
+  feed.items.forEach(i => {
     const div = document.createElement("div")
     div.className = "item"
     div.innerHTML = `
