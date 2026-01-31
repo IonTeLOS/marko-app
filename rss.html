@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>RSS / Atom / JSON Feed Tester</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #020617;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --error: #f87171;
+  }
+
+  * {
+    box-sizing: border-box;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  body {
+    margin: 0;
+    padding: 1rem;
+    font-family: system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  h1 {
+    font-size: 1.4rem;
+    margin-bottom: 1rem;
+  }
+
+  .controls {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  input {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.6rem;
+    font-size: 1rem;
+    border-radius: 6px;
+    border: none;
+  }
+
+  button {
+    padding: 0.6rem 1rem;
+    font-size: 1rem;
+    border-radius: 6px;
+    border: none;
+    background: var(--accent);
+    color: #020617;
+    cursor: pointer;
+  }
+
+  .feed {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: var(--panel);
+    border-radius: 10px;
+  }
+
+  .feed h2 {
+    margin-top: 0;
+    font-size: 1.2rem;
+  }
+
+  .item {
+    border-top: 1px solid #1e293b;
+    padding-top: 0.75rem;
+    margin-top: 0.75rem;
+  }
+
+  .item a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .item a:hover {
+    text-decoration: underline;
+  }
+
+  .meta {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin: 0.25rem 0;
+  }
+
+  .item img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    margin-top: 0.5rem;
+    display: block;
+  }
+
+  .error {
+    margin-top: 1rem;
+    color: var(--error);
+  }
+
+  @media (max-width: 600px) {
+    body {
+      padding: 0.75rem;
+    }
+    h1 {
+      font-size: 1.2rem;
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<h1>📰 RSS / Atom / JSON Feed Tester</h1>
+
+<div class="controls">
+  <input id="url" placeholder="https://example.com or /feed.xml" />
+  <button onclick="load()">Load</button>
+</div>
+
+<div id="out"></div>
+
+<script>
+const proxy = url =>
+  "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
+
+async function load() {
+  const input = document.getElementById("url").value.trim();
+  const out = document.getElementById("out");
+  out.innerHTML = "";
+  if (!input) return;
+
+  try {
+    const res = await fetch(proxy(input));
+    if (!res.ok) throw new Error("Fetch failed");
+
+    const text = await res.text();
+
+    // JSON Feed?
+    if (text.trim().startsWith("{")) {
+      const json = JSON.parse(text);
+      renderJSONFeed(json);
+      return;
+    }
+
+    const doc = new DOMParser().parseFromString(text, "text/html");
+
+    // Auto-discovery
+    const links = [...doc.querySelectorAll(
+      'link[rel="alternate"][type]'
+    )];
+
+    if (links.length) {
+      for (const link of links) {
+        await tryFeed(new URL(link.href, input).href, out);
+      }
+      return;
+    }
+
+    // Otherwise assume XML feed directly
+    parseXML(text);
+  } catch (e) {
+    out.innerHTML = `<div class="error">❌ ${e.message}</div>`;
+  }
+}
+
+async function tryFeed(url, out) {
+  const res = await fetch(proxy(url));
+  if (!res.ok) return;
+
+  const text = await res.text();
+
+  if (text.trim().startsWith("{")) {
+    renderJSONFeed(JSON.parse(text));
+  } else {
+    parseXML(text);
+  }
+}
+
+function parseXML(text) {
+  const xml = new DOMParser().parseFromString(text, "application/xml");
+  if (xml.querySelector("parsererror")) {
+    throw new Error("Invalid XML");
+  }
+
+  const channel = xml.querySelector("channel");
+  const feed = xml.querySelector("feed");
+
+  const title =
+    channel?.querySelector("title")?.textContent ||
+    feed?.querySelector("title")?.textContent ||
+    "Untitled feed";
+
+  const items = channel
+    ? [...xml.querySelectorAll("item")]
+    : [...xml.querySelectorAll("entry")];
+
+  renderItems(title, items.map(i => ({
+    title: i.querySelector("title")?.textContent,
+    link:
+      i.querySelector("link")?.getAttribute("href") ||
+      i.querySelector("link")?.textContent,
+    date:
+      i.querySelector("pubDate")?.textContent ||
+      i.querySelector("updated")?.textContent,
+    content:
+      i.querySelector("description")?.textContent ||
+      i.querySelector("content")?.textContent ||
+      i.querySelector("summary")?.textContent
+  })));
+}
+
+function renderJSONFeed(feed) {
+  renderItems(feed.title || "JSON Feed", feed.items || []);
+}
+
+function renderItems(title, items) {
+  const out = document.getElementById("out");
+  const box = document.createElement("div");
+  box.className = "feed";
+  box.innerHTML = `<h2>${title}</h2>`;
+
+  items.forEach(i => {
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `
+      <a href="${i.url || i.link || "#"}" target="_blank">
+        <strong>${i.title || "(no title)"}</strong>
+      </a>
+      ${i.date ? `<div class="meta">${i.date}</div>` : ""}
+      ${i.content_html || i.content_text || i.content
+        ? `<div>${i.content_html || i.content_text || i.content}</div>`
+        : ""}
+    `;
+    box.appendChild(div);
+  });
+
+  out.appendChild(box);
+}
+</script>
+
+</body>
+</html>
