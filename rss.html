@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>RSS / Atom / JSON Feed Tester</title>
+<title>RSS / Atom / JSON Feed Discovery</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <style>
@@ -17,20 +17,19 @@
 
   * {
     box-sizing: border-box;
-    word-wrap: break-word;
     overflow-wrap: anywhere;
   }
 
   body {
     margin: 0;
     padding: 1rem;
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family: system-ui, sans-serif;
     background: var(--bg);
     color: var(--text);
   }
 
   h1 {
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     margin-bottom: 1rem;
   }
 
@@ -42,7 +41,7 @@
 
   input {
     flex: 1;
-    min-width: 200px;
+    min-width: 220px;
     padding: 0.6rem;
     font-size: 1rem;
     border-radius: 6px;
@@ -67,29 +66,20 @@
   }
 
   .feed h2 {
-    margin-top: 0;
-    font-size: 1.2rem;
+    margin: 0 0 0.25rem 0;
+    font-size: 1.15rem;
+  }
+
+  .source {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
   }
 
   .item {
     border-top: 1px solid #1e293b;
     padding-top: 0.75rem;
     margin-top: 0.75rem;
-  }
-
-  .item a {
-    color: var(--accent);
-    text-decoration: none;
-  }
-
-  .item a:hover {
-    text-decoration: underline;
-  }
-
-  .meta {
-    font-size: 0.8rem;
-    color: var(--muted);
-    margin: 0.25rem 0;
   }
 
   .item img {
@@ -100,109 +90,167 @@
     display: block;
   }
 
+  .item a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .meta {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
   .error {
     margin-top: 1rem;
     color: var(--error);
-  }
-
-  @media (max-width: 600px) {
-    body {
-      padding: 0.75rem;
-    }
-    h1 {
-      font-size: 1.2rem;
-    }
   }
 </style>
 </head>
 
 <body>
 
-<h1>📰 RSS / Atom / JSON Feed Tester</h1>
+<h1>🧭 Feed Discovery Tester</h1>
 
 <div class="controls">
-  <input id="url" placeholder="https://example.com or /feed.xml" />
-  <button onclick="load()">Load</button>
+  <input id="url" placeholder="https://example.com" />
+  <button onclick="discover()">Discover</button>
 </div>
 
 <div id="out"></div>
 
 <script>
-const proxy = url =>
-  "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
+/* ================================
+   CONFIG
+================================ */
 
-async function load() {
-  const input = document.getElementById("url").value.trim();
-  const out = document.getElementById("out");
-  out.innerHTML = "";
-  if (!input) return;
+const PROXY = url =>
+  "https://api.allorigins.win/raw?url=" + encodeURIComponent(url)
+
+const COMMON_FEED_PATHS = [
+  "/feed",
+  "/rss",
+  "/rss.xml",
+  "/feed.xml",
+  "/atom.xml",
+  "/index.xml",
+  "/feed.json"
+]
+
+/* ================================
+   STATE
+================================ */
+
+const seen = new Set()
+
+/* ================================
+   ENTRY
+================================ */
+
+async function discover() {
+  const input = document.getElementById("url").value.trim()
+  const out = document.getElementById("out")
+  out.innerHTML = ""
+  seen.clear()
+
+  if (!input) return
 
   try {
-    const res = await fetch(proxy(input));
-    if (!res.ok) throw new Error("Fetch failed");
+    // 1️⃣ Direct feed attempt
+    await tryCandidate(input, "direct")
 
-    const text = await res.text();
+    // 2️⃣ Fetch HTML
+    const html = await fetchText(input)
+    const doc = new DOMParser().parseFromString(html, "text/html")
 
-    // JSON Feed?
-    if (text.trim().startsWith("{")) {
-      const json = JSON.parse(text);
-      renderJSONFeed(json);
-      return;
-    }
+    // 3️⃣ <link rel="alternate">
+    discoverFromLinks(doc, input)
 
-    const doc = new DOMParser().parseFromString(text, "text/html");
+    // 4️⃣ <a> heuristics
+    discoverFromAnchors(doc, input)
 
-    // Auto-discovery
-    const links = [...doc.querySelectorAll(
-      'link[rel="alternate"][type]'
-    )];
+    // 5️⃣ Well-known paths
+    discoverFromCommonPaths(input)
 
-    if (links.length) {
-      for (const link of links) {
-        await tryFeed(new URL(link.href, input).href, out);
-      }
-      return;
-    }
-
-    // Otherwise assume XML feed directly
-    parseXML(text);
   } catch (e) {
-    out.innerHTML = `<div class="error">❌ ${e.message}</div>`;
+    out.innerHTML = `<div class="error">❌ ${e.message}</div>`
   }
 }
 
-async function tryFeed(url, out) {
-  const res = await fetch(proxy(url));
-  if (!res.ok) return;
+/* ================================
+   DISCOVERY PHASES
+================================ */
 
-  const text = await res.text();
-
-  if (text.trim().startsWith("{")) {
-    renderJSONFeed(JSON.parse(text));
-  } else {
-    parseXML(text);
-  }
+function discoverFromLinks(doc, base) {
+  doc.querySelectorAll('link[rel="alternate"][type]').forEach(l => {
+    if (/rss|atom|json/i.test(l.type)) {
+      tryCandidate(new URL(l.href, base).href, "auto-discovery")
+    }
+  })
 }
 
-function parseXML(text) {
-  const xml = new DOMParser().parseFromString(text, "application/xml");
-  if (xml.querySelector("parsererror")) {
-    throw new Error("Invalid XML");
-  }
+function discoverFromAnchors(doc, base) {
+  doc.querySelectorAll("a[href]").forEach(a => {
+    if (/rss|atom|feed|subscribe/i.test(a.textContent)) {
+      tryCandidate(new URL(a.href, base).href, "anchor")
+    }
+  })
+}
 
-  const channel = xml.querySelector("channel");
-  const feed = xml.querySelector("feed");
+function discoverFromCommonPaths(base) {
+  COMMON_FEED_PATHS.forEach(p => {
+    tryCandidate(new URL(p, base).href, "well-known path")
+  })
+}
+
+/* ================================
+   CANDIDATE HANDLING
+================================ */
+
+async function tryCandidate(url, source) {
+  if (seen.has(url)) return
+  seen.add(url)
+
+  try {
+    const text = await fetchText(url)
+
+    if (text.trim().startsWith("{")) {
+      renderJSONFeed(JSON.parse(text), url, source)
+      return
+    }
+
+    const xml = new DOMParser().parseFromString(text, "application/xml")
+    if (xml.querySelector("parsererror")) return
+
+    if (xml.querySelector("rss") || xml.querySelector("feed")) {
+      renderXMLFeed(xml, url, source)
+    }
+  } catch (_) {}
+}
+
+async function fetchText(url) {
+  const res = await fetch(PROXY(url))
+  if (!res.ok) throw new Error("Fetch failed")
+  return res.text()
+}
+
+/* ================================
+   RENDERING
+================================ */
+
+function renderXMLFeed(xml, url, source) {
+  const channel = xml.querySelector("channel")
+  const feed = xml.querySelector("feed")
 
   const title =
     channel?.querySelector("title")?.textContent ||
     feed?.querySelector("title")?.textContent ||
-    "Untitled feed";
+    "Untitled feed"
 
   const items = channel
     ? [...xml.querySelectorAll("item")]
-    : [...xml.querySelectorAll("entry")];
+    : [...xml.querySelectorAll("entry")]
 
-  renderItems(title, items.map(i => ({
+  renderFeed(title, url, source, items.map(i => ({
     title: i.querySelector("title")?.textContent,
     link:
       i.querySelector("link")?.getAttribute("href") ||
@@ -212,24 +260,33 @@ function parseXML(text) {
       i.querySelector("updated")?.textContent,
     content:
       i.querySelector("description")?.textContent ||
-      i.querySelector("content")?.textContent ||
-      i.querySelector("summary")?.textContent
-  })));
+      i.querySelector("summary")?.textContent ||
+      i.querySelector("content")?.textContent
+  })))
 }
 
-function renderJSONFeed(feed) {
-  renderItems(feed.title || "JSON Feed", feed.items || []);
+function renderJSONFeed(feed, url, source) {
+  renderFeed(
+    feed.title || "JSON Feed",
+    url,
+    source,
+    feed.items || []
+  )
 }
 
-function renderItems(title, items) {
-  const out = document.getElementById("out");
-  const box = document.createElement("div");
-  box.className = "feed";
-  box.innerHTML = `<h2>${title}</h2>`;
+function renderFeed(title, url, source, items) {
+  const out = document.getElementById("out")
+  const box = document.createElement("div")
+  box.className = "feed"
+
+  box.innerHTML = `
+    <h2>${title}</h2>
+    <div class="source">Found via: ${source} · ${url}</div>
+  `
 
   items.forEach(i => {
-    const div = document.createElement("div");
-    div.className = "item";
+    const div = document.createElement("div")
+    div.className = "item"
     div.innerHTML = `
       <a href="${i.url || i.link || "#"}" target="_blank">
         <strong>${i.title || "(no title)"}</strong>
@@ -238,11 +295,11 @@ function renderItems(title, items) {
       ${i.content_html || i.content_text || i.content
         ? `<div>${i.content_html || i.content_text || i.content}</div>`
         : ""}
-    `;
-    box.appendChild(div);
-  });
+    `
+    box.appendChild(div)
+  })
 
-  out.appendChild(box);
+  out.appendChild(box)
 }
 </script>
 
