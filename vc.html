@@ -2,54 +2,81 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Browser Video Compressor</title>
+<title>Browser Video Compressor (Canvas)</title>
 </head>
 <body>
+<h2>In-Browser Video Compressor (Canvas)</h2>
+
 <input type="file" id="videoInput" accept="video/*" />
-<button id="compressBtn">Compress</button>
+<button id="compressBtn">Compress Video</button>
 <p id="status"></p>
-<a id="downloadLink" style="display:none;">Download</a>
+<a id="downloadLink" style="display:none;">Download Compressed Video</a>
 
-<script type="module">
-import { createFFmpeg, fetchFile } from "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.10/dist/ffmpeg.mjs";
+<video id="hiddenVideo" style="display:none"></video>
+<canvas id="canvas" style="display:none"></canvas>
 
-const ffmpeg = createFFmpeg({ log: true });
+<script>
+const videoInput = document.getElementById('videoInput');
+const compressBtn = document.getElementById('compressBtn');
 const statusEl = document.getElementById('status');
 const downloadLink = document.getElementById('downloadLink');
 
-document.getElementById('compressBtn').addEventListener('click', async () => {
-  const fileInput = document.getElementById('videoInput');
-  if (!fileInput.files.length) return alert("Select a video!");
+const hiddenVideo = document.getElementById('hiddenVideo');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
 
-  const file = fileInput.files[0];
+compressBtn.addEventListener('click', async () => {
+    if (!videoInput.files.length) return alert('Please select a video first!');
+    const file = videoInput.files[0];
+    
+    statusEl.textContent = 'Loading video...';
 
-  statusEl.textContent = "Loading FFmpeg...";
-  if (!ffmpeg.isLoaded()) await ffmpeg.load();
+    const videoURL = URL.createObjectURL(file);
+    hiddenVideo.src = videoURL;
 
-  statusEl.textContent = "Compressing...";
-  ffmpeg.FS("writeFile", "input.mp4", await fetchFile(file));
+    await hiddenVideo.play().catch(()=>{}); // required for metadata loading in some browsers
 
-  await ffmpeg.run(
-    "-i", "input.mp4",
-    "-vf", "scale=720:-2",
-    "-b:v", "1M",
-    "-c:v", "libx264",
-    "-preset", "fast",
-    "-c:a", "aac",
-    "-b:a", "128k",
-    "output.mp4"
-  );
+    // Set canvas size (reduce resolution for compression)
+    const targetWidth = 720;
+    const aspectRatio = hiddenVideo.videoHeight / hiddenVideo.videoWidth;
+    const targetHeight = Math.floor(targetWidth * aspectRatio);
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
 
-  const data = ffmpeg.FS("readFile", "output.mp4");
-  const blob = new Blob([data.buffer], { type: "video/mp4" });
-  const url = URL.createObjectURL(blob);
+    statusEl.textContent = 'Recording compressed video...';
 
-  downloadLink.href = url;
-  downloadLink.download = "compressed.mp4";
-  downloadLink.style.display = "block";
-  downloadLink.textContent = "Download Compressed Video";
+    const stream = canvas.captureStream(30); // 30fps
+    const recordedChunks = [];
+    const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp8' });
 
-  statusEl.textContent = "Done!";
+    mediaRecorder.ondataavailable = e => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const downloadURL = URL.createObjectURL(blob);
+
+        downloadLink.href = downloadURL;
+        downloadLink.download = 'compressed.webm';
+        downloadLink.style.display = 'block';
+        downloadLink.textContent = 'Download Compressed Video';
+
+        statusEl.textContent = 'Compression complete!';
+    };
+
+    mediaRecorder.start(100); // collect data every 100ms
+
+    // Draw video frames to canvas
+    function drawFrame() {
+        if (hiddenVideo.paused || hiddenVideo.ended) {
+            mediaRecorder.stop();
+            return;
+        }
+        ctx.drawImage(hiddenVideo, 0, 0, canvas.width, canvas.height);
+        requestAnimationFrame(drawFrame);
+    }
+    drawFrame();
 });
 </script>
 </body>
