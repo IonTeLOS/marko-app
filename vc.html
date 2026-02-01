@@ -12,55 +12,49 @@
   <p id="status"></p>
   <a id="downloadLink" style="display:none;">Download Compressed Video</a>
 
-  <script type="module">
-    import { createFFmpeg, fetchFile } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.8/dist/ffmpeg.min.mjs';
+<script type="module">
+  import { createFFmpeg, fetchFile } from "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.10/dist/ffmpeg.min.mjs";
 
-    const ffmpeg = createFFmpeg({ log: true });
-    const statusEl = document.getElementById('status');
-    const downloadLink = document.getElementById('downloadLink');
+  const ffmpeg = createFFmpeg({ log: true });
+  const statusEl = document.getElementById('status');
+  const downloadLink = document.getElementById('downloadLink');
 
-    document.getElementById('compressBtn').addEventListener('click', async () => {
-      const fileInput = document.getElementById('videoInput');
-      if (fileInput.files.length === 0) {
-        alert('Please select a video file first.');
-        return;
-      }
+  document.getElementById('compressBtn').addEventListener('click', async () => {
+    const fileInput = document.getElementById('videoInput');
+    if (fileInput.files.length === 0) {
+      alert('Please select a video file first.');
+      return;
+    }
 
-      const file = fileInput.files[0];
-      statusEl.textContent = 'Loading FFmpeg...';
-      if (!ffmpeg.isLoaded()) await ffmpeg.load();
+    const file = fileInput.files[0];
+    statusEl.textContent = 'Loading FFmpeg...';
+    if (!ffmpeg.isLoaded()) await ffmpeg.load();
 
-      statusEl.textContent = 'Compressing video...';
-      ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
+    statusEl.textContent = 'Compressing video...';
+    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
 
-      // FFmpeg command:
-      // - Scale to 720p width (maintaining aspect ratio)
-      // - Target bitrate ~1 Mbps
-      // - H.264 codec, fast preset
-      await ffmpeg.run(
-        '-i', 'input.mp4',
-        '-vf', 'scale=720:-2',
-        '-b:v', '1M',
-        '-c:v', 'libx264',
-        '-preset', 'fast',
-        '-c:a', 'aac',
-        '-b:a', '128k',
-        'output.mp4'
-      );
+    await ffmpeg.run(
+      '-i', 'input.mp4',
+      '-vf', 'scale=720:-2',
+      '-b:v', '1M',
+      '-c:v', 'libx264',
+      '-preset', 'fast',
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      'output.mp4'
+    );
 
-      statusEl.textContent = 'Compression complete! Preparing download...';
+    const data = ffmpeg.FS('readFile', 'output.mp4');
+    const compressedBlob = new Blob([data.buffer], { type: 'video/mp4' });
+    const url = URL.createObjectURL(compressedBlob);
 
-      const data = ffmpeg.FS('readFile', 'output.mp4');
-      const compressedBlob = new Blob([data.buffer], { type: 'video/mp4' });
-      const url = URL.createObjectURL(compressedBlob);
+    downloadLink.href = url;
+    downloadLink.download = 'compressed.mp4';
+    downloadLink.style.display = 'block';
+    downloadLink.textContent = 'Download Compressed Video';
 
-      downloadLink.href = url;
-      downloadLink.download = 'compressed.mp4';
-      downloadLink.style.display = 'block';
-      downloadLink.textContent = 'Download Compressed Video';
-
-      statusEl.textContent = 'Done!';
-    });
-  </script>
+    statusEl.textContent = 'Done!';
+  });
+</script>
 </body>
 </html>
