@@ -138,17 +138,22 @@ document.getElementById("uploadBtn").onclick = async () => {
   if (encrypt) {
     const enc = await encryptFile(await file.arrayBuffer());
     file = new Blob([enc.encrypted], { type: "application/octet-stream" });
-    filename += ".enc";
-    iv = b64urlEncode(enc.iv); // store iv as base64url
-    key = enc.key;             // store key as base64
+    filename = "encrypted"; // encrypted files just named 'encrypted'
+    iv = b64urlEncode(enc.iv);
+    key = enc.key;
   }
 
-  // Wrap in FormData with proper filename (required by Filebin API)
-  const form = new FormData();
-  form.append("file", file, filename);
+  // Create a new UUID for the bin
+  const bin = crypto.randomUUID();
 
-  // POST to create a new bin (Filebin assigns bin automatically)
-  const res = await fetch("https://filebin.net", { method: "POST", body: form });
+  // Upload directly to https://filebin.net/<bin>/<filename>
+  const url = `https://filebin.net/${bin}/${encodeURIComponent(filename)}`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    body: file,
+    headers: { "Content-Type": "application/octet-stream" }
+  });
 
   if (!res.ok) {
     const text = await res.text();
@@ -156,19 +161,16 @@ document.getElementById("uploadBtn").onclick = async () => {
     return;
   }
 
-  // Extract assigned bin from response URL
-  const binUrl = res.url; // e.g., https://filebin.net/abc123
-  const bin = binUrl.split("/").pop();
-  const fileUrl = `${binUrl}/${filename}`;
+  const fileUrl = `https://filebin.net/${bin}/${filename}`;
   console.log("File uploaded to:", fileUrl);
 
-  // Save metadata to localStorage
+  // Save metadata in localStorage
   const uploads = loadUploads();
   uploads.unshift({
-    id: uuid(),
+    id: crypto.randomUUID(),
     bin,
     filename,
-    originalName: filename.replace(/\.enc$/, ""), // strip .enc for display
+    originalName: filename.replace(/^encrypted$/, file.name || "note.txt"),
     size: file.size,
     time: Date.now(),
     encrypted: encrypt,
@@ -177,7 +179,6 @@ document.getElementById("uploadBtn").onclick = async () => {
   });
   saveUploads(uploads);
 
-  // Re-render the uploads list
   renderUploads();
 };
 
