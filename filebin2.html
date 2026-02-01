@@ -151,8 +151,7 @@ document.getElementById("uploadBtn").onclick = async () => {
 
   const res = await fetch(url, {
     method: "POST",
-    body: file,
-    headers: { "Content-Type": "application/octet-stream" }
+    body: file
   });
 
   if (!res.ok) {
