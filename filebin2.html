@@ -137,10 +137,10 @@ document.getElementById("uploadBtn").onclick = async () => {
   // Encrypt if needed
   if (encrypt) {
     const enc = await encryptFile(await file.arrayBuffer());
-    file = new Blob([enc.encrypted], { type: "application/octet-stream" });
+    file = new Blob([enc.encryptedBytes]);
     filename = "encrypted"; // encrypted files just named 'encrypted'
     iv = b64urlEncode(enc.iv);
-    key = enc.key;
+    key = b64urlEncode(enc.key);  // encode Uint8Array as base64url
   }
 
   // Create a new UUID for the bin
@@ -193,8 +193,8 @@ function renderUploads(){
 
   uploads.slice(0,visibleCount).forEach((u,i)=>{
     const filebinUrl=`https://filebin.net/${u.bin}/${u.filename}`;
-    const shareUrl=`${location.origin}${location.pathname}?bin=${u.bin}&file=${encodeURIComponent(u.filename)}`+
-      (u.encrypted?`#${u.key}.${u.iv}`:"");
+    const shareUrl = `${location.origin}${location.pathname}?bin=${u.bin}&file=${encodeURIComponent(u.filename)}` +
+                 (u.encrypted ? `#key=${encodeURIComponent(u.key)}&iv=${encodeURIComponent(u.iv)}` : "");
 
     const row=document.createElement("div");
     row.className="border rounded p-3 flex flex-col gap-2";
@@ -246,8 +246,13 @@ document.getElementById("showMoreBtn").onclick=()=>{visibleCount+=10; renderUplo
   let finalData=encrypted;
 
   if(hash){
-    const [k,i]=hash.split(".");
-    finalData=await decryptFile(encrypted,b64urlDecode(k),b64urlDecode(i));
+const params = new URLSearchParams(location.hash.slice(1));
+const key = params.get("key");
+const iv = params.get("iv");
+
+if (key && iv) {
+  finalData = await decryptFile(encrypted, b64urlDecode(key), b64urlDecode(iv));
+}
   }
 
   const blob=new Blob([finalData]);
