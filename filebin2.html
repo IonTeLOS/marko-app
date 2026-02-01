@@ -9,7 +9,6 @@
 <body class="bg-gray-100 min-h-screen p-4">
 <div class="max-w-3xl mx-auto space-y-6">
 
-  <!-- Upload Card -->
   <div class="bg-white rounded-xl shadow p-6 space-y-4">
     <h1 class="text-xl font-semibold">Upload to Filebin</h1>
     <input type="file" id="fileInput" class="block w-full text-sm" />
@@ -22,7 +21,6 @@
     <button id="uploadBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Upload</button>
   </div>
 
-  <!-- Uploads List -->
   <div class="bg-white rounded-xl shadow p-6 space-y-4">
     <h2 class="text-lg font-semibold">Recent uploads</h2>
     <div id="uploadsList" class="space-y-3"></div>
@@ -34,223 +32,192 @@
 /* ================= Utilities ================= */
 const uploadsKey = "filebin_uploads";
 
-function uuid() { return crypto.randomUUID(); }
+function uuid() { return crypto.randomUUID().split('-')[0]; }
 function humanTime(ts) { return new Date(ts).toLocaleString(); }
 function saveUploads(list) { localStorage.setItem(uploadsKey, JSON.stringify(list)); }
 function loadUploads() { return JSON.parse(localStorage.getItem(uploadsKey) || "[]"); }
-function formatSize(bytes) {
-  return bytes < 1024 ? bytes + " B"
-       : bytes < 1024*1024 ? (bytes/1024).toFixed(1) + " KB"
-       : (bytes/1024/1024).toFixed(1) + " MB";
-}
 
-function b64urlEncode(bytes) {
-  return btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
+/* ================= 1. CRYPTO HELPERS ================= */
+// Consistent hex helpers
+const bufToHex = (b) => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('');
+const hexToBuf = (h) => new Uint8Array(h.match(/.{1,2}/g).map(x => parseInt(x, 16)));
 
-function b64urlDecode(str) {
-  str = str.replace(/-/g, "+").replace(/_/g, "/");
-  while (str.length % 4) str += "=";
-  return Uint8Array.from(atob(str), c=>c.charCodeAt(0));
-}
-
-/* ================= Crypto ================= */
 async function encryptFile(buffer) {
-  const key = await crypto.subtle.generateKey(
-    { name: "AES-GCM", length: 256 },
-    true,
-    ["encrypt","decrypt"]
-  );
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, buffer);
-  const rawKey = await crypto.subtle.exportKey("raw", key);
-  return {
-    encryptedBytes: new Uint8Array(encrypted),
-    iv,
-    key: new Uint8Array(rawKey)
-  };
+    const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt"]);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const enc = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, buffer);
+    return {
+        data: new Uint8Array(enc), // Crucial for non-empty upload
+        iv: bufToHex(iv),
+        key: bufToHex(await crypto.subtle.exportKey("raw", key))
+    };
 }
 
-async function decryptFile(buffer, keyBytes, iv) {
-  const key = await crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["decrypt"]);
-  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, buffer);
-  return new Uint8Array(decrypted);
+async function decryptFile(buffer, keyHex, ivHex) {
+    const key = await crypto.subtle.importKey("raw", hexToBuf(keyHex), "AES-GCM", false, ["decrypt"]);
+    const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: hexToBuf(ivHex) }, key, buffer);
+    return new Uint8Array(decrypted);
 }
 
-/* ================= Upload ================= */
-document.getElementById("uploadBtn").onclick = async () => {
-  const fileInput = document.getElementById("fileInput");
-  const textInput = document.getElementById("textInput");
-  const encrypt = document.getElementById("encryptCheckbox").checked;
+/* ================= 2. THE DOWNLOADER (Your Version) ================= */
+async function downloadAndDecrypt(bin, file, keyHex, ivHex, origName) {
   const msg = document.getElementById("message");
-  msg.classList.add("hidden");
-
-  let file, filename, iv, key;
-
-  if (fileInput.files.length) {
-    file = fileInput.files[0];
-    filename = file.name;
-    if (textInput.value.trim()) {
-      msg.textContent = "File selected — text input will be ignored.";
-      msg.classList.remove("hidden");
-    }
-  } else if (textInput.value.trim()) {
-    file = new Blob([textInput.value], { type: "text/plain" });
-    filename = "note.txt";
-  } else {
-    alert("Select a file or enter text.");
-    return;
-  }
-
-  // Encrypt if requested
-if (encrypt) {
-  const enc = await encryptFile(await file.arrayBuffer());
-  file = new Blob([enc.encryptedBytes]);
-  filename = "encrypted";
-  iv = b64urlEncode(enc.iv);
-  key = b64urlEncode(enc.key);
-}
-
-
-  const bin = uuid(); // new UUID bin
-  const url = `https://filebin.net/${bin}/${encodeURIComponent(filename)}`;
+  msg.classList.remove("hidden");
+  msg.innerText = `🔄 Requesting ${decodeURIComponent(origName)}...`;
 
   try {
-    const res = await fetch(url, { method: "POST", body: file });
-    if (!res.ok) {
-      const text = await res.text();
-      alert("Upload failed: " + text);
-      return;
+    const fileUrl = `https://filebin.net/${bin}/${file}`;
+    const res = await fetch(fileUrl); // Lean fetch as requested
+
+    if (!res.ok) throw new Error("File not found or Filebin is busy.");
+
+    const contentType = res.headers.get('content-type') || '';
+    const blob = await res.blob();
+
+    // Check for Filebin's security barrier
+    if (contentType.includes('text/html') || blob.type.includes('text/html')) {
+        msg.innerHTML = `
+            <div class="p-2 border border-red-200 bg-red-50 rounded">
+                <p class="font-bold">Manual Step Required:</p>
+                <a href="${fileUrl}" target="_blank" class="bg-red-600 text-white px-3 py-1 rounded text-xs inline-block my-2">
+                    Click here to 'Proceed' on Filebin
+                </a>
+                <p class="text-[10px] italic text-gray-500">Then come back and click the filename again.</p>
+            </div>`;
+        return;
     }
-  } catch(e) {
-    alert("Upload failed: " + e);
-    return;
-  }
 
-  const fileUrl = `https://filebin.net/${bin}/${filename}`;
+    let data = new Uint8Array(await blob.arrayBuffer());
 
-  // Save metadata
-  const uploads = loadUploads();
-  uploads.unshift({
-    id: uuid(),
-    bin,
-    filename,
-    originalName: filename === "encrypted" ? (fileInput.files[0]?.name || "note.txt") : filename,
-    size: file.size,
-    time: Date.now(),
-    encrypted: encrypt,
-    iv,
-    key
-  });
-  saveUploads(uploads);
-  renderUploads();
-};
-
-/* ================= Render ================= */
-let visibleCount = 10;
-function renderUploads() {
-  const list = document.getElementById("uploadsList");
-  const showMore = document.getElementById("showMoreBtn");
-  list.innerHTML = "";
-
-  const uploads = loadUploads();
-  uploads.slice(0, visibleCount).forEach((u, i) => {
-    const filebinUrl = `https://filebin.net/${u.bin}/${u.filename}`;
-    const shareUrl = `${location.origin}${location.pathname}?bin=${u.bin}&file=${encodeURIComponent(u.filename)}` +
-                     (u.encrypted ? `#key=${encodeURIComponent(u.key)}&iv=${encodeURIComponent(u.iv)}` : "");
-
-    const row = document.createElement("div");
-    row.className = "border rounded p-3 flex flex-col gap-2";
-    row.innerHTML = `
-      <div class="text-sm">
-        <strong>#${i+1}</strong>
-        <a href="${filebinUrl}" target="_blank" class="text-blue-600 underline ml-1">
-          ${u.originalName}
-        </a> (${formatSize(u.size)})<br/>
-        <span class="text-gray-500">${humanTime(u.time)}</span>
-      </div>
-      <div class="flex gap-2">
-        <button class="share bg-gray-200 px-2 py-1 rounded text-sm">Share</button>
-        <button class="delete bg-red-100 text-red-600 px-2 py-1 rounded text-sm">Delete</button>
-      </div>
-    `;
-
-    row.querySelector(".share").onclick = async () => {
-      if (navigator.share) {
-        navigator.share({ url: shareUrl });
-      } else {
-        await navigator.clipboard.writeText(shareUrl);
-        alert("Link copied to clipboard");
+    // Decrypt if keys exist
+    if (keyHex && ivHex && keyHex !== 'null' && keyHex !== 'undefined') {
+      msg.innerText = "🔐 Decrypting in browser...";
+      try {
+        data = await decryptFile(data, keyHex, ivHex);
+      } catch (e) {
+        throw new Error("Decryption failed. Data might be corrupted.");
       }
-    };
+    }
 
-    row.querySelector(".delete").onclick = async () => {
-      await fetch(`https://filebin.net/${u.bin}`, { method: "DELETE" });
-      saveUploads(loadUploads().filter(x => x.id !== u.id));
-      renderUploads();
-    };
+    // Force download with the correct original name
+    const finalBlob = new Blob([data], { type: 'application/octet-stream' });
+    const downloadUrl = URL.createObjectURL(finalBlob);
+    const a = document.createElement("a");
+    a.href = downloadUrl;
+    a.download = decodeURIComponent(origName);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    msg.innerText = "✅ Success!";
+    setTimeout(() => msg.classList.add("hidden"), 2000);
 
-    list.appendChild(row);
-  });
-
-  showMore.classList.toggle("hidden", uploads.length <= visibleCount);
+  } catch (err) {
+    alert("Error: " + err.message);
+    msg.classList.add("hidden");
+  }
 }
 
-document.getElementById("showMoreBtn").onclick = () => {
-  visibleCount += 10;
-  renderUploads();
+/* ================= 3. UPLOAD LOGIC ================= */
+document.getElementById("uploadBtn").onclick = async () => {
+    const file = document.getElementById("fileInput").files[0];
+    if (!file) return alert("Select a file");
+
+    const encrypt = document.getElementById("encryptCheckbox").checked;
+    const btn = document.getElementById("uploadBtn");
+    btn.disabled = true; btn.innerText = "Uploading...";
+
+    try {
+        let uploadData = await file.arrayBuffer();
+        let iv = null, key = null;
+
+        if (encrypt) {
+            const enc = await encryptFile(uploadData);
+            uploadData = enc.data;
+            iv = enc.iv; key = enc.key;
+        }
+
+        const binId = crypto.randomUUID().split('-')[0];
+        const url = `https://filebin.net/${binId}/${encodeURIComponent(file.name)}`;
+
+        const res = await fetch(url, {
+            method: "POST",
+            body: encrypt ? uploadData : new Uint8Array(uploadData)
+        });
+
+        if (!res.ok) throw new Error("Upload failed: " + res.status);
+
+        // Save to Local Storage
+        const uploads = JSON.parse(localStorage.getItem("filebin_uploads") || "[]");
+        uploads.unshift({ bin: binId, filename: file.name, iv, key, time: Date.now(), encrypted: encrypt });
+        localStorage.setItem("filebin_uploads", JSON.stringify(uploads));
+        renderUploads();
+
+    } catch (e) { alert(e.message); }
+    btn.disabled = false; btn.innerText = "Upload";
 };
 
-/* ================= Shared link handler ================= */
+
+/* ================= Shared Link Entry Point ================= */
 (async function handleSharedLink() {
   const params = new URLSearchParams(location.search);
   if (!params.has("bin") || !params.has("file")) return;
 
   const bin = params.get("bin");
   const file = params.get("file");
-
-  // Extract key and iv from URL hash
   const hashParams = new URLSearchParams(location.hash.slice(1));
-  const keyB64 = hashParams.get("key");
-  const ivB64 = hashParams.get("iv");
 
-  try {
-    // Fetch the encrypted file as bytes
-    const res = await fetch(`https://filebin.net/${bin}/${file}`);
-    if (!res.ok) { alert("File not found."); return; }
+  // Get metadata from the URL hash
+  const keyHex = hashParams.get("k");
+  const ivHex = hashParams.get("i");
+  const origName = hashParams.get("n") || "downloaded_file";
 
-    let encryptedBytes = new Uint8Array(await res.arrayBuffer());
-    let finalData = encryptedBytes;
-
-    // Only decrypt if key and iv exist
-    if (keyB64 && ivB64) {
-      const keyBytes = b64urlDecode(keyB64); // returns Uint8Array
-      const ivBytes = b64urlDecode(ivB64);   // returns Uint8Array
-
-      try {
-        finalData = await decryptFile(encryptedBytes, keyBytes, ivBytes);
-      } catch (err) {
-        console.error(err);
-        alert("Decryption failed (wrong key or corrupted file).");
-        return;
-      }
-    }
-
-    // Download the result
-    const blob = new Blob([finalData]);
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = file === "encrypted" ? hashParams.get("origName") || "note.txt" : file;
-    a.click();
-
-  } catch (err) {
-    console.error(err);
-    alert("Failed to fetch or decrypt file: " + err);
-  }
+  // Trigger the download immediately for shared links
+  downloadAndDecrypt(bin, file, keyHex, ivHex, origName);
 })();
 
+/* ================= List Rendering ================= */
+function renderUploads() {
+  const list = document.getElementById("uploadsList");
+  list.innerHTML = "";
+
+  loadUploads().forEach(u => {
+    // Shared URL for others
+    let hashParts = [`n=${encodeURIComponent(u.originalName)}`];
+    if (u.encrypted) hashParts.push(`k=${u.key}`, `i=${u.iv}`);
+    const shareUrl = `${window.location.origin}${window.location.pathname}?bin=${u.bin}&file=${encodeURIComponent(u.filename)}#${hashParts.join('&')}`;
+
+    const row = document.createElement("div");
+    row.className = "border rounded p-3 flex justify-between items-center bg-white shadow-sm";
+
+    // We use a <span> with styling instead of an <a> tag to prevent the browser
+    // from trying to download the raw "data.bin" directly.
+    row.innerHTML = `
+      <div class="text-sm">
+        <span
+            role="button"
+            onclick="downloadAndDecrypt('${u.bin}', '${u.filename}', '${u.key}', '${u.iv}', '${encodeURIComponent(u.originalName)}')"
+            class="font-bold text-blue-600 cursor-pointer hover:underline">
+            ${u.originalName}
+        </span> ${u.encrypted ? '🔒' : ''}<br/>
+        <span class="text-gray-400 text-xs">${humanTime(u.time)}</span>
+      </div>
+      <div class="flex gap-3">
+        <button class="text-blue-600 text-sm font-semibold" onclick="navigator.clipboard.writeText('${shareUrl}'); alert('Link Copied!')">Copy Link</button>
+        <button class="text-red-400 text-sm" onclick="deleteUpload('${u.id}', '${u.bin}')">Delete</button>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+window.deleteUpload = (id, bin) => {
+    fetch(`https://filebin.net/${bin}`, { method: 'DELETE' });
+    saveUploads(loadUploads().filter(x => x.id !== id));
+    renderUploads();
+};
+
 renderUploads();
+</script>
 </script>
 </body>
 </html>
