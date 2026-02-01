@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Filebin Uploader</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen p-4">
+  <div class="max-w-3xl mx-auto space-y-6">
+
+    <!-- Upload Card -->
+    <div class="bg-white rounded-xl shadow p-6 space-y-4">
+      <h1 class="text-xl font-semibold">Upload to Filebin</h1>
+
+      <input type="file" id="fileInput" class="block w-full text-sm" />
+
+      <textarea
+        id="textInput"
+        placeholder="Or paste text here (saved as note.txt)"
+        class="w-full border rounded p-2 text-sm"
+        rows="4"
+      ></textarea>
+
+      <div class="flex items-center gap-2">
+        <input type="checkbox" id="encryptCheckbox" />
+        <label for="encryptCheckbox" class="text-sm">Encrypt file (AES-GCM)</label>
+      </div>
+
+      <div id="message" class="text-sm text-amber-600 hidden"></div>
+
+      <button
+        id="uploadBtn"
+        class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+      >
+        Upload
+      </button>
+    </div>
+
+    <!-- Uploads -->
+    <div class="bg-white rounded-xl shadow p-6 space-y-4">
+      <h2 class="text-lg font-semibold">Recent uploads</h2>
+      <div id="uploadsList" class="space-y-3"></div>
+
+      <button
+        id="showMoreBtn"
+        class="text-sm text-blue-600 hidden"
+      >
+        Show more
+      </button>
+    </div>
+  </div>
+
+<script>
+/* ================= Utilities ================= */
+
+const uploadsKey = "filebin_uploads";
+
+function uuid() {
+  return crypto.randomUUID();
+}
+
+function humanTime(ts) {
+  return new Date(ts).toLocaleString();
+}
+
+function saveUploads(list) {
+  localStorage.setItem(uploadsKey, JSON.stringify(list));
+}
+
+function loadUploads() {
+  return JSON.parse(localStorage.getItem(uploadsKey) || "[]");
+}
+
+function formatSize(bytes) {
+  return bytes < 1024
+    ? bytes + " B"
+    : bytes < 1024 * 1024
+    ? (bytes / 1024).toFixed(1) + " KB"
+    : (bytes / 1024 / 1024).toFixed(1) + " MB";
+}
+
+/* ================= Crypto ================= */
+
+async function encryptFile(buffer) {
+  const key = await crypto.subtle.generateKey(
+    { name: "AES-GCM", length: 256 },
+    true,
+    ["encrypt", "decrypt"]
+  );
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+
+  const encrypted = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    buffer
+  );
+
+  const rawKey = await crypto.subtle.exportKey("raw", key);
+
+  return {
+    encrypted,
+    iv,
+    key: btoa(String.fromCharCode(...new Uint8Array(rawKey)))
+  };
+}
+
+async function decryptFile(buffer, keyB64, iv) {
+  const rawKey = Uint8Array.from(atob(keyB64), c => c.charCodeAt(0));
+  const key = await crypto.subtle.importKey(
+    "raw",
+    rawKey,
+    "AES-GCM",
+    false,
+    ["decrypt"]
+  );
+
+  return crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    key,
+    buffer
+  );
+}
+
+/* ================= Upload ================= */
+
+document.getElementById("uploadBtn").onclick = async () => {
+  const fileInput = document.getElementById("fileInput");
+  const textInput = document.getElementById("textInput");
+  const encrypt = document.getElementById("encryptCheckbox").checked;
+  const msg = document.getElementById("message");
+
+  msg.classList.add("hidden");
+
+  let file;
+
+  if (fileInput.files.length) {
+    if (textInput.value.trim()) {
+      msg.textContent = "File selected — text input will be ignored.";
+      msg.classList.remove("hidden");
+    }
+    file = fileInput.files[0];
+  } else if (textInput.value.trim()) {
+    file = new File([textInput.value], "note.txt", { type: "text/plain" });
+  } else {
+    alert("Select a file or enter text.");
+    return;
+  }
+
+  const bin = uuid();
+  let filename = file.name;
+  let data = await file.arrayBuffer();
+  let iv, key;
+
+  if (encrypt) {
+    const enc = await encryptFile(data);
+    data = enc.encrypted;
+    iv = Array.from(enc.iv);
+    key = enc.key;
+    filename += ".enc";
+  }
+
+  const url = `https://filebin.net/${bin}/${encodeURIComponent(filename)}`;
+
+  await fetch(url, {
+    method: "POST",
+    body: data
+  });
+
+  const uploads = loadUploads();
+  uploads.unshift({
+    id: uuid(),
+    bin,
+    filename,
+    originalName: file.name,
+    size: file.size,
+    time: Date.now(),
+    encrypted: encrypt,
+    iv,
+    key
+  });
+  saveUploads(uploads);
+
+  renderUploads();
+};
+
+/* ================= Render ================= */
+
+let visibleCount = 10;
+
+function renderUploads() {
+  const list = document.getElementById("uploadsList");
+  const showMore = document.getElementById("showMoreBtn");
+  list.innerHTML = "";
+
+  const uploads = loadUploads();
+
+  uploads.slice(0, visibleCount).forEach((u, i) => {
+    const filebinUrl = `https://filebin.net/${u.bin}/${u.filename}`;
+    const shareUrl = `${location.origin}${location.pathname}?bin=${u.bin}&file=${encodeURIComponent(u.filename)}${u.encrypted ? `#key=${u.key}&iv=${btoa(String.fromCharCode(...u.iv))}` : ""}`;
+
+    const row = document.createElement("div");
+    row.className = "border rounded p-3 flex flex-col gap-2";
+
+    row.innerHTML = `
+      <div class="text-sm">
+        <strong>#${i + 1}</strong>
+        <a href="${filebinUrl}" target="_blank" class="text-blue-600 underline ml-1">
+          ${u.originalName}
+        </a>
+        (${formatSize(u.size)})<br/>
+        <span class="text-gray-500">${humanTime(u.time)}</span>
+      </div>
+
+      <div class="flex gap-2">
+        <button class="share bg-gray-200 px-2 py-1 rounded text-sm">Share</button>
+        <button class="delete bg-red-100 text-red-600 px-2 py-1 rounded text-sm">Delete</button>
+      </div>
+    `;
+
+    row.querySelector(".share").onclick = async () => {
+      if (navigator.share) {
+        navigator.share({ url: shareUrl });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        alert("Link copied to clipboard");
+      }
+    };
+
+    row.querySelector(".delete").onclick = async () => {
+      await fetch(`https://filebin.net/${u.bin}`, { method: "DELETE" });
+      saveUploads(loadUploads().filter(x => x.id !== u.id));
+      renderUploads();
+    };
+
+    list.appendChild(row);
+  });
+
+  showMore.classList.toggle("hidden", uploads.length <= visibleCount);
+}
+
+document.getElementById("showMoreBtn").onclick = () => {
+  visibleCount += 10;
+  renderUploads();
+};
+
+/* ================= Download / Decrypt ================= */
+
+(async function handleSharedLink() {
+  const params = new URLSearchParams(location.search);
+  if (!params.has("bin")) return;
+
+  const bin = params.get("bin");
+  const file = params.get("file");
+  const hash = new URLSearchParams(location.hash.slice(1));
+  const key = hash.get("key");
+  const iv = hash.get("iv");
+
+  const res = await fetch(`https://filebin.net/${bin}/${file}`);
+  let data = await res.arrayBuffer();
+
+  if (key && iv) {
+    data = await decryptFile(
+      data,
+      key,
+      Uint8Array.from(atob(iv), c => c.charCodeAt(0))
+    );
+  }
+
+  const blob = new Blob([data]);
+  const url = URL.createObjectURL(blob);
+  window.location.href = url;
+})();
+renderUploads();
+</script>
+</body>
+</html>
