@@ -39,23 +39,63 @@ function loadUploads() { return JSON.parse(localStorage.getItem(uploadsKey) || "
 
 /* ================= 1. CRYPTO HELPERS ================= */
 // Consistent hex helpers
-const bufToHex = (b) => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('');
-const hexToBuf = (h) => new Uint8Array(h.match(/.{1,2}/g).map(x => parseInt(x, 16)));
+const bufToHex = (buf) => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+const hexToBuf = (hex) => {
+    if (!hex) return new Uint8Array();
+    // Remove any non-hex characters just in case
+    const cleanHex = hex.replace(/[^0-9a-fA-F]/g, '');
+    const matches = cleanHex.match(/.{1,2}/g);
+    return new Uint8Array(matches ? matches.map(byte => parseInt(byte, 16)) : []);
+};
 
 async function encryptFile(buffer) {
-    const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt"]);
+    // Generate a 256-bit key
+    const key = await crypto.subtle.generateKey(
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt"]
+    );
+
+    // Generate a 12-byte IV (24 hex chars)
     const iv = crypto.getRandomValues(new Uint8Array(12));
-    const enc = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, buffer);
+
+    // Encrypting... This returns an ArrayBuffer containing [Ciphertext][Tag]
+    const encryptedBuffer = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: iv },
+        key,
+        buffer
+    );
+
     return {
-        data: new Uint8Array(enc), // Crucial for non-empty upload
+        data: new Uint8Array(encryptedBuffer), // 16 bytes longer than original
         iv: bufToHex(iv),
         key: bufToHex(await crypto.subtle.exportKey("raw", key))
     };
 }
 
 async function decryptFile(buffer, keyHex, ivHex) {
-    const key = await crypto.subtle.importKey("raw", hexToBuf(keyHex), "AES-GCM", false, ["decrypt"]);
-    const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: hexToBuf(ivHex) }, key, buffer);
+    const keyBuf = hexToBuf(keyHex);
+    const ivBuf = hexToBuf(ivHex);
+
+    const key = await crypto.subtle.importKey(
+        "raw",
+        keyBuf,
+        { name: "AES-GCM" },
+        false,
+        ["decrypt"]
+    );
+
+    // FIX: Ensure we are passing the underlying ArrayBuffer
+    const decrypted = await crypto.subtle.decrypt(
+        {
+            name: "AES-GCM",
+            iv: ivBuf // The IV must be exactly 12 bytes (24 hex chars)
+        },
+        key,
+        buffer.buffer || buffer // Handles both Uint8Array and ArrayBuffer
+    );
+
     return new Uint8Array(decrypted);
 }
 
@@ -63,43 +103,43 @@ async function decryptFile(buffer, keyHex, ivHex) {
 async function downloadAndDecrypt(bin, file, keyHex, ivHex, origName) {
   const msg = document.getElementById("message");
   msg.classList.remove("hidden");
-  msg.innerText = `🔄 Requesting ${decodeURIComponent(origName)}...`;
+  msg.innerText = `🔄 Processing ${decodeURIComponent(origName)}...`;
 
   try {
     const fileUrl = `https://filebin.net/${bin}/${file}`;
-    const res = await fetch(fileUrl); // Lean fetch as requested
+    const res = await fetch(fileUrl);
+    if (!res.ok) throw new Error("File not found.");
 
-    if (!res.ok) throw new Error("File not found or Filebin is busy.");
-
-    const contentType = res.headers.get('content-type') || '';
     const blob = await res.blob();
-
-    // Check for Filebin's security barrier
-    if (contentType.includes('text/html') || blob.type.includes('text/html')) {
-        msg.innerHTML = `
-            <div class="p-2 border border-red-200 bg-red-50 rounded">
-                <p class="font-bold">Manual Step Required:</p>
-                <a href="${fileUrl}" target="_blank" class="bg-red-600 text-white px-3 py-1 rounded text-xs inline-block my-2">
-                    Click here to 'Proceed' on Filebin
-                </a>
-                <p class="text-[10px] italic text-gray-500">Then come back and click the filename again.</p>
-            </div>`;
-        return;
-    }
-
     let data = new Uint8Array(await blob.arrayBuffer());
 
-    // Decrypt if keys exist
-    if (keyHex && ivHex && keyHex !== 'null' && keyHex !== 'undefined') {
-      msg.innerText = "🔐 Decrypting in browser...";
+    // LOGS FOR DEBUGGING (Check your F12 console)
+    console.log("File received, length:", data.length);
+    console.log("Key present:", !!keyHex, "IV present:", !!ivHex);
+
+    // FIX: Tightened check for keys (handles strings "null" or "undefined")
+    const hasKey = keyHex && keyHex !== 'null' && keyHex !== 'undefined' && keyHex.length > 0;
+    const hasIv = ivHex && ivHex !== 'null' && ivHex !== 'undefined' && ivHex.length > 0;
+
+    if (hasKey && hasIv) {
+      msg.innerText = "🔐 Decrypting...";
       try {
-        data = await decryptFile(data, keyHex, ivHex);
+        // We use the existing decryptFile function
+        console.log("Data Length:", data.byteLength); // Should match 'bytes' in your CURL response
+console.log("Key Hex Length:", keyHex.length); // Should be exactly 64 for AES-256
+console.log("IV Hex Length:", ivHex.length);   // Should be exactly 24
+        const decryptedBuffer = await decryptFile(data, keyHex, ivHex);
+        data = new Uint8Array(decryptedBuffer);
+        console.log("Decryption successful!");
       } catch (e) {
-        throw new Error("Decryption failed. Data might be corrupted.");
+        console.error("Decryption Error:", e);
+        throw new Error("Decryption failed. Data might be corrupted or key is invalid.");
       }
+    } else {
+      console.warn("Skipping decryption: No valid keys found in parameters.");
     }
 
-    // Force download with the correct original name
+    // Trigger the save
     const finalBlob = new Blob([data], { type: 'application/octet-stream' });
     const downloadUrl = URL.createObjectURL(finalBlob);
     const a = document.createElement("a");
@@ -107,9 +147,12 @@ async function downloadAndDecrypt(bin, file, keyHex, ivHex, origName) {
     a.download = decodeURIComponent(origName);
     document.body.appendChild(a);
     a.click();
-    a.remove();
-    msg.innerText = "✅ Success!";
-    setTimeout(() => msg.classList.add("hidden"), 2000);
+
+    setTimeout(() => {
+        URL.revokeObjectURL(downloadUrl);
+        a.remove();
+        msg.classList.add("hidden");
+    }, 500);
 
   } catch (err) {
     alert("Error: " + err.message);
@@ -127,35 +170,50 @@ document.getElementById("uploadBtn").onclick = async () => {
     btn.disabled = true; btn.innerText = "Uploading...";
 
     try {
-        let uploadData = await file.arrayBuffer();
+        const originalBuffer = await file.arrayBuffer();
+        let uploadPayload;
         let iv = null, key = null;
 
         if (encrypt) {
-            const enc = await encryptFile(uploadData);
-            uploadData = enc.data;
-            iv = enc.iv; key = enc.key;
+            const result = await encryptFile(originalBuffer);
+            uploadPayload = result.data; // The Uint8Array (Ciphertext + Tag)
+            iv = result.iv;
+            key = result.key;
+        } else {
+            uploadPayload = new Uint8Array(originalBuffer);
         }
 
         const binId = crypto.randomUUID().split('-')[0];
         const url = `https://filebin.net/${binId}/${encodeURIComponent(file.name)}`;
 
+        // FIX: Wrap in Blob and explicitly set headers
+        const blobPayload = new Blob([uploadPayload], { type: 'application/octet-stream' });
+
         const res = await fetch(url, {
             method: "POST",
-            body: encrypt ? uploadData : new Uint8Array(uploadData)
+            headers: {
+                'Content-Type': 'application/octet-stream',
+                'Content-Length': blobPayload.size.toString() // Tell the server exactly what to expect
+            },
+            body: blobPayload
         });
 
-        if (!res.ok) throw new Error("Upload failed: " + res.status);
+        if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
 
-        // Save to Local Storage
+        console.log("Uploaded successfully. Expected size:", blobPayload.size);
+
+        // Save metadata
         const uploads = JSON.parse(localStorage.getItem("filebin_uploads") || "[]");
         uploads.unshift({ bin: binId, filename: file.name, iv, key, time: Date.now(), encrypted: encrypt });
         localStorage.setItem("filebin_uploads", JSON.stringify(uploads));
+
         renderUploads();
-
-    } catch (e) { alert(e.message); }
-    btn.disabled = false; btn.innerText = "Upload";
+    } catch (e) {
+        alert(e.message);
+    } finally {
+        btn.disabled = false; btn.innerText = "Upload";
+    }
 };
-
 
 /* ================= Shared Link Entry Point ================= */
 (async function handleSharedLink() {
