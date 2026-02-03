@@ -96,35 +96,31 @@
       serviceWorkerRegistration: swReg
     });
 
-    if (!token) {
-      subscribeStatusP.textContent = 'Failed to retrieve FCM token.';
-      console.error('No token returned');
-      return;
-    }
-
-    console.log('FCM Token:', token);  // ← useful for debugging
-
-    // Option A: Modern client-side subscription (recommended - no server auth issues)
-    await messaging.subscribeToTopic(token, topic);
-    subscribeStatusP.textContent = `Successfully subscribed to topic: ${topic}`;
-
-    // Option B: If you still want to use your Worker (uncomment if preferred)
-    // const response = await fetch(`${workerUrl}/subscribe`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ token, topic })
-    // });
-    // if (response.ok) {
-    //   subscribeStatusP.textContent = `Subscribed via Worker to: ${topic}`;
-    // } else {
-    //   const errText = await response.text();
-    //   throw new Error(`Worker error: ${errText}`);
-    // }
-
-  } catch (err) {
-    subscribeStatusP.textContent = `Subscription error: ${err.message || err}`;
-    console.error('Full error:', err);
+if (!token) {
+    subscribeStatusP.textContent = 'Failed to retrieve FCM token.';
+    return;
   }
+
+  console.log('FCM Token obtained:', token);
+
+  // Call YOUR Worker to subscribe (this uses server auth)
+  const response = await fetch(`${workerUrl}/subscribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, topic })
+  });
+
+  if (response.ok) {
+    subscribeStatusP.textContent = `Subscribed to topic "${topic}" via server!`;
+  } else {
+    const errText = await response.text();
+    subscribeStatusP.textContent = `Subscription failed: ${errText}`;
+  }
+
+} catch (err) {
+  subscribeStatusP.textContent = `Error: ${err.message || 'Unknown error'}`;
+  console.error('Full subscribe error:', err);
+}
 });
 
   // Send functionality (unchanged)
