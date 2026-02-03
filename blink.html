@@ -70,36 +70,62 @@
   const subscribeStatusP = document.getElementById('subscribeStatus');
 
   subscribeBtn.addEventListener('click', async () => {
-    const topic = subscribeTopicInput.value.trim();
-    if (!topic) {
-      subscribeStatusP.textContent = 'Please enter a topic name.';
+  const topic = subscribeTopicInput.value.trim();
+  if (!topic) {
+    subscribeStatusP.textContent = 'Please enter a topic name.';
+    return;
+  }
+
+  try {
+    // Request permission first
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      subscribeStatusP.textContent = 'Notification permission denied.';
       return;
     }
 
-    try {
-      // Request permission
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        subscribeStatusP.textContent = 'Notification permission denied.';
-        return;
-      }
+    // Wait for service worker registration if not ready
+    if (!swReg) {
+      subscribeStatusP.textContent = 'Service worker still registering... Try again in a second.';
+      return;
+    }
 
-      // Ensure service worker is registered
-      if (!swReg) {
-        subscribeStatusP.textContent = 'Service worker not registered yet. Try again.';
-        return;
-      }
-  
+    // Get the FCM token (this is where we actually get 'token')
+    const token = await messaging.getToken({
+      vapidKey: 'YOUR_VAPID_KEY_HERE',           // ← must be correct public VAPID key
+      serviceWorkerRegistration: swReg
+    });
 
-      // Get FCM token, passing serviceWorkerRegistration
-await messaging.subscribeToTopic(token, topic);
+    if (!token) {
+      subscribeStatusP.textContent = 'Failed to retrieve FCM token.';
+      console.error('No token returned');
+      return;
+    }
 
-  subscribeStatusP.textContent = `Subscribed to topic: ${topic}`;
-} catch (err) {
-  subscribeStatusP.textContent = `Error: ${err.message || err}`;
-  console.error(err);
-}
-  });
+    console.log('FCM Token:', token);  // ← useful for debugging
+
+    // Option A: Modern client-side subscription (recommended - no server auth issues)
+    await messaging.subscribeToTopic(token, topic);
+    subscribeStatusP.textContent = `Successfully subscribed to topic: ${topic}`;
+
+    // Option B: If you still want to use your Worker (uncomment if preferred)
+    // const response = await fetch(`${workerUrl}/subscribe`, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({ token, topic })
+    // });
+    // if (response.ok) {
+    //   subscribeStatusP.textContent = `Subscribed via Worker to: ${topic}`;
+    // } else {
+    //   const errText = await response.text();
+    //   throw new Error(`Worker error: ${errText}`);
+    // }
+
+  } catch (err) {
+    subscribeStatusP.textContent = `Subscription error: ${err.message || err}`;
+    console.error('Full error:', err);
+  }
+});
 
   // Send functionality (unchanged)
   const sendBtn = document.getElementById('sendBtn');
