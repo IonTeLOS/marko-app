@@ -89,9 +89,13 @@
         subscribeStatusP.textContent = 'Service worker not registered yet. Try again.';
         return;
       }
+  
 
       // Get FCM token, passing serviceWorkerRegistration
 messaging.subscribeToTopic(token, topic)
+        }
+   catch(err => console.error('Registration failed', err));
+  }
   });
 
   // Send functionality (unchanged)
