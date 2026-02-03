@@ -92,12 +92,13 @@
   
 
       // Get FCM token, passing serviceWorkerRegistration
-messaging.subscribeToTopic(token, topic)
-        }
-catch (err) {
-        statusP.textContent = `Error: ${err.message}`;
-        console.error(err);
-      }
+await messaging.subscribeToTopic(token, topic);
+
+  subscribeStatusP.textContent = `Subscribed to topic: ${topic}`;
+} catch (err) {
+  subscribeStatusP.textContent = `Error: ${err.message || err}`;
+  console.error(err);
+}
   });
 
   // Send functionality (unchanged)
