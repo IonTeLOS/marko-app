@@ -35,131 +35,144 @@
     <p id="sendStatus"></p>
   </section>
 
-  <script>
-    // Replace with your Firebase config from the Firebase Console
-const firebaseConfig = {
+<script>
+  // Replace with your Firebase config from the Firebase Console
+  const firebaseConfig = {
   apiKey: "AIzaSyDh42r7F7lTAydfxMjQEejvwov9VN6ubVc",
   authDomain: "notis-b1899.firebaseapp.com",
   projectId: "notis-b1899",
   storageBucket: "notis-b1899.firebasestorage.app",
   messagingSenderId: "85368038648",
   appId: "1:85368038648:web:e946fdf8bc61c3e715470d"
-};
+  };
 
-    firebase.initializeApp(firebaseConfig);
-    const messaging = firebase.messaging();
+  firebase.initializeApp(firebaseConfig);
+  const messaging = firebase.messaging();
 
-    // Register the service worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/fbsw.js')
-        .then(reg => {
-          console.log('Service worker registered', reg);
-          messaging.useServiceWorker(reg);
-        })
-        .catch(err => console.error('Service worker registration failed', err));
+  let swReg;  // Store the registration globally for reuse if needed
+
+  // Register the service worker and store the registration
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/fbsw.js')
+      .then(reg => {
+        console.log('Service worker registered', reg);
+        swReg = reg;  // Save for use in getToken
+      })
+      .catch(err => console.error('Service worker registration failed', err));
+  }
+
+  // Worker URL - Replace with your Cloudflare Worker URL
+  const workerUrl = 'https://firebase-notifications-worker.ynsgvls.workers.dev';
+
+  // Subscribe functionality
+  const subscribeBtn = document.getElementById('subscribeBtn');
+  const subscribeTopicInput = document.getElementById('subscribeTopic');
+  const subscribeStatusP = document.getElementById('subscribeStatus');
+
+  subscribeBtn.addEventListener('click', async () => {
+    const topic = subscribeTopicInput.value.trim();
+    if (!topic) {
+      subscribeStatusP.textContent = 'Please enter a topic name.';
+      return;
     }
 
-    // Worker URL - Replace with your Cloudflare Worker URL
-    const workerUrl = 'https://firebase-notifications-worker.ynsgvls.workers.dev';
-
-    // Subscribe functionality
-    const subscribeBtn = document.getElementById('subscribeBtn');
-    const subscribeTopicInput = document.getElementById('subscribeTopic');
-    const subscribeStatusP = document.getElementById('subscribeStatus');
-
-    subscribeBtn.addEventListener('click', async () => {
-      const topic = subscribeTopicInput.value.trim();
-      if (!topic) {
-        subscribeStatusP.textContent = 'Please enter a topic name.';
+    try {
+      // Request permission
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        subscribeStatusP.textContent = 'Notification permission denied.';
         return;
       }
 
-      try {
-        // Request permission
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          subscribeStatusP.textContent = 'Notification permission denied.';
-          return;
-        }
-
-        // Get FCM token
-        const token = await messaging.getToken({ vapidKey: 'BEE_1cxNWPCBZX8BiUF69F-I8VEHS-nvHhB8dgbWv0GP-OE0-l4DIYiQDDslIxWfzZX6i9035q4t7a_lubjfjc8' });  // Replace with your VAPID key from Firebase Console
-        if (!token) {
-          subscribeStatusP.textContent = 'Unable to get token.';
-          return;
-        }
-
-        // Send to /subscribe endpoint
-        const response = await fetch(`${workerUrl}/subscribe`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, topic })
-        });
-
-        if (response.ok) {
-          subscribeStatusP.textContent = `Subscribed to topic: ${topic}`;
-        } else {
-          const err = await response.text();
-          subscribeStatusP.textContent = `Error: ${err}`;
-        }
-      } catch (err) {
-        subscribeStatusP.textContent = `Error: ${err.message}`;
-        console.error(err);
-      }
-    });
-
-    // Send functionality
-    const sendBtn = document.getElementById('sendBtn');
-    const sendTopicInput = document.getElementById('sendTopic');
-    const titleInput = document.getElementById('title');
-    const bodyInput = document.getElementById('body');
-    const iconInput = document.getElementById('icon');
-    const sendStatusP = document.getElementById('sendStatus');
-
-    sendBtn.addEventListener('click', async () => {
-      const topic = sendTopicInput.value.trim();
-      const title = titleInput.value.trim();
-      const body = bodyInput.value.trim();
-      const icon = iconInput.value.trim();
-
-      if (!topic || !title || !body) {
-        sendStatusP.textContent = 'Please fill in topic, title, and body.';
+      // Ensure service worker is registered
+      if (!swReg) {
+        subscribeStatusP.textContent = 'Service worker not registered yet. Try again.';
         return;
       }
 
-      const notification = { title, body };
-      if (icon) notification.icon = icon;
-
-      try {
-        // Send to /send endpoint
-        const response = await fetch(`${workerUrl}/send`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic, notification })
-        });
-
-        if (response.ok) {
-          sendStatusP.textContent = `Notification sent to topic: ${topic}`;
-        } else {
-          const err = await response.text();
-          sendStatusP.textContent = `Error: ${err}`;
-        }
-      } catch (err) {
-        sendStatusP.textContent = `Error: ${err.message}`;
-        console.error(err);
+      // Get FCM token, passing serviceWorkerRegistration
+      const token = await messaging.getToken({
+        vapidKey: 'YOUR_VAPID_KEY',  // Replace with your VAPID key from Firebase Console
+        serviceWorkerRegistration: swReg
+      });
+      if (!token) {
+        subscribeStatusP.textContent = 'Unable to get token.';
+        return;
       }
-    });
 
-    // Optional: Handle foreground messages
-    messaging.onMessage((payload) => {
-      console.log('Foreground message received:', payload);
-      const notificationTitle = payload.notification.title;
-      const notificationOptions = {
-        body: payload.notification.body,
-        icon: payload.notification.icon
-      };
-      new Notification(notificationTitle, notificationOptions);
-    });
-  </script>
+      // Send to /subscribe endpoint
+      const response = await fetch(`${workerUrl}/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, topic })
+      });
+
+      if (response.ok) {
+        subscribeStatusP.textContent = `Subscribed to topic: ${topic}`;
+      } else {
+        const err = await response.text();
+        subscribeStatusP.textContent = `Error: ${err}`;
+      }
+    } catch (err) {
+      subscribeStatusP.textContent = `Error: ${err.message}`;
+      console.error(err);
+    }
+  });
+
+  // Send functionality (unchanged)
+  const sendBtn = document.getElementById('sendBtn');
+  const sendTopicInput = document.getElementById('sendTopic');
+  const titleInput = document.getElementById('title');
+  const bodyInput = document.getElementById('body');
+  const iconInput = document.getElementById('icon');
+  const sendStatusP = document.getElementById('sendStatus');
+
+  sendBtn.addEventListener('click', async () => {
+    const topic = sendTopicInput.value.trim();
+    const title = titleInput.value.trim();
+    const body = bodyInput.value.trim();
+    const icon = iconInput.value.trim();
+
+    if (!topic || !title || !body) {
+      sendStatusP.textContent = 'Please fill in topic, title, and body.';
+      return;
+    }
+
+    const notification = { title, body };
+    if (icon) notification.icon = icon;
+
+    try {
+      // Send to /send endpoint
+      const response = await fetch(`${workerUrl}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, notification })
+      });
+
+      if (response.ok) {
+        sendStatusP.textContent = `Notification sent to topic: ${topic}`;
+      } else {
+        const err = await response.text();
+        sendStatusP.textContent = `Error: ${err}`;
+      }
+    } catch (err) {
+      sendStatusP.textContent = `Error: ${err.message}`;
+      console.error(err);
+    }
+  });
+
+  // Optional: Handle foreground messages
+  messaging.onMessage((payload) => {
+    console.log('Foreground message received:', payload);
+    const notificationTitle = payload.notification.title;
+    const notificationOptions = {
+      body: payload.notification.body,
+      icon: payload.notification.icon
+    };
+    new Notification(notificationTitle, notificationOptions);
+  });
+</script>
 </body>
 </html>
+
+
