@@ -91,32 +91,7 @@
       }
 
       // Get FCM token, passing serviceWorkerRegistration
-      const token = await messaging.getToken({
-        vapidKey: 'BEE_1cxNWPCBZX8BiUF69F-I8VEHS-nvHhB8dgbWv0GP-OE0-l4DIYiQDDslIxWfzZX6i9035q4t7a_lubjfjc8',  // Replace with your VAPID key from Firebase Console
-        serviceWorkerRegistration: swReg
-      });
-      if (!token) {
-        subscribeStatusP.textContent = 'Unable to get token.';
-        return;
-      }
-
-      // Send to /subscribe endpoint
-      const response = await fetch(`${workerUrl}/subscribe`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, topic })
-      });
-
-      if (response.ok) {
-        subscribeStatusP.textContent = `Subscribed to topic: ${topic}`;
-      } else {
-        const err = await response.text();
-        subscribeStatusP.textContent = `Error: ${err}`;
-      }
-    } catch (err) {
-      subscribeStatusP.textContent = `Error: ${err.message}`;
-      console.error(err);
-    }
+messaging.subscribeToTopic(token, topic)
   });
 
   // Send functionality (unchanged)
