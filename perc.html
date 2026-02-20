@@ -3,444 +3,247 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>AIMLAPI Responses Streaming (BYOK, Static)</title>
-
-  <!-- Tight-ish CSP. Uses a nonce so we don't need unsafe-inline. -->
-  <meta http-equiv="Content-Security-Policy"
-        content="
-          default-src 'self';
-          base-uri 'none';
-          object-src 'none';
-          frame-ancestors 'none';
-          img-src 'self' data:;
-          style-src 'self' 'unsafe-inline';
-          connect-src https://api.aimlapi.com;
-          script-src 'nonce-6f1c5f3b9a6a4e9aa2b8f5a7d7b9c111';
-        " />
-
+  <title>Dual-Provider Chat (OpenRouter / AIMLAPI)</title>
   <style>
-    :root { color-scheme: light dark; }
-    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; }
-    .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
-    .row { display: flex; gap: 12px; flex-wrap: wrap; }
-    .card { border: 1px solid rgba(127,127,127,.25); border-radius: 14px; padding: 14px; }
-    .grow { flex: 1 1 320px; }
-    label { display: block; font-size: 12px; opacity: .8; margin-bottom: 6px; }
-    input, textarea, select, button {
-      width: 100%;
-      box-sizing: border-box;
-      border: 1px solid rgba(127,127,127,.35);
-      border-radius: 10px;
-      padding: 10px 12px;
-      font-size: 14px;
-      background: transparent;
+    :root { color-scheme: light dark; --primary: #007bff; }
+    body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; line-height: 1.5; }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 20px; }
+    .card { border: 1px solid rgba(127,127,127,.2); border-radius: 12px; padding: 16px; margin-bottom: 16px; background: rgba(127,127,127,0.03); }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+    .grow { flex: 1; min-width: 200px; }
+    label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; opacity: 0.8; }
+    input, select, textarea, button { 
+      width: 100%; box-sizing: border-box; border-radius: 8px; 
+      border: 1px solid rgba(127,127,127,0.4); padding: 10px; font-size: 14px; background: canvas;
     }
-    textarea { min-height: 90px; resize: vertical; }
-    button { cursor: pointer; }
-    button.primary { font-weight: 600; }
-    button:disabled { opacity: .55; cursor: not-allowed; }
-    .chat { height: 52vh; overflow: auto; padding: 12px; background: rgba(127,127,127,.06); border-radius: 12px; }
-    .msg { margin: 10px 0; }
-    .msg .meta { font-size: 12px; opacity: .7; margin-bottom: 4px; }
-    .msg .bubble { white-space: pre-wrap; line-height: 1.35; }
-    .msg.user .bubble { }
-    .msg.assistant .bubble { }
-    .hint { font-size: 12px; opacity: .75; margin-top: 8px; line-height: 1.35; }
-    .pillrow { display: flex; gap: 8px; }
-    .pillrow > button { width: auto; padding: 10px 12px; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    button { cursor: pointer; background: var(--primary); color: white; border: none; font-weight: 600; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: rgba(127,127,127,0.2); color: inherit; }
+    .chat-box { height: 450px; overflow-y: auto; border: 1px solid rgba(127,127,127,.2); border-radius: 8px; padding: 12px; background: canvas; margin-bottom: 12px; }
+    .msg { margin-bottom: 12px; }
+    .msg.user { text-align: right; }
+    .msg.user .bubble { background: var(--primary); color: white; display: inline-block; }
+    .bubble { padding: 8px 12px; border-radius: 12px; max-width: 85%; white-space: pre-wrap; word-wrap: break-word; text-align: left; }
+    .msg.assistant .bubble { background: rgba(127,127,127,0.1); border: 1px solid rgba(127,127,127,0.1); }
+    .status { font-size: 12px; opacity: 0.7; }
+    .hidden { display: none; }
   </style>
 </head>
-
 <body>
-  <div class="wrap">
-    <h2 style="margin: 8px 0 14px;">AIMLAPI Responses API — Streaming (BYOK, Static Frontend)</h2>
 
+<div class="wrap">
+  <h3>AI Collaboration Hub</h3>
+
+  <div class="card">
     <div class="row">
-      <div class="card grow">
-        <div class="row">
-          <div class="grow">
-            <label for="apiKey">AIMLAPI key (stored locally)</label>
-            <input id="apiKey" type="password" placeholder="aimlapi_..." autocomplete="off" />
-          </div>
-          <div style="flex: 1 1 220px;">
-            <label for="model">Model</label>
-            <input id="model" placeholder="openai/gpt-4.1-2025-04-14" />
-          </div>
-          <div style="flex: 1 1 180px;">
-            <label for="maxTokens">max_output_tokens</label>
-            <input id="maxTokens" type="number" min="1" step="1" value="800" />
-          </div>
-        </div>
-
-        <div class="row" style="margin-top: 10px;">
-          <div class="grow">
-            <label for="system">System prompt (optional)</label>
-            <input id="system" placeholder="You are a helpful assistant." />
-          </div>
-          <div style="flex: 1 1 220px;">
-            <label for="temperature">temperature</label>
-            <input id="temperature" type="number" min="0" max="2" step="0.1" value="0.7" />
-          </div>
-        </div>
-
-        <div class="hint">
-          Endpoint: <span class="mono">POST https://api.aimlapi.com/v1/responses</span> :contentReference[oaicite:2]{index=2}
-          <br />
-          Streaming uses Server-Sent Events (SSE). :contentReference[oaicite:3]{index=3}
-        </div>
+      <div class="grow">
+        <label>Provider</label>
+        <select id="provider">
+          <option value="openrouter">OpenRouter</option>
+          <option value="aimlapi">AIMLAPI</option>
+        </select>
       </div>
-
-      <div class="card" style="flex: 0 1 290px;">
-        <label>Actions</label>
-        <div class="pillrow">
-          <button id="testBtn" class="primary">Test key</button>
-          <button id="clearBtn">Clear chat</button>
-          <button id="forgetBtn">Forget key</button>
-        </div>
-        <div class="hint" id="status" aria-live="polite" style="margin-top: 10px;">
-          Status: idle
-        </div>
-        <div class="hint">
-          BYOK note: if your site gets XSS’d, attacker can steal keys from local storage. Keep CSP strict and avoid unsafe HTML.
-        </div>
+      <div class="grow">
+        <label>Current Model</label>
+        <input id="model" placeholder="e.g. google/gemini-2.0-flash-001" />
+      </div>
+      <div style="width: 120px;">
+        <label>Stream</label>
+        <select id="useStream">
+          <option value="true">Enabled</option>
+          <option value="false">Disabled</option>
+        </select>
       </div>
     </div>
 
-    <div class="card" style="margin-top: 12px;">
-      <div class="chat" id="chat"></div>
-
-      <div class="row" style="margin-top: 12px;">
-        <div class="grow">
-          <label for="prompt">Your message</label>
-          <textarea id="prompt" placeholder="Ask something... (Shift+Enter for newline, Enter to send)"></textarea>
-        </div>
-        <div style="flex: 0 1 220px; display: flex; flex-direction: column; gap: 8px; align-self: flex-end;">
-          <button id="sendBtn" class="primary">Send (stream)</button>
-          <button id="stopBtn" disabled>Stop</button>
-        </div>
+    <div class="row">
+      <div class="grow">
+        <label id="keyLabel">OpenRouter API Key</label>
+        <input id="apiKey" type="password" placeholder="sk-or-..." />
       </div>
+      <div class="grow">
+        <label>System Instructions</label>
+        <input id="system" placeholder="You are a helpful assistant." />
+      </div>
+    </div>
+    
+    <div class="row" style="margin-bottom: 0;">
+      <button class="secondary grow" id="clearBtn">Clear Chat</button>
+      <button class="secondary grow" id="saveBtn">Save Settings</button>
     </div>
   </div>
 
-  <script nonce="6f1c5f3b9a6a4e9aa2b8f5a7d7b9c111">
-    const API_URL = "https://api.aimlapi.com/v1/responses"; // AIMLAPI base URL supports /v1 and /v1/responses
-    const LS_KEY = "byok_aimlapi_key";
-    const LS_MODEL = "byok_aimlapi_model";
-    const LS_SYSTEM = "byok_aimlapi_system";
-    const LS_TEMP = "byok_aimlapi_temp";
-    const LS_MAXTOK = "byok_aimlapi_maxtok";
+  <div class="chat-box" id="chatBox"></div>
+  
+  <div class="row">
+    <div class="grow" style="flex: 4;">
+      <textarea id="userInput" placeholder="Type your message... (Enter to send)" rows="3"></textarea>
+    </div>
+    <div class="grow" style="display: flex; flex-direction: column; gap: 8px;">
+      <button id="sendBtn" style="height: 100%;">Send</button>
+      <button id="stopBtn" class="secondary" disabled>Stop</button>
+    </div>
+  </div>
+  
+  <div class="status" id="status">Status: Ready</div>
+</div>
 
-    const el = (id) => document.getElementById(id);
-
-    const chatEl = el("chat");
-    const statusEl = el("status");
-    const apiKeyEl = el("apiKey");
-    const modelEl = el("model");
-    const systemEl = el("system");
-    const tempEl = el("temperature");
-    const maxTokEl = el("maxTokens");
-
-    const promptEl = el("prompt");
-    const sendBtn = el("sendBtn");
-    const stopBtn = el("stopBtn");
-    const testBtn = el("testBtn");
-    const clearBtn = el("clearBtn");
-    const forgetBtn = el("forgetBtn");
-
-    /** Minimal conversation state (Responses API input supports structured messages) */
-    let history = []; // { role: "user"|"assistant", content: string }
-    let inFlight = null; // { abortController, assistantMsgEl }
-    let previousResponseId = null;
-
-    function setStatus(text) {
-      statusEl.textContent = "Status: " + text;
+<script>
+  const CONFIG = {
+    openrouter: {
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      key_ls: "key_openrouter",
+      model_ls: "model_openrouter",
+      label: "OpenRouter API Key"
+    },
+    aimlapi: {
+      url: "https://api.aimlapi.com/v1/chat/completions",
+      key_ls: "key_aimlapi",
+      model_ls: "model_aimlapi",
+      label: "AIMLAPI Key"
     }
-
-    function scrollChatToBottom() {
-      chatEl.scrollTop = chatEl.scrollHeight;
-    }
-
-    function renderMessage(role, text) {
-      const wrap = document.createElement("div");
-      wrap.className = "msg " + role;
-
-      const meta = document.createElement("div");
-      meta.className = "meta";
-      meta.textContent = role === "user" ? "You" : "Assistant";
-
-      const bubble = document.createElement("div");
-      bubble.className = "bubble";
-      bubble.textContent = text;
-
-      wrap.appendChild(meta);
-      wrap.appendChild(bubble);
-      chatEl.appendChild(wrap);
-      scrollChatToBottom();
-      return bubble; // return the node we can append to (for streaming)
-    }
-
-    function loadPrefs() {
-      apiKeyEl.value = localStorage.getItem(LS_KEY) || "";
-      modelEl.value = localStorage.getItem(LS_MODEL) || "openai/gpt-4.1-2025-04-14";
-      systemEl.value = localStorage.getItem(LS_SYSTEM) || "";
-      tempEl.value = localStorage.getItem(LS_TEMP) || "0.7";
-      maxTokEl.value = localStorage.getItem(LS_MAXTOK) || "800";
-    }
-
-    function savePrefs() {
-      if (apiKeyEl.value) localStorage.setItem(LS_KEY, apiKeyEl.value);
-      localStorage.setItem(LS_MODEL, modelEl.value.trim());
-      localStorage.setItem(LS_SYSTEM, systemEl.value);
-      localStorage.setItem(LS_TEMP, String(tempEl.value));
-      localStorage.setItem(LS_MAXTOK, String(maxTokEl.value));
-    }
-
-    function resetChatUI() {
-      chatEl.textContent = "";
-    }
-
-    function clearChat() {
-      history = [];
-      resetChatUI();
-    }
-
-    function forgetKey() {
-      localStorage.removeItem(LS_KEY);
-      apiKeyEl.value = "";
-      setStatus("key removed locally");
-    }
-
-async function sendStreaming(userText) {
-  savePrefs();
-
-  const key = apiKeyEl.value.trim();
-  const model = modelEl.value.trim();
-  if (!key || !model) throw new Error("Key or Model missing.");
-
-  // UI Updates
-  history.push({ role: "user", content: userText });
-  renderMessage("user", userText);
-  const assistantBubble = renderMessage("assistant", "");
-
-  const abortController = new AbortController();
-  inFlight = { abortController, assistantMsgEl: assistantBubble };
-  stopBtn.disabled = false;
-  sendBtn.disabled = true;
-  setStatus("streaming…");
-
-  const body = {
-    model,
-    stream: true,
-    input: userText, // ✅ Reverted to string (as confirmed by your test)
-    instructions: systemEl.value.trim() || undefined,
-    previous_response_id: previousResponseId || undefined,
-    temperature: Number(tempEl.value) || 0.7,
-    max_output_tokens: Math.max(1, Number(maxTokEl.value) || 800),
   };
 
-  const res = await fetch(API_URL, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${key}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body),
-    signal: abortController.signal
-  });
+  let history = [];
+  let abortController = null;
 
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => "Unknown error");
-    throw new Error(`API Error ${res.status}: ${errorText}`);
+  const el = id => document.getElementById(id);
+  const chatBox = el('chatBox');
+  const providerSel = el('provider');
+  const apiKeyInp = el('apiKey');
+  const modelInp = el('model');
+  const statusEl = el('status');
+
+  // Initialization & Storage
+  function loadSettings() {
+    const p = providerSel.value;
+    apiKeyInp.value = localStorage.getItem(CONFIG[p].key_ls) || "";
+    modelInp.value = localStorage.getItem(CONFIG[p].model_ls) || (p === 'openrouter' ? "google/gemini-2.0-flash-001" : "gpt-4o");
+    el('keyLabel').textContent = CONFIG[p].label;
   }
 
-  await consumeSSE(res.body, (evt) => {
-    if (evt.type === "delta") {
-      assistantBubble.textContent += evt.text;
-      scrollChatToBottom();
-    } else if (evt.type === "response_id") {
-      previousResponseId = evt.id; // ✅ Save this for the next turn!
-    }
-  });
-
-  history.push({ role: "assistant", content: assistantBubble.textContent });
-  setStatus("done");
-}
-
-async function consumeSSE(readableStream, onEvent) {
-  const reader = readableStream.getReader();
-  const decoder = new TextDecoder("utf-8");
-  let buffer = "";
-
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-
-    // Handle different line-ending styles
-    let lines = buffer.split(/\r?\n/);
-    buffer = lines.pop(); // Keep partial line in buffer
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || !trimmed.startsWith("data:")) continue;
-
-      const dataStr = trimmed.slice(5).trim();
-      if (dataStr === "[DONE]") return;
-
-      try {
-        const payload = JSON.parse(dataStr);
-
-        // 1. Capture Response ID (the "thread" state)
-        // Check both the payload root and the nested response object
-        const rId = payload?.response?.id || payload?.id;
-        if (rId && typeof rId === "string") {
-          onEvent({ type: "response_id", id: rId });
-        }
-
-        // 2. Capture Content Delta
-        // The Responses API often uses 'delta' at the root for text
-        let text = "";
-        if (typeof payload.delta === "string") {
-          text = payload.delta;
-        } else if (payload?.choices?.[0]?.delta?.content) {
-          text = payload.choices[0].delta.content;
-        }
-
-        if (text) {
-          onEvent({ type: "delta", text: text });
-        }
-      } catch (e) {
-        // Skip lines that aren't full JSON yet
-      }
-    }
+  function saveSettings() {
+    const p = providerSel.value;
+    localStorage.setItem(CONFIG[p].key_ls, apiKeyInp.value);
+    localStorage.setItem(CONFIG[p].model_ls, modelInp.value);
+    statusEl.textContent = "Status: Settings Saved Locally";
   }
-}
+
+  providerSel.onchange = loadSettings;
+  el('saveBtn').onclick = saveSettings;
+  el('clearBtn').onclick = () => { history = []; chatBox.innerHTML = ''; };
+
+  // UI Helpers
+  function appendMessage(role, text) {
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    div.appendChild(bubble);
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    return bubble;
+  }
+
+  async function handleSend() {
+    const text = el('userInput').value.trim();
+    if (!text || abortController) return;
+
+    const p = providerSel.value;
+    const key = apiKeyInp.value;
+    const model = modelInp.value;
+    const stream = el('useStream').value === "true";
+
+    if (!key) return alert("Please enter an API Key");
+
+    el('userInput').value = "";
+    appendMessage('user', text);
+    const assistantBubble = appendMessage('assistant', "...");
     
-    async function testKey() {
-      savePrefs();
-      const key = apiKeyEl.value.trim();
-      if (!key) {
-        setStatus("enter a key first");
-        return;
-      }
+    statusEl.textContent = "Status: Connecting...";
+    abortController = new AbortController();
+    el('stopBtn').disabled = false;
+    el('sendBtn').disabled = true;
 
-      setStatus("testing key…");
+    // Prepare Messages
+    const messages = [];
+    if (el('system').value) messages.push({ role: 'system', content: el('system').value });
+    history.forEach(m => messages.push(m));
+    messages.push({ role: 'user', content: text });
 
-      try {
-        const body = {
-          model: modelEl.value.trim() || "openai/gpt-4.1-2025-04-14",
-          input: "Say: OK",
-          max_output_tokens: Math.max(1, Number(maxTokEl.value) || 100),
-          temperature: Number(tempEl.value) || 0.7,
-          stream: false
-        };
+    try {
+      const response = await fetch(CONFIG[p].url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': window.location.origin, // Required by some OpenRouter models
+        },
+        body: JSON.stringify({ model, messages, stream }),
+        signal: abortController.signal
+      });
 
-        const res = await fetch(API_URL, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${key}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(body)
-        });
+      if (!response.ok) throw new Error(await response.text());
 
-        if (!res.ok) {
-          const t = await res.text();
-          throw new Error(`${res.status} ${res.statusText}: ${t}`);
-        }
+      let fullContent = "";
+      assistantBubble.textContent = "";
 
-        const data = await res.json();
-        setStatus("key OK (got response)");
-        // Optional: show the test output quickly
-        const text = extractTextFromNonStreamResponse(data);
-        if (text) renderMessage("assistant", text);
-      } catch (e) {
-        setStatus("test failed — " + (e?.message || String(e)));
-      }
-    }
+      if (stream) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
 
-    function extractTextFromNonStreamResponse(data) {
-      // OpenAI Responses API typically returns `output` array with content items,
-      // but providers vary. We'll try several shapes.
-      try {
-        // Canonical-ish: output -> message -> content -> {type:"output_text", text:"..."}
-        if (Array.isArray(data?.output)) {
-          let out = "";
-          for (const item of data.output) {
-            const content = item?.content;
-            if (Array.isArray(content)) {
-              for (const c of content) {
-                if (c?.type === "output_text" && typeof c?.text === "string") out += c.text;
-              }
-            }
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop(); 
+
+          for (const line of lines) {
+            const cleanLine = line.trim().replace(/^data: /, "");
+            if (!cleanLine || cleanLine === "[DONE]") continue;
+
+            try {
+              const json = JSON.parse(cleanLine);
+              const delta = json.choices[0]?.delta?.content || "";
+              fullContent += delta;
+              assistantBubble.textContent = fullContent;
+              chatBox.scrollTop = chatBox.scrollHeight;
+            } catch (e) {}
           }
-          if (out) return out;
         }
+      } else {
+        const data = await response.json();
+        fullContent = data.choices[0].message.content;
+        assistantBubble.textContent = fullContent;
+      }
 
-        // Some gateways include output_text directly
-        if (typeof data?.output_text === "string") return data.output_text;
+      history.push({ role: 'user', content: text });
+      history.push({ role: 'assistant', content: fullContent });
+      statusEl.textContent = "Status: Done";
 
-        // Some might mirror chat.completions
-        const cc = data?.choices?.[0]?.message?.content;
-        if (typeof cc === "string") return cc;
-
-      } catch {}
-      return "";
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        statusEl.textContent = "Status: Stopped by user";
+      } else {
+        assistantBubble.textContent = "Error: " + err.message;
+        statusEl.textContent = "Status: Error occurred";
+      }
+    } finally {
+      abortController = null;
+      el('stopBtn').disabled = true;
+      el('sendBtn').disabled = false;
     }
+  }
 
-    
+  el('sendBtn').onclick = handleSend;
+  el('stopBtn').onclick = () => abortController?.abort();
+  el('userInput').onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } };
 
-    // UI wiring
-    loadPrefs();
-    setStatus(apiKeyEl.value ? "key loaded (local)" : "idle");
-
-    apiKeyEl.addEventListener("change", savePrefs);
-    modelEl.addEventListener("change", savePrefs);
-    systemEl.addEventListener("change", savePrefs);
-    tempEl.addEventListener("change", savePrefs);
-    maxTokEl.addEventListener("change", savePrefs);
-
-    testBtn.addEventListener("click", testKey);
-    clearBtn.addEventListener("click", clearChat);
-    forgetBtn.addEventListener("click", forgetKey);
-
-    stopBtn.addEventListener("click", () => {
-      if (inFlight?.abortController) {
-        inFlight.abortController.abort();
-        setStatus("stopped");
-      }
-    });
-
-    promptEl.addEventListener("keydown", async (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendBtn.click();
-      }
-    });
-
-    sendBtn.addEventListener("click", async () => {
-      const text = promptEl.value.trim();
-      if (!text) return;
-
-      if (inFlight?.abortController) return; // prevent concurrent runs
-
-      promptEl.value = "";
-
-      try {
-        await sendStreaming(text);
-      } catch (e) {
-        const msg = (e?.name === "AbortError") ? "aborted" : (e?.message || String(e));
-        renderMessage("assistant", "\n[error] " + msg);
-        // remove empty assistant message in history if we failed before streaming any text
-        setStatus("error — " + msg);
-      } finally {
-        inFlight = null;
-        stopBtn.disabled = true;
-        sendBtn.disabled = false;
-      }
-    });
-  </script>
+  loadSettings();
+</script>
 </body>
 </html>
