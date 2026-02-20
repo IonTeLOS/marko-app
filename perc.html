@@ -151,6 +151,7 @@
     /** Minimal conversation state (Responses API input supports structured messages) */
     let history = []; // { role: "user"|"assistant", content: string }
     let inFlight = null; // { abortController, assistantMsgEl }
+    let previousResponseId = null;
 
     function setStatus(text) {
       statusEl.textContent = "Status: " + text;
@@ -210,27 +211,68 @@
       setStatus("key removed locally");
     }
 
-    function buildResponsesInput() {
-      // Responses API accepts `input` as string or structured items.
-      // We'll use structured messages to preserve conversation.
-      const items = [];
-      const system = systemEl.value.trim();
-      if (system) {
-        items.push({
-          role: "system",
-          content: [{ type: "input_text", text: system }]
-        });
-      }
+async function sendStreaming(userText) {
+  savePrefs();
 
-      for (const m of history) {
-        items.push({
-          role: m.role,
-          content: [{ type: "input_text", text: m.content }]
-        });
-      }
-      return items;
+  const key = apiKeyEl.value.trim();
+  if (!key) throw new Error("No API key set.");
+
+  const model = modelEl.value.trim();
+  if (!model) throw new Error("No model set.");
+
+  // UI/history bookkeeping (keep yours, or simplify)
+  history.push({ role: "user", content: userText });
+  renderMessage("user", userText);
+
+  history.push({ role: "assistant", content: "" });
+  const assistantBubble = renderMessage("assistant", "");
+
+  const abortController = new AbortController();
+  inFlight = { abortController, assistantMsgEl: assistantBubble };
+  stopBtn.disabled = false;
+  sendBtn.disabled = true;
+  setStatus("streaming…");
+
+  const body = {
+    model,
+    stream: true,
+    input: userText,                              // ✅ string input
+    instructions: systemEl.value.trim() || undefined, // ✅ system prompt here
+    previous_response_id: previousResponseId || undefined, // ✅ stateful turns
+    temperature: Number(tempEl.value) || 0.7,
+    max_output_tokens: Math.max(1, Number(maxTokEl.value) || 800),
+  };
+
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${key}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body),
+    signal: abortController.signal
+  });
+
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${res.statusText}${t ? ": " + t : ""}`);
+  }
+  if (!res.body) throw new Error("No response body (streaming not supported).");
+
+  // ✅ capture response.id from SSE (so we can set previous_response_id)
+  await consumeSSE(res.body, (evt) => {
+    if (evt.type === "delta") {
+      assistantBubble.textContent += evt.text;
+      history[history.length - 1].content += evt.text;
+      scrollChatToBottom();
+    } else if (evt.type === "response_id") {
+      previousResponseId = evt.id;
     }
+  });
 
+  setStatus("done");
+}
+    
     async function testKey() {
       savePrefs();
       const key = apiKeyEl.value.trim();
@@ -303,139 +345,74 @@
       return "";
     }
 
-    async function sendStreaming(userText) {
-      savePrefs();
+    
 
-      const key = apiKeyEl.value.trim();
-      if (!key) throw new Error("No API key set.");
+async function consumeSSE(readableStream, onEvent) {
+  const reader = readableStream.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
 
-      const model = modelEl.value.trim();
-      if (!model) throw new Error("No model set.");
+  function processEventBlock(block) {
+    let eventName = "";
+    let dataLines = [];
 
-      // Add user message to history + UI
-      history.push({ role: "user", content: userText });
-      renderMessage("user", userText);
-
-      // Create assistant bubble we will stream into
-      history.push({ role: "assistant", content: "" });
-      const assistantBubble = renderMessage("assistant", "");
-
-      const abortController = new AbortController();
-      inFlight = { abortController, assistantMsgEl: assistantBubble };
-
-      stopBtn.disabled = false;
-      sendBtn.disabled = true;
-      setStatus("streaming…");
-
-      const body = {
-        model,
-        input: buildResponsesInput(),
-        stream: true,
-        temperature: Number(tempEl.value) || 0.7,
-        max_output_tokens: Math.max(1, Number(maxTokEl.value) || 800)
-      };
-
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${key}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(body),
-        signal: abortController.signal
-      });
-
-      if (!res.ok) {
-        const t = await res.text().catch(() => "");
-        throw new Error(`${res.status} ${res.statusText}${t ? ": " + t : ""}`);
-      }
-
-      if (!res.body) throw new Error("No response body (streaming not supported by this browser/provider).");
-
-      await consumeSSE(res.body, (deltaText) => {
-        // append to UI + last assistant history entry
-        assistantBubble.textContent += deltaText;
-        history[history.length - 1].content += deltaText;
-        scrollChatToBottom();
-      });
-
-      setStatus("done");
+    for (const rawLine of block.split("\n")) {
+      const line = rawLine.replace(/\r$/, "");
+      if (line.startsWith("event:")) eventName = line.slice(6).trim();
+      else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
     }
 
-    async function consumeSSE(readableStream, onTextDelta) {
-      const reader = readableStream.getReader();
-      const decoder = new TextDecoder("utf-8");
+    const dataStr = dataLines.join("\n");
+    if (!dataStr || dataStr === "[DONE]") return;
 
-      // SSE parsing buffer. We split on blank lines between events.
-      let buffer = "";
+    let payload = null;
+    try { payload = JSON.parse(dataStr); } catch { return; }
 
-      function processEventBlock(block) {
-        // block is a set of lines like:
-        // event: response.output_text.delta
-        // data: {"type":"response.output_text.delta","delta":"Hi"}
-        let eventName = "";
-        let dataLines = [];
+    const type = payload?.type || eventName;
 
-        const lines = block.split("\n");
-        for (const rawLine of lines) {
-          const line = rawLine.replace(/\r$/, "");
-          if (line.startsWith("event:")) eventName = line.slice(6).trim();
-          else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
-        }
-
-        const dataStr = dataLines.join("\n");
-        if (!dataStr) return;
-
-        if (dataStr === "[DONE]") return;
-
-        let payload = null;
-        try { payload = JSON.parse(dataStr); } catch { /* ignore non-JSON */ }
-
-        const type = payload?.type || eventName;
-
-        // OpenAI Responses streaming commonly emits:
-        // - response.output_text.delta (payload.delta)
-        // - response.output_text.done
-        // - response.completed
-        // We'll extract deltas robustly.
-        if (type === "response.output_text.delta" && typeof payload?.delta === "string") {
-          onTextDelta(payload.delta);
-          return;
-        }
-
-        // Some providers might use "text.delta" or put text in other fields
-        if (typeof payload?.text === "string" && (type?.includes("delta") || type?.includes("text"))) {
-          onTextDelta(payload.text);
-          return;
-        }
-
-        // Fallback: if they mirror chat.completions streaming shape
-        const ccDelta = payload?.choices?.[0]?.delta?.content;
-        if (typeof ccDelta === "string") {
-          onTextDelta(ccDelta);
-          return;
-        }
-      }
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        // SSE events are separated by a blank line
-        let idx;
-        while ((idx = buffer.indexOf("\n\n")) !== -1) {
-          const block = buffer.slice(0, idx).trim();
-          buffer = buffer.slice(idx + 2);
-          if (block) processEventBlock(block);
-        }
-      }
-
-      // Flush remainder
-      const tail = buffer.trim();
-      if (tail) processEventBlock(tail);
+    // ✅ capture response id early (different providers place it differently)
+    if (payload?.response?.id && typeof payload.response.id === "string") {
+      onEvent({ type: "response_id", id: payload.response.id });
     }
+    if (payload?.id && typeof payload.id === "string" && (type.includes("response") || type.includes("created"))) {
+      onEvent({ type: "response_id", id: payload.id });
+    }
+
+    // ✅ common delta event
+    if (type === "response.output_text.delta" && typeof payload?.delta === "string") {
+      onEvent({ type: "delta", text: payload.delta });
+      return;
+    }
+
+    // fallback shapes
+    if (typeof payload?.text === "string" && (type.includes("delta") || type.includes("text"))) {
+      onEvent({ type: "delta", text: payload.text });
+      return;
+    }
+    const ccDelta = payload?.choices?.[0]?.delta?.content;
+    if (typeof ccDelta === "string") {
+      onEvent({ type: "delta", text: ccDelta });
+      return;
+    }
+  }
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    let idx;
+    while ((idx = buffer.indexOf("\n\n")) !== -1) {
+      const block = buffer.slice(0, idx).trim();
+      buffer = buffer.slice(idx + 2);
+      if (block) processEventBlock(block);
+    }
+  }
+
+  const tail = buffer.trim();
+  if (tail) processEventBlock(tail);
+}
 
     // UI wiring
     loadPrefs();
