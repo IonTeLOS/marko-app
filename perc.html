@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Perchance Generator Integration</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+    #output { padding: 15px; border: 1px solid #ddd; min-height: 50px; margin: 15px 0; }
+    button { padding: 8px 16px; cursor: pointer; }
+    html { color-scheme: light dark; }
+  </style>
+</head>
+<body>
+  <h1>Perchance Generator</h1>
+
+  <label for="generatorInput">Generator Name:</label>
+  <input type="text" id="generatorInput" value="fantasy-character">
+
+  <div id="output">Results will appear here...</div>
+  <button onclick="fetchFromPerchance()">Generate</button>
+
+  <script>
+    async function fetchFromPerchance() {
+      const generatorName = document.getElementById("generatorInput").value;
+      const count = 1;
+
+      try {
+        document.querySelector("button").textContent = "Loading...";
+        const response = await fetch(`https://perchance.org/api/generateList.php?generator=${generatorName}&count=${count}`);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data && data.length > 0) {
+          document.getElementById("output").textContent = data[0];
+        } else {
+          document.getElementById("output").textContent = "No results returned.";
+        }
+      } catch (error) {
+        console.error("Error fetching from Perchance:", error);
+        document.getElementById("output").textContent = "Error fetching from Perchance. Check console for details.";
+      } finally {
+        document.querySelector("button").textContent = "Generate";
+      }
+    }
+  </script>
+</body>
+</html>
