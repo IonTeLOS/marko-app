@@ -25,7 +25,10 @@
 
       try {
         document.querySelector("button").textContent = "Loading...";
-        const response = await fetch(`https://perchance.org/api/generateList.php?generator=${generatorName}&count=${count}`);
+        const corsProxy = "https://cors-anywhere.herokuapp.com/";
+        const response = await fetch(`${corsProxy}https://perchance.org/api/generateList.php?generator=${generatorName}&count=${count}`);
+
+        // const response = await fetch(`https://perchance.org/api/generateList.php?generator=${generatorName}&count=${count}`);
 
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
