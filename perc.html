@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Dual-Provider Chat (OpenRouter / AIMLAPI)</title>
+  <title>Character Hub - Chub.ai Support</title>
   <style>
     :root { color-scheme: light dark; --primary: #007bff; }
     body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; line-height: 1.5; }
@@ -11,28 +11,30 @@
     .card { border: 1px solid rgba(127,127,127,.2); border-radius: 12px; padding: 16px; margin-bottom: 16px; background: rgba(127,127,127,0.03); }
     .row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
     .grow { flex: 1; min-width: 200px; }
-    label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; opacity: 0.8; }
+    label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; opacity: 0.7; }
     input, select, textarea, button { 
       width: 100%; box-sizing: border-box; border-radius: 8px; 
       border: 1px solid rgba(127,127,127,0.4); padding: 10px; font-size: 14px; background: canvas;
     }
-    button { cursor: pointer; background: var(--primary); color: white; border: none; font-weight: 600; }
+    button { cursor: pointer; background: var(--primary); color: white; border: none; font-weight: 600; transition: opacity 0.2s; }
+    button:hover { opacity: 0.9; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
     button.secondary { background: rgba(127,127,127,0.2); color: inherit; }
-    .chat-box { height: 450px; overflow-y: auto; border: 1px solid rgba(127,127,127,.2); border-radius: 8px; padding: 12px; background: canvas; margin-bottom: 12px; }
+    .chat-box { height: 400px; overflow-y: auto; border: 1px solid rgba(127,127,127,.2); border-radius: 8px; padding: 12px; background: canvas; margin-bottom: 12px; }
     .msg { margin-bottom: 12px; }
     .msg.user { text-align: right; }
     .msg.user .bubble { background: var(--primary); color: white; display: inline-block; }
     .bubble { padding: 8px 12px; border-radius: 12px; max-width: 85%; white-space: pre-wrap; word-wrap: break-word; text-align: left; }
     .msg.assistant .bubble { background: rgba(127,127,127,0.1); border: 1px solid rgba(127,127,127,0.1); }
     .status { font-size: 12px; opacity: 0.7; }
-    .hidden { display: none; }
+    #charPreview { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 13px; font-weight: bold; }
+    #charPreview img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; border: 1px solid #ccc; }
   </style>
 </head>
 <body>
 
 <div class="wrap">
-  <h3>AI Collaboration Hub</h3>
+  <h3>Character Hub Chat</h3>
 
   <div class="card">
     <div class="row">
@@ -44,32 +46,38 @@
         </select>
       </div>
       <div class="grow">
-        <label>Current Model</label>
-        <input id="model" placeholder="e.g. google/gemini-2.0-flash-001" />
+        <label>Your Name ({{user}})</label>
+        <input id="userName" value="User" placeholder="Your name for RP" />
       </div>
-      <div style="width: 120px;">
-        <label>Stream</label>
-        <select id="useStream">
-          <option value="true">Enabled</option>
-          <option value="false">Disabled</option>
-        </select>
+      <div class="grow">
+        <label>Model</label>
+        <input id="model" placeholder="Model ID" />
       </div>
     </div>
 
     <div class="row">
-      <div class="grow">
-        <label id="keyLabel">OpenRouter API Key</label>
-        <input id="apiKey" type="password" placeholder="sk-or-..." />
+      <div class="grow" style="flex: 2;">
+        <label id="keyLabel">API Key</label>
+        <input id="apiKey" type="password" placeholder="sk-..." />
       </div>
-      <div class="grow">
-        <label>System Instructions</label>
-        <input id="system" placeholder="You are a helpful assistant." />
+      <div style="width: 100px;">
+        <label>Stream</label>
+        <select id="useStream">
+          <option value="true">On</option>
+          <option value="false">Off</option>
+        </select>
       </div>
     </div>
-    
-    <div class="row" style="margin-bottom: 0;">
-      <button class="secondary grow" id="clearBtn">Clear Chat</button>
-      <button class="secondary grow" id="saveBtn">Save Settings</button>
+  </div>
+
+  <div class="card" style="border-color: var(--primary);">
+    <label>Load Character Card (PNG or JSON from Chub.ai)</label>
+    <div class="row">
+      <input type="file" id="fileInput" accept=".png,.json" style="padding: 5px;" />
+    </div>
+    <div id="charPreview" class="hidden">
+      <img id="charImg" src="" />
+      <span id="charNameDisplay">No character loaded</span>
     </div>
   </div>
 
@@ -77,109 +85,131 @@
   
   <div class="row">
     <div class="grow" style="flex: 4;">
-      <textarea id="userInput" placeholder="Type your message... (Enter to send)" rows="3"></textarea>
+      <textarea id="userInput" placeholder="Type a message..." rows="3"></textarea>
     </div>
-    <div class="grow" style="display: flex; flex-direction: column; gap: 8px;">
+    <div style="display: flex; flex-direction: column; gap: 8px; width: 100px;">
       <button id="sendBtn" style="height: 100%;">Send</button>
       <button id="stopBtn" class="secondary" disabled>Stop</button>
     </div>
   </div>
   
-  <div class="status" id="status">Status: Ready</div>
+  <div class="row">
+    <button class="secondary grow" id="clearBtn">Clear History</button>
+    <div class="status grow" id="status" style="padding-top:10px; text-align:right;">Ready</div>
+  </div>
 </div>
 
 <script>
   const CONFIG = {
-    openrouter: {
-      url: "https://openrouter.ai/api/v1/chat/completions",
-      key_ls: "key_openrouter",
-      model_ls: "model_openrouter",
-      label: "OpenRouter API Key"
-    },
-    aimlapi: {
-      url: "https://api.aimlapi.com/v1/chat/completions",
-      key_ls: "key_aimlapi",
-      model_ls: "model_aimlapi",
-      label: "AIMLAPI Key"
-    }
+    openrouter: { url: "https://openrouter.ai/api/v1/chat/completions", key_ls: "key_openrouter", model_ls: "model_openrouter" },
+    aimlapi: { url: "https://api.aimlapi.com/v1/chat/completions", key_ls: "key_aimlapi", model_ls: "model_aimlapi" }
   };
 
   let history = [];
   let abortController = null;
+  let activeChar = { name: "Assistant", system: "You are a helpful assistant." };
 
   const el = id => document.getElementById(id);
   const chatBox = el('chatBox');
-  const providerSel = el('provider');
-  const apiKeyInp = el('apiKey');
-  const modelInp = el('model');
-  const statusEl = el('status');
 
-  // Initialization & Storage
-  function loadSettings() {
-    const p = providerSel.value;
-    apiKeyInp.value = localStorage.getItem(CONFIG[p].key_ls) || "";
-    modelInp.value = localStorage.getItem(CONFIG[p].model_ls) || (p === 'openrouter' ? "google/gemini-2.0-flash-001" : "gpt-4o");
-    el('keyLabel').textContent = CONFIG[p].label;
+  // --- CHARACTER PARSER LOGIC ---
+
+  async function parseCharacterFile(file) {
+    if (file.type === "application/json") {
+      const text = await file.text();
+      loadCharData(JSON.parse(text));
+    } else if (file.type === "image/png") {
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      
+      // Simple PNG Chunk Crawler
+      let pos = 8; // Skip PNG Signature
+      while (pos < bytes.length) {
+        const length = new DataView(buffer).getUint32(pos);
+        const type = String.fromCharCode(...bytes.slice(pos + 4, pos + 8));
+        
+        if (type === "tEXt" || type === "iTXt") {
+          const chunkData = bytes.slice(pos + 8, pos + 8 + length);
+          const dataString = new TextDecoder().decode(chunkData);
+          
+          if (dataString.startsWith("chara")) {
+            const base64Part = dataString.slice(dataString.indexOf('\0') + 1);
+            try {
+              const decoded = JSON.parse(atob(base64Part));
+              loadCharData(decoded);
+              el('charImg').src = URL.createObjectURL(file);
+              el('charPreview').classList.remove('hidden');
+              return;
+            } catch (e) { console.error("Base64 Parse Error", e); }
+          }
+        }
+        pos += length + 12; // 4 (len) + 4 (type) + len + 4 (crc)
+      }
+      alert("No character metadata found in this PNG.");
+    }
   }
 
-  function saveSettings() {
-    const p = providerSel.value;
-    localStorage.setItem(CONFIG[p].key_ls, apiKeyInp.value);
-    localStorage.setItem(CONFIG[p].model_ls, modelInp.value);
-    statusEl.textContent = "Status: Settings Saved Locally";
+  function loadCharData(raw) {
+    // Handle V1 (top level) or V2 (inside .data)
+    const data = raw.data || raw;
+    activeChar = {
+      name: data.name || "Character",
+      system: `${data.description || ""}\n\nPersonality: ${data.personality || ""}\n\nScenario: ${data.scenario || ""}`,
+      firstMes: data.first_mes || ""
+    };
+
+    el('charNameDisplay').textContent = activeChar.name;
+    
+    // Clear history and add the character's "first message" if it exists
+    history = [];
+    chatBox.innerHTML = '';
+    if (activeChar.firstMes) {
+      const msg = replacePlaceholders(activeChar.firstMes);
+      appendMessage('assistant', msg);
+      history.push({ role: 'assistant', content: msg });
+    }
+    el('status').textContent = `Loaded: ${activeChar.name}`;
   }
 
-  providerSel.onchange = loadSettings;
-  el('saveBtn').onclick = saveSettings;
-  el('clearBtn').onclick = () => { history = []; chatBox.innerHTML = ''; };
-
-  // UI Helpers
-  function appendMessage(role, text) {
-    const div = document.createElement('div');
-    div.className = `msg ${role}`;
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.textContent = text;
-    div.appendChild(bubble);
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
-    return bubble;
+  function replacePlaceholders(str) {
+    if (!str) return "";
+    return str
+      .replaceAll('{{char}}', activeChar.name)
+      .replaceAll('<char>', activeChar.name)
+      .replaceAll('{{user}}', el('userName').value || "User")
+      .replaceAll('<user>', el('userName').value || "User");
   }
+
+  // --- CHAT LOGIC ---
 
   async function handleSend() {
     const text = el('userInput').value.trim();
     if (!text || abortController) return;
 
-    const p = providerSel.value;
-    const key = apiKeyInp.value;
-    const model = modelInp.value;
+    const p = el('provider').value;
+    const key = el('apiKey').value;
+    const model = el('model').value;
     const stream = el('useStream').value === "true";
 
-    if (!key) return alert("Please enter an API Key");
+    if (!key) return alert("Missing API Key");
 
     el('userInput').value = "";
     appendMessage('user', text);
     const assistantBubble = appendMessage('assistant', "...");
     
-    statusEl.textContent = "Status: Connecting...";
     abortController = new AbortController();
     el('stopBtn').disabled = false;
     el('sendBtn').disabled = true;
 
-    // Prepare Messages
-    const messages = [];
-    if (el('system').value) messages.push({ role: 'system', content: el('system').value });
+    // Build Messages with replacements
+    const messages = [{ role: 'system', content: replacePlaceholders(activeChar.system) }];
     history.forEach(m => messages.push(m));
     messages.push({ role: 'user', content: text });
 
     try {
       const response = await fetch(CONFIG[p].url, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${key}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin, // Required by some OpenRouter models
-        },
+        headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ model, messages, stream }),
         signal: abortController.signal
       });
@@ -197,18 +227,14 @@
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
           buffer = lines.pop(); 
-
           for (const line of lines) {
-            const cleanLine = line.trim().replace(/^data: /, "");
-            if (!cleanLine || cleanLine === "[DONE]") continue;
-
+            const clean = line.trim().replace(/^data: /, "");
+            if (!clean || clean === "[DONE]") continue;
             try {
-              const json = JSON.parse(cleanLine);
-              const delta = json.choices[0]?.delta?.content || "";
+              const delta = JSON.parse(clean).choices[0]?.delta?.content || "";
               fullContent += delta;
               assistantBubble.textContent = fullContent;
               chatBox.scrollTop = chatBox.scrollHeight;
@@ -223,15 +249,10 @@
 
       history.push({ role: 'user', content: text });
       history.push({ role: 'assistant', content: fullContent });
-      statusEl.textContent = "Status: Done";
+      el('status').textContent = "Ready";
 
     } catch (err) {
-      if (err.name === 'AbortError') {
-        statusEl.textContent = "Status: Stopped by user";
-      } else {
-        assistantBubble.textContent = "Error: " + err.message;
-        statusEl.textContent = "Status: Error occurred";
-      }
+      assistantBubble.textContent = err.name === 'AbortError' ? "(Stopped)" : "Error: " + err.message;
     } finally {
       abortController = null;
       el('stopBtn').disabled = true;
@@ -239,11 +260,38 @@
     }
   }
 
+  // UI Event Listeners
+  el('fileInput').onchange = e => parseCharacterFile(e.target.files[0]);
   el('sendBtn').onclick = handleSend;
   el('stopBtn').onclick = () => abortController?.abort();
-  el('userInput').onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } };
+  el('clearBtn').onclick = () => { history = []; chatBox.innerHTML = ''; };
+  el('provider').onchange = () => {
+    const p = el('provider').value;
+    el('apiKey').value = localStorage.getItem(CONFIG[p].key_ls) || "";
+    el('model').value = localStorage.getItem(CONFIG[p].model_ls) || "";
+    el('keyLabel').textContent = p.toUpperCase() + " API Key";
+  };
 
-  loadSettings();
+  function appendMessage(role, text) {
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    div.appendChild(bubble);
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    return bubble;
+  }
+
+  // Load Initial Settings
+  el('provider').dispatchEvent(new Event('change'));
+  // Save settings automatically when they change
+  ['apiKey', 'model'].forEach(id => el(id).oninput = () => {
+    const p = el('provider').value;
+    localStorage.setItem(CONFIG[p].key_ls, el('apiKey').value);
+    localStorage.setItem(CONFIG[p].model_ls, el('model').value);
+  });
 </script>
 </body>
 </html>
