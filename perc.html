@@ -220,13 +220,12 @@ async function sendStreaming(userText) {
   const model = modelEl.value.trim();
   if (!model) throw new Error("No model set.");
 
-  // UI/history bookkeeping (keep yours, or simplify)
   history.push({ role: "user", content: userText });
   renderMessage("user", userText);
 
-  history.push({ role: "assistant", content: "" });
+  // Prepare the assistant bubble
   const assistantBubble = renderMessage("assistant", "");
-
+  
   const abortController = new AbortController();
   inFlight = { abortController, assistantMsgEl: assistantBubble };
   stopBtn.disabled = false;
@@ -236,9 +235,10 @@ async function sendStreaming(userText) {
   const body = {
     model,
     stream: true,
-    input: userText,                              // ✅ string input
-    instructions: systemEl.value.trim() || undefined, // ✅ system prompt here
-    previous_response_id: previousResponseId || undefined, // ✅ stateful turns
+    // ✅ Use the structured input format
+    input: [{ type: "text", text: userText }], 
+    instructions: systemEl.value.trim() || undefined,
+    previous_response_id: previousResponseId || undefined,
     temperature: Number(tempEl.value) || 0.7,
     max_output_tokens: Math.max(1, Number(maxTokEl.value) || 800),
   };
@@ -257,19 +257,21 @@ async function sendStreaming(userText) {
     const t = await res.text().catch(() => "");
     throw new Error(`${res.status} ${res.statusText}${t ? ": " + t : ""}`);
   }
-  if (!res.body) throw new Error("No response body (streaming not supported).");
+  
+  if (!res.body) throw new Error("No response body.");
 
-  // ✅ capture response.id from SSE (so we can set previous_response_id)
+  // ✅ Process the stream
   await consumeSSE(res.body, (evt) => {
     if (evt.type === "delta") {
       assistantBubble.textContent += evt.text;
-      history[history.length - 1].content += evt.text;
       scrollChatToBottom();
     } else if (evt.type === "response_id") {
       previousResponseId = evt.id;
     }
   });
 
+  // Sync the final text to local history
+  history.push({ role: "assistant", content: assistantBubble.textContent });
   setStatus("done");
 }
     
@@ -352,68 +354,48 @@ async function consumeSSE(readableStream, onEvent) {
   const decoder = new TextDecoder("utf-8");
   let buffer = "";
 
-  function processEventBlock(block) {
-    let eventName = "";
-    let dataLines = [];
-
-    for (const rawLine of block.split("\n")) {
-      const line = rawLine.replace(/\r$/, "");
-      if (line.startsWith("event:")) eventName = line.slice(6).trim();
-      else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
-    }
-
-    const dataStr = dataLines.join("\n");
-    if (!dataStr || dataStr === "[DONE]") return;
-
-    let payload = null;
-    try { payload = JSON.parse(dataStr); } catch { return; }
-
-    const type = payload?.type || eventName;
-
-    // ✅ capture response id early (different providers place it differently)
-    if (payload?.response?.id && typeof payload.response.id === "string") {
-      onEvent({ type: "response_id", id: payload.response.id });
-    }
-    if (payload?.id && typeof payload.id === "string" && (type.includes("response") || type.includes("created"))) {
-      onEvent({ type: "response_id", id: payload.id });
-    }
-
-    // ✅ common delta event
-    if (type === "response.output_text.delta" && typeof payload?.delta === "string") {
-      onEvent({ type: "delta", text: payload.delta });
-      return;
-    }
-
-    // fallback shapes
-    if (typeof payload?.text === "string" && (type.includes("delta") || type.includes("text"))) {
-      onEvent({ type: "delta", text: payload.text });
-      return;
-    }
-    const ccDelta = payload?.choices?.[0]?.delta?.content;
-    if (typeof ccDelta === "string") {
-      onEvent({ type: "delta", text: ccDelta });
-      return;
-    }
-  }
-
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
 
     buffer += decoder.decode(value, { stream: true });
 
-    let idx;
-    while ((idx = buffer.indexOf("\n\n")) !== -1) {
-      const block = buffer.slice(0, idx).trim();
-      buffer = buffer.slice(idx + 2);
-      if (block) processEventBlock(block);
+    // Split by single newlines to catch all potential data lines
+    let lines = buffer.split("\n");
+    // Keep the last partial line in the buffer
+    buffer = lines.pop(); 
+
+    for (let line of lines) {
+      line = line.trim();
+      if (!line || !line.startsWith("data:")) continue;
+
+      const dataStr = line.slice(5).trim();
+      if (dataStr === "[DONE]") return;
+
+      try {
+        const payload = JSON.parse(dataStr);
+        
+        // 1. Extract Response ID for conversation continuity
+        const rId = payload?.response?.id || payload?.id;
+        if (rId && typeof rId === "string") {
+          onEvent({ type: "response_id", id: rId });
+        }
+
+        // 2. Extract Text Deltas (checks multiple common field names)
+        const delta = payload?.delta || 
+                      payload?.choices?.[0]?.delta?.content || 
+                      payload?.output_text_delta; // Some providers use this
+        
+        if (typeof delta === "string") {
+          onEvent({ type: "delta", text: delta });
+        }
+      } catch (e) {
+        // Silently skip partial JSON or non-JSON lines
+        console.warn("SSE Parse Error:", e);
+      }
     }
   }
-
-  const tail = buffer.trim();
-  if (tail) processEventBlock(tail);
 }
-
     // UI wiring
     loadPrefs();
     setStatus(apiKeyEl.value ? "key loaded (local)" : "idle");
