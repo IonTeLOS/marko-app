@@ -1,53 +1,491 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-  <title>Perchance Generator Integration</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AIMLAPI Responses Streaming (BYOK, Static)</title>
+
+  <!-- Tight-ish CSP. Uses a nonce so we don't need unsafe-inline. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="
+          default-src 'self';
+          base-uri 'none';
+          object-src 'none';
+          frame-ancestors 'none';
+          img-src 'self' data:;
+          style-src 'self' 'unsafe-inline';
+          connect-src https://api.aimlapi.com;
+          script-src 'nonce-6f1c5f3b9a6a4e9aa2b8f5a7d7b9c111';
+        " />
+
   <style>
-    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-    #output { padding: 15px; border: 1px solid #ddd; min-height: 50px; margin: 15px 0; }
-    button { padding: 8px 16px; cursor: pointer; }
-    html { color-scheme: light dark; }
+    :root { color-scheme: light dark; }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .card { border: 1px solid rgba(127,127,127,.25); border-radius: 14px; padding: 14px; }
+    .grow { flex: 1 1 320px; }
+    label { display: block; font-size: 12px; opacity: .8; margin-bottom: 6px; }
+    input, textarea, select, button {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid rgba(127,127,127,.35);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      background: transparent;
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    button { cursor: pointer; }
+    button.primary { font-weight: 600; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .chat { height: 52vh; overflow: auto; padding: 12px; background: rgba(127,127,127,.06); border-radius: 12px; }
+    .msg { margin: 10px 0; }
+    .msg .meta { font-size: 12px; opacity: .7; margin-bottom: 4px; }
+    .msg .bubble { white-space: pre-wrap; line-height: 1.35; }
+    .msg.user .bubble { }
+    .msg.assistant .bubble { }
+    .hint { font-size: 12px; opacity: .75; margin-top: 8px; line-height: 1.35; }
+    .pillrow { display: flex; gap: 8px; }
+    .pillrow > button { width: auto; padding: 10px 12px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
   </style>
 </head>
+
 <body>
-  <h1>Perchance Generator</h1>
+  <div class="wrap">
+    <h2 style="margin: 8px 0 14px;">AIMLAPI Responses API — Streaming (BYOK, Static Frontend)</h2>
 
-  <label for="generatorInput">Generator Name:</label>
-  <input type="text" id="generatorInput" value="fantasy-character">
+    <div class="row">
+      <div class="card grow">
+        <div class="row">
+          <div class="grow">
+            <label for="apiKey">AIMLAPI key (stored locally)</label>
+            <input id="apiKey" type="password" placeholder="aimlapi_..." autocomplete="off" />
+          </div>
+          <div style="flex: 1 1 220px;">
+            <label for="model">Model</label>
+            <input id="model" placeholder="openai/gpt-4.1-2025-04-14" />
+          </div>
+          <div style="flex: 1 1 180px;">
+            <label for="maxTokens">max_output_tokens</label>
+            <input id="maxTokens" type="number" min="1" step="1" value="800" />
+          </div>
+        </div>
 
-  <div id="output">Results will appear here...</div>
-  <button onclick="fetchFromPerchance()">Generate</button>
+        <div class="row" style="margin-top: 10px;">
+          <div class="grow">
+            <label for="system">System prompt (optional)</label>
+            <input id="system" placeholder="You are a helpful assistant." />
+          </div>
+          <div style="flex: 1 1 220px;">
+            <label for="temperature">temperature</label>
+            <input id="temperature" type="number" min="0" max="2" step="0.1" value="0.7" />
+          </div>
+        </div>
 
-  <script>
-    async function fetchFromPerchance() {
-      const generatorName = document.getElementById("generatorInput").value;
-      const count = 1;
+        <div class="hint">
+          Endpoint: <span class="mono">POST https://api.aimlapi.com/v1/responses</span> :contentReference[oaicite:2]{index=2}
+          <br />
+          Streaming uses Server-Sent Events (SSE). :contentReference[oaicite:3]{index=3}
+        </div>
+      </div>
+
+      <div class="card" style="flex: 0 1 290px;">
+        <label>Actions</label>
+        <div class="pillrow">
+          <button id="testBtn" class="primary">Test key</button>
+          <button id="clearBtn">Clear chat</button>
+          <button id="forgetBtn">Forget key</button>
+        </div>
+        <div class="hint" id="status" aria-live="polite" style="margin-top: 10px;">
+          Status: idle
+        </div>
+        <div class="hint">
+          BYOK note: if your site gets XSS’d, attacker can steal keys from local storage. Keep CSP strict and avoid unsafe HTML.
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 12px;">
+      <div class="chat" id="chat"></div>
+
+      <div class="row" style="margin-top: 12px;">
+        <div class="grow">
+          <label for="prompt">Your message</label>
+          <textarea id="prompt" placeholder="Ask something... (Shift+Enter for newline, Enter to send)"></textarea>
+        </div>
+        <div style="flex: 0 1 220px; display: flex; flex-direction: column; gap: 8px; align-self: flex-end;">
+          <button id="sendBtn" class="primary">Send (stream)</button>
+          <button id="stopBtn" disabled>Stop</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script nonce="6f1c5f3b9a6a4e9aa2b8f5a7d7b9c111">
+    const API_URL = "https://api.aimlapi.com/v1/responses"; // AIMLAPI base URL supports /v1 and /v1/responses
+    const LS_KEY = "byok_aimlapi_key";
+    const LS_MODEL = "byok_aimlapi_model";
+    const LS_SYSTEM = "byok_aimlapi_system";
+    const LS_TEMP = "byok_aimlapi_temp";
+    const LS_MAXTOK = "byok_aimlapi_maxtok";
+
+    const el = (id) => document.getElementById(id);
+
+    const chatEl = el("chat");
+    const statusEl = el("status");
+    const apiKeyEl = el("apiKey");
+    const modelEl = el("model");
+    const systemEl = el("system");
+    const tempEl = el("temperature");
+    const maxTokEl = el("maxTokens");
+
+    const promptEl = el("prompt");
+    const sendBtn = el("sendBtn");
+    const stopBtn = el("stopBtn");
+    const testBtn = el("testBtn");
+    const clearBtn = el("clearBtn");
+    const forgetBtn = el("forgetBtn");
+
+    /** Minimal conversation state (Responses API input supports structured messages) */
+    let history = []; // { role: "user"|"assistant", content: string }
+    let inFlight = null; // { abortController, assistantMsgEl }
+
+    function setStatus(text) {
+      statusEl.textContent = "Status: " + text;
+    }
+
+    function scrollChatToBottom() {
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    function renderMessage(role, text) {
+      const wrap = document.createElement("div");
+      wrap.className = "msg " + role;
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = role === "user" ? "You" : "Assistant";
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = text;
+
+      wrap.appendChild(meta);
+      wrap.appendChild(bubble);
+      chatEl.appendChild(wrap);
+      scrollChatToBottom();
+      return bubble; // return the node we can append to (for streaming)
+    }
+
+    function loadPrefs() {
+      apiKeyEl.value = localStorage.getItem(LS_KEY) || "";
+      modelEl.value = localStorage.getItem(LS_MODEL) || "openai/gpt-4.1-2025-04-14";
+      systemEl.value = localStorage.getItem(LS_SYSTEM) || "";
+      tempEl.value = localStorage.getItem(LS_TEMP) || "0.7";
+      maxTokEl.value = localStorage.getItem(LS_MAXTOK) || "800";
+    }
+
+    function savePrefs() {
+      if (apiKeyEl.value) localStorage.setItem(LS_KEY, apiKeyEl.value);
+      localStorage.setItem(LS_MODEL, modelEl.value.trim());
+      localStorage.setItem(LS_SYSTEM, systemEl.value);
+      localStorage.setItem(LS_TEMP, String(tempEl.value));
+      localStorage.setItem(LS_MAXTOK, String(maxTokEl.value));
+    }
+
+    function resetChatUI() {
+      chatEl.textContent = "";
+    }
+
+    function clearChat() {
+      history = [];
+      resetChatUI();
+    }
+
+    function forgetKey() {
+      localStorage.removeItem(LS_KEY);
+      apiKeyEl.value = "";
+      setStatus("key removed locally");
+    }
+
+    function buildResponsesInput() {
+      // Responses API accepts `input` as string or structured items.
+      // We'll use structured messages to preserve conversation.
+      const items = [];
+      const system = systemEl.value.trim();
+      if (system) {
+        items.push({
+          role: "system",
+          content: [{ type: "input_text", text: system }]
+        });
+      }
+
+      for (const m of history) {
+        items.push({
+          role: m.role,
+          content: [{ type: "input_text", text: m.content }]
+        });
+      }
+      return items;
+    }
+
+    async function testKey() {
+      savePrefs();
+      const key = apiKeyEl.value.trim();
+      if (!key) {
+        setStatus("enter a key first");
+        return;
+      }
+
+      setStatus("testing key…");
 
       try {
-        document.querySelector("button").textContent = "Loading...";
-        const corsProxy = "https://corsproxy.io/?url=";
-        const response = await fetch(`${corsProxy}https://perchance.org/api/generateList.php?generator=${generatorName}&count=${count}`);
+        const body = {
+          model: modelEl.value.trim() || "openai/gpt-4.1-2025-04-14",
+          input: "Say: OK",
+          max_output_tokens: Math.max(1, Number(maxTokEl.value) || 100),
+          temperature: Number(tempEl.value) || 0.7,
+          stream: false
+        };
 
-        // const response = await fetch(`https://perchance.org/api/generateList.php?generator=${generatorName}&count=${count}`);
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${key}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(body)
+        });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
+        if (!res.ok) {
+          const t = await res.text();
+          throw new Error(`${res.status} ${res.statusText}: ${t}`);
         }
 
-        const data = await response.json();
-
-        if (data && data.length > 0) {
-          document.getElementById("output").textContent = data[0];
-        } else {
-          document.getElementById("output").textContent = "No results returned.";
-        }
-      } catch (error) {
-        console.error("Error fetching from Perchance:", error);
-        document.getElementById("output").textContent = "Error fetching from Perchance. Check console for details.";
-      } finally {
-        document.querySelector("button").textContent = "Generate";
+        const data = await res.json();
+        setStatus("key OK (got response)");
+        // Optional: show the test output quickly
+        const text = extractTextFromNonStreamResponse(data);
+        if (text) renderMessage("assistant", text);
+      } catch (e) {
+        setStatus("test failed — " + (e?.message || String(e)));
       }
     }
+
+    function extractTextFromNonStreamResponse(data) {
+      // OpenAI Responses API typically returns `output` array with content items,
+      // but providers vary. We'll try several shapes.
+      try {
+        // Canonical-ish: output -> message -> content -> {type:"output_text", text:"..."}
+        if (Array.isArray(data?.output)) {
+          let out = "";
+          for (const item of data.output) {
+            const content = item?.content;
+            if (Array.isArray(content)) {
+              for (const c of content) {
+                if (c?.type === "output_text" && typeof c?.text === "string") out += c.text;
+              }
+            }
+          }
+          if (out) return out;
+        }
+
+        // Some gateways include output_text directly
+        if (typeof data?.output_text === "string") return data.output_text;
+
+        // Some might mirror chat.completions
+        const cc = data?.choices?.[0]?.message?.content;
+        if (typeof cc === "string") return cc;
+
+      } catch {}
+      return "";
+    }
+
+    async function sendStreaming(userText) {
+      savePrefs();
+
+      const key = apiKeyEl.value.trim();
+      if (!key) throw new Error("No API key set.");
+
+      const model = modelEl.value.trim();
+      if (!model) throw new Error("No model set.");
+
+      // Add user message to history + UI
+      history.push({ role: "user", content: userText });
+      renderMessage("user", userText);
+
+      // Create assistant bubble we will stream into
+      history.push({ role: "assistant", content: "" });
+      const assistantBubble = renderMessage("assistant", "");
+
+      const abortController = new AbortController();
+      inFlight = { abortController, assistantMsgEl: assistantBubble };
+
+      stopBtn.disabled = false;
+      sendBtn.disabled = true;
+      setStatus("streaming…");
+
+      const body = {
+        model,
+        input: buildResponsesInput(),
+        stream: true,
+        temperature: Number(tempEl.value) || 0.7,
+        max_output_tokens: Math.max(1, Number(maxTokEl.value) || 800)
+      };
+
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${key}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body),
+        signal: abortController.signal
+      });
+
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        throw new Error(`${res.status} ${res.statusText}${t ? ": " + t : ""}`);
+      }
+
+      if (!res.body) throw new Error("No response body (streaming not supported by this browser/provider).");
+
+      await consumeSSE(res.body, (deltaText) => {
+        // append to UI + last assistant history entry
+        assistantBubble.textContent += deltaText;
+        history[history.length - 1].content += deltaText;
+        scrollChatToBottom();
+      });
+
+      setStatus("done");
+    }
+
+    async function consumeSSE(readableStream, onTextDelta) {
+      const reader = readableStream.getReader();
+      const decoder = new TextDecoder("utf-8");
+
+      // SSE parsing buffer. We split on blank lines between events.
+      let buffer = "";
+
+      function processEventBlock(block) {
+        // block is a set of lines like:
+        // event: response.output_text.delta
+        // data: {"type":"response.output_text.delta","delta":"Hi"}
+        let eventName = "";
+        let dataLines = [];
+
+        const lines = block.split("\n");
+        for (const rawLine of lines) {
+          const line = rawLine.replace(/\r$/, "");
+          if (line.startsWith("event:")) eventName = line.slice(6).trim();
+          else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+        }
+
+        const dataStr = dataLines.join("\n");
+        if (!dataStr) return;
+
+        if (dataStr === "[DONE]") return;
+
+        let payload = null;
+        try { payload = JSON.parse(dataStr); } catch { /* ignore non-JSON */ }
+
+        const type = payload?.type || eventName;
+
+        // OpenAI Responses streaming commonly emits:
+        // - response.output_text.delta (payload.delta)
+        // - response.output_text.done
+        // - response.completed
+        // We'll extract deltas robustly.
+        if (type === "response.output_text.delta" && typeof payload?.delta === "string") {
+          onTextDelta(payload.delta);
+          return;
+        }
+
+        // Some providers might use "text.delta" or put text in other fields
+        if (typeof payload?.text === "string" && (type?.includes("delta") || type?.includes("text"))) {
+          onTextDelta(payload.text);
+          return;
+        }
+
+        // Fallback: if they mirror chat.completions streaming shape
+        const ccDelta = payload?.choices?.[0]?.delta?.content;
+        if (typeof ccDelta === "string") {
+          onTextDelta(ccDelta);
+          return;
+        }
+      }
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE events are separated by a blank line
+        let idx;
+        while ((idx = buffer.indexOf("\n\n")) !== -1) {
+          const block = buffer.slice(0, idx).trim();
+          buffer = buffer.slice(idx + 2);
+          if (block) processEventBlock(block);
+        }
+      }
+
+      // Flush remainder
+      const tail = buffer.trim();
+      if (tail) processEventBlock(tail);
+    }
+
+    // UI wiring
+    loadPrefs();
+    setStatus(apiKeyEl.value ? "key loaded (local)" : "idle");
+
+    apiKeyEl.addEventListener("change", savePrefs);
+    modelEl.addEventListener("change", savePrefs);
+    systemEl.addEventListener("change", savePrefs);
+    tempEl.addEventListener("change", savePrefs);
+    maxTokEl.addEventListener("change", savePrefs);
+
+    testBtn.addEventListener("click", testKey);
+    clearBtn.addEventListener("click", clearChat);
+    forgetBtn.addEventListener("click", forgetKey);
+
+    stopBtn.addEventListener("click", () => {
+      if (inFlight?.abortController) {
+        inFlight.abortController.abort();
+        setStatus("stopped");
+      }
+    });
+
+    promptEl.addEventListener("keydown", async (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendBtn.click();
+      }
+    });
+
+    sendBtn.addEventListener("click", async () => {
+      const text = promptEl.value.trim();
+      if (!text) return;
+
+      if (inFlight?.abortController) return; // prevent concurrent runs
+
+      promptEl.value = "";
+
+      try {
+        await sendStreaming(text);
+      } catch (e) {
+        const msg = (e?.name === "AbortError") ? "aborted" : (e?.message || String(e));
+        renderMessage("assistant", "\n[error] " + msg);
+        // remove empty assistant message in history if we failed before streaming any text
+        setStatus("error — " + msg);
+      } finally {
+        inFlight = null;
+        stopBtn.disabled = true;
+        sendBtn.disabled = false;
+      }
+    });
   </script>
 </body>
 </html>
