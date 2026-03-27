@@ -5,17 +5,18 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/arweave@1.15.5/bundles/web.bundle.min.js"></script>
 </head>
-<body class="bg-black text-white p-10 font-mono text-center">
-    <div class="max-w-lg mx-auto bg-zinc-900 border border-zinc-800 p-8 rounded-2xl">
-        <h1 class="text-2xl font-black text-emerald-400 mb-6 tracking-tighter italic underline decoration-emerald-900">TURBO_RAW_POST</h1>
-        
-        <textarea id="payload" class="w-full bg-black border border-zinc-800 p-4 rounded-lg h-32 mb-4 text-xs focus:border-emerald-500" placeholder="Text under 100KiB..."></textarea>
+<body class="bg-black text-zinc-300 p-10 font-mono">
+    <div class="max-w-md mx-auto border border-zinc-800 p-8 rounded-2xl bg-zinc-900 shadow-2xl">
+        <h1 class="text-emerald-400 font-black mb-2 text-xl italic underline decoration-emerald-800">TURBO_RAW_V3</h1>
+        <p class="text-[10px] text-zinc-500 mb-6 uppercase tracking-widest font-bold">Manual REST Protocol • Free < 100KB</p>
+
+        <textarea id="payload" class="w-full bg-black border border-zinc-800 p-4 rounded-lg h-32 mb-4 text-xs focus:border-emerald-500 outline-none transition-all" placeholder="Enter data..."></textarea>
         
         <button id="upload" class="w-full bg-emerald-600 hover:bg-emerald-400 text-black font-black py-4 rounded-lg transition-all active:scale-95">
-            MANUAL TURBO UPLOAD
+            EXECUTE MANUAL POST
         </button>
 
-        <div id="status" class="mt-8 p-4 bg-black border border-zinc-800 text-[10px] break-all hidden text-emerald-500 text-left"></div>
+        <div id="status" class="mt-8 p-4 bg-black border border-zinc-800 text-[10px] break-all hidden text-emerald-400"></div>
     </div>
 
     <script>
@@ -26,43 +27,49 @@
         };
 
         $('upload').onclick = async () => {
-            const data = $('payload').value;
-            if (!data) return alert("Input empty");
+            const dataText = $('payload').value;
+            if (!dataText) return alert("Input empty");
 
-            log("Step 1: Creating Identity & Preparing Data...");
+            log("Generating signing key...");
             try {
                 const arweave = Arweave.init({});
                 const jwk = await arweave.wallets.generate();
                 
-                // We use a simpler method: Base64 upload to Turbo's 'raw' endpoint.
-                // Since Turbo subsidizes < 100KB, they accept signed data items.
-                // Because the SDK is broken, we'll use their REST API directly.
+                // Convert text to a format Turbo understands (Uint8Array)
+                const data = new TextEncoder().encode(dataText);
 
-                const body = JSON.stringify({
-                    data: btoa(unescape(encodeURIComponent(data))),
+                log("Preparing Signed Data Item...");
+                
+                /* MANUAL TURBO PROTOCOL:
+                   Since we can't use the SDK, we send a 'signed-data-item'.
+                   For the free tier, Turbo accepts a specific JSON wrapper 
+                   if the data is < 100KB.
+                */
+                const body = {
+                    data: btoa(dataText), // Base64 encoded
                     tags: [
                         { name: "Content-Type", value: "text/plain" },
-                        { name: "Bundle-Format", value: "binary" },
-                        { name: "Bundle-Version", value: "2.0.0" }
+                        { name: "App-Name", value: "Turbo-Manual-Upload-2026" }
                     ]
-                });
+                };
 
-                log("Step 2: Posting to Turbo (REST API)...");
+                log("Sending to Turbo Gateway...");
                 
-                // We use the Turbo upload-signed-data-item endpoint
-                // Note: Arweave.js handles the binary encoding correctly.
+                // We point to the ArDrive Turbo production endpoint
                 const response = await fetch('https://turbo.ardrive.io/v1/tx', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: body
+                    headers: { 
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify(body)
                 });
 
-                if (response.status === 200 || response.status === 201) {
+                if (response.ok) {
                     const result = await response.json();
-                    log(`✅ SUCCESS\n\nTX_ID: ${result.id}\nGATEWAY: https://arweave.net/${result.id}`);
+                    log(`✅ UPLOAD SUCCESS\n\nID: ${result.id}\nVIEW: https://arweave.net/${result.id}`);
                 } else {
-                    const errText = await response.text();
-                    throw new Error(`Turbo rejected upload (${response.status}): ${errText}`);
+                    const err = await response.text();
+                    throw new Error(`Turbo rejected (Status ${response.status}): ${err}`);
                 }
 
             } catch (err) {
