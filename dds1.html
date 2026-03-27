@@ -2,29 +2,25 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Turbo 100KiB Free Tier</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/arweave@1.15.5/bundles/web.bundle.min.js"></script>
 </head>
 <body class="bg-black text-white p-10 font-mono">
     <div class="max-w-md mx-auto border border-zinc-800 p-8 rounded-2xl bg-zinc-900 shadow-2xl">
-        <h1 class="text-emerald-400 font-black mb-2 text-xl italic underline decoration-emerald-800 uppercase">Turbo_Subsidized</h1>
-        <p class="text-[10px] text-zinc-500 mb-6 font-bold tracking-widest">Single File • No Node • Free < 100KB</p>
+        <h1 class="text-emerald-400 font-black mb-6 text-xl italic underline decoration-emerald-800 uppercase text-center">Turbo_Final_Fix</h1>
 
-        <textarea id="payload" class="w-full bg-black border border-zinc-800 p-4 rounded-lg h-32 mb-4 text-xs focus:border-emerald-500 outline-none" placeholder="Enter text..."></textarea>
-
-        <button id="upload" class="w-full bg-emerald-600 hover:bg-emerald-400 text-black font-black py-4 rounded-lg transition-all active:scale-95 shadow-lg shadow-emerald-500/20">
-            FREE PERMAWEB UPLOAD
+        <textarea id="payload" class="w-full bg-black border border-zinc-800 p-4 rounded-lg h-32 mb-4 text-xs focus:border-emerald-500 outline-none" placeholder="Text < 100KB..."></textarea>
+        
+        <button id="upload" class="w-full bg-emerald-600 hover:bg-emerald-400 text-black font-black py-4 rounded-lg transition-all active:scale-95">
+            UPLOAD TO PERMAWEB
         </button>
 
         <div id="status" class="mt-8 p-4 bg-black border border-zinc-800 text-[10px] break-all hidden text-emerald-400 leading-relaxed"></div>
     </div>
 
     <script type="module">
-        // 2. We MUST use this specific "web bundle" from unpkg.
-        // This is a single 2MB file that includes EVERY dependency (Buffer, etc.)
-        // already baked in, bypassing the esm.sh 404 errors.
-        import { TurboFactory } from 'https://unpkg.com/@ardrive/turbo-sdk@1.20.0/bundles/web.bundle.min.js';
+        // Import both the Factory AND the Signer from the bundle
+        import { TurboFactory, ArweaveSigner } from 'https://unpkg.com/@ardrive/turbo-sdk@1.20.0/bundles/web.bundle.min.js';
 
         const $ = s => document.getElementById(s);
         const log = (m) => {
@@ -36,32 +32,28 @@
             const dataText = $('payload').value;
             if (!dataText) return alert("Empty input");
 
-            log("Generating signing identity...");
+            log("Step 1: Generating JWK...");
             try {
-                // Generate a temporary wallet using the Arweave.js bundle
                 const arweave = Arweave.init({});
                 const jwk = await arweave.wallets.generate();
+                
+                log("Step 2: Initializing Signer (Bypassing Constructor)...");
+                // By manually creating the signer, we prevent TurboFactory 
+                // from calling the broken "new import_arweave.default()" line.
+                const signer = new ArweaveSigner(jwk);
+                const turbo = TurboFactory.authenticated({ signer });
 
-                // Initialize Turbo using the factory from the Turbo Web Bundle
-                const turbo = TurboFactory.authenticated({ privateKey: jwk });
-
-                log("Broadcasting to Arweave (Subsidized Tier)...");
-
-                // This 'upload' method handles the binary Data Item conversion
-                // internally, which is why it won't trigger the 400 error.
+                log("Step 3: Uploading (Free Tier)...");
                 const result = await turbo.upload({
                     data: dataText,
                     dataItemOpts: {
-                        tags: [
-                            { name: "Content-Type", value: "text/plain" },
-                            { name: "App-Name", value: "Turbo-Browser-Quick" }
-                        ]
+                        tags: [{ name: "Content-Type", value: "text/plain" }]
                     }
                 });
 
-                log(`✅ UPLOAD SUCCESS\n\nID: ${result.id}\nGATEWAY: https://arweave.net/${result.id}`);
+                log(`✅ SUCCESS\n\nID: ${result.id}\nURL: https://arweave.net/${result.id}`);
             } catch (err) {
-                console.error("Full Error Object:", err);
+                console.error("DEBUG:", err);
                 log(`❌ ERROR: ${err.message}`);
             }
         };
