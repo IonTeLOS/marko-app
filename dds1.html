@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Irys No-Build Upload</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-white p-10 font-mono">
+    <div class="max-w-md mx-auto bg-gray-900 p-6 rounded-xl border border-gray-800">
+        <h1 class="text-blue-400 font-bold mb-4">Irys Browser Direct</h1>
+        <textarea id="payload" class="w-full bg-black border border-gray-700 p-3 rounded mb-4 h-32" placeholder="Data to store forever..."></textarea>
+        <button id="uploadBtn" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded font-bold transition">UPLOAD TO IRYS</button>
+        <div id="status" class="mt-4 p-3 bg-black border border-gray-800 text-[10px] break-all hidden"></div>
+    </div>
+
+    <script type="module">
+        // 1. We import the specific WEB version to avoid node-driver 404s
+        // 2. We add ?bundle to flatten the dependency tree for the browser
+        import { WebUploader } from "https://esm.sh/@irys/web-upload@0.0.2?bundle";
+        import { Ethereum } from "https://esm.sh/@irys/web-upload-ethereum@0.0.2?bundle";
+        import { EthersV6Adapter } from "https://esm.sh/@irys/web-upload-ethereum-ethers-v6@0.0.2?bundle";
+        import { BrowserProvider } from "https://esm.sh/ethers@6.10.0";
+
+        const $ = s => document.getElementById(s);
+        const log = (msg) => {
+            $('status').classList.remove('hidden');
+            $('status').innerText = msg;
+        };
+
+        $('uploadBtn').onclick = async () => {
+            if (!window.ethereum) return alert("Please install MetaMask");
+
+            log("Requesting wallet connection...");
+            try {
+                const provider = new BrowserProvider(window.ethereum);
+                
+                // .withAdapter() is the "Secret Sauce"
+                // It prevents the SDK from searching for 'ArweaveSigner' 
+                // internally, which is what causes your SyntaxError.
+                const irys = await WebUploader(Ethereum)
+                    .withAdapter(EthersV6Adapter(provider));
+
+                const data = $('payload').value || "No-build test";
+                
+                log("Uploading...");
+                const receipt = await irys.upload(data);
+                
+                log(`SUCCESS!\nURL: https://gateway.irys.xyz/${receipt.id}`);
+            } catch (err) {
+                console.error(err);
+                log(`ERROR: ${err.message}`);
+            }
+        };
+    </script>
+</body>
+</html>
