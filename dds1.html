@@ -2,67 +2,61 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Arweave Turbo Free</title>
+    <title>Turbo 100KiB Free Tier</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/arweave@1.15.5/bundles/web.bundle.min.js"></script>
 </head>
-<body class="bg-black text-zinc-300 p-10 font-mono">
+<body class="bg-black text-white p-10 font-mono">
     <div class="max-w-md mx-auto border border-zinc-800 p-6 rounded-lg bg-zinc-900 shadow-2xl">
-        <h2 class="text-emerald-400 mb-2 font-bold text-xl uppercase tracking-tighter">Turbo Free Tier</h2>
-        <p class="text-[10px] text-zinc-500 mb-6 italic">100KiB Limit • No AR Tokens Required</p>
+        <h2 class="text-emerald-400 mb-2 font-bold uppercase tracking-tighter text-xl">Turbo Direct</h2>
+        <p class="text-[10px] text-zinc-500 mb-6 italic">Subsidized Uploads < 100KiB</p>
         
-        <textarea id="payload" class="w-full bg-black p-4 rounded border border-zinc-800 h-32 mb-4 text-xs focus:border-emerald-500 outline-none" placeholder="Enter data to pin forever..."></textarea>
+        <textarea id="payload" class="w-full bg-black p-4 rounded border border-zinc-800 h-32 mb-4 text-xs focus:border-emerald-500 outline-none" placeholder="Data to store..."></textarea>
         
-        <button id="btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded font-black transition-all transform active:scale-95">
-            UPLOAD VIA TURBO
+        <button id="btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded font-black transition-transform active:scale-95">
+            FREE UPLOAD
         </button>
         
-        <div id="out" class="mt-6 p-4 bg-black border border-zinc-800 text-[10px] break-all hidden leading-relaxed"></div>
+        <div id="out" class="mt-6 p-4 bg-black border border-zinc-800 text-[10px] break-all hidden leading-relaxed text-emerald-500"></div>
     </div>
 
     <script type="module">
-        // Using esm.sh which handles the internal dependencies correctly for Turbo
-        import { TurboFactory } from "https://esm.sh/@ardrive/turbo-sdk";
+        // Import only the Factory from the specific Turbo Web Bundle
+        // This bundle is pre-compiled and doesn't make external 404 requests
+        import { TurboFactory } from 'https://esm.sh/@ardrive/turbo-sdk/web';
 
-        const log = (msg, isError = false) => {
+        const log = m => {
             const el = document.getElementById('out');
             el.classList.remove('hidden');
-            el.innerHTML = `<span class="${isError ? 'text-red-500' : 'text-emerald-500'}">${msg}</span>`;
+            el.innerHTML = m;
         };
 
         document.getElementById('btn').onclick = async () => {
             const data = document.getElementById('payload').value;
-            if (!data) return alert("Empty payload");
+            if (!data) return alert("Enter data");
 
-            // 1. Check for ArConnect (Wander)
-            if (!window.arweaveWallet) {
-                return log("ERROR: Install Wander (ArConnect) to sign for free.", true);
-            }
-
+            log("Initializing authenticated session...");
             try {
-                log("Connecting wallet...");
-                await window.arweaveWallet.connect(['ACCESS_ADDRESS', 'SIGNATURE', 'SIGN_TRANSACTION']);
-                
-                // 2. Initialize Turbo with ArConnect as the signer
-                // This tells Turbo to use the browser extension to sign
-                const turbo = TurboFactory.authenticated({ 
-                    signer: window.arweaveWallet 
-                });
+                // 1. Generate a temporary wallet for signing
+                const arweave = Arweave.init({});
+                const jwk = await arweave.wallets.generate();
 
-                log("Uploading (Checking free tier allowance)...");
+                // 2. Setup Turbo (Authenticating with our empty wallet)
+                // Turbo accepts this because the upload is subsidized (<100KiB)
+                const turbo = TurboFactory.authenticated({ privateKey: jwk });
+
+                log("Uploading to Permaweb...");
                 const result = await turbo.upload({
                     data: data,
                     dataItemOpts: {
-                        tags: [
-                            { name: "Content-Type", value: "text/plain" },
-                            { name: "App-Name", value: "No-Build-Turbo-App" }
-                        ]
+                        tags: [{ name: "Content-Type", value: "text/plain" }]
                     }
                 });
 
-                log(`SUCCESS!<br><br>TX_ID: ${result.id}<br>URL: <a href="https://arweave.net/${result.id}" target="_blank" class="underline">https://arweave.net/${result.id}</a>`);
+                log(`SUCCESS!<br><br>TX_ID: ${result.id}<br>URL: <a href="https://arweave.net/${result.id}" target="_blank" class="underline font-bold">https://arweave.net/${result.id}</a>`);
             } catch (err) {
                 console.error(err);
-                log(`UPLOAD_FAILED: ${err.message}`, true);
+                log(`<span class="text-red-500">UPLOAD_FAILED: ${err.message}</span>`);
             }
         };
     </script>
