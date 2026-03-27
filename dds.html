@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Storage Tester</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/arweave@1.15.5/bundles/web.bundle.js"></script>
+</head>
+<body class="bg-gray-950 text-white p-10 font-mono">
+    <div class="max-w-md mx-auto space-y-4">
+        <select id="mode" class="w-full p-2 bg-gray-800 rounded">
+            <option value="arweave">Arweave (Bundle)</option>
+            <option value="pinata">Pinata (Native Fetch)</option>
+        </select>
+        <textarea id="input" class="w-full bg-gray-900 p-4 border border-gray-800 rounded" placeholder="Text..."></textarea>
+        <input type="password" id="key" class="w-full p-2 bg-gray-800 rounded hidden" placeholder="Pinata JWT">
+        <button id="go" class="w-full bg-blue-600 p-3 rounded font-bold">UPLOAD</button>
+        <div id="status" class="hidden p-4 bg-black text-xs border border-gray-700"></div>
+    </div>
+
+    <script>
+        const $ = s => document.getElementById(s);
+        $('mode').onchange = (e) => $('key').classList.toggle('hidden', e.target.value !== 'pinata');
+
+        $('go').onclick = async () => {
+            const val = $('input').value;
+            const mode = $('mode').value;
+            $('status').classList.remove('hidden');
+            $('status').innerText = "Uploading...";
+
+            try {
+                if (mode === 'arweave') {
+                    const ar = Arweave.init({ host: 'arweave.net', port: 443, protocol: 'https' });
+                    const jwk = await ar.wallets.generate();
+                    const tx = await ar.createTransaction({ data: val }, jwk);
+                    tx.addTag('Content-Type', 'text/plain');
+                    await ar.transactions.sign(tx, jwk);
+                    await ar.transactions.post(tx);
+                    $('status').innerText = `Arweave ID: ${tx.id}`;
+                } else {
+                    // PINATA VIA FETCH - ZERO DEPENDENCIES, ZERO SYNTAX ERRORS
+                    const res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${$('key').value}`
+                        },
+                        body: JSON.stringify({ pinataContent: val })
+                    });
+                    const d = await res.json();
+                    $('status').innerText = `IPFS CID: ${d.IpfsHash}`;
+                }
+            } catch (e) {
+                $('status').innerText = "Error: " + e.message;
+            }
+        };
+    </script>
+</body>
+</html>
